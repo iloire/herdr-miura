@@ -106,7 +106,7 @@ struct Moved {
 /// Runs `herdr args…` and returns its result, or Herdr's own error message,
 /// which the CLI prints as the last line of either stream.
 fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error> {
-    let output = herdr_client::new_command(cli)
+    let output = crate::process::command(cli)
         .args(args)
         .output()
         .map_err(Error::Spawn)?;

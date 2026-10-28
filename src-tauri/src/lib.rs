@@ -8,7 +8,9 @@ mod connection;
 mod error;
 mod folder;
 mod frame;
+mod git;
 mod osc52;
+mod process;
 mod tab_move;
 
 pub use error::{Error, Result};

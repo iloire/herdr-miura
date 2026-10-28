@@ -1,14 +1,15 @@
-//! The Changes panel's reads, through herdr-gpui's `herdr-vcs`: the checkout
-//! a directory sits in with its files and commits, and one file's diff. Every
-//! read runs Git on Tauri's blocking pool under a deadline and contacts no
-//! remote; nothing here writes.
+//! The Changes panel's reads: the checkout a directory sits in with its
+//! files and commits, and one file's diff. Every read runs Git on Tauri's
+//! blocking pool under a deadline and contacts no remote; nothing here writes.
 
-use herdr_vcs::{
-    changes::{self, Checkout, Commit, FileChange},
-    host::Session,
-};
+mod parse;
+
+use crate::git;
+use parse::{Commit, FileChange};
 use serde::Serialize;
 use std::{
+    fs,
+    io::Read,
     path::{Component, Path},
     time::{Duration, Instant},
 };
@@ -17,11 +18,17 @@ use std::{
 const DEADLINE: Duration = Duration::from_secs(5);
 /// Diff bytes kept for one file; a larger diff is refused, not cut.
 pub const MAX_DIFF_BYTES: usize = 1024 * 1024;
+/// An untracked file's bytes shown at most.
+const MAX_TEXT_BYTES: u64 = 1024 * 1024;
+/// Files listed per checkout; the rest are only counted.
+const MAX_FILES: usize = 50;
+/// Commits listed per checkout.
+const MAX_COMMITS: usize = 5;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Vcs(#[from] herdr_vcs::Error),
+    Git(#[from] git::Error),
     #[error("the diff is larger than {} KiB", MAX_DIFF_BYTES / 1024)]
     TooLarge,
     #[error("{0} is not a path inside the checkout")]
@@ -80,30 +87,11 @@ impl From<FileChange> for FileView {
 impl From<Commit> for CommitView {
     fn from(commit: Commit) -> Self {
         Self {
-            short: commit.short().to_owned(),
+            short: commit.sha.get(..7).unwrap_or(&commit.sha).to_owned(),
             sha: commit.sha,
             subject: commit.subject,
             author: commit.author,
             time: commit.time,
-        }
-    }
-}
-
-impl From<Checkout> for CheckoutView {
-    fn from(checkout: Checkout) -> Self {
-        let (added, removed) = checkout.lines();
-        Self {
-            unmerged: checkout.unmerged.map(|unmerged| (unmerged.base, unmerged.count)),
-            path: checkout.path,
-            branch: checkout.branch,
-            upstream: checkout.upstream,
-            ahead: checkout.ahead,
-            behind: checkout.behind,
-            files: checkout.files.into_iter().map(FileView::from).collect(),
-            total_files: checkout.total_files,
-            added,
-            removed,
-            commits: checkout.commits.into_iter().map(CommitView::from).collect(),
         }
     }
 }
@@ -116,19 +104,121 @@ pub enum FileDiff {
     Untracked { text: String },
 }
 
-fn never() -> bool {
-    false
-}
-
 /// `None` when `directory` is outside Git, which the panel shows as an
 /// empty state rather than an error.
 pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     let deadline = Instant::now() + DEADLINE;
-    let session = &mut Session::local();
-    let Ok(located) = changes::locate(session, directory, deadline, &never) else {
+    let Ok(path) = git::text(
+        directory,
+        &["rev-parse", "--path-format=absolute", "--show-toplevel"],
+        "find the checkout",
+        deadline,
+    ) else {
         return Ok(None);
     };
-    Ok(Some(changes::read(session, located, deadline, &never)?.into()))
+    let status = parse::status(&git::text(
+        &path,
+        &[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "-z",
+            "--untracked-files=normal",
+        ],
+        "read the working tree",
+        deadline,
+    )?);
+    let mut files = status.files;
+    let mut commits = Vec::new();
+    let mut unmerged = None;
+    // An unborn branch has no HEAD to count lines against or log from.
+    if status.born {
+        // Counts are a nicety: a failure keeps the files without them.
+        if let Ok(numstat) = git::text(
+            &path,
+            &["diff", "--numstat", "-z", "HEAD"],
+            "count changed lines",
+            deadline,
+        ) {
+            parse::apply_numstat(&mut files, &numstat);
+        }
+        let format = format!("--max-count={MAX_COMMITS}");
+        commits = parse::log(&git::text(
+            &path,
+            &["log", &format, "-z", "--format=%H%x1f%ct%x1f%an%x1f%s"],
+            "read recent commits",
+            deadline,
+        )?);
+        // The branch tracking the default branch already says this through ahead.
+        unmerged = default_branch(&path, deadline)
+            .filter(|base| status.upstream.as_ref() != Some(base))
+            .and_then(|base| {
+                let range = format!("{base}..HEAD");
+                let count = git::text(
+                    &path,
+                    &["rev-list", "--count", &range],
+                    "count unmerged commits",
+                    deadline,
+                )
+                .ok()?
+                .trim()
+                .parse()
+                .ok()?;
+                Some((base, count))
+            });
+    }
+    let total_files = files.len();
+    files.truncate(MAX_FILES);
+    let (added, removed) = files.iter().fold((0, 0), |(added, removed), file| {
+        (
+            added + file.additions.unwrap_or(0),
+            removed + file.deletions.unwrap_or(0),
+        )
+    });
+    Ok(Some(CheckoutView {
+        path,
+        branch: status.branch,
+        upstream: status.upstream,
+        ahead: status.ahead,
+        behind: status.behind,
+        unmerged,
+        files: files.into_iter().map(FileView::from).collect(),
+        total_files,
+        added,
+        removed,
+        commits: commits.into_iter().map(CommitView::from).collect(),
+    }))
+}
+
+/// The remote's default branch as last fetched: what `origin/HEAD` names,
+/// else `origin/main` or `origin/master`, whichever exists.
+fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
+    if let Ok(head) = git::text(
+        checkout,
+        &[
+            "symbolic-ref",
+            "--quiet",
+            "--short",
+            "refs/remotes/origin/HEAD",
+        ],
+        "find the default branch",
+        deadline,
+    ) {
+        return Some(head);
+    }
+    ["origin/main", "origin/master"]
+        .into_iter()
+        .find_map(|base| {
+            let reference = format!("refs/remotes/{base}");
+            git::text(
+                checkout,
+                &["rev-parse", "--verify", "--quiet", &reference],
+                "find the default branch",
+                deadline,
+            )
+            .ok()
+            .map(|_| base.to_owned())
+        })
 }
 
 /// Directories one count request may ask about, so the webview cannot queue
@@ -144,31 +234,35 @@ pub fn count_changes(directories: &[String]) -> Vec<Option<usize>> {
         .iter()
         .take(MAX_COUNTED)
         .map(|directory| {
-            herdr_vcs::git::git(
+            git::text(
                 directory,
                 &["status", "--porcelain", "--untracked-files=normal", "-z"],
                 "count working tree changes",
                 Instant::now() + DEADLINE,
-                &never,
             )
             .ok()
-            .map(|status| count_porcelain(&status))
+            .map(|status| parse::count_porcelain(&status))
         })
         .collect()
 }
 
-/// Entries in `git status --porcelain -z` output. A rename or copy carries
-/// its old path as one more NUL-separated field, which is not a file of its own.
-fn count_porcelain(status: &str) -> usize {
-    let mut fields = status.split('\0').filter(|field| !field.is_empty());
-    let mut count = 0;
-    while let Some(entry) = fields.next() {
-        count += 1;
-        if matches!(entry.as_bytes().first(), Some(b'R' | b'C')) {
-            fields.next();
-        }
+/// A regular file's text: not through a symlink, at most 1 MiB, UTF-8,
+/// and with no NUL early on, which marks a binary.
+fn read_text(path: &Path) -> Option<String> {
+    let metadata = fs::symlink_metadata(path).ok()?;
+    if !metadata.is_file() || metadata.len() > MAX_TEXT_BYTES {
+        return None;
     }
-    count
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .ok()?
+        .take(MAX_TEXT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > MAX_TEXT_BYTES || bytes.iter().take(8000).any(|&b| b == 0) {
+        return None;
+    }
+    String::from_utf8(bytes).ok()
 }
 
 /// `path` is relative to `checkout`, as Git status lists it. The webview
@@ -180,27 +274,29 @@ pub fn read_diff(checkout: &str, path: &str, untracked: bool) -> Result<FileDiff
     {
         return Err(Error::OutsideCheckout(path.into()));
     }
-    let deadline = Instant::now() + DEADLINE;
-    let session = &mut Session::local();
     if untracked {
-        let full = Path::new(checkout).join(path);
-        let text = session
-            .read_text(&full.to_string_lossy(), deadline, &never)?
-            .ok_or(Error::NotText)?;
+        let text = read_text(&Path::new(checkout).join(path)).ok_or(Error::NotText)?;
         return Ok(FileDiff::Untracked { text });
     }
-    // One byte past the cap tells a diff that fits from one that was cut.
-    let bytes = session.git_bytes(
+    let bytes = git::run(
         checkout,
-        &["diff", "--no-color", "--no-ext-diff", "-M", "HEAD", "--", path],
+        &[
+            "diff",
+            "--no-color",
+            "--no-ext-diff",
+            "-M",
+            "HEAD",
+            "--",
+            path,
+        ],
         "read the diff",
-        deadline,
-        &never,
-        MAX_DIFF_BYTES + 1,
-    )?;
-    if bytes.len() > MAX_DIFF_BYTES {
-        return Err(Error::TooLarge);
-    }
+        Instant::now() + DEADLINE,
+        MAX_DIFF_BYTES,
+    )
+    .map_err(|error| match error {
+        git::Error::TooLarge { .. } => Error::TooLarge,
+        error => error.into(),
+    })?;
     Ok(FileDiff::Patch {
         text: String::from_utf8_lossy(&bytes).into_owned(),
     })
