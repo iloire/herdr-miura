@@ -50,7 +50,8 @@ from that release and run the live test against a daemon of that version.
 | `changes/counts.ts` | Picks each workspace's directory (its active tab's first pane) and reads their changed-file counts, one call for all; `App` polls it every 10 s. |
 | `changes/store.ts` | Reads the checkout under the focused pane, one read at a time, keeping a request that arrives mid-read for next. |
 | `changes/useCommitFiles.ts` | Reads the files of the commit open in the Changes panel, once, since a commit never changes. |
-| `components/` | React views. `ContextMenu.tsx` is the shared right-click menu (arrow keys, nested pages, kept inside the window). `StatusMark.tsx` draws herdr-gpui's status icons (a turning orbit, a lantern count badge, a check ring, a hollow ring) as inline SVG. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. |
+| `changes/useCommitDiffs.ts` | Reads every file's diff in that commit for `CommitDiffView`, in list order, four at a time, so the first files show while a large commit is still being read. |
+| `components/` | React views. `ContextMenu.tsx` is the shared right-click menu (arrow keys, nested pages, kept inside the window). `StatusMark.tsx` draws herdr-gpui's status icons (a turning orbit, a lantern count badge, a check ring, a hollow ring) as inline SVG. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. `DiffView.tsx` shows one uncommitted file's diff; `CommitDiffView.tsx` shows a whole commit, every file one after another under a sticky name, and both draw hunks with `DiffBody.tsx`. |
 
 ## Input rules carried over from herdr-gpui
 

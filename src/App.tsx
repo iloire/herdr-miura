@@ -8,6 +8,7 @@ import { countedDirectories, readCounts } from "./changes/counts";
 import { ChangesStore, type RecentCommit } from "./changes/store";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
+import { CommitDiffView } from "./components/CommitDiffView";
 import { DiffView } from "./components/DiffView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
@@ -140,19 +141,28 @@ export default function App() {
   useEffect(() => setOpenCommit(null), [checkoutPath]);
   const commitFiles = useCommitFiles(checkoutPath, openCommit?.sha ?? null);
 
-  // A diff stays open only while its file is still listed: in the checkout,
-  // or in the commit still open in the panel.
+  // A diff stays open only while what it shows is still listed: the file in
+  // the checkout, or the commit still open in the panel.
   const diffCommit = diffPick?.commit && diffPick.commit === openCommit?.sha ? openCommit : null;
-  const diffFiles = !diffPick?.commit
-    ? (checkout?.files ?? [])
-    : diffCommit && commitFiles?.phase === "ready"
-      ? commitFiles.files
-      : [];
-  const shownDiff = state.changes && checkout && diffPick && diffFiles.find((f) => f.path === diffPick.file.path);
+  const shownFile =
+    state.changes && diffPick?.commit === null ? checkout?.files.find((f) => f.path === diffPick.file.path) : undefined;
+  const shownCommit = state.changes && checkout ? diffCommit : null;
+  const shownDiff = Boolean(shownFile || shownCommit);
 
   const closeDiff = () => {
     setDiffPick(null);
     controller.focusTerminal();
+  };
+
+  // Picking a commit opens its diff; picking it again closes both.
+  const toggleCommit = (commit: RecentCommit) => {
+    if (openCommit?.sha === commit.sha) {
+      setOpenCommit(null);
+      if (diffPick?.commit === commit.sha) closeDiff();
+    } else {
+      setOpenCommit(commit);
+      setDiffPick({ file: null, commit: commit.sha });
+    }
   };
 
   const paletteCommands = useMemo(
@@ -185,13 +195,21 @@ export default function App() {
             <div className="stage">
               <Terminal controller={controller} fontSize={state.fontSize} />
             </div>
-            {shownDiff && checkout && (
+            {shownFile && checkout && (
               <DiffView
                 checkout={checkout.path}
-                commit={diffCommit}
-                files={diffFiles}
-                file={shownDiff}
-                onSelect={(file) => setDiffPick({ file, commit: diffCommit?.sha ?? null })}
+                files={checkout.files}
+                file={shownFile}
+                onSelect={(file) => setDiffPick({ file, commit: null })}
+                onClose={closeDiff}
+              />
+            )}
+            {shownCommit && checkout && (
+              <CommitDiffView
+                checkout={checkout.path}
+                commit={shownCommit}
+                state={commitFiles}
+                focus={diffPick?.file ?? null}
                 onClose={closeDiff}
               />
             )}
@@ -205,7 +223,7 @@ export default function App() {
             openCommit={openCommit?.sha ?? null}
             commitFiles={commitFiles}
             onOpen={setDiffPick}
-            onToggleCommit={(commit) => setOpenCommit(openCommit?.sha === commit.sha ? null : commit)}
+            onToggleCommit={toggleCommit}
             onClose={() => {
               controller.closeChanges();
               closeDiff();

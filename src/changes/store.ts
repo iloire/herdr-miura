@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { addedFile, parseUnified, type ParsedDiff } from "./diff";
 
 export interface ChangedFile {
   path: string;
@@ -100,4 +101,10 @@ export function commitFiles(checkout: string, sha: string): Promise<CommitFiles>
 /// A file's uncommitted change, or with `commit`, its change in that commit.
 export function fileDiff(checkout: string, file: ChangedFile, commit: string | null): Promise<FileDiff> {
   return invoke<FileDiff>("file_diff", { checkout, path: file.path, untracked: file.mark === "?", commit });
+}
+
+/// `fileDiff`, parsed: an untracked file reads as all added.
+export async function readDiff(checkout: string, file: ChangedFile, commit: string | null): Promise<ParsedDiff> {
+  const result = await fileDiff(checkout, file, commit);
+  return result.type === "untracked" ? addedFile(result.text) : parseUnified(result.text);
 }

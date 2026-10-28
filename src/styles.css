@@ -925,6 +925,28 @@ body.reordering * {
   padding-bottom: 24px;
 }
 
+/* A commit's files, one after another; each file's name stays in view
+   while its lines scroll under it. */
+.commit-diff {
+  position: relative;
+}
+
+.commit-file + .commit-file {
+  margin-top: 16px;
+}
+
+.commit-file-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--peat);
+}
+
 .hunk {
   width: 100%;
   border-collapse: collapse;

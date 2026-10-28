@@ -32,6 +32,9 @@ Read-only: commit and push come in the next step.
 7. ~~Commit diffs, as herdr-gpui's Changes: picking a recent commit lists the files it changed under it,
    and picking one opens the diff view on that file's change in the commit (against its first parent, or
    the empty tree for a root commit), ↑/↓ stepping through the commit's files.~~ ✅
+8. ~~The whole commit at once: picking a recent commit opens every file's diff in the main pane, one
+   after another under a sticky file name, so a commit reads without opening each file. Its files
+   still list under it in the panel, and picking one scrolls the diff to it; ↑/↓ jump between files.~~ ✅
 
 ## Later, not in this step
 

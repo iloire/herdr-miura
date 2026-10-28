@@ -20,12 +20,9 @@ const MARK_LABEL: Record<string, string> = {
   U: "Conflicted",
 };
 
-/// A file whose diff is shown: its uncommitted change, or with `commit`
-/// (a full name), its change in that commit.
-export interface DiffPick {
-  file: ChangedFile;
-  commit: string | null;
-}
+/// What the diff shows: a file's uncommitted change, or with `commit` (a
+/// full name), every file that commit changed, scrolled to `file` if set.
+export type DiffPick = { file: ChangedFile; commit: null } | { file: ChangedFile | null; commit: string };
 
 function FileRow({ file, current, onOpen }: { file: ChangedFile; current: boolean; onOpen: () => void }) {
   return (
@@ -52,8 +49,8 @@ function FileRow({ file, current, onOpen }: { file: ChangedFile; current: boolea
 }
 
 /// The checkout under the focused pane: branch, changed files, recent
-/// commits. Picking a file opens its diff; picking a commit lists its files
-/// under it, as herdr-gpui's Changes does.
+/// commits. Picking a file opens its diff; picking a commit opens its whole
+/// diff and lists its files under it, each jumping to its part of the diff.
 export function ChangesPanel({
   store,
   selected,
@@ -74,7 +71,7 @@ export function ChangesPanel({
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
   const isSelected = (file: ChangedFile, commit: string | null) =>
-    selected?.file.path === file.path && selected.commit === commit;
+    selected?.file?.path === file.path && selected.commit === commit;
   return (
     <aside className="changes" aria-label="Changes">
       <header className="changes-head">
