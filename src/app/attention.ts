@@ -27,9 +27,21 @@ export function agentsByWorkspace(snapshot: Snapshot): Map<string, Agent[]> {
   return byWorkspace;
 }
 
-/// How many agents are waiting on you.
-export function blockedCount(agents: readonly Agent[]): number {
-  return agents.filter((agent) => agent.agent_status === "blocked").length;
+/// A workspace card's marks: one per live status among its agents, so a
+/// finished agent cannot hide one still working or one waiting on you. Idle
+/// shows only when nothing else does, and a workspace without agents falls
+/// back to the daemon's own status for it.
+export function workspaceMarks(
+  agents: readonly Agent[],
+  fallback: AgentStatus,
+): { status: AgentStatus; count: number }[] {
+  if (agents.length === 0) return [{ status: fallback, count: 0 }];
+  const count = (status: AgentStatus) => agents.filter((agent) => agent.agent_status === status).length;
+  const live = (["blocked", "working", "done"] as const)
+    .map((status) => ({ status, count: count(status) }))
+    .filter((mark) => mark.count > 0);
+  if (live.length > 0) return live;
+  return count("idle") > 0 ? [{ status: "idle", count: count("idle") }] : [];
 }
 
 /// The Dock badge: agents that finished or are waiting for input. Done ones

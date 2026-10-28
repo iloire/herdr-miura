@@ -3,7 +3,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder, tildePath } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
-import { agentsByWorkspace, blockedCount } from "../app/attention";
+import { agentsByWorkspace, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { Agent, Snapshot } from "../protocol";
@@ -119,7 +119,9 @@ export function Sidebar({
                 </span>
                 <span className="workspace-marks">
                   <AgentCount count={own.length} />
-                  <StatusMark status={workspace.agent_status} count={blockedCount(own) || undefined} />
+                  {workspaceMarks(own, workspace.agent_status).map(({ status, count }) => (
+                    <StatusMark key={status} status={status} count={status === "blocked" ? count : undefined} />
+                  ))}
                 </span>
               </button>
             </li>

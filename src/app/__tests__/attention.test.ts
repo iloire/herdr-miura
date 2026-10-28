@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot } from "../../protocol";
-import { agentsByWorkspace, attentionCount, blockedCount } from "../attention";
+import { agentsByWorkspace, attentionCount, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -53,8 +53,24 @@ describe("agentsByWorkspace", () => {
 describe("counts", () => {
   const agents = [agent("1", "a", "blocked"), agent("2", "a", "done"), agent("3", "a", "working"), agent("4", "b", "blocked")];
 
-  it("counts only blocked agents as waiting on you", () => {
-    expect(blockedCount(agents)).toBe(2);
+  it("marks every live status, so a finished agent does not hide a working one", () => {
+    expect(workspaceMarks(agents, "done")).toEqual([
+      { status: "blocked", count: 2 },
+      { status: "working", count: 1 },
+      { status: "done", count: 1 },
+    ]);
+    expect(workspaceMarks([agent("1", "a", "done"), agent("2", "a", "working")], "done")).toEqual([
+      { status: "working", count: 1 },
+      { status: "done", count: 1 },
+    ]);
+  });
+
+  it("shows idle only when nothing is live, and the daemon's status without agents", () => {
+    expect(workspaceMarks([agent("1", "a", "idle"), agent("2", "a", "working")], "working")).toEqual([
+      { status: "working", count: 1 },
+    ]);
+    expect(workspaceMarks([agent("1", "a", "idle")], "idle")).toEqual([{ status: "idle", count: 1 }]);
+    expect(workspaceMarks([], "unknown")).toEqual([{ status: "unknown", count: 0 }]);
   });
 
   it("badges finished and waiting agents, and nothing without a snapshot", () => {
