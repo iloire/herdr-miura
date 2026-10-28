@@ -3,6 +3,7 @@ import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol
 import { Grid } from "../terminal/grid";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
+import { focusAfterClose, withoutClosing } from "./closing";
 import { stepWorkspace } from "./step";
 
 export type Status =
@@ -98,6 +99,12 @@ export class Controller {
   private listeners = new Set<() => void>();
   private frameListeners = new Set<(dirty: Set<number>) => void>();
   private surface: Surface | null = null;
+  /// The daemon's latest snapshot; `state.snapshot` is it without `closing`.
+  private daemonSnapshot: Snapshot | null = null;
+  /// Tabs closed here that the daemon still lists.
+  private closing = new Set<string>();
+  /// Each `tab.close` request in flight, by request ID, to its tab.
+  private closeRequests = new Map<string, string>();
   private readonly daemon = new Daemon((event) => this.handle(event));
 
   // State store, shaped for `useSyncExternalStore`.
@@ -140,6 +147,9 @@ export class Controller {
 
   async connect(): Promise<void> {
     if (!this.surface) return;
+    this.daemonSnapshot = null;
+    this.closing.clear();
+    this.closeRequests.clear();
     this.set({ status: { phase: "connecting" }, snapshot: null, notice: null });
     try {
       await this.daemon.connect(this.surface, this.state.host);
@@ -201,20 +211,29 @@ export class Controller {
       case "connected":
         this.set({ status: { phase: "connected", serverVersion: event.server_version } });
         break;
-      case "snapshot":
-        this.set({ snapshot: event.snapshot });
+      case "snapshot": {
+        this.daemonSnapshot = event.snapshot;
+        const listed = new Set(event.snapshot.tabs.map((tab) => tab.tab_id));
+        for (const tabId of this.closing) if (!listed.has(tabId)) this.closing.delete(tabId);
+        this.showSnapshot();
         break;
+      }
       case "frame": {
         const dirty = this.grid.apply(event);
         for (const listener of this.frameListeners) listener(dirty);
         break;
       }
       case "rejected":
+        if (event.request_id) this.closeFailed(event.request_id);
         this.set({ notice: `Not sent: ${event.reason}` });
         break;
       case "response": {
         const error = (event.response as { error?: { message?: string } } | null)?.error;
-        if (error) this.set({ notice: error.message ?? "The daemon refused the request" });
+        if (error) {
+          this.closeFailed(event.request_id);
+          this.set({ notice: error.message ?? "The daemon refused the request" });
+        }
+        this.closeRequests.delete(event.request_id);
         break;
       }
       case "shell_error":
@@ -271,9 +290,49 @@ export class Controller {
   }
 
   request(method: string, params: Record<string, unknown>): void {
+    if (method === "tab.close") return this.closeTab(String(params.tab_id));
+    void this.send(method, params);
+  }
+
+  /// The request's ID once queued, or null if it was not.
+  private send(method: string, params: Record<string, unknown>): Promise<string | null> {
     const snapshot = this.state.snapshot;
-    if (!snapshot) return;
-    this.daemon.request(snapshot.boot_id, method, params).catch((error) => this.notice(error));
+    if (!snapshot) return Promise.resolve(null);
+    return this.daemon.request(snapshot.boot_id, method, params).catch((error) => {
+      this.notice(error);
+      return null;
+    });
+  }
+
+  /// Hides the tab at once and, if it is the focused one, focuses the tab
+  /// Herdr would, so the terminal switches without waiting for the close.
+  /// A close the daemon refuses brings the tab back.
+  private closeTab(tabId: string): void {
+    const tabs = this.state.snapshot?.tabs ?? [];
+    const tab = tabs.find((t) => t.tab_id === tabId);
+    if (!tab) return;
+    const next = tab.focused ? focusAfterClose(tabs, tab) : null;
+    if (next) void this.send("tab.focus", { tab_id: next.tab_id });
+    this.closing.add(tabId);
+    this.showSnapshot();
+    void this.send("tab.close", { tab_id: tabId }).then((requestId) => {
+      if (requestId) this.closeRequests.set(requestId, tabId);
+      else this.reopen(tabId);
+    });
+  }
+
+  private closeFailed(requestId: string): void {
+    const tabId = this.closeRequests.get(requestId);
+    this.closeRequests.delete(requestId);
+    if (tabId) this.reopen(tabId);
+  }
+
+  private reopen(tabId: string): void {
+    if (this.closing.delete(tabId)) this.showSnapshot();
+  }
+
+  private showSnapshot(): void {
+    this.set({ snapshot: this.daemonSnapshot && withoutClosing(this.daemonSnapshot, this.closing) });
   }
 
   setWindowFocus(focused: boolean): void {
