@@ -1,12 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
+import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { ChangesStore, type ChangedFile } from "./changes/store";
 import { ChangesPanel } from "./components/ChangesPanel";
 import { DiffView } from "./components/DiffView";
 import { Palette } from "./components/Palette";
 import { Sidebar } from "./components/Sidebar";
+import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
 import { Terminal } from "./components/Terminal";
@@ -28,6 +30,18 @@ export default function App() {
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const [diffFile, setDiffFile] = useState<ChangedFile | null>(null);
   const directory = focusedDirectory(state.snapshot);
+  const [sidebarWidth, setSidebarWidth] = useState(() => clampWidth(loadWidth(), window.innerWidth));
+  const commitSidebarWidth = (width: number) => {
+    setSidebarWidth(width);
+    saveWidth(width);
+  };
+
+  // A narrower window shrinks the sidebar for now, without forgetting the saved width.
+  useEffect(() => {
+    const onResize = () => setSidebarWidth(clampWidth(loadWidth(), window.innerWidth));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     controller.loadCatalog().catch(() => {});
@@ -84,8 +98,14 @@ export default function App() {
   );
 
   return (
-    <div className={`app ${state.sidebar ? "" : "no-sidebar"}`}>
+    <div
+      className={`app ${state.sidebar ? "" : "no-sidebar"}`}
+      style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
+    >
       {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} />}
+      {state.sidebar && (
+        <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
+      )}
       <div className="workarea">
         <main className="main">
           <TabBar controller={controller} snapshot={state.snapshot} changes={state.changes} />
