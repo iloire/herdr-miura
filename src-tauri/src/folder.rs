@@ -50,6 +50,14 @@ pub fn folder(path: &str) -> Result<&Path, Error> {
     Ok(folder)
 }
 
+/// A path on another machine: only its shape can be checked here.
+pub fn remote_path(path: &str) -> Result<(), Error> {
+    if path.len() > MAX_PATH_BYTES || !path.starts_with('/') || path.chars().any(char::is_control) {
+        return Err(Error::NotFolder(path.into()));
+    }
+    Ok(())
+}
+
 pub fn open(path: &str, with: Opener) -> Result<(), Error> {
     tauri_plugin_opener::open_path(folder(path)?, with.app()).map_err(Error::Open)
 }

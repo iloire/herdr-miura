@@ -10,7 +10,7 @@ use crate::{
     osc52,
 };
 use crate::herdr::{
-    self, ClientHandle, ConnectOptions, Event, Outdated,
+    self, ClientHandle, ConnectOptions, Event, Outdated, Target,
     wire::{ClientShellSnapshot, PaneSurfaceFrame, ServerMessage},
 };
 use serde::Serialize;
@@ -62,22 +62,47 @@ enum Outbound<'a> {
         outdated: &'static str,
         server_version: Option<&'a str>,
     },
+    UnknownHostKey {
+        host: &'a str,
+    },
     Disconnected {
         reason: &'a str,
     },
 }
 
+#[derive(Default)]
+struct Live {
+    handle: Option<ClientHandle>,
+    /// The daemon is on another machine, so paths in its snapshot are not
+    /// this machine's.
+    remote: bool,
+}
+
 /// The live client's handle; the webview keeps the snapshot it acts on.
 #[derive(Default)]
-pub struct Connection(Mutex<Option<ClientHandle>>);
+pub struct Connection(Mutex<Live>);
 
 impl Connection {
-    fn live(&self) -> std::sync::MutexGuard<'_, Option<ClientHandle>> {
+    fn live(&self) -> std::sync::MutexGuard<'_, Live> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub fn handle(&self) -> Result<ClientHandle> {
-        self.live().clone().ok_or(Error::NotConnected)
+        self.live().handle.clone().ok_or(Error::NotConnected)
+    }
+
+    /// Refuses work that reads this machine's disk or runs its `herdr` for a
+    /// workspace that lives on another machine: the same path here is a
+    /// different folder, or none, and the CLI would act on the local daemon.
+    pub fn ensure_local(&self) -> Result<()> {
+        if self.live().remote {
+            return Err(Error::RemoteHost);
+        }
+        Ok(())
+    }
+
+    pub fn is_remote(&self) -> bool {
+        self.live().remote
     }
 
     /// Replaces any current connection. The old worker is told to stop and
@@ -85,12 +110,18 @@ impl Connection {
     pub fn connect(
         &self,
         app: AppHandle,
+        target: Target,
         options: ConnectOptions,
         events: Channel<InvokeResponseBody>,
     ) -> Result<()> {
-        let client = herdr::connect(options)?;
-        if let Some(old) = self.live().replace(client.handle) {
-            old.disconnect();
+        let remote = matches!(target, Target::Ssh(_));
+        let client = herdr::connect(target, options)?;
+        {
+            let mut live = self.live();
+            if let Some(old) = live.handle.replace(client.handle) {
+                old.disconnect();
+            }
+            live.remote = remote;
         }
         thread::Builder::new()
             .name("herdr-tauri-events".into())
@@ -100,7 +131,7 @@ impl Connection {
     }
 
     pub fn disconnect(&self) {
-        if let Some(handle) = self.live().take() {
+        if let Some(handle) = self.live().handle.take() {
             handle.disconnect();
         }
     }
@@ -171,6 +202,7 @@ fn pump(
                 },
                 server_version: server_version.as_deref(),
             },
+            Event::UnknownHostKey { host } => Outbound::UnknownHostKey { host },
             Event::Disconnected { reason } => Outbound::Disconnected { reason },
         };
         if send(channel, &outbound).is_err() {

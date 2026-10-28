@@ -8,6 +8,7 @@ import { ChangesStore, type RecentCommit } from "./changes/store";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { DiffView } from "./components/DiffView";
+import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
 import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
@@ -50,6 +51,7 @@ export default function App() {
 
   useEffect(() => {
     controller.loadCatalog();
+    controller.loadHosts();
     // Shortcuts work wherever focus is, not only in the terminal.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !(event.metaKey || event.ctrlKey || event.altKey)) return;
@@ -203,6 +205,7 @@ export default function App() {
         </div>
       </div>
       {state.palette && <Palette controller={controller} commands={paletteCommands} />}
+      {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
     </div>
   );
 }

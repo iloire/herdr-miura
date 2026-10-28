@@ -6,9 +6,10 @@ use crate::{
     changes::{self, CheckoutView, CommitFilesView, FileDiff},
     connection::Connection,
     folder::{self, Opener},
+    ssh_hosts,
 };
 use crate::herdr::{
-    ConnectOptions,
+    ConnectOptions, Target,
     wire::{ClientPaneInputEvent, ClientSurfaceSize},
 };
 use serde::Deserialize;
@@ -82,9 +83,11 @@ pub fn connect(
     app: AppHandle,
     connection: State<'_, Connection>,
     surface: Surface,
+    host: Option<String>,
     events: Channel<InvokeResponseBody>,
 ) -> Result<()> {
-    connection.connect(app, surface.into(), events)
+    let target = host.map_or(Target::Local, Target::Ssh);
+    connection.connect(app, target, surface.into(), events)
 }
 
 #[tauri::command]
@@ -139,19 +142,32 @@ pub fn request(
 /// The checkout `directory` sits in, or `None` outside Git. Git runs on the
 /// blocking pool, never the main thread.
 #[tauri::command]
-pub async fn checkout_changes(directory: String) -> Result<Option<CheckoutView>> {
+pub async fn checkout_changes(
+    connection: State<'_, Connection>,
+    directory: String,
+) -> Result<Option<CheckoutView>> {
+    connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&directory));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
 #[tauri::command]
-pub async fn change_counts(directories: Vec<String>) -> Result<Vec<Option<usize>>> {
+pub async fn change_counts(
+    connection: State<'_, Connection>,
+    directories: Vec<String>,
+) -> Result<Vec<Option<usize>>> {
+    connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || changes::count_changes(&directories));
     Ok(read.await.map_err(changes::Error::Worker)?)
 }
 
 #[tauri::command]
-pub async fn commit_files(checkout: String, sha: String) -> Result<CommitFilesView> {
+pub async fn commit_files(
+    connection: State<'_, Connection>,
+    checkout: String,
+    sha: String,
+) -> Result<CommitFilesView> {
+    connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&checkout, &sha));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
@@ -159,11 +175,13 @@ pub async fn commit_files(checkout: String, sha: String) -> Result<CommitFilesVi
 /// One file's diff: its uncommitted change, or with `commit`, its change in that commit.
 #[tauri::command]
 pub async fn file_diff(
+    connection: State<'_, Connection>,
     checkout: String,
     path: String,
     untracked: bool,
     commit: Option<String>,
 ) -> Result<FileDiff> {
+    connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || {
         changes::read_diff(&checkout, &path, untracked, commit.as_deref())
     });
@@ -174,10 +192,12 @@ pub async fn file_diff(
 /// `herdr` CLI, on the blocking pool since it waits on child processes.
 #[tauri::command]
 pub async fn move_tab(
+    connection: State<'_, Connection>,
     panes: Vec<String>,
     workspace_id: String,
     label: Option<String>,
 ) -> Result<()> {
+    connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || {
         crate::tab_move::move_tab(&panes, &workspace_id, label.as_deref())
     });
@@ -186,15 +206,21 @@ pub async fn move_tab(
 
 /// Opens a workspace's folder in the file manager or one of a few known apps.
 #[tauri::command]
-pub fn open_folder(path: String, with: Opener) -> Result<()> {
+pub fn open_folder(connection: State<'_, Connection>, path: String, with: Opener) -> Result<()> {
+    connection.ensure_local()?;
     Ok(folder::open(&path, with)?)
 }
 
 /// Copies a workspace's folder path, after checking it names a folder.
 #[tauri::command]
-pub fn copy_path(app: AppHandle, path: String) -> Result<()> {
+pub fn copy_path(app: AppHandle, connection: State<'_, Connection>, path: String) -> Result<()> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    folder::folder(&path)?;
+    // A remote folder cannot be checked here; its path is still worth copying.
+    if connection.is_remote() {
+        folder::remote_path(&path)?;
+    } else {
+        folder::folder(&path)?;
+    }
     app.clipboard()
         .write_text(path)
         .map_err(folder::Error::Clipboard)?;
@@ -212,4 +238,28 @@ mod tests {
         }
         assert!(matches!(method("pane.nuke"), Err(Error::UnknownMethod(_))));
     }
+}
+
+/// The named hosts of `~/.ssh/config`, for the host picker.
+#[tauri::command]
+pub async fn ssh_hosts() -> Result<Vec<String>> {
+    let read = tauri::async_runtime::spawn_blocking(ssh_hosts::list);
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Fetches a host's keys for the user to compare before trusting them.
+#[tauri::command]
+pub async fn scan_host_key(
+    pending: State<'_, ssh_hosts::PendingKeys>,
+    host: String,
+) -> Result<Vec<ssh_hosts::Fingerprint>> {
+    let pending = pending.inner().clone();
+    let scan = tauri::async_runtime::spawn_blocking(move || ssh_hosts::scan(&pending, &host));
+    Ok(scan.await.map_err(changes::Error::Worker)??)
+}
+
+/// Writes the keys `scan_host_key` showed to known_hosts, after the user approved them.
+#[tauri::command]
+pub fn trust_host_key(pending: State<'_, ssh_hosts::PendingKeys>, host: String) -> Result<()> {
+    Ok(ssh_hosts::trust(&pending, &host)?)
 }

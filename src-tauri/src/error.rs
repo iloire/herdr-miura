@@ -7,6 +7,8 @@ pub enum Error {
     #[error(transparent)]
     TabMove(#[from] crate::tab_move::Error),
     #[error(transparent)]
+    SshHosts(#[from] crate::ssh_hosts::Error),
+    #[error(transparent)]
     Folder(#[from] crate::folder::Error),
     #[error(transparent)]
     Herdr(#[from] crate::herdr::Error),
@@ -14,6 +16,8 @@ pub enum Error {
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]
     NotConnected,
+    #[error("that workspace is on another machine, so this Mac cannot open or read it")]
+    RemoteHost,
     #[error("unknown method `{0}`")]
     UnknownMethod(String),
 }

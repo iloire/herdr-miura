@@ -33,12 +33,16 @@ pub enum Error {
     GeometryLimit,
     #[error("the daemon sent no snapshot in time")]
     HandshakeTimeout,
+    #[error("the remote daemon stopped answering")]
+    HealthTimeout,
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error("a daemon message was not valid JSON")]
     Json(#[from] serde_json::Error),
     #[error("the daemon is too old for this app: it predates the endpoint protocol")]
     LegacyDaemon,
+    #[error("Herdr {server_version} on that host has no health checks; update it to connect over SSH")]
+    MissingHealthCheck { server_version: String },
     #[error("a patch arrived before any surface")]
     PatchBeforeBaseline,
     #[error("too many commands are waiting; this one was dropped")]
@@ -55,6 +59,10 @@ pub enum Error {
     ServerShutdown(String),
     #[error("the daemon replaced its snapshot out of order")]
     SnapshotIdentity,
+    #[error(transparent)]
+    Ssh(#[from] super::ssh::Error),
+    #[error("could not start ssh")]
+    SshStart(#[source] io::Error),
     #[error(transparent)]
     Surface(#[from] surface::Error),
     #[error("a surface arrived before the snapshot")]

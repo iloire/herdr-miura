@@ -63,7 +63,8 @@ you ([plan](docs/plan-agent-status.md)). The sidebar resizes from its edge, each
 its changed files, and right-clicking a workspace opens its folder in VS Code, GitHub Desktop, or the file
 manager, or copies its path. Workspaces sort by hand, dragged into place (the daemon keeps that order), or
 by attention, with those waiting on you first. Right-clicking a tab opens a new tab, or renames, pins, moves to another
-workspace, or closes it.
+workspace, or closes it. The status bar's host picker attaches to Herdr on another machine over SSH, one host
+at a time, and asks before trusting a new host's key ([how](docs/ssh.md)).
 Still to come, roughly in priority order: commit and push, GitHub pull requests, text selection and copy,
 find, terminal graphics, hyperlinks, renaming workspaces, the config file and themes,
-system notifications, usage, the orchestrator, and remote machines.
+system notifications, usage, the orchestrator, and the Changes panel on remote machines.

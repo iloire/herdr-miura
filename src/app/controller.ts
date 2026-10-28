@@ -1,4 +1,4 @@
-import { Daemon } from "../daemon";
+import { Daemon, type Fingerprint } from "../daemon";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
@@ -10,12 +10,45 @@ export type Status =
   | { phase: "connected"; serverVersion: string }
   | { phase: "disconnected"; reason: string };
 
+/// A host whose key ssh does not know yet. `fingerprints` is null while
+/// its keys are being fetched.
+export interface HostKey {
+  host: string;
+  fingerprints: Fingerprint[] | null;
+  error: string | null;
+}
+
+const HOST_STORAGE_KEY = "herdr-tauri.host";
+
+function savedHost(): string | null {
+  try {
+    return localStorage.getItem(HOST_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveHost(host: string | null): void {
+  try {
+    if (host) localStorage.setItem(HOST_STORAGE_KEY, host);
+    else localStorage.removeItem(HOST_STORAGE_KEY);
+  } catch {
+    // Remembering the host is a convenience; the connection does not need it.
+  }
+}
+
 export interface Command extends CatalogEntry {
   parsed: Shortcut[];
 }
 
 export interface State {
   status: Status;
+  /// The SSH host attached to, or null for this machine's daemon.
+  host: string | null;
+  /// The named hosts of `~/.ssh/config`, offered in the host picker.
+  hosts: string[];
+  /// A host key waiting for the user to approve or decline it.
+  hostKey: HostKey | null;
   snapshot: Snapshot | null;
   /// The latest local failure, such as a command the daemon refused. Never
   /// hides a disconnection: the status line shows `status` first.
@@ -47,6 +80,9 @@ export class Controller {
   readonly grid = new Grid();
   private state: State = {
     status: { phase: "connecting" },
+    host: savedHost(),
+    hosts: [],
+    hostKey: null,
     snapshot: null,
     notice: null,
     title: null,
@@ -103,10 +139,53 @@ export class Controller {
     if (!this.surface) return;
     this.set({ status: { phase: "connecting" }, snapshot: null, notice: null });
     try {
-      await this.daemon.connect(this.surface);
+      await this.daemon.connect(this.surface, this.state.host);
     } catch (error) {
       this.set({ status: { phase: "disconnected", reason: String(error) } });
     }
+  }
+
+  /// Replaces the connection with one to `host`, or to this machine's
+  /// daemon with null. One host at a time.
+  connectTo(host: string | null): Promise<void> {
+    saveHost(host);
+    this.set({ host, hostKey: null });
+    return this.connect();
+  }
+
+  loadHosts(): void {
+    this.daemon
+      .hosts()
+      .then((hosts) => this.set({ hosts }))
+      .catch(() => {});
+  }
+
+  private async checkHostKey(host: string): Promise<void> {
+    this.set({ hostKey: { host, fingerprints: null, error: null } });
+    try {
+      const fingerprints = await this.daemon.scanHostKey(host);
+      if (this.state.hostKey?.host === host) this.set({ hostKey: { host, fingerprints, error: null } });
+    } catch (error) {
+      if (this.state.hostKey?.host === host) this.set({ hostKey: { host, fingerprints: null, error: String(error) } });
+    }
+  }
+
+  /// Trusts the keys the dialog showed, then connects again.
+  async trustHostKey(): Promise<void> {
+    const hostKey = this.state.hostKey;
+    if (!hostKey?.fingerprints) return;
+    try {
+      await this.daemon.trustHostKey(hostKey.host);
+    } catch (error) {
+      this.set({ hostKey: { ...hostKey, error: String(error) } });
+      return;
+    }
+    this.set({ hostKey: null });
+    if (this.state.host === hostKey.host) await this.connect();
+  }
+
+  dismissHostKey(): void {
+    this.set({ hostKey: null });
   }
 
   async detach(): Promise<void> {
@@ -153,6 +232,9 @@ export class Controller {
               ? `Herdr ${event.server_version ?? ""} is too old for this client; update Herdr.`
               : `Herdr ${event.server_version ?? ""} is newer than this client; update herdr-gpui's crates.`,
         });
+        break;
+      case "unknown_host_key":
+        void this.checkHostKey(event.host);
         break;
       case "disconnected":
         this.set({ status: { phase: "disconnected", reason: event.reason } });

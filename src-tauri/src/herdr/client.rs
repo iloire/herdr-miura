@@ -14,11 +14,13 @@ use super::{
         INPUT_CODEC_V1, SNAPSHOT_CODEC_V1, SURFACE_CODEC_V1,
     },
     session::{Command, Event, Request, Session},
-    socket,
+    socket, ssh,
     wire::{ClientMessage, ClientPaneInputEvent, ClientSurfaceSize, ServerMessage},
 };
 use serde_json::{Value, json};
 use std::{
+    io::{self, BufReader, Read},
+    process,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -69,6 +71,7 @@ enum Input {
     Command(Command),
     Inbound(ServerMessage),
     ReadFailed(codec::Error),
+    Failed(Error),
     Stop,
 }
 
@@ -84,13 +87,46 @@ pub struct ClientHandle {
     next_request: Arc<AtomicU64>,
 }
 
-/// Starts a connection to the local daemon. It returns at once; the socket
-/// is opened on the worker, and a failure arrives as `Disconnected`.
-pub fn connect(options: ConnectOptions) -> Result<Client> {
-    connect_at(socket::client_socket_path(), options)
+/// Which daemon to attach to: this machine's, or one reached over SSH.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Target {
+    Local,
+    /// An ssh alias or `user@host`, as `ssh` takes it.
+    Ssh(String),
 }
 
+enum Endpoint {
+    Socket(PathBuf),
+    /// The host, for messages, and the `ssh` that reaches it.
+    Ssh(String, process::Command),
+}
+
+/// Starts a connection. It returns at once; the socket or `ssh` is opened
+/// on the worker, and a failure arrives as `Disconnected`.
+pub fn connect(target: Target, options: ConnectOptions) -> Result<Client> {
+    match target {
+        Target::Local => start(Endpoint::Socket(socket::client_socket_path()), options),
+        Target::Ssh(host) => {
+            ssh::validate_target(&host)?;
+            let command = ssh::command(&host, ssh::control_dir().as_deref());
+            start(Endpoint::Ssh(host, command), options)
+        }
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn connect_at(path: PathBuf, options: ConnectOptions) -> Result<Client> {
+    start(Endpoint::Socket(path), options)
+}
+
+/// `command` stands in for `ssh`: anything that prints the marker and then
+/// relays a daemon's frames on its standard streams.
+#[cfg(test)]
+pub(crate) fn connect_through(host: &str, command: process::Command, options: ConnectOptions) -> Result<Client> {
+    start(Endpoint::Ssh(host.into(), command), options)
+}
+
+fn start(endpoint: Endpoint, options: ConnectOptions) -> Result<Client> {
     options.validate()?;
     let (inbox, worker_inbox) = mpsc::sync_channel(INBOX);
     let (events_tx, events) = mpsc::sync_channel(EVENTS);
@@ -104,20 +140,25 @@ pub(crate) fn connect_at(path: PathBuf, options: ConnectOptions) -> Result<Clien
                 // A dropped receiver means the app let this connection go.
                 let _ = events_tx.send(event);
             };
-            let result = run(
-                &path,
+            let link = Link {
                 options,
-                &worker_inbox,
+                inbox: &worker_inbox,
                 reader_inbox,
-                &worker_stop,
-                emit,
-            );
+                stop: &worker_stop,
+            };
+            let result = match endpoint {
+                Endpoint::Socket(path) => run_socket(&path, link, emit),
+                Endpoint::Ssh(host, command) => run_ssh(&host, command, link, emit),
+            };
             if worker_stop.load(Ordering::Acquire) {
                 return;
             }
             let reason = match result {
                 Ok(()) => "the connection closed".to_owned(),
                 Err(error) => {
+                    if let Error::Ssh(ssh::Error::UnknownHostKey { host }) = &error {
+                        emit(Event::UnknownHostKey { host: host.clone() });
+                    }
                     if let Some((outdated, server_version)) = error.outdated() {
                         emit(Event::VersionMismatch {
                             outdated,
@@ -140,6 +181,14 @@ pub(crate) fn connect_at(path: PathBuf, options: ConnectOptions) -> Result<Clien
     })
 }
 
+/// What every transport hands the session loop.
+struct Link<'a> {
+    options: ConnectOptions,
+    inbox: &'a Receiver<Input>,
+    reader_inbox: SyncSender<Input>,
+    stop: &'a AtomicBool,
+}
+
 /// The error and its causes on one line, bounded and free of controls,
 /// since the daemon's own text can be part of it.
 fn display(error: &Error) -> String {
@@ -156,15 +205,31 @@ fn display(error: &Error) -> String {
         .collect()
 }
 
+/// Hands each whole frame to the session until the stream ends.
+fn read_frames(mut reader: impl Read, inbox: &SyncSender<Input>) {
+    loop {
+        let input = match codec::read(&mut reader) {
+            Ok(message) => Input::Inbound(message),
+            Err(error) => Input::ReadFailed(error),
+        };
+        let failed = matches!(input, Input::ReadFailed(_));
+        if inbox.send(input).is_err() || failed {
+            return;
+        }
+    }
+}
+
+#[cfg_attr(not(unix), allow(dead_code))]
+fn spawn_reader(reader: impl Read + Send + 'static, inbox: SyncSender<Input>) -> Result<()> {
+    thread::Builder::new()
+        .name("herdr-reader".into())
+        .spawn(move || read_frames(reader, &inbox))
+        .map(drop)
+        .map_err(Error::Thread)
+}
+
 #[cfg(unix)]
-fn run(
-    path: &Path,
-    options: ConnectOptions,
-    inbox: &Receiver<Input>,
-    reader_inbox: SyncSender<Input>,
-    stop: &AtomicBool,
-    mut emit: impl FnMut(Event),
-) -> Result<()> {
+fn run_socket(path: &Path, link: Link<'_>, mut emit: impl FnMut(Event)) -> Result<()> {
     use std::{net::Shutdown, os::unix::net::UnixStream};
 
     let mut stream = UnixStream::connect(path).map_err(|source| Error::Connect {
@@ -172,42 +237,86 @@ fn run(
         source,
     })?;
     stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
-    let mut reader = stream.try_clone()?;
-    thread::Builder::new()
-        .name("herdr-reader".into())
-        .spawn(move || {
-            loop {
-                let input = match codec::read(&mut reader) {
-                    Ok(message) => Input::Inbound(message),
-                    Err(error) => Input::ReadFailed(error),
-                };
-                let failed = matches!(input, Input::ReadFailed(_));
-                if reader_inbox.send(input).is_err() || failed {
-                    return;
-                }
-            }
-        })
-        .map_err(Error::Thread)?;
+    spawn_reader(stream.try_clone()?, link.reader_inbox)?;
+    let session = Session::new(Instant::now());
     // Shutting the socket down also ends the reader's blocking read.
-    let result = drive(options, &mut stream, inbox, stop, &mut emit);
+    let result = drive(session, link.options, &mut stream, link.inbox, link.stop, &mut emit);
     let _ = stream.shutdown(Shutdown::Both);
     result
 }
 
 #[cfg(not(unix))]
-fn run(
-    _: &Path,
-    _: ConnectOptions,
-    _: &Receiver<Input>,
-    _: SyncSender<Input>,
-    _: &AtomicBool,
-    _: impl FnMut(Event),
-) -> Result<()> {
+fn run_socket(_: &Path, _: Link<'_>, _: impl FnMut(Event)) -> Result<()> {
     Err(Error::UnsupportedPlatform)
 }
 
-#[cfg_attr(not(unix), allow(dead_code))]
+/// The session over an `ssh` child's standard streams. Its stderr is kept,
+/// bounded, to say what went wrong when ssh fails.
+fn run_ssh(
+    host: &str,
+    mut command: process::Command,
+    link: Link<'_>,
+    mut emit: impl FnMut(Event),
+) -> Result<()> {
+    let mut child = command.spawn().map_err(Error::SshStart)?;
+    let (Some(mut stdin), Some(stdout), Some(stderr)) =
+        (child.stdin.take(), child.stdout.take(), child.stderr.take())
+    else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(Error::SshStart(io::Error::other("ssh has no standard streams")));
+    };
+    let stderr = thread::spawn(move || ssh::read_stderr(stderr));
+    let ready = Arc::new(AtomicBool::new(false));
+    let reader_ready = ready.clone();
+    let reader_host = host.to_owned();
+    let inbox = link.reader_inbox;
+    thread::Builder::new()
+        .name("herdr-ssh-reader".into())
+        .spawn(move || {
+            let mut stdout = BufReader::new(stdout);
+            match ssh::skip_preamble(&mut stdout, &reader_host) {
+                Ok(Some(Ok(()))) => reader_ready.store(true, Ordering::Release),
+                Ok(Some(Err(error))) => {
+                    let _ = inbox.send(Input::Failed(error.into()));
+                    return;
+                }
+                // ssh ended first; the session reads why from stderr.
+                Ok(None) => {
+                    let _ = inbox.send(Input::ReadFailed(codec::Error::Closed));
+                    return;
+                }
+                Err(error) => {
+                    let _ = inbox.send(Input::ReadFailed(error.into()));
+                    return;
+                }
+            }
+            read_frames(stdout, &inbox);
+        })
+        .map_err(Error::Thread)?;
+    // Herdr writes the hello's answer only once the bridge runs, and the
+    // bridge reads its input from the start, so the hello may go first.
+    let session = Session::remote(Instant::now());
+    let result = drive(session, link.options, &mut stdin, link.inbox, link.stop, &mut emit);
+    drop(stdin);
+    let _ = child.kill();
+    let status = child.wait();
+    let stderr = stderr.join().unwrap_or_default();
+    if link.stop.load(Ordering::Acquire) {
+        return result;
+    }
+    // ssh exits 255 for its own failures: those, or ending before the
+    // bridge started, are ssh's to explain.
+    let ssh_failed = status.is_ok_and(|s| s.code() == Some(255));
+    let link_error = matches!(&result, Ok(()) | Err(Error::Codec(_) | Error::Io(_)));
+    if !ready.load(Ordering::Acquire) || (ssh_failed && link_error) {
+        return Err(ssh::classify(host, &stderr).into());
+    }
+    result
+}
+
 fn drive(
+    mut session: Session,
     options: ConnectOptions,
     stream: &mut impl std::io::Write,
     inbox: &Receiver<Input>,
@@ -215,7 +324,6 @@ fn drive(
     emit: &mut impl FnMut(Event),
 ) -> Result<()> {
     codec::write(stream, &hello(options)?)?;
-    let mut session = Session::new(Instant::now());
     while !stop.load(Ordering::Acquire) {
         let now = Instant::now();
         let wait = session
@@ -234,6 +342,7 @@ fn drive(
             Ok(Input::Inbound(message)) => session.handle(message, &mut *emit)?,
             Ok(Input::ReadFailed(codec::Error::Closed)) => return Ok(()),
             Ok(Input::ReadFailed(error)) => return Err(error.into()),
+            Ok(Input::Failed(error)) => return Err(error),
             Err(RecvTimeoutError::Timeout) => {}
         }
         if stop.load(Ordering::Acquire) {

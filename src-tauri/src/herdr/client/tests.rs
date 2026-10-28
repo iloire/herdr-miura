@@ -279,3 +279,4 @@ fn live_daemon() {
     assert!(typed.surface_revision > resized.surface_revision);
     client.handle.disconnect();
 }
+mod ssh;

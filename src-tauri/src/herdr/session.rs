@@ -10,6 +10,7 @@ use super::{
         BLOB_CODEC_V1, ENDPOINT_PROTOCOL_GENERATION, ENDPOINT_SNAPSHOT_KIND, ENDPOINT_WELCOME_KIND,
         EndpointServerWelcome, INPUT_CODEC_V1, SNAPSHOT_CODEC_V1, SURFACE_CODEC_V1,
     },
+    health::{self, Health},
     surface,
     wire::{ClientMessage, ClientShellSnapshot, PaneSurfaceFrame, ServerMessage},
 };
@@ -27,6 +28,9 @@ pub const MAX_QUEUED: usize = 64;
 pub const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 /// From connecting to the first snapshot.
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// From starting ssh to the first snapshot: a sign-in, perhaps a new
+/// master connection, and the remote daemon starting.
+pub const REMOTE_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 /// From sending a request to its last chunk.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -61,6 +65,9 @@ pub enum Event {
         outdated: super::Outdated,
         server_version: Option<String>,
     },
+    /// ssh refused the host because its key is not known yet; the app may
+    /// offer to check and approve it. `Disconnected` follows.
+    UnknownHostKey { host: String },
     /// The last event of a connection that was not stopped by its handle.
     Disconnected {
         reason: String,
@@ -89,6 +96,9 @@ struct Pending {
 
 pub struct Session {
     started: Instant,
+    /// Set on remote links, which can go quiet instead of failing.
+    health: Option<Health>,
+    remote: bool,
     welcome: Option<EndpointServerWelcome>,
     snapshot: Option<Arc<ClientShellSnapshot>>,
     surface: Option<Arc<PaneSurfaceFrame>>,
@@ -100,12 +110,27 @@ impl Session {
     pub fn new(started: Instant) -> Self {
         Self {
             started,
+            health: None,
+            remote: false,
             welcome: None,
             snapshot: None,
             surface: None,
             pending: None,
             queue: VecDeque::new(),
         }
+    }
+
+    /// A session over SSH: it needs the daemon's health checks, and gives
+    /// the sign-in more time before the first snapshot.
+    pub fn remote(started: Instant) -> Self {
+        Self {
+            remote: true,
+            ..Self::new(started)
+        }
+    }
+
+    fn handshake_timeout(&self) -> Duration {
+        if self.remote { REMOTE_HANDSHAKE_TIMEOUT } else { HANDSHAKE_TIMEOUT }
     }
 
     /// Queues `command`. A full queue drops it and returns its request ID,
@@ -123,13 +148,14 @@ impl Session {
         let handshake = self
             .snapshot
             .is_none()
-            .then(|| self.started + HANDSHAKE_TIMEOUT);
+            .then(|| self.started + self.handshake_timeout());
         let request = self.pending.as_ref().map(|p| p.started + REQUEST_TIMEOUT);
-        handshake.into_iter().chain(request).min()
+        let health = self.health.as_ref().map(Health::deadline);
+        handshake.into_iter().chain(request).chain(health).min()
     }
 
     pub fn check_timeouts(&self, now: Instant) -> Result<()> {
-        if self.snapshot.is_none() && now >= self.started + HANDSHAKE_TIMEOUT {
+        if self.snapshot.is_none() && now >= self.started + self.handshake_timeout() {
             return Err(Error::HandshakeTimeout);
         }
         if self
@@ -166,6 +192,16 @@ impl Session {
         now: Instant,
         mut emit: impl FnMut(Event),
     ) -> Result<()> {
+        // A ping is a whole frame of its own, written between commands.
+        if let Some(health) = &mut self.health
+            && health.tick(now).map_err(|_| Error::HealthTimeout)?
+        {
+            let ping = ClientMessage::EndpointControl {
+                kind: health::PING_KIND.into(),
+                data: String::new(),
+            };
+            out.write_all(&codec::encode(&ping)?)?;
+        }
         while let Some(command) = self.queue.front() {
             if command.request.is_some() && self.pending.is_some() {
                 return Ok(());
@@ -186,6 +222,13 @@ impl Session {
                 }
             };
             out.write_all(&frame)?;
+            // The window coming back, as after the Mac slept, is when a
+            // remote link most likely died unnoticed: make it prove itself.
+            if let (Some(health), ClientMessage::ClientShellFocus { focused: true }) =
+                (&mut self.health, &command.message)
+            {
+                health.probe(now);
+            }
             if let Some(id) = request_id {
                 self.pending = Some(Pending {
                     id,
@@ -198,8 +241,19 @@ impl Session {
     }
 
     pub fn handle(&mut self, message: ServerMessage, mut emit: impl FnMut(Event)) -> Result<()> {
+        if let Some(health) = &mut self.health {
+            health.received(Instant::now());
+        }
         if self.welcome.is_none() {
             let welcome = welcome(message)?;
+            if self.remote {
+                if !welcome.capabilities.iter().any(|c| c == health::CAPABILITY) {
+                    return Err(Error::MissingHealthCheck {
+                        server_version: welcome.server_version,
+                    });
+                }
+                self.health = Some(Health::new(Instant::now()));
+            }
             emit(Event::Connected(welcome.clone()));
             self.welcome = Some(welcome);
             return Ok(());

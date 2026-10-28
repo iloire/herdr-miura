@@ -12,6 +12,7 @@ mod git;
 mod herdr;
 mod osc52;
 mod process;
+mod ssh_hosts;
 mod tab_move;
 
 pub use error::{Error, Result};
@@ -22,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .manage(connection::Connection::default())
+        .manage(ssh_hosts::PendingKeys::default())
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
             commands::change_counts,
@@ -37,7 +39,10 @@ pub fn run() {
             commands::resize,
             commands::send_input,
             commands::send_popup_input,
+            commands::scan_host_key,
             commands::set_focus,
+            commands::ssh_hosts,
+            commands::trust_host_key,
             // keep-sorted end
         ])
         .run(tauri::generate_context!());
