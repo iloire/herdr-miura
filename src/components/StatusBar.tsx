@@ -8,10 +8,13 @@ import { Ports } from "./Ports";
 export function StatusBar({
   controller,
   state,
+  workspace,
   ports,
 }: {
   controller: Controller;
   state: State;
+  /// The focused workspace's label, shown beside a dot in its hue.
+  workspace?: string;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
 }) {
@@ -32,6 +35,7 @@ export function StatusBar({
       )}
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
+      {workspace && <span className="status-workspace">{workspace}</span>}
       <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
     </footer>

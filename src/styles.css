@@ -193,11 +193,19 @@ body.reordering * {
 }
 
 .workspace:hover {
-  background: #1b222a;
+  background: color-mix(in srgb, var(--rail) 6%, #1b222a);
 }
 
+/* The picked card takes a wash of its own hue and a thicker rail, the same
+   hue the tab bar's selected tab carries. */
 .workspace[aria-current="true"] {
-  background: #1f2730;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 16%, #1f2730), #1f2730);
+  box-shadow: inset 4px 0 0 var(--rail);
+}
+
+.workspace[aria-current="true"] .workspace-label {
+  color: #fff;
+  font-weight: 500;
 }
 
 /* An agent here waits on you: the whole card takes the lantern, its rail
@@ -387,7 +395,10 @@ body.reordering * {
   min-height: 0;
 }
 
+/* --hue is the focused workspace's color, set inline; amber stays for what
+   needs you, so a selected tab never reads as a waiting agent. */
 .main {
+  --hue: var(--text);
   flex: 1;
   display: grid;
   grid-template-rows: 1fr auto;
@@ -407,7 +418,7 @@ body.reordering * {
   display: flex;
   align-items: flex-start;
   padding: 0 6px;
-  background: var(--peat);
+  background: linear-gradient(color-mix(in srgb, var(--hue) 5%, transparent), transparent), var(--peat);
   border-bottom: 1px solid var(--rule);
 }
 
@@ -434,7 +445,7 @@ body.reordering * {
 
 .tab[aria-selected="true"] {
   color: var(--text);
-  border-bottom-color: var(--lantern);
+  border-bottom-color: var(--hue);
 }
 
 .tab-label {
@@ -488,7 +499,7 @@ body.reordering * {
   width: 180px;
   margin: 0 6px;
   padding: 2px 6px;
-  border: 1px solid var(--lantern);
+  border: 1px solid var(--hue);
   border-radius: 4px;
   background: var(--ink);
   color: var(--text);
@@ -565,6 +576,21 @@ body.reordering * {
 
 .statusbar.phase-disconnected .connection {
   color: var(--blocked);
+}
+
+.status-workspace {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.status-workspace::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hue);
 }
 
 .notice {
@@ -674,7 +700,7 @@ body.reordering * {
 }
 
 .changes-toggle[aria-pressed="true"] {
-  color: var(--lantern);
+  color: var(--hue);
   background: var(--rule);
 }
 

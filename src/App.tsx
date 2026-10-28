@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
+import { hueColor } from "./app/hue";
 import { loadPins } from "./app/pins";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
@@ -158,6 +159,7 @@ export default function App() {
     };
   }, [local]);
   const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
+  const focusedWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.snapshot?.focused_workspace_id);
 
   // An open panel follows the focused pane, rereads on a timer, and rereads
   // when the window comes back, since work usually happened elsewhere. The
@@ -235,7 +237,12 @@ export default function App() {
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
       <div className="workarea">
-        <main className="main">
+        {/* The focused workspace's hue marks the selected tab and the status
+            bar, so the main column reads as the card picked in the sidebar. */}
+        <main
+          className="main"
+          style={focusedWorkspace ? ({ "--hue": hueColor(focusedWorkspace.label) } as CSSProperties) : undefined}
+        >
           {/* The diff covers the tab bar too: its tabs are the sessions, not
               the diff's, and would read as if they switched what it shows. */}
           <div className="deck">
@@ -270,7 +277,7 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} ports={focusedPorts} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} ports={focusedPorts} />
         </main>
         <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
           {state.files ? (
