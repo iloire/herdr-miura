@@ -200,6 +200,35 @@ body.reordering * {
   background: #1f2730;
 }
 
+/* An agent here waits on you: the whole card takes the lantern, its rail
+   turns amber and thickens, and it glows with the badge, so it stands out
+   from across the list rather than only by the small disc on its right. */
+.workspace.needs-you {
+  background: linear-gradient(90deg, rgb(245 212 145 / 0.16), rgb(245 212 145 / 0.05));
+  box-shadow:
+    inset 4px 0 0 var(--lantern),
+    inset 0 0 0 1px rgb(245 212 145 / 0.35);
+  animation: beckon-card 2.4s ease-in-out infinite;
+}
+
+.workspace.needs-you:hover,
+.workspace.needs-you[aria-current="true"] {
+  background: linear-gradient(90deg, rgb(245 212 145 / 0.24), rgb(245 212 145 / 0.08));
+}
+
+.workspace.needs-you .workspace-label {
+  color: var(--lantern);
+  font-weight: 600;
+}
+
+@keyframes beckon-card {
+  50% {
+    box-shadow:
+      inset 4px 0 0 var(--lantern),
+      inset 0 0 0 1px rgb(245 212 145 / 0.12);
+  }
+}
+
 .workspace-text {
   display: flex;
   flex-direction: column;
@@ -306,7 +335,8 @@ body.reordering * {
 
 @media (prefers-reduced-motion: reduce) {
   .mark-orbit,
-  .mark-blocked {
+  .mark-blocked,
+  .workspace.needs-you {
     animation: none;
   }
 }

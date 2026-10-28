@@ -88,10 +88,12 @@ export function Sidebar({
         {workspaces.map((workspace, index) => {
           const own = agents.get(workspace.workspace_id) ?? [];
           const path = snapshot && workspaceDirectory(workspace, snapshot);
+          const marks = workspaceMarks(own, workspace.agent_status);
+          const needsYou = marks.some((mark) => mark.status === "blocked");
           return (
             <li key={workspace.workspace_id} className={drag.rowClass(index, workspaces.length)}>
               <button
-                className="workspace"
+                className={needsYou ? "workspace needs-you" : "workspace"}
                 style={{ "--rail": hueColor(workspace.label) } as CSSProperties}
                 aria-current={workspace.focused ? "true" : undefined}
                 {...drag.handlers(index)}
@@ -119,7 +121,7 @@ export function Sidebar({
                 </span>
                 <span className="workspace-marks">
                   <AgentCount count={own.length} />
-                  {workspaceMarks(own, workspace.agent_status).map(({ status, count }) => (
+                  {marks.map(({ status, count }) => (
                     <StatusMark key={status} status={status} count={status === "blocked" ? count : undefined} />
                   ))}
                 </span>
