@@ -97,7 +97,12 @@ export function TabBar({
                 <button
                   className="tab-label"
                   title={tab.label}
-                  onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
+                  // As with +, typing goes straight to the tab picked.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    controller.request("tab.focus", { tab_id: tab.tab_id });
+                    controller.focusTerminal();
+                  }}
                   onDoubleClick={() => setRenaming(tab.tab_id)}
                   onAuxClick={(event) =>
                     event.button === 1 && !pinned && controller.request("tab.close", { tab_id: tab.tab_id })
