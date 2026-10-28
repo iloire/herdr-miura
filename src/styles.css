@@ -138,11 +138,11 @@ body.resizing .app > :not(.sidebar-resizer) {
 .workspace {
   --rail: transparent;
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 7px 10px 7px 8px;
+  padding: 7px 10px 7px 14px;
   border-radius: 6px;
   text-align: left;
   box-shadow: inset 3px 0 0 var(--rail);
@@ -167,17 +167,6 @@ body.resizing .app > :not(.sidebar-resizer) {
 
 .workspace.status-done {
   --rail: var(--done);
-}
-
-.workspace-number {
-  font: 600 18px/1 var(--mono);
-  color: var(--muted);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.workspace[aria-current="true"] .workspace-number {
-  color: var(--lantern);
 }
 
 .workspace-text {
@@ -284,11 +273,11 @@ body.resizing .app > :not(.sidebar-resizer) {
   }
 }
 
-/* An agent hangs under its workspace, indented past the number column. */
+/* An agent hangs under its workspace, indented a step past its name. */
 .agent-list {
   list-style: none;
   margin: 0 0 4px;
-  padding: 0 0 0 38px;
+  padding: 0 0 0 12px;
 }
 
 .agent {

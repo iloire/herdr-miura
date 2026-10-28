@@ -66,7 +66,6 @@ export function Sidebar({
                   if (path) setMenu({ x: event.clientX, y: event.clientY, items: folderMenu(controller, path) });
                 }}
               >
-                <span className="workspace-number">{workspace.number}</span>
                 <span className="workspace-text">
                   <span className="workspace-label">{workspace.label}</span>
                   <WorkspaceGit
