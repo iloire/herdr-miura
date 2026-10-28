@@ -42,7 +42,7 @@ fn resolve(var: impl Fn(&str) -> Option<OsString>) -> PathBuf {
     }
 }
 
-fn beside_api_socket(api: &Path) -> PathBuf {
+pub fn beside_api_socket(api: &Path) -> PathBuf {
     let stem = api.file_stem().and_then(|s| s.to_str()).unwrap_or("herdr");
     api.parent()
         .unwrap_or_else(|| Path::new(""))

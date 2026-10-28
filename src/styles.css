@@ -1147,3 +1147,44 @@ kbd {
   border-radius: 5px 5px 0 0;
   margin-bottom: 3px;
 }
+
+/* Ports a workspace's servers listen on, under its card and in the status
+   bar: a globe, then each number, which opens its page in the browser. */
+.ports {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 11px/1.3 var(--mono);
+}
+
+.ports svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.port {
+  flex: none;
+  padding: 0;
+  color: var(--done);
+  font: inherit;
+}
+
+.port:hover {
+  text-decoration: underline;
+}
+
+/* Under the card, inside its rail, without being part of its button. */
+.workspace-ports {
+  position: absolute;
+  left: 14px;
+  right: 10px;
+  bottom: 6px;
+}
+
+.workspace.has-ports {
+  padding-bottom: 22px;
+}

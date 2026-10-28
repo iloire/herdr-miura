@@ -6,6 +6,7 @@ use crate::{
     changes::{self, CheckoutView, CommitFilesView, FileDiff},
     connection::Connection,
     folder::{self, Opener},
+    listening_ports,
     ssh_hosts,
 };
 use crate::herdr::{
@@ -14,6 +15,7 @@ use crate::herdr::{
 };
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::HashMap;
 use tauri::{
     AppHandle, State,
     ipc::{Channel, InvokeResponseBody},
@@ -136,7 +138,9 @@ pub fn request(
     method: &str,
     params: Value,
 ) -> Result<String> {
-    Ok(connection.handle()?.request(boot_id, self::method(method)?, params)?)
+    Ok(connection
+        .handle()?
+        .request(boot_id, self::method(method)?, params)?)
 }
 
 /// The checkout `directory` sits in, or `None` outside Git. Git runs on the
@@ -186,6 +190,16 @@ pub async fn file_diff(
         changes::read_diff(&checkout, &path, untracked, commit.as_deref())
     });
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The TCP ports each workspace's processes listen on, by workspace id.
+#[tauri::command]
+pub async fn listening_ports(
+    connection: State<'_, Connection>,
+) -> Result<HashMap<String, Vec<listening_ports::Port>>> {
+    connection.ensure_local()?;
+    let scan = tauri::async_runtime::spawn_blocking(listening_ports::scan);
+    Ok(scan.await.map_err(listening_ports::Error::Worker)??)
 }
 
 /// Moves a tab's panes into a new tab of another workspace through the

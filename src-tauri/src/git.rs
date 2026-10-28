@@ -110,7 +110,7 @@ pub fn text(
 }
 
 /// The exit status, or `None` once the deadline passed and the child was killed.
-fn wait(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
+pub fn wait(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
     loop {
         match child.try_wait() {
             Ok(Some(status)) => return Some(status),
@@ -125,7 +125,7 @@ fn wait(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
 }
 
 /// Up to `limit` bytes, then drains the rest so the writer never blocks.
-fn read_bounded(mut pipe: impl Read, limit: usize) -> Vec<u8> {
+pub fn read_bounded(mut pipe: impl Read, limit: usize) -> Vec<u8> {
     let mut kept = Vec::new();
     let _ = (&mut pipe).take(limit as u64).read_to_end(&mut kept);
     let _ = io::copy(&mut pipe, &mut io::sink());

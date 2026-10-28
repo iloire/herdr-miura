@@ -7,6 +7,7 @@ import { agentsByWorkspace, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
+import type { ListeningPort } from "../app/ports";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import {
@@ -19,6 +20,7 @@ import {
   PinIcon,
   TerminalIcon,
 } from "./icons";
+import { Ports } from "./Ports";
 import { StatusMark } from "./StatusMark";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
@@ -40,6 +42,7 @@ export function Sidebar({
   snapshot,
   changedFiles,
   pins,
+  ports,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
@@ -47,6 +50,8 @@ export function Sidebar({
   changedFiles: Map<string, number>;
   /// Pinned tabs, as `pinKey`s.
   pins: Set<string>;
+  /// Ports each workspace's servers listen on, by workspace id; absent when none.
+  ports: Map<string, ListeningPort[]>;
 }) {
   const [sort, setSort] = useState(loadSort);
   const workspaces = sortWorkspaces(snapshot?.workspaces ?? [], sort);
@@ -96,10 +101,11 @@ export function Sidebar({
           const path = snapshot && workspaceDirectory(workspace, snapshot);
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
+          const listening = ports.get(workspace.workspace_id) ?? [];
           return (
             <li key={workspace.workspace_id} className={drag.rowClass(index, workspaces.length)}>
               <button
-                className={needsYou ? "workspace needs-you" : "workspace"}
+                className={["workspace", needsYou && "needs-you", listening.length > 0 && "has-ports"].filter(Boolean).join(" ")}
                 style={{ "--rail": hueColor(workspace.label) } as CSSProperties}
                 aria-current={workspace.focused ? "true" : undefined}
                 {...drag.handlers(index)}
@@ -133,6 +139,12 @@ export function Sidebar({
                   ))}
                 </span>
               </button>
+              {/* Beside the card's button, not in it: each port is a button of its own. */}
+              {listening.length > 0 && (
+                <span className="workspace-ports">
+                  <Ports ports={listening} />
+                </span>
+              )}
             </li>
           );
         })}

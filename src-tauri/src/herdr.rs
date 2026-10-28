@@ -17,5 +17,6 @@ pub mod wire;
 pub use client::{ClientHandle, ConnectOptions, Target, connect};
 pub use error::{Error, Outdated};
 pub use session::Event;
+pub use socket::{beside_api_socket, client_socket_path};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

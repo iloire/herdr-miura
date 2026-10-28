@@ -71,3 +71,11 @@ export const PinIcon = () => (
     <path d="M10 2.5 13.5 6l-2 .75-2.25 2.25.25 3L8 13.5 2.5 8 4 6.5l3 .25L9.25 4.5Z M5.25 10.75 2.5 13.5" {...LINE} />
   </Icon>
 );
+
+/// A server listening on a port.
+export const GlobeIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="6" {...LINE} />
+    <path d="M2 8h12M8 2c-2 2-2 10 0 12M8 2c2 2 2 10 0 12" {...LINE} />
+  </Icon>
+);

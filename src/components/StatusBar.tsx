@@ -1,9 +1,20 @@
 import type { Controller, State } from "../app/controller";
 import { shortcutLabel } from "../terminal/keys";
+import type { ListeningPort } from "../app/ports";
 import { HostPicker } from "./HostPicker";
+import { Ports } from "./Ports";
 
 /// Connection state first, so an old local error never hides a disconnect.
-export function StatusBar({ controller, state }: { controller: Controller; state: State }) {
+export function StatusBar({
+  controller,
+  state,
+  ports,
+}: {
+  controller: Controller;
+  state: State;
+  /// The focused workspace's listening ports.
+  ports: ListeningPort[];
+}) {
   const { status, notice } = state;
   const palette = state.commands.find((command) => command.name === "command_palette")?.parsed[0];
   return (
@@ -21,6 +32,7 @@ export function StatusBar({ controller, state }: { controller: Controller; state
       )}
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
+      <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
     </footer>
   );

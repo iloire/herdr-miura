@@ -10,6 +10,7 @@ mod folder;
 mod frame;
 mod git;
 mod herdr;
+mod listening_ports;
 mod osc52;
 mod process;
 mod ssh_hosts;
@@ -33,6 +34,7 @@ pub fn run() {
             commands::disconnect,
             commands::commit_files,
             commands::file_diff,
+            commands::listening_ports,
             commands::move_tab,
             commands::open_folder,
             commands::request,

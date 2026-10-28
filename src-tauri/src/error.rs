@@ -12,6 +12,8 @@ pub enum Error {
     Folder(#[from] crate::folder::Error),
     #[error(transparent)]
     Herdr(#[from] crate::herdr::Error),
+    #[error(transparent)]
+    ListeningPorts(#[from] crate::listening_ports::Error),
     #[error("event pump not started")]
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]

@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
 import { loadPins } from "./app/pins";
+import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
@@ -23,6 +24,9 @@ import type { Snapshot } from "./protocol";
 const CHANGES_POLL_MS = 5000;
 /// How often the sidebar recounts every workspace's changed files.
 const COUNTS_POLL_MS = 10000;
+/// How often listening ports are rescanned: servers start and stop at human
+/// pace, and `lsof` is not free on a busy machine.
+const PORTS_POLL_MS = 5000;
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -121,6 +125,36 @@ export default function App() {
     return byWorkspace;
   }, [counted, counts]);
 
+  // Every workspace's listening ports, scanned on this Mac only: a remote
+  // host's servers are not reachable at its localhost from here.
+  const local = state.status.phase === "connected" && state.host === null;
+  const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
+  useEffect(() => {
+    if (!local) {
+      setPorts(new Map());
+      return;
+    }
+    let scanning = false;
+    let live = true;
+    const refresh = () => {
+      if (scanning) return;
+      scanning = true;
+      readPorts()
+        .then((next) => live && setPorts((previous) => (samePorts(previous, next) ? previous : next)))
+        .catch(() => {})
+        .finally(() => (scanning = false));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, PORTS_POLL_MS);
+    window.addEventListener("focus", refresh);
+    return () => {
+      live = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [local]);
+  const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
+
   // An open panel follows the focused pane, rereads on a timer, and rereads
   // when the window comes back, since work usually happened elsewhere.
   useEffect(() => {
@@ -176,7 +210,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} pins={pins} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} pins={pins} ports={ports} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -214,7 +248,7 @@ export default function App() {
               />
             )}
           </div>
-          <StatusBar controller={controller} state={state} />
+          <StatusBar controller={controller} state={state} ports={focusedPorts} />
         </main>
         <div className={`drawer ${state.changes ? "open" : ""}`} aria-hidden={!state.changes}>
           <ChangesPanel
