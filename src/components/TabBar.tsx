@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { loadPins, pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
@@ -19,6 +19,7 @@ export function TabBar({
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const barRef = useRef<HTMLDivElement>(null);
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
@@ -64,8 +65,22 @@ export function TabBar({
     ];
   };
 
+  // The bar has no scrollbar, so keep the focused tab in view.
+  const focusedId = tabs.find((tab) => tab.focused)?.tab_id;
+  useEffect(() => {
+    barRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [focusedId]);
+
   return (
-    <div className="tabbar" role="tablist" aria-label="Tabs">
+    <div
+      ref={barRef}
+      className="tabbar"
+      role="tablist"
+      aria-label="Tabs"
+      onWheel={(event) => {
+        if (event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
+      }}
+    >
       {tabs.map((tab) => {
         const pinned = isPinned(tab);
         return (
@@ -91,6 +106,7 @@ export function TabBar({
             ) : (
               <button
                 className="tab-label"
+                title={tab.label}
                 onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
                 onDoubleClick={() => setRenaming(tab.tab_id)}
                 onAuxClick={(event) =>
@@ -103,7 +119,7 @@ export function TabBar({
                   </span>
                 )}
                 <StatusMark status={tab.agent_status} />
-                {tab.label}
+                <span className="tab-text">{tab.label}</span>
                 {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
               </button>
             )}

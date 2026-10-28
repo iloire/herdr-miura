@@ -361,11 +361,20 @@ body.reordering * {
   background: var(--peat);
   border-bottom: 1px solid var(--rule);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* Tabs shrink before they scroll; the wheel and the focused tab drive any scroll left, so no bar. */
+.tabbar::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
+  min-width: 90px;
+  max-width: 260px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
 }
@@ -380,8 +389,14 @@ body.reordering * {
   align-items: center;
   gap: 6px;
   padding: 0 4px 0 10px;
+  min-width: 0;
   height: 100%;
   white-space: nowrap;
+}
+
+.tab-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab-zoomed {
@@ -389,6 +404,7 @@ body.reordering * {
 }
 
 .tab-close {
+  flex: none;
   width: 20px;
   height: 20px;
   border-radius: 4px;
