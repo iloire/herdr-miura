@@ -50,7 +50,10 @@ export default function App() {
     controller.loadCatalog().catch(() => {});
     // Shortcuts work wherever focus is, not only in the terminal.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey)) return;
+      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey || event.altKey)) return;
+      // Option alone moves by word in a text field, such as a rename.
+      const field = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      if (field && !(event.metaKey || event.ctrlKey)) return;
       if (controller.shortcut(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);

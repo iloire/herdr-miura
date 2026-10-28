@@ -2,6 +2,7 @@ import { Daemon, type CatalogEntry } from "../daemon";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
+import { stepWorkspace } from "./step";
 
 export type Status =
   | { phase: "connecting" }
@@ -33,11 +34,23 @@ const WINDOW_COMMANDS = new Set([
   "decrease_font_size",
   "detach",
   "increase_font_size",
+  "next_workspace",
+  "previous_workspace",
   "reconnect",
   "reset_font_size",
   "review_changes",
   "toggle_sidebar",
 ]);
+
+/// Shortcuts beyond the catalog's defaults, the Option-arrows herdr-gpui
+/// answers through Herdr's `[keys]`: Up and Down step through workspaces,
+/// Left and Right through the focused workspace's tabs.
+const EXTRA_SHORTCUTS: Record<string, string[]> = {
+  next_tab: ["alt-right"],
+  next_workspace: ["alt-down"],
+  previous_tab: ["alt-left"],
+  previous_workspace: ["alt-up"],
+};
 
 export const DEFAULT_FONT_SIZE = 13;
 
@@ -82,7 +95,9 @@ export class Controller {
     const entries = await this.daemon.catalog();
     const commands = entries.map((entry) => ({
       ...entry,
-      parsed: entry.shortcuts.map(parseShortcut).filter((s): s is Shortcut => s !== null),
+      parsed: [...entry.shortcuts, ...(EXTRA_SHORTCUTS[entry.name] ?? [])]
+        .map(parseShortcut)
+        .filter((s): s is Shortcut => s !== null),
     }));
     this.set({ commands });
   }
@@ -217,6 +232,14 @@ export class Controller {
         return this.set({ fontSize: Math.max(8, this.state.fontSize - 1) });
       case "reset_font_size":
         return this.set({ fontSize: DEFAULT_FONT_SIZE });
+      case "next_workspace":
+      case "previous_workspace": {
+        const snapshot = this.state.snapshot;
+        const target =
+          snapshot && stepWorkspace(snapshot.workspaces, snapshot.focused_workspace_id, name === "next_workspace" ? 1 : -1);
+        if (target) this.request("workspace.focus", { workspace_id: target.workspace_id });
+        return;
+      }
       case "reconnect":
         void this.connect();
         return;

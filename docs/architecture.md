@@ -53,6 +53,8 @@ upstream protocol changes, bump `rev` and run `npm run check`.
   keeps keyboard layouts, dead keys, and IME composition working.
 - Ctrl and Option chords send the physical key (`Option-P` sends Alt+`p`, not `π`).
 - Cmd chords belong to the app: catalog shortcuts run as commands, and Cmd-V pastes.
+- Option-arrows are the app's too, as Herdr's `[keys]` bind them: Up and Down step through workspaces
+  (wrapping, window-side in `app/step.ts`), Left and Right through tabs. Text fields keep them for word moves.
 - When a pane reports the mouse or is on the alternate screen, the wheel sends one event per line.
   Otherwise it sends one event carrying the whole count, which Herdr scrolls the scrollback by.
 
