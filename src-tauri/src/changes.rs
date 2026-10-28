@@ -131,6 +131,46 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     Ok(Some(changes::read(session, located, deadline, &never)?.into()))
 }
 
+/// Directories one count request may ask about, so the webview cannot queue
+/// an unbounded number of Git processes.
+pub const MAX_COUNTED: usize = 64;
+
+/// How many files each directory's checkout has changed, untracked ones
+/// included, as `git status` lists them: the sidebar's per-workspace count.
+/// `None` for a directory outside Git or whose read failed, so one broken
+/// checkout does not blank the others.
+pub fn count_changes(directories: &[String]) -> Vec<Option<usize>> {
+    directories
+        .iter()
+        .take(MAX_COUNTED)
+        .map(|directory| {
+            herdr_vcs::git::git(
+                directory,
+                &["status", "--porcelain", "--untracked-files=normal", "-z"],
+                "count working tree changes",
+                Instant::now() + DEADLINE,
+                &never,
+            )
+            .ok()
+            .map(|status| count_porcelain(&status))
+        })
+        .collect()
+}
+
+/// Entries in `git status --porcelain -z` output. A rename or copy carries
+/// its old path as one more NUL-separated field, which is not a file of its own.
+fn count_porcelain(status: &str) -> usize {
+    let mut fields = status.split('\0').filter(|field| !field.is_empty());
+    let mut count = 0;
+    while let Some(entry) = fields.next() {
+        count += 1;
+        if matches!(entry.as_bytes().first(), Some(b'R' | b'C')) {
+            fields.next();
+        }
+    }
+    count
+}
+
 /// `path` is relative to `checkout`, as Git status lists it. The webview
 /// sends it back, so a path that could leave the checkout is refused.
 pub fn read_diff(checkout: &str, path: &str, untracked: bool) -> Result<FileDiff, Error> {

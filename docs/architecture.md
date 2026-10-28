@@ -14,7 +14,7 @@
 | `connection.rs` | Owns the `ClientHandle`, drains `ClientEvent`s on a pump thread, and forwards them as tagged JSON. Keeps the latest snapshot for catalog commands. Writes OSC 52 clipboard text itself. |
 | `frame.rs` | Turns each reconstructed `PaneSurfaceFrame` into a `FrameUpdate`: every row after a size or boot change, otherwise only the rows that changed. Cells are positional tuples to keep payloads small. |
 | `commands.rs` | The Tauri commands: `connect`, `disconnect`, `resize`, `set_focus`, `send_input`, `send_popup_input`, `request` (an allowlist of endpoint methods), `run_command` (a herdr-commands catalog entry, resolved against the latest snapshot), `catalog`. |
-| `changes.rs` | The Changes panel's reads through `herdr-vcs`: `checkout_changes(directory)` (branch, ahead/behind, up to 50 files with line counts, recent commits) and `file_diff(checkout, path, untracked)` (`git diff HEAD`, capped at 1 MiB, or an untracked file's text). Runs on Tauri's blocking pool with a 5 s deadline, refuses paths that leave the checkout, and never contacts a remote. |
+| `changes.rs` | The Changes panel's reads through `herdr-vcs`: `checkout_changes(directory)` (branch, ahead/behind, up to 50 files with line counts, recent commits) and `file_diff(checkout, path, untracked)` (`git diff HEAD`, capped at 1 MiB, or an untracked file's text). Also `change_counts(directories)`, the sidebar's per-workspace changed-file count: one `git status --porcelain` per directory, at most 64. Runs on Tauri's blocking pool with a 5 s deadline, refuses paths that leave the checkout, and never contacts a remote. |
 | `osc52.rs` | Bounded base64 to UTF-8 decoding for the daemon's clipboard writes. |
 | `error.rs` | The crate's `thiserror` enum. It serializes as its message at the webview boundary. |
 
@@ -39,6 +39,7 @@ upstream protocol changes, bump `rev` and run `npm run check`.
 | `terminal/mouse.ts` | Wheel events (one event for scrollback, one per line for apps) and the paste bound. |
 | `app/attention.ts` | Agent status from the snapshot: each workspace's agents sorted blocked, done, working, idle; how many wait on you; the Dock badge count (blocked + done); and each agent's name and caption. |
 | `changes/diff.ts` | Parses unified diffs into numbered hunks, and strips control and direction-override characters from the untrusted lines. |
+| `changes/counts.ts` | Picks each workspace's directory (its active tab's first pane) and reads their changed-file counts, one call for all; `App` polls it every 10 s. |
 | `changes/store.ts` | Reads the checkout under the focused pane, one read at a time, keeping a request that arrives mid-read for next. |
 | `components/` | React views. `StatusMark.tsx` draws herdr-gpui's status icons (a turning orbit, a lantern count badge, a check ring, a hollow ring) as inline SVG. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. |
 

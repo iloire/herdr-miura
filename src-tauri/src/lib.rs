@@ -20,6 +20,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
             commands::catalog,
+            commands::change_counts,
             commands::checkout_changes,
             commands::connect,
             commands::disconnect,

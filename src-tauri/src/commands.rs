@@ -176,6 +176,12 @@ pub async fn checkout_changes(directory: String) -> Result<Option<CheckoutView>>
 }
 
 #[tauri::command]
+pub async fn change_counts(directories: Vec<String>) -> Result<Vec<Option<usize>>> {
+    let read = tauri::async_runtime::spawn_blocking(move || changes::count_changes(&directories));
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+#[tauri::command]
 pub async fn file_diff(checkout: String, path: String, untracked: bool) -> Result<FileDiff> {
     let read =
         tauri::async_runtime::spawn_blocking(move || changes::read_diff(&checkout, &path, untracked));

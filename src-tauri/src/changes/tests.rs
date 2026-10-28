@@ -75,3 +75,22 @@ fn refuses_paths_that_leave_the_checkout() {
         );
     }
 }
+
+#[test]
+fn counts_changed_files_per_directory() {
+    let dir = repo();
+    fs::write(dir.path().join("a.txt"), "changed\n").unwrap();
+    fs::write(dir.path().join("new.txt"), "fresh\n").unwrap();
+    let clean = repo();
+    let outside = tempfile::tempdir().unwrap();
+    assert_eq!(
+        count_changes(&[path(&dir), path(&clean), path(&outside)]),
+        vec![Some(2), Some(0), None]
+    );
+}
+
+#[test]
+fn a_rename_counts_once() {
+    assert_eq!(count_porcelain("R  new.txt\0old.txt\0 M a.txt\0?? b.txt\0"), 3);
+    assert_eq!(count_porcelain(""), 0);
+}

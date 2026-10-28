@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
+import { countedDirectories, readCounts } from "./changes/counts";
 import { ChangesStore, type ChangedFile } from "./changes/store";
 import { ChangesPanel } from "./components/ChangesPanel";
 import { DiffView } from "./components/DiffView";
@@ -16,6 +17,8 @@ import type { Snapshot } from "./protocol";
 
 /// How often an open Changes panel rereads its checkout.
 const CHANGES_POLL_MS = 5000;
+/// How often the sidebar recounts every workspace's changed files.
+const COUNTS_POLL_MS = 10000;
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -68,6 +71,45 @@ export default function App() {
       .catch(() => {});
   }, [attention]);
 
+  // Every workspace's changed-file count, one `git status` per folder, never
+  // two rounds at once. Reread on a timer and when the window comes back.
+  const counted = useMemo(
+    () => (state.snapshot ? countedDirectories(state.snapshot) : { byWorkspace: new Map<string, string>(), directories: [] }),
+    [state.snapshot],
+  );
+  const directoriesKey = counted.directories.join("\0");
+  const [counts, setCounts] = useState<Map<string, number | null>>(new Map());
+  useEffect(() => {
+    const directories = directoriesKey ? directoriesKey.split("\0") : [];
+    if (directories.length === 0) return;
+    let reading = false;
+    let live = true;
+    const refresh = () => {
+      if (reading) return;
+      reading = true;
+      readCounts(directories)
+        .then((next) => live && setCounts(next))
+        .catch(() => {})
+        .finally(() => (reading = false));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, COUNTS_POLL_MS);
+    window.addEventListener("focus", refresh);
+    return () => {
+      live = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [directoriesKey]);
+  const changedFiles = useMemo(() => {
+    const byWorkspace = new Map<string, number>();
+    for (const [workspace, directory] of counted.byWorkspace) {
+      const count = counts.get(directory);
+      if (count) byWorkspace.set(workspace, count);
+    }
+    return byWorkspace;
+  }, [counted, counts]);
+
   // An open panel follows the focused pane, rereads on a timer, and rereads
   // when the window comes back, since work usually happened elsewhere.
   useEffect(() => {
@@ -102,7 +144,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}

@@ -3,7 +3,16 @@ import { agentCaption, agentName, agentsByWorkspace, blockedCount } from "../app
 import type { Agent, Snapshot } from "../protocol";
 import { StatusMark } from "./StatusMark";
 
-export function Sidebar({ controller, snapshot }: { controller: Controller; snapshot: Snapshot | null }) {
+export function Sidebar({
+  controller,
+  snapshot,
+  changedFiles,
+}: {
+  controller: Controller;
+  snapshot: Snapshot | null;
+  /// Files changed in each workspace's checkout, by workspace id; absent when none.
+  changedFiles: Map<string, number>;
+}) {
   const workspaces = snapshot?.workspaces ?? [];
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
   const caption = (agent: Agent) => (snapshot ? agentCaption(agent, snapshot) : null);
@@ -34,14 +43,11 @@ export function Sidebar({ controller, snapshot }: { controller: Controller; snap
                 <span className="workspace-number">{workspace.number}</span>
                 <span className="workspace-text">
                   <span className="workspace-label">{workspace.label}</span>
-                  {workspace.branch && (
-                    <span className="workspace-branch">
-                      {workspace.branch}
-                      {workspace.git_ahead_behind && (workspace.git_ahead_behind[0] > 0 || workspace.git_ahead_behind[1] > 0)
-                        ? ` ↑${workspace.git_ahead_behind[0]} ↓${workspace.git_ahead_behind[1]}`
-                        : ""}
-                    </span>
-                  )}
+                  <WorkspaceGit
+                    branch={workspace.branch}
+                    aheadBehind={workspace.git_ahead_behind}
+                    changed={changedFiles.get(workspace.workspace_id) ?? 0}
+                  />
                 </span>
                 <StatusMark status={workspace.agent_status} count={blockedCount(own) || undefined} />
               </button>
@@ -76,5 +82,32 @@ function AgentRow({ controller, agent, caption }: { controller: Controller; agen
         </span>
       </button>
     </li>
+  );
+}
+
+/// The branch line, as herdr-gpui's folder card has it: the branch, commits to
+/// push and pull, and how many files are changed. Only what is non-zero shows.
+function WorkspaceGit({
+  branch,
+  aheadBehind,
+  changed,
+}: {
+  branch: string | null;
+  aheadBehind: [number, number] | null;
+  changed: number;
+}) {
+  const [ahead, behind] = aheadBehind ?? [0, 0];
+  if (!branch && !changed) return null;
+  return (
+    <span className="workspace-branch">
+      {branch && <span className="workspace-branch-name">{branch}</span>}
+      {ahead > 0 && <span className="git-ahead" title={`${ahead} to push`}>↑{ahead}</span>}
+      {behind > 0 && <span className="git-behind" title={`${behind} to pull`}>↓{behind}</span>}
+      {changed > 0 && (
+        <span className="git-changed" title={`${changed} changed ${changed === 1 ? "file" : "files"}`}>
+          ±{changed}
+        </span>
+      )}
+    </span>
   );
 }
