@@ -41,6 +41,7 @@ upstream protocol changes, bump `rev` and run `npm run check`.
 | `terminal/mouse.ts` | Wheel events (one event for scrollback, one per line for apps) and the paste bound. |
 | `app/pins.ts` | Pinned tabs, kept by the window (Herdr has none) and keyed by daemon boot. A pin also moves the tab to the front with `tab.move`, so the daemon's order matches the strip. |
 | `app/attention.ts` | Agent status from the snapshot: each workspace's agents sorted blocked, done, working, idle; how many wait on you; the Dock badge count (blocked + done); and each agent's name and caption. |
+| `app/workspaceOrder.ts` | The sidebar's workspace order, kept by the window: by hand, the daemon's own list, which dragging a row reorders with `workspace.move` (pointer events, since Tauri's file drop swallows HTML drag and drop); or by attention, blocked, done, working, idle, stable within a status. |
 | `changes/diff.ts` | Parses unified diffs into numbered hunks, and strips control and direction-override characters from the untrusted lines. |
 | `changes/counts.ts` | Picks each workspace's directory (its active tab's first pane) and reads their changed-file counts, one call for all; `App` polls it every 10 s. |
 | `changes/store.ts` | Reads the checkout under the focused pane, one read at a time, keeping a request that arrives mid-read for next. |

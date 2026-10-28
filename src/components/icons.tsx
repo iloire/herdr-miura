@@ -50,3 +50,17 @@ export const TerminalIcon = () => (
     <path d="m4.5 6 2 2-2 2M8.5 10h3" {...LINE} />
   </Icon>
 );
+
+/// Workspaces in the order you dragged them.
+export const HandOrderIcon = () => (
+  <Icon>
+    <path d="M3 4.5h10M3 8h10M3 11.5h10" {...LINE} />
+  </Icon>
+);
+
+/// Workspaces with what needs you on top.
+export const AttentionOrderIcon = () => (
+  <Icon>
+    <path d="M3 4.5h10M3 8h7M3 11.5h4" {...LINE} />
+  </Icon>
+);

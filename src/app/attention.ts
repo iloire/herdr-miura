@@ -4,7 +4,7 @@
 import type { Agent, AgentStatus, Snapshot } from "../protocol";
 
 /// Attention first, then the most recent change (herdr-gpui's `status_priority`).
-const PRIORITY: Record<AgentStatus, number> = {
+export const PRIORITY: Record<AgentStatus, number> = {
   blocked: 4,
   done: 3,
   working: 2,

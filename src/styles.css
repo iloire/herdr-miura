@@ -133,6 +133,50 @@ body.resizing .app > :not(.sidebar-resizer) {
   padding: 0 6px;
 }
 
+.sort-toggle {
+  margin-left: auto;
+}
+
+.sort-toggle svg {
+  display: block;
+  margin: auto;
+}
+
+/* Reordering by hand: the dragged row dims and a line marks where it lands. */
+.workspace-list > li {
+  position: relative;
+}
+
+.workspace-list > li.row-dragged .workspace {
+  opacity: 0.45;
+}
+
+.workspace-list > li.drop-before::before,
+.workspace-list > li.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text);
+  pointer-events: none;
+}
+
+.workspace-list > li.drop-before::before {
+  top: -1px;
+}
+
+.workspace-list > li.drop-after::after {
+  bottom: -1px;
+}
+
+body.reordering,
+body.reordering * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 /* Each workspace hangs on a rail in its own hue (herdr-gpui's folder edge
    bar), set inline from its name; its agent's state is the mark on the right. */
 .workspace {
