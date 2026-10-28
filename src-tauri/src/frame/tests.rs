@@ -1,5 +1,5 @@
 use super::*;
-use herdr_client::protocol::SurfaceGraphicsScene;
+use crate::herdr::wire::SurfaceGraphicsScene;
 
 fn cell(symbol: &str) -> CellData {
     CellData {

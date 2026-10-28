@@ -1,9 +1,9 @@
 # Architecture
 
 ```
- Herdr daemon ──socket──▶ herdr-client worker ──events──▶ pump thread ──Channel(JSON)──▶ webview
-  (owns PTYs)            (herdr-gpui crate,              (connection.rs)                 Controller → Grid → Painter
-                          bincode, framing)                                               React: Sidebar, TabBar, …
+ Herdr daemon ──socket──▶ herdr/ worker ──events──▶ pump thread ──Channel(JSON)──▶ webview
+  (owns PTYs)            (reader + session       (connection.rs)                 Controller → Grid → Painter
+                          threads, bincode)                                       React: Sidebar, TabBar, …
  Herdr daemon ◀──────── bounded command queue ◀──────── Tauri commands ◀── invoke() ──── Daemon (daemon.ts)
 ```
 
@@ -11,20 +11,22 @@
 
 | File | Job |
 | --- | --- |
-| `connection.rs` | Owns the `ClientHandle`, drains `ClientEvent`s on a pump thread, and forwards them as tagged JSON. Keeps the latest snapshot for catalog commands. Writes OSC 52 clipboard text itself. |
+| `herdr/` | Our client of the daemon. `wire.rs` and `endpoint.rs` are Herdr 0.9.5's declarations (see `herdr/NOTICE.md`); `codec.rs` frames them; `socket.rs` finds the socket by Herdr's rules; `session.rs` holds the handshake, boot and revision fencing, and one API request in flight with a FIFO queue behind it; `surface.rs` validates frames and applies patches whole or not at all; `client.rs` runs a reader thread and a session thread per connection. The optional surface encodings are never requested, so surfaces arrive whole or as row patches. |
+| `connection.rs` | Owns the `ClientHandle`, drains its `Event`s on a pump thread, and forwards them as tagged JSON. Writes OSC 52 clipboard text itself. |
 | `frame.rs` | Turns each reconstructed `PaneSurfaceFrame` into a `FrameUpdate`: every row after a size or boot change, otherwise only the rows that changed. Cells are positional tuples to keep payloads small. |
-| `commands.rs` | The Tauri commands: `connect`, `disconnect`, `resize`, `set_focus`, `send_input`, `send_popup_input`, `request` (an allowlist of endpoint methods), `run_command` (a herdr-commands catalog entry, resolved against the latest snapshot), `catalog`. |
-| `changes.rs` | The Changes panel's reads through `herdr-vcs`: `checkout_changes(directory)` (branch, ahead/behind, up to 50 files with line counts, recent commits) and `file_diff(checkout, path, untracked)` (`git diff HEAD`, capped at 1 MiB, or an untracked file's text). Also `change_counts(directories)`, the sidebar's per-workspace changed-file count: one `git status --porcelain` per directory, at most 64. Runs on Tauri's blocking pool with a 5 s deadline, refuses paths that leave the checkout, and never contacts a remote. |
+| `commands.rs` | The Tauri commands: `connect`, `disconnect`, `resize`, `set_focus`, `send_input`, `send_popup_input`, `request` (an allowlist of endpoint methods: the webview's own and those `src/app/catalog.ts` builds). |
+| `git.rs` | Runs Git for reads: no prompts, optional locks, or file monitor, under a deadline and an output cap, with both pipes drained. |
+| `changes.rs` | The Changes panel's reads, parsed from Git's porcelain output in `changes/parse.rs`: `checkout_changes(directory)` (branch, ahead/behind, up to 50 files with line counts, recent commits) and `file_diff(checkout, path, untracked)` (`git diff HEAD`, capped at 1 MiB, or an untracked file's text). Also `change_counts(directories)`, the sidebar's per-workspace changed-file count: one `git status --porcelain` per directory, at most 64. Runs on Tauri's blocking pool with a 5 s deadline, refuses paths that leave the checkout, and never contacts a remote. |
 | `folder.rs` | A workspace folder's right-click actions: `open_folder(path, with)` in the file manager, VS Code, or GitHub Desktop (a fixed list, never a program the webview names), and `copy_path(path)`. Both refuse anything but an existing absolute directory. |
 | `tab_move.rs` | `move_tab(panes, workspace_id, label)`: Herdr does not offer `pane.move` to GUI clients, so this runs the `herdr` CLI (found on `PATH` or the usual install directories) as herdr-gpui does. The first pane opens a new tab in the destination, the rest join it, and a named tab keeps its name. Herdr's own error message comes back as the failure. |
 | `osc52.rs` | Bounded base64 to UTF-8 decoding for the daemon's clipboard writes. |
 | `error.rs` | The crate's `thiserror` enum. It serializes as its message at the webview boundary. |
 
-None of the commands block: each one queues on `herdr-client`'s bounded queue. A reconnect replaces the
+None of the commands block: each one queues on the connection's bounded queue. A reconnect replaces the
 handle, and the old worker stops on its own thread.
 
-`herdr-client` and `herdr-commands` come from herdr-gpui by git commit (`src-tauri/Cargo.toml`). To follow
-upstream protocol changes, bump `rev` and run `npm run check`.
+When Herdr changes its protocol, follow `src-tauri/src/herdr/NOTICE.md`: copy the changed declarations
+from that release and run the live test against a daemon of that version.
 
 ## TypeScript: `src`
 
@@ -60,7 +62,8 @@ upstream protocol changes, bump `rev` and run `npm run check`.
 
 ## Adding things
 
-- **A daemon action**: if herdr-commands already has it, call `controller.run(name)`. Otherwise add the
-  method to `METHODS` in `commands.rs` and call `controller.request(method, params)`.
-- **A window-only command**: handle it in `Controller.run` and add it to `WINDOW_COMMANDS`.
+- **A command**: add it to `DEFINITIONS` in `src/app/catalog.ts` with its keys and the request it builds,
+  and allow its method in `METHODS` in `commands.rs`. A one-off daemon call from a view can use
+  `controller.request(method, params)` directly.
+- **A window-only command**: give it `action: "window"` in the catalog and handle it in `Controller.run`.
 - **UI**: write React components in `src/components`. They hot-reload under `npm run tauri dev`.

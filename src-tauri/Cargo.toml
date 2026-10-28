@@ -16,10 +16,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# The daemon's wire format and command catalog come from herdr-gpui rather than
-# a TypeScript port: bincode field order is a compatibility contract that
-# herdr-gpui already tracks and tests. Pinned; bump `rev` to follow upstream.
-herdr-client = { git = "https://github.com/penso/herdr-gpui", rev = "4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9" }
+# The daemon's wire types are copied from Herdr itself (src/herdr/NOTICE.md)
+# and encoded with bincode 2 through serde, as Herdr frames them.
+bincode = { version = "2", features = ["serde"] }
 base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

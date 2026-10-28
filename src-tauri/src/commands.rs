@@ -1,5 +1,5 @@
 //! Tauri commands: the webview's whole surface into the daemon. Each one only
-//! queues work on `herdr-client`'s bounded command queue; none blocks.
+//! queues work on the connection's bounded command queue; none blocks.
 
 use crate::{
     Error, Result,
@@ -7,9 +7,9 @@ use crate::{
     connection::Connection,
     folder::{self, Opener},
 };
-use herdr_client::{
-    ConnectOptions, Method,
-    protocol::{ClientPaneInputEvent, ClientSurfaceSize},
+use crate::herdr::{
+    ConnectOptions,
+    wire::{ClientPaneInputEvent, ClientSurfaceSize},
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -42,38 +42,38 @@ impl From<Surface> for ConnectOptions {
 
 /// The endpoint methods the webview may call: its own requests and the
 /// ones its command catalog (`src/app/catalog.ts`) builds.
-const METHODS: &[Method] = &[
+const METHODS: &[&str] = &[
     // keep-sorted start
-    Method::LayoutSetSplitRatio,
-    Method::PaneClear,
-    Method::PaneClose,
-    Method::PaneEditScrollback,
-    Method::PaneFocus,
-    Method::PaneFocusDirection,
-    Method::PaneRename,
-    Method::PaneResize,
-    Method::PaneScroll,
-    Method::PaneSplit,
-    Method::PaneSwap,
-    Method::PaneZoom,
-    Method::TabClose,
-    Method::TabCreate,
-    Method::TabFocus,
-    Method::TabMove,
-    Method::TabRename,
-    Method::WorkspaceClose,
-    Method::WorkspaceCreate,
-    Method::WorkspaceFocus,
-    Method::WorkspaceMove,
-    Method::WorkspaceRename,
+    "layout.set_split_ratio",
+    "pane.clear",
+    "pane.close",
+    "pane.edit_scrollback",
+    "pane.focus",
+    "pane.focus_direction",
+    "pane.rename",
+    "pane.resize",
+    "pane.scroll",
+    "pane.split",
+    "pane.swap",
+    "pane.zoom",
+    "tab.close",
+    "tab.create",
+    "tab.focus",
+    "tab.move",
+    "tab.rename",
+    "workspace.close",
+    "workspace.create",
+    "workspace.focus",
+    "workspace.move",
+    "workspace.rename",
     // keep-sorted end
 ];
 
-fn method(name: &str) -> Result<Method> {
+fn method(name: &str) -> Result<&'static str> {
     METHODS
         .iter()
         .copied()
-        .find(|method| method.as_str() == name)
+        .find(|method| *method == name)
         .ok_or_else(|| Error::UnknownMethod(name.into()))
 }
 
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn methods_parse_from_their_wire_names() {
         for known in METHODS {
-            assert_eq!(method(known.as_str()).ok(), Some(*known));
+            assert_eq!(method(known).ok(), Some(*known));
         }
         assert!(matches!(method("pane.nuke"), Err(Error::UnknownMethod(_))));
     }

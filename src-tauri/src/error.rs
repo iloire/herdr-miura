@@ -9,7 +9,7 @@ pub enum Error {
     #[error(transparent)]
     Folder(#[from] crate::folder::Error),
     #[error(transparent)]
-    Client(#[from] herdr_client::Error),
+    Herdr(#[from] crate::herdr::Error),
     #[error("event pump not started")]
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]

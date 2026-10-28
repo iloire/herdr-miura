@@ -7,7 +7,7 @@ Read-only: commit and push come in the next step.
 
 - **Which checkout**: the focused pane's `foreground_cwd` (falling back to `cwd`) from the daemon snapshot.
   The panel follows you as you move between panes and workspaces.
-- **Backend**: `herdr-vcs` from herdr-gpui, pinned to the same commit as `herdr-client`.
+- **Backend**: our own Git reads (`src-tauri/src/git.rs`, `changes.rs`); originally `herdr-vcs` from herdr-gpui.
   - `changes::locate` + `changes::read` give the branch, upstream, ahead/behind, commits the default branch
     lacks, up to 50 changed files with line counts, and the latest 5 commits.
   - `Session::git_bytes` runs `git diff HEAD -- <file>` with a 1 MiB cap. An untracked file is read with

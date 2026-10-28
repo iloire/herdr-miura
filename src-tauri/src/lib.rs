@@ -9,6 +9,7 @@ mod error;
 mod folder;
 mod frame;
 mod git;
+mod herdr;
 mod osc52;
 mod process;
 mod tab_move;

@@ -2,7 +2,7 @@
 //! needs to repaint: the whole grid after a size or boot change, otherwise only
 //! the rows whose cells changed. Graphics are not forwarded yet.
 
-use herdr_client::protocol::{
+use crate::herdr::wire::{
     CellData, ClientShellPopupSize, CursorState, FrameData, PaneSurfaceFrame, PaneSurfacePane,
     PaneSurfaceSplit,
 };

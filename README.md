@@ -19,9 +19,9 @@ Like herdr-gpui it is only a client: closing it leaves the daemon and every term
 
 - **TypeScript (`src/`)**: everything you see. React draws the chrome, and a canvas painter draws the
   daemon's cell grid.
-- **Rust (`src-tauri/`)**: a thin bridge. It links `herdr-client`, `herdr-commands`, and `herdr-vcs` from
-  herdr-gpui (pinned by commit), so the wire format and Git reads are never ported by hand, and exposes them
-  as Tauri commands.
+- **Rust (`src-tauri/`)**: a thin bridge with its own client of the daemon (`src-tauri/src/herdr/`, wire
+  types copied from Herdr 0.9.5 with attribution) and its own Git reads, exposed as Tauri commands. It
+  depends on no herdr-gpui code.
 
 [docs/architecture.md](docs/architecture.md) covers the data flow, the IPC contract, and where to add things.
 
@@ -34,7 +34,7 @@ npm install
 npm run tauri dev       # hot-reloading app, attached to your default Herdr session
 ```
 
-It finds the daemon the way herdr-gpui does. `HERDR_SOCKET_PATH`, `HERDR_CLIENT_SOCKET_PATH`, and
+It finds the daemon by Herdr's own rules. `HERDR_SOCKET_PATH`, `HERDR_CLIENT_SOCKET_PATH`, and
 `HERDR_SESSION` override that. A shell inside a Herdr pane already has `HERDR_SOCKET_PATH` set, so to try it
 against a throwaway daemon, set both socket variables.
 

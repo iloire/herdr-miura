@@ -1,4 +1,4 @@
-//! One connection to the local Herdr daemon. `herdr-client` runs the socket on
+//! One connection to the local Herdr daemon. `crate::herdr` runs the socket on
 //! its own worker; this module drains its events on a pump thread and hands
 //! them to the webview through the `Channel` the webview opened the
 //! connection with. A reconnect gets a new channel, so events an old
@@ -9,14 +9,14 @@ use crate::{
     frame::{self, FrameUpdate},
     osc52,
 };
-use herdr_client::{
-    ClientEvent, ClientHandle, ConnectOptions, ConnectTarget, Receiver, VersionMismatch,
-    protocol::{ClientShellSnapshot, PaneSurfaceFrame, ServerMessage},
+use crate::herdr::{
+    self, ClientHandle, ConnectOptions, Event, Outdated,
+    wire::{ClientShellSnapshot, PaneSurfaceFrame, ServerMessage},
 };
 use serde::Serialize;
 use serde_json::Value;
 use std::{
-    sync::{Arc, Mutex, PoisonError},
+    sync::{Arc, Mutex, PoisonError, mpsc::Receiver},
     thread,
 };
 use tauri::{
@@ -88,7 +88,7 @@ impl Connection {
         options: ConnectOptions,
         events: Channel<InvokeResponseBody>,
     ) -> Result<()> {
-        let client = herdr_client::connect(ConnectTarget::Local, options)?;
+        let client = herdr::connect(options)?;
         if let Some(old) = self.live().replace(client.handle) {
             old.disconnect();
         }
@@ -107,19 +107,19 @@ impl Connection {
 }
 
 fn pump(
-    events: &Receiver<ClientEvent>,
+    events: &Receiver<Event>,
     channel: &Channel<InvokeResponseBody>,
     app: &AppHandle,
 ) {
     let mut shown: Option<Arc<PaneSurfaceFrame>> = None;
     for event in events {
         let outbound = match &event {
-            ClientEvent::Connected(welcome) => Outbound::Connected {
+            Event::Connected(welcome) => Outbound::Connected {
                 server_version: &welcome.server_version,
                 methods: &welcome.methods,
             },
-            ClientEvent::Snapshot(snapshot) => Outbound::Snapshot { snapshot },
-            ClientEvent::Surface(surface) => {
+            Event::Snapshot(snapshot) => Outbound::Snapshot { snapshot },
+            Event::Surface(surface) => {
                 let update = frame::update(shown.as_deref(), surface);
                 if send(channel, &Outbound::Frame(update)).is_err() {
                     return;
@@ -127,18 +127,18 @@ fn pump(
                 shown = Some(surface.clone());
                 continue;
             }
-            ClientEvent::Response {
+            Event::Response {
                 request_id,
                 response,
             } => Outbound::Response {
                 request_id,
                 response,
             },
-            ClientEvent::CommandRejected { request_id, reason } => Outbound::Rejected {
+            Event::Rejected { request_id, reason } => Outbound::Rejected {
                 request_id: request_id.as_deref(),
                 reason: reason.to_string(),
             },
-            ClientEvent::Message(message) => match message {
+            Event::Message(message) => match message {
                 ServerMessage::Clipboard { data } => {
                     // Only bounded UTF-8 text reaches the pasteboard.
                     if let Some(text) = osc52::decode(data) {
@@ -161,16 +161,17 @@ fn pump(
                 ServerMessage::ClientShellError { message } => Outbound::ShellError { message },
                 _ => continue,
             },
-            ClientEvent::VersionMismatch(mismatch) => Outbound::VersionMismatch {
-                outdated: match mismatch {
-                    VersionMismatch::DaemonOutdated { .. } => "daemon",
-                    VersionMismatch::ClientOutdated { .. } => "client",
+            Event::VersionMismatch {
+                outdated,
+                server_version,
+            } => Outbound::VersionMismatch {
+                outdated: match outdated {
+                    Outdated::Daemon => "daemon",
+                    Outdated::Client => "client",
                 },
-                server_version: mismatch.server_version(),
+                server_version: server_version.as_deref(),
             },
-            ClientEvent::Disconnected { reason, .. } => Outbound::Disconnected { reason },
-            // Graphics are not drawn yet.
-            ClientEvent::SurfaceImages(_) => continue,
+            Event::Disconnected { reason } => Outbound::Disconnected { reason },
         };
         if send(channel, &outbound).is_err() {
             return;
