@@ -1556,16 +1556,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "herdr-commands"
-version = "0.1.0"
-source = "git+https://github.com/penso/herdr-gpui?rev=4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9#4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9"
-dependencies = [
- "herdr-client",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "herdr-protocol"
 version = "0.1.0"
 source = "git+https://github.com/penso/herdr-gpui?rev=4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9#4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9"
@@ -1583,7 +1573,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "herdr-client",
- "herdr-commands",
  "serde",
  "serde_json",
  "tauri",

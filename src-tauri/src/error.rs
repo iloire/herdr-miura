@@ -14,12 +14,6 @@ pub enum Error {
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]
     NotConnected,
-    #[error("no snapshot yet, so `{0}` has nothing to act on")]
-    NoSnapshot(String),
-    #[error("unknown command `{0}`")]
-    UnknownCommand(String),
-    #[error("`{0}` has no daemon request: it runs in the window, or nothing is focused")]
-    WindowCommand(String),
     #[error("unknown method `{0}`")]
     UnknownMethod(String),
 }

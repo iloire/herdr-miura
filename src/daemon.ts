@@ -1,12 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { BridgeEvent, PaneInputEvent, Surface } from "./protocol";
 
-export interface CatalogEntry {
-  name: string;
-  label: string;
-  shortcuts: string[];
-}
-
 /// The webview's handle on the Rust bridge. Each `connect` opens a fresh
 /// channel, and events from an older one are dropped here, so a reconnect can
 /// never be confused by what the previous connection was still delivering.
@@ -49,13 +43,5 @@ export class Daemon {
   /// later as a `response` event.
   request(bootId: string, method: string, params: Record<string, unknown>): Promise<string> {
     return invoke("request", { bootId, method, params });
-  }
-
-  runCommand(name: string): Promise<string> {
-    return invoke("run_command", { name });
-  }
-
-  catalog(): Promise<CatalogEntry[]> {
-    return invoke("catalog");
   }
 }

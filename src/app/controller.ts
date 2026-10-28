@@ -1,7 +1,8 @@
-import { Daemon, type CatalogEntry } from "../daemon";
+import { Daemon } from "../daemon";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
+import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { stepWorkspace } from "./step";
 
 export type Status =
@@ -27,20 +28,6 @@ export interface State {
   fontSize: number;
   commands: Command[];
 }
-
-/// Commands the window runs itself; the rest go to the daemon.
-const WINDOW_COMMANDS = new Set([
-  "command_palette",
-  "decrease_font_size",
-  "detach",
-  "increase_font_size",
-  "next_workspace",
-  "previous_workspace",
-  "reconnect",
-  "reset_font_size",
-  "review_changes",
-  "toggle_sidebar",
-]);
 
 /// Shortcuts beyond the catalog's defaults, the Option-arrows herdr-gpui
 /// answers through Herdr's `[keys]`: Up and Down step through workspaces,
@@ -91,9 +78,8 @@ export class Controller {
     for (const listener of this.listeners) listener();
   }
 
-  async loadCatalog(): Promise<void> {
-    const entries = await this.daemon.catalog();
-    const commands = entries.map((entry) => ({
+  loadCatalog(): void {
+    const commands = catalog(IS_MAC).map((entry) => ({
       ...entry,
       parsed: [...entry.shortcuts, ...(EXTRA_SHORTCUTS[entry.name] ?? [])]
         .map(parseShortcut)
@@ -247,11 +233,13 @@ export class Controller {
         void this.detach();
         return;
     }
-    this.daemon.runCommand(name).catch((error) => this.notice(error));
+    const snapshot = this.state.snapshot;
+    const request = snapshot && requestFor(name, snapshot);
+    if (request) this.request(request.method, request.params);
   }
 
   isWindowCommand(name: string): boolean {
-    return WINDOW_COMMANDS.has(name);
+    return isWindowCommand(name);
   }
 
   /// Set by the terminal view, so closing an overlay hands typing back to it.

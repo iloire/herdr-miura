@@ -47,7 +47,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    controller.loadCatalog().catch(() => {});
+    controller.loadCatalog();
     // Shortcuts work wherever focus is, not only in the terminal.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !(event.metaKey || event.ctrlKey || event.altKey)) return;

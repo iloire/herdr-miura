@@ -67,27 +67,17 @@ enum Outbound<'a> {
     },
 }
 
+/// The live client's handle; the webview keeps the snapshot it acts on.
 #[derive(Default)]
-struct Live {
-    handle: Option<ClientHandle>,
-    /// The latest snapshot, which catalog commands resolve their targets in.
-    snapshot: Option<Arc<ClientShellSnapshot>>,
-}
-
-#[derive(Default)]
-pub struct Connection(Arc<Mutex<Live>>);
+pub struct Connection(Mutex<Option<ClientHandle>>);
 
 impl Connection {
-    fn live(&self) -> std::sync::MutexGuard<'_, Live> {
+    fn live(&self) -> std::sync::MutexGuard<'_, Option<ClientHandle>> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub fn handle(&self) -> Result<ClientHandle> {
-        self.live().handle.clone().ok_or(Error::NotConnected)
-    }
-
-    pub fn snapshot(&self) -> Option<Arc<ClientShellSnapshot>> {
-        self.live().snapshot.clone()
+        self.live().clone().ok_or(Error::NotConnected)
     }
 
     /// Replaces any current connection. The old worker is told to stop and
@@ -99,27 +89,20 @@ impl Connection {
         events: Channel<InvokeResponseBody>,
     ) -> Result<()> {
         let client = herdr_client::connect(ConnectTarget::Local, options)?;
-        {
-            let mut live = self.live();
-            if let Some(old) = live.handle.replace(client.handle) {
-                old.disconnect();
-            }
-            live.snapshot = None;
+        if let Some(old) = self.live().replace(client.handle) {
+            old.disconnect();
         }
-        let shared = self.0.clone();
         thread::Builder::new()
             .name("herdr-tauri-events".into())
-            .spawn(move || pump(&client.events, &events, &app, &shared))
+            .spawn(move || pump(&client.events, &events, &app))
             .map_err(Error::Pump)?;
         Ok(())
     }
 
     pub fn disconnect(&self) {
-        let mut live = self.live();
-        if let Some(handle) = live.handle.take() {
+        if let Some(handle) = self.live().take() {
             handle.disconnect();
         }
-        live.snapshot = None;
     }
 }
 
@@ -127,7 +110,6 @@ fn pump(
     events: &Receiver<ClientEvent>,
     channel: &Channel<InvokeResponseBody>,
     app: &AppHandle,
-    shared: &Mutex<Live>,
 ) {
     let mut shown: Option<Arc<PaneSurfaceFrame>> = None;
     for event in events {
@@ -136,12 +118,7 @@ fn pump(
                 server_version: &welcome.server_version,
                 methods: &welcome.methods,
             },
-            ClientEvent::Snapshot(snapshot) => {
-                let mut live = shared.lock().unwrap_or_else(PoisonError::into_inner);
-                live.snapshot = Some(snapshot.clone());
-                drop(live);
-                Outbound::Snapshot { snapshot }
-            }
+            ClientEvent::Snapshot(snapshot) => Outbound::Snapshot { snapshot },
             ClientEvent::Surface(surface) => {
                 let update = frame::update(shown.as_deref(), surface);
                 if send(channel, &Outbound::Frame(update)).is_err() {

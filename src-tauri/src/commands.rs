@@ -11,8 +11,7 @@ use herdr_client::{
     ConnectOptions, Method,
     protocol::{ClientPaneInputEvent, ClientSurfaceSize},
 };
-use herdr_commands::COMMANDS;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use tauri::{
     AppHandle, State,
@@ -41,23 +40,21 @@ impl From<Surface> for ConnectOptions {
     }
 }
 
-#[derive(Serialize)]
-pub struct CatalogEntry {
-    name: &'static str,
-    label: &'static str,
-    /// GPUI keystroke syntax, such as `cmd-shift-d`.
-    shortcuts: &'static [&'static str],
-}
-
-/// The endpoint methods the webview may call directly, beyond the catalog.
+/// The endpoint methods the webview may call: its own requests and the
+/// ones its command catalog (`src/app/catalog.ts`) builds.
 const METHODS: &[Method] = &[
     // keep-sorted start
     Method::LayoutSetSplitRatio,
+    Method::PaneClear,
     Method::PaneClose,
+    Method::PaneEditScrollback,
     Method::PaneFocus,
+    Method::PaneFocusDirection,
     Method::PaneRename,
+    Method::PaneResize,
     Method::PaneScroll,
     Method::PaneSplit,
+    Method::PaneSwap,
     Method::PaneZoom,
     Method::TabClose,
     Method::TabCreate,
@@ -78,18 +75,6 @@ fn method(name: &str) -> Result<Method> {
         .copied()
         .find(|method| method.as_str() == name)
         .ok_or_else(|| Error::UnknownMethod(name.into()))
-}
-
-#[tauri::command]
-pub fn catalog() -> Vec<CatalogEntry> {
-    COMMANDS
-        .iter()
-        .map(|info| CatalogEntry {
-            name: info.name,
-            label: info.label,
-            shortcuts: info.default_shortcuts(),
-        })
-        .collect()
 }
 
 #[tauri::command]
@@ -151,23 +136,6 @@ pub fn request(
     Ok(connection.handle()?.request(boot_id, self::method(method)?, params)?)
 }
 
-/// Runs a catalog command against the latest snapshot, the same request
-/// herdr-gpui sends for it. Commands that live in the window are refused,
-/// and the webview runs those itself.
-#[tauri::command]
-pub fn run_command(connection: State<'_, Connection>, name: &str) -> Result<String> {
-    let info = COMMANDS
-        .iter()
-        .find(|info| info.name == name)
-        .ok_or_else(|| Error::UnknownCommand(name.into()))?;
-    let snapshot = connection
-        .snapshot()
-        .ok_or_else(|| Error::NoSnapshot(name.into()))?;
-    let (method, params) = herdr_commands::request(info.command, &snapshot)
-        .ok_or_else(|| Error::WindowCommand(name.into()))?;
-    Ok(connection.handle()?.request(&snapshot.boot_id, method, params)?)
-}
-
 /// The checkout `directory` sits in, or `None` outside Git. Git runs on the
 /// blocking pool, never the main thread.
 #[tauri::command]
@@ -226,14 +194,5 @@ mod tests {
             assert_eq!(method(known.as_str()).ok(), Some(*known));
         }
         assert!(matches!(method("pane.nuke"), Err(Error::UnknownMethod(_))));
-    }
-
-    #[test]
-    fn catalog_names_are_unique() {
-        let entries = catalog();
-        let mut names: Vec<_> = entries.iter().map(|entry| entry.name).collect();
-        names.sort_unstable();
-        names.dedup();
-        assert_eq!(names.len(), entries.len());
     }
 }

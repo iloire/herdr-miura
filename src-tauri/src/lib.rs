@@ -23,7 +23,6 @@ pub fn run() {
         .manage(connection::Connection::default())
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
-            commands::catalog,
             commands::change_counts,
             commands::checkout_changes,
             commands::connect,
@@ -34,7 +33,6 @@ pub fn run() {
             commands::open_folder,
             commands::request,
             commands::resize,
-            commands::run_command,
             commands::send_input,
             commands::send_popup_input,
             commands::set_focus,
