@@ -11,6 +11,8 @@ import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
 import { DiffView } from "./components/DiffView";
+import { FilesPanel } from "./components/FilesPanel";
+import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
 import { Sidebar } from "./components/Sidebar";
@@ -18,6 +20,7 @@ import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
 import { Terminal } from "./components/Terminal";
+import { useListing } from "./files/listing";
 import type { Snapshot } from "./protocol";
 
 /// How often an open Changes panel rereads its checkout.
@@ -41,6 +44,7 @@ export default function App() {
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
+  const [filePick, setFilePick] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
   const directory = focusedDirectory(state.snapshot);
@@ -156,9 +160,11 @@ export default function App() {
   const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
 
   // An open panel follows the focused pane, rereads on a timer, and rereads
-  // when the window comes back, since work usually happened elsewhere.
+  // when the window comes back, since work usually happened elsewhere. The
+  // Files panel reads it too, to mark the changed files in its tree.
+  const readChanges = state.changes || state.files;
   useEffect(() => {
-    if (!state.changes || !directory) return;
+    if (!readChanges || !directory) return;
     const refresh = () => changesStore.refresh(directory);
     refresh();
     const timer = window.setInterval(refresh, CHANGES_POLL_MS);
@@ -167,7 +173,7 @@ export default function App() {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [state.changes, directory, changesStore]);
+  }, [readChanges, directory, changesStore]);
 
   const checkout = changes.phase === "ready" ? changes.checkout : null;
   const checkoutPath = checkout?.path ?? null;
@@ -199,6 +205,20 @@ export default function App() {
     }
   };
 
+  const listing = useListing(directory, state.files);
+  const listingRoot = listing.phase === "ready" ? (listing.listing?.root ?? null) : null;
+  // A file opened in one checkout means nothing in the next.
+  useEffect(() => setFilePick(null), [listingRoot]);
+  const changedMarks = useMemo(
+    () => new Map(checkout?.path === listingRoot ? checkout.files.map((f) => [f.path, f.mark]) : []),
+    [checkout, listingRoot],
+  );
+  const shownTreeFile = state.files && listingRoot && filePick;
+  const closeFile = () => {
+    setFilePick(null);
+    controller.focusTerminal();
+  };
+
   const paletteCommands = useMemo(
     // `focus_tab_3` and friends are shortcuts, not things anyone searches for.
     () => state.commands.filter((command) => !/_\d$/.test(command.name)),
@@ -223,6 +243,7 @@ export default function App() {
               controller={controller}
               snapshot={state.snapshot}
               changes={state.changes}
+              files={state.files}
               pins={pins}
               onPinsChange={setPins}
             />
@@ -247,22 +268,37 @@ export default function App() {
                 onClose={closeDiff}
               />
             )}
+            {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
           <StatusBar controller={controller} state={state} ports={focusedPorts} />
         </main>
-        <div className={`drawer ${state.changes ? "open" : ""}`} aria-hidden={!state.changes}>
-          <ChangesPanel
-            store={changesStore}
-            selected={shownDiff ? diffPick : null}
-            openCommit={openCommit?.sha ?? null}
-            commitFiles={commitFiles}
-            onOpen={setDiffPick}
-            onToggleCommit={toggleCommit}
-            onClose={() => {
-              controller.closeChanges();
-              closeDiff();
-            }}
-          />
+        <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
+          {state.files ? (
+            <FilesPanel
+              state={listing}
+              changed={changedMarks}
+              selected={shownTreeFile ? filePick : null}
+              onOpen={setFilePick}
+              onLeave={() => controller.focusTerminal()}
+              onClose={() => {
+                controller.closeFiles();
+                closeFile();
+              }}
+            />
+          ) : (
+            <ChangesPanel
+              store={changesStore}
+              selected={shownDiff ? diffPick : null}
+              openCommit={openCommit?.sha ?? null}
+              commitFiles={commitFiles}
+              onOpen={setDiffPick}
+              onToggleCommit={toggleCommit}
+              onClose={() => {
+                controller.closeChanges();
+                closeDiff();
+              }}
+            />
+          )}
         </div>
       </div>
       {state.palette && <Palette controller={controller} commands={paletteCommands} />}

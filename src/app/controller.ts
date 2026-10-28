@@ -58,6 +58,8 @@ export interface State {
   palette: boolean;
   /// The Changes panel is open.
   changes: boolean;
+  /// The Files panel is open. It shares the drawer with Changes, so at most one is.
+  files: boolean;
   fontSize: number;
   commands: Command[];
 }
@@ -89,6 +91,7 @@ export class Controller {
     sidebar: true,
     palette: false,
     changes: false,
+    files: false,
     fontSize: DEFAULT_FONT_SIZE,
     commands: [],
   };
@@ -291,7 +294,9 @@ export class Controller {
       case "command_palette":
         return this.set({ palette: !this.state.palette });
       case "review_changes":
-        return this.set({ changes: !this.state.changes });
+        return this.set({ changes: !this.state.changes, files: false });
+      case "browse_files":
+        return this.set({ files: !this.state.files, changes: false });
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
@@ -329,6 +334,10 @@ export class Controller {
 
   closeChanges(): void {
     this.set({ changes: false });
+  }
+
+  closeFiles(): void {
+    this.set({ files: false });
   }
 
   closePalette(): void {

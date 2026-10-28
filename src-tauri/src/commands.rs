@@ -5,6 +5,7 @@ use crate::{
     Error, Result,
     changes::{self, CheckoutView, CommitFilesView, FileDiff},
     connection::Connection,
+    files::{self, Contents, Listing},
     folder::{self, Opener},
     listening_ports,
     ssh_hosts,
@@ -200,6 +201,29 @@ pub async fn listening_ports(
     connection.ensure_local()?;
     let scan = tauri::async_runtime::spawn_blocking(listening_ports::scan);
     Ok(scan.await.map_err(listening_ports::Error::Worker)??)
+}
+
+/// Every file of the checkout `directory` sits in, or `None` outside Git.
+#[tauri::command]
+pub async fn list_files(
+    connection: State<'_, Connection>,
+    directory: String,
+) -> Result<Option<Listing>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::list(&directory));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// One file of the checkout at `root`, for the file view.
+#[tauri::command]
+pub async fn read_file(
+    connection: State<'_, Connection>,
+    root: String,
+    path: String,
+) -> Result<Contents> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::read(&root, &path));
+    Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
 /// Moves a tab's panes into a new tab of another workspace through the

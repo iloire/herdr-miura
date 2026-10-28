@@ -79,3 +79,17 @@ export const GlobeIcon = () => (
     <path d="M2 8h12M8 2c-2 2-2 10 0 12M8 2c2 2 2 10 0 12" {...LINE} />
   </Icon>
 );
+
+/// A folder in the Files tree.
+export const FolderIcon = () => (
+  <Icon>
+    <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z" {...LINE} />
+  </Icon>
+);
+
+/// A file in the Files tree.
+export const FileIcon = () => (
+  <Icon>
+    <path d="M4 1.75h5L12.5 5.25v8a1 1 0 0 1-1 1h-7.5a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1ZM8.75 1.75v3.5h3.5M5.5 8.5h5M5.5 11h3.5" {...LINE} />
+  </Icon>
+);

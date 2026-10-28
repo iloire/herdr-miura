@@ -5,6 +5,8 @@ pub enum Error {
     #[error(transparent)]
     Changes(#[from] crate::changes::Error),
     #[error(transparent)]
+    Files(#[from] crate::files::Error),
+    #[error(transparent)]
     TabMove(#[from] crate::tab_move::Error),
     #[error(transparent)]
     SshHosts(#[from] crate::ssh_hosts::Error),

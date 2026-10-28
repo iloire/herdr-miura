@@ -212,6 +212,7 @@ const DEFINITIONS: Definition[] = [
   { name: "reset_font_size", label: "Reset Font Size", mac: ["cmd-0"], other: ["ctrl-shift-0"], action: "window" },
   { name: "command_palette", label: "Command Palette", mac: ["cmd-shift-p"], other: ["ctrl-shift-p"], action: "window" },
   { name: "review_changes", label: "Review Changes", mac: [], other: [], action: "window" },
+  { name: "browse_files", label: "Browse Files", mac: ["cmd-shift-e"], other: ["ctrl-shift-e"], action: "window" },
   { name: "detach", label: "Detach", mac: [], other: [], action: "window" },
   { name: "reconnect", label: "Reconnect", mac: [], other: [], action: "window" },
 ];

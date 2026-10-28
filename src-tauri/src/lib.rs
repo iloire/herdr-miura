@@ -6,6 +6,7 @@ mod changes;
 mod commands;
 mod connection;
 mod error;
+mod files;
 mod folder;
 mod frame;
 mod git;
@@ -35,8 +36,10 @@ pub fn run() {
             commands::commit_files,
             commands::file_diff,
             commands::listening_ports,
+            commands::list_files,
             commands::move_tab,
             commands::open_folder,
+            commands::read_file,
             commands::request,
             commands::resize,
             commands::send_input,

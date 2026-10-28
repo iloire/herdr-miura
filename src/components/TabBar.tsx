@@ -4,19 +4,21 @@ import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { PinIcon } from "./icons";
+import { FolderIcon, PinIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
 
 export function TabBar({
   controller,
   snapshot,
   changes,
+  files,
   pins,
   onPinsChange,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
   changes: boolean;
+  files: boolean;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
 }) {
@@ -155,6 +157,15 @@ export function TabBar({
         onClick={() => controller.run("review_changes")}
       >
         ±
+      </button>
+      <button
+        className="icon-button changes-toggle"
+        title="Files"
+        aria-label="Files"
+        aria-pressed={files}
+        onClick={() => controller.run("browse_files")}
+      >
+        <FolderIcon />
       </button>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </div>

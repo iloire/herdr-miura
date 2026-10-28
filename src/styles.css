@@ -1188,3 +1188,144 @@ kbd {
 .workspace.has-ports {
   padding-bottom: 22px;
 }
+
+/* Files panel: the header and filter stay put while the tree scrolls. */
+
+.files {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.files-filter {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.files-filter input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--text);
+  font: 12px/1.3 var(--sans);
+  outline: none;
+}
+
+.files-filter input:focus {
+  border-color: var(--muted);
+}
+
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 6px 16px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--text);
+  text-align: left;
+  font: 12px/1.4 var(--mono);
+  white-space: nowrap;
+}
+
+.tree-row svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.tree-row:hover {
+  background: #1b222a;
+}
+
+.tree-row[aria-current="true"] {
+  background: #1f2730;
+}
+
+.chevron {
+  flex: none;
+  width: 8px;
+  color: var(--muted);
+  transition: transform 120ms;
+}
+
+.tree-row[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-name.changed {
+  color: var(--lantern);
+}
+
+.tree-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* File view: the diff view's frame, with a gutter of line numbers beside
+   the text, or an image on a checkerboard so transparency shows. */
+
+.file-text {
+  display: flex;
+  font: 12px/1.55 var(--mono);
+  min-width: max-content;
+}
+
+.file-text pre {
+  margin: 0;
+  padding: 8px 0;
+  font: inherit;
+}
+
+.file-numbers {
+  position: sticky;
+  left: 0;
+  min-width: 52px;
+  padding-right: 12px !important;
+  text-align: right;
+  color: #4b5562;
+  background: var(--ink);
+  user-select: none;
+}
+
+.file-code {
+  padding: 8px 16px 8px 4px !important;
+}
+
+.file-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+}
+
+.file-image img {
+  max-width: 100%;
+  image-rendering: auto;
+  background: repeating-conic-gradient(#1b222a 0% 25%, #232b34 0% 50%) 0 0 / 16px 16px;
+  border: 1px solid var(--rule);
+}
+
+.file-dimensions {
+  margin: 0;
+  color: var(--muted);
+  font: 11px var(--mono);
+}

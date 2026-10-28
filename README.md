@@ -7,6 +7,8 @@ be changed with hot reload instead of a Rust rebuild. It is a port of the fundam
 [herdr-gpui](https://github.com/penso/herdr-gpui): the workspace sidebar, tabs, split panes, the terminal
 surface, keyboard, mouse, and paste input, and the command catalog with its shortcuts. A Changes panel shows
 what changed in the checkout you are working in, with each file's diff, and what each recent commit changed.
+A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and opens any file's text or image
+over the terminal.
 
 It's for people who already run Herdr and want a native window on their sessions they can change quickly.
 Like herdr-gpui it is only a client: closing it leaves the daemon and every terminal running.
