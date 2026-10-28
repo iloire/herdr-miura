@@ -1,7 +1,11 @@
 //! Tauri commands: the webview's whole surface into the daemon. Each one only
 //! queues work on `herdr-client`'s bounded command queue; none blocks.
 
-use crate::{Error, Result, connection::Connection};
+use crate::{
+    Error, Result,
+    changes::{self, CheckoutView, FileDiff},
+    connection::Connection,
+};
 use herdr_client::{
     ConnectOptions, Method,
     protocol::{ClientPaneInputEvent, ClientSurfaceSize},
@@ -161,6 +165,21 @@ pub fn run_command(connection: State<'_, Connection>, name: &str) -> Result<Stri
     let (method, params) = herdr_commands::request(info.command, &snapshot)
         .ok_or_else(|| Error::WindowCommand(name.into()))?;
     Ok(connection.handle()?.request(&snapshot.boot_id, method, params)?)
+}
+
+/// The checkout `directory` sits in, or `None` outside Git. Git runs on the
+/// blocking pool, never the main thread.
+#[tauri::command]
+pub async fn checkout_changes(directory: String) -> Result<Option<CheckoutView>> {
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&directory));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+#[tauri::command]
+pub async fn file_diff(checkout: String, path: String, untracked: bool) -> Result<FileDiff> {
+    let read =
+        tauri::async_runtime::spawn_blocking(move || changes::read_diff(&checkout, &path, untracked));
+    Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
 #[cfg(test)]

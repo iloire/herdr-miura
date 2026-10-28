@@ -2,7 +2,15 @@ import type { Controller } from "../app/controller";
 import type { Snapshot } from "../protocol";
 import { StatusDot } from "./Sidebar";
 
-export function TabBar({ controller, snapshot }: { controller: Controller; snapshot: Snapshot | null }) {
+export function TabBar({
+  controller,
+  snapshot,
+  changes,
+}: {
+  controller: Controller;
+  snapshot: Snapshot | null;
+  changes: boolean;
+}) {
   const tabs = snapshot?.tabs.filter((tab) => tab.workspace_id === snapshot.focused_workspace_id) ?? [];
   return (
     <div className="tabbar" role="tablist" aria-label="Tabs">
@@ -35,6 +43,16 @@ export function TabBar({ controller, snapshot }: { controller: Controller; snaps
         onClick={() => controller.run("new_tab")}
       >
         +
+      </button>
+      <span className="tabbar-spacer" />
+      <button
+        className="icon-button changes-toggle"
+        title="Changes"
+        aria-label="Changes"
+        aria-pressed={changes}
+        onClick={() => controller.run("review_changes")}
+      >
+        ±
       </button>
     </div>
   );

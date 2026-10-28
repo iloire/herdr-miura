@@ -3,6 +3,8 @@ use serde::{Serialize, Serializer};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    Changes(#[from] crate::changes::Error),
+    #[error(transparent)]
     Client(#[from] herdr_client::Error),
     #[error("event pump not started")]
     Pump(#[source] std::io::Error),

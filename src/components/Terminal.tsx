@@ -224,7 +224,9 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     input.addEventListener("focus", onFocus);
     input.addEventListener("blur", onBlur);
     input.focus();
+    controller.focusTerminal = () => input.focus();
     return () => {
+      controller.focusTerminal = () => {};
       unsubscribe();
       cancelAnimationFrame(scheduled);
       clearTimeout(resizeTimer);

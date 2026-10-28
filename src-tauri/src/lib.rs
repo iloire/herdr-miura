@@ -2,6 +2,7 @@
 //! `herdr-client`. Everything the user sees is TypeScript in `src/`; this side
 //! owns the socket and the wire format and exposes them as Tauri commands.
 
+mod changes;
 mod commands;
 mod connection;
 mod error;
@@ -19,8 +20,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
             commands::catalog,
+            commands::checkout_changes,
             commands::connect,
             commands::disconnect,
+            commands::file_diff,
             commands::request,
             commands::resize,
             commands::run_command,

@@ -14,6 +14,7 @@
 | `connection.rs` | Owns the `ClientHandle`, drains `ClientEvent`s on a pump thread, and forwards them as tagged JSON. Keeps the latest snapshot for catalog commands. Writes OSC 52 clipboard text itself. |
 | `frame.rs` | Turns each reconstructed `PaneSurfaceFrame` into a `FrameUpdate`: every row after a size or boot change, otherwise only the rows that changed. Cells are positional tuples to keep payloads small. |
 | `commands.rs` | The Tauri commands: `connect`, `disconnect`, `resize`, `set_focus`, `send_input`, `send_popup_input`, `request` (an allowlist of endpoint methods), `run_command` (a herdr-commands catalog entry, resolved against the latest snapshot), `catalog`. |
+| `changes.rs` | The Changes panel's reads through `herdr-vcs`: `checkout_changes(directory)` (branch, ahead/behind, up to 50 files with line counts, recent commits) and `file_diff(checkout, path, untracked)` (`git diff HEAD`, capped at 1 MiB, or an untracked file's text). Runs on Tauri's blocking pool with a 5 s deadline, refuses paths that leave the checkout, and never contacts a remote. |
 | `osc52.rs` | Bounded base64 to UTF-8 decoding for the daemon's clipboard writes. |
 | `error.rs` | The crate's `thiserror` enum. It serializes as its message at the webview boundary. |
 
@@ -36,6 +37,8 @@ upstream protocol changes, bump `rev` and run `npm run check`.
 | `terminal/theme.ts` | The cell color encoding (named 0..=16, indexed `0x01..XX`, RGB `0x02RRGGBB`) and modifiers, ported from herdr-gpui. |
 | `terminal/keys.ts` | Maps a `KeyboardEvent` to a `ClientPaneInputEvent`, and parses and matches GPUI-style shortcuts. |
 | `terminal/mouse.ts` | Wheel events (one event for scrollback, one per line for apps) and the paste bound. |
+| `changes/diff.ts` | Parses unified diffs into numbered hunks, and strips control and direction-override characters from the untrusted lines. |
+| `changes/store.ts` | Reads the checkout under the focused pane, one read at a time, keeping a request that arrives mid-read for next. |
 | `components/` | React views. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. |
 
 ## Input rules carried over from herdr-gpui

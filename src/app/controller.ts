@@ -21,6 +21,8 @@ export interface State {
   title: string | null;
   sidebar: boolean;
   palette: boolean;
+  /// The Changes panel is open.
+  changes: boolean;
   fontSize: number;
   commands: Command[];
 }
@@ -33,6 +35,7 @@ const WINDOW_COMMANDS = new Set([
   "increase_font_size",
   "reconnect",
   "reset_font_size",
+  "review_changes",
   "toggle_sidebar",
 ]);
 
@@ -49,6 +52,7 @@ export class Controller {
     title: null,
     sidebar: true,
     palette: false,
+    changes: false,
     fontSize: DEFAULT_FONT_SIZE,
     commands: [],
   };
@@ -197,6 +201,8 @@ export class Controller {
     switch (name) {
       case "command_palette":
         return this.set({ palette: !this.state.palette });
+      case "review_changes":
+        return this.set({ changes: !this.state.changes });
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
@@ -217,6 +223,13 @@ export class Controller {
 
   isWindowCommand(name: string): boolean {
     return WINDOW_COMMANDS.has(name);
+  }
+
+  /// Set by the terminal view, so closing an overlay hands typing back to it.
+  focusTerminal: () => void = () => {};
+
+  closeChanges(): void {
+    this.set({ changes: false });
   }
 
   closePalette(): void {

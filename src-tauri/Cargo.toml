@@ -22,12 +22,16 @@ tauri-build = { version = "2", features = [] }
 herdr-client = { git = "https://github.com/penso/herdr-gpui", rev = "4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9" }
 base64 = "0.22"
 herdr-commands = { git = "https://github.com/penso/herdr-gpui", rev = "4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9" }
+herdr-vcs = { git = "https://github.com/penso/herdr-gpui", rev = "4987e2497712c48b88bb4dbe0b3fbfede6e9ddd9" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints.clippy]
 expect_used = "deny"
