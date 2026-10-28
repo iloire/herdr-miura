@@ -167,9 +167,13 @@ export default function App() {
       )}
       <div className="workarea">
         <main className="main">
-          <TabBar controller={controller} snapshot={state.snapshot} changes={state.changes} />
-          <div className="stage">
-            <Terminal controller={controller} fontSize={state.fontSize} />
+          {/* The diff covers the tab bar too: its tabs are the sessions, not
+              the diff's, and would read as if they switched what it shows. */}
+          <div className="deck">
+            <TabBar controller={controller} snapshot={state.snapshot} changes={state.changes} />
+            <div className="stage">
+              <Terminal controller={controller} fontSize={state.fontSize} />
+            </div>
             {shownDiff && checkout && (
               <DiffView
                 checkout={checkout.path}

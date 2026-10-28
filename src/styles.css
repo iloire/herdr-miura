@@ -377,8 +377,16 @@ body.reordering * {
 .main {
   flex: 1;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   min-width: 0;
+  min-height: 0;
+}
+
+/* The tab bar and the terminal, which an open diff covers together. */
+.deck {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
   min-height: 0;
 }
 
@@ -768,7 +776,8 @@ body.reordering * {
   color: var(--blocked);
 }
 
-/* Diff view: covers the terminal, which stays mounted underneath. */
+/* Diff view: covers the tab bar and the terminal, which stays mounted
+   underneath at its size, so the daemon sees no resize. */
 
 .diff-view {
   position: absolute;
