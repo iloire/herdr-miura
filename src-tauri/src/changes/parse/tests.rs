@@ -89,3 +89,21 @@ fn porcelain_count_skips_a_renames_old_path() {
     assert_eq!(count_porcelain(" M a\0R  new\0old\0?? b\0"), 3);
     assert_eq!(count_porcelain(""), 0);
 }
+
+#[test]
+fn name_status_reads_every_kind_and_the_new_path_of_a_rename() {
+    let files = name_status(
+        "M\0src/a file.rs\0A\0new.rs\0D\0gone.rs\0R087\0old.rs\0moved.rs\0C100\0src.rs\0copy.rs\0",
+    );
+    let marks: Vec<_> = files.iter().map(|f| (f.path.as_str(), f.kind)).collect();
+    assert_eq!(
+        marks,
+        vec![
+            ("src/a file.rs", Kind::Modified),
+            ("new.rs", Kind::Added),
+            ("gone.rs", Kind::Deleted),
+            ("moved.rs", Kind::Renamed),
+            ("copy.rs", Kind::Added),
+        ]
+    );
+}

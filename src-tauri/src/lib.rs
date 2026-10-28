@@ -29,6 +29,7 @@ pub fn run() {
             commands::connect,
             commands::copy_path,
             commands::disconnect,
+            commands::commit_files,
             commands::file_diff,
             commands::move_tab,
             commands::open_folder,

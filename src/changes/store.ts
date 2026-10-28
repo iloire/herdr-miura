@@ -31,6 +31,12 @@ export interface CheckoutChanges {
   commits: RecentCommit[];
 }
 
+/// The files one commit changed, against its first parent.
+export interface CommitFiles {
+  files: ChangedFile[];
+  total_files: number;
+}
+
 export type FileDiff = { type: "patch"; text: string } | { type: "untracked"; text: string };
 
 export type ChangesState =
@@ -87,6 +93,11 @@ export class ChangesStore {
   }
 }
 
-export function fileDiff(checkout: string, file: ChangedFile): Promise<FileDiff> {
-  return invoke<FileDiff>("file_diff", { checkout, path: file.path, untracked: file.mark === "?" });
+export function commitFiles(checkout: string, sha: string): Promise<CommitFiles> {
+  return invoke<CommitFiles>("commit_files", { checkout, sha });
+}
+
+/// A file's uncommitted change, or with `commit`, its change in that commit.
+export function fileDiff(checkout: string, file: ChangedFile, commit: string | null): Promise<FileDiff> {
+  return invoke<FileDiff>("file_diff", { checkout, path: file.path, untracked: file.mark === "?", commit });
 }

@@ -716,12 +716,48 @@ body.reordering * {
   color: var(--blocked);
 }
 
-.commit-list li {
+.commit {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 8px;
+  width: 100%;
   padding: 4px 10px;
+  border-radius: 6px;
   align-items: baseline;
+  text-align: left;
+}
+
+.commit:hover {
+  background: #1b222a;
+}
+
+.commit[aria-expanded="true"] {
+  background: #1f2730;
+}
+
+/* An open commit: its whole subject, then its files, indented under the row. */
+.commit-detail {
+  margin: 2px 0 8px 10px;
+  padding-left: 6px;
+  border-left: 1px solid var(--rule);
+}
+
+.commit-subject,
+.commit-author {
+  margin: 0;
+  padding: 4px 10px 0;
+  overflow-wrap: anywhere;
+}
+
+.commit-author {
+  padding-top: 0;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font: 11px/1.4 var(--mono);
+}
+
+.commit-detail .file-list {
+  padding: 0;
 }
 
 .commit-list .subject {

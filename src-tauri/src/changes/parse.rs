@@ -117,6 +117,35 @@ pub fn status(text: &str) -> Status {
     status
 }
 
+/// `--name-status -z`: a status letter, then the path, or for a rename or
+/// copy a score and then the old and new paths, each its own NUL field.
+pub fn name_status(text: &str) -> Vec<FileChange> {
+    let mut files = Vec::new();
+    let mut fields = text.split('\0').map(|field| field.trim_start_matches('\n'));
+    while let Some(entry) = fields.next() {
+        let kind = match entry.as_bytes().first() {
+            Some(b'A' | b'C') => Kind::Added,
+            Some(b'D') => Kind::Deleted,
+            Some(b'R') => Kind::Renamed,
+            Some(b'U') => Kind::Conflicted,
+            Some(_) => Kind::Modified,
+            None => continue,
+        };
+        if matches!(kind, Kind::Renamed) || entry.starts_with('C') {
+            fields.next();
+        }
+        if let Some(path) = fields.next().filter(|path| !path.is_empty()) {
+            files.push(FileChange {
+                path: path.to_owned(),
+                kind,
+                additions: None,
+                deletions: None,
+            });
+        }
+    }
+    files
+}
+
 /// Adds `diff --numstat -z` counts to the files they name. A rename prints
 /// an empty path and then its old and new paths as two more NUL fields.
 pub fn apply_numstat(files: &mut [FileChange], text: &str) {

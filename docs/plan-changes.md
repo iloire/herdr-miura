@@ -29,10 +29,13 @@ Read-only: commit and push come in the next step.
 5. ~~Diff view: covers the terminal area (the terminal stays mounted, so the daemon sees no resize), shows
    the diff inline with old and new line numbers, steps through files with ↑/↓, and closes with Esc.~~ ✅
 6. ~~Check it in the real app against a demo repository, and update the README and architecture doc.~~ ✅
+7. ~~Commit diffs, as herdr-gpui's Changes: picking a recent commit lists the files it changed under it,
+   and picking one opens the diff view on that file's change in the commit (against its first parent, or
+   the empty tree for a root commit), ↑/↓ stepping through the commit's files.~~ ✅
 
 ## Later, not in this step
 
-Syntax highlighting (Shiki), side-by-side view, word-level emphasis, commit diffs, staging, commit, push,
+Syntax highlighting (Shiki), side-by-side view, word-level emphasis, staging, commit, push,
 and pull requests (`herdr-github`).
 
 ## Ideas from codeflow (gimenete/codeflow)

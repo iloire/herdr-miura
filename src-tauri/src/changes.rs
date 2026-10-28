@@ -1,5 +1,5 @@
 //! The Changes panel's reads: the checkout a directory sits in with its
-//! files and commits, and one file's diff. Every read runs Git on Tauri's
+//! files and commits, the files one commit changed, and one file's diff. Every read runs Git on Tauri's
 //! blocking pool under a deadline and contacts no remote; nothing here writes.
 
 mod parse;
@@ -24,6 +24,8 @@ const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 const MAX_FILES: usize = 50;
 /// Commits listed per checkout.
 const MAX_COMMITS: usize = 5;
+/// Files listed per commit; the rest are only counted.
+const MAX_COMMIT_FILES: usize = 300;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -35,6 +37,8 @@ pub enum Error {
     OutsideCheckout(String),
     #[error("the file is binary, too large, or a symlink")]
     NotText,
+    #[error("{0} is not a commit name")]
+    InvalidCommit(String),
     #[error("the Git worker stopped")]
     Worker(#[source] tauri::Error),
 }
@@ -94,6 +98,13 @@ impl From<Commit> for CommitView {
             time: commit.time,
         }
     }
+}
+
+/// The files one commit changed, against its first parent.
+#[derive(Debug, Serialize)]
+pub struct CommitFilesView {
+    files: Vec<FileView>,
+    total_files: usize,
 }
 
 /// One file's change: a unified diff, or an untracked file's whole text.
@@ -190,6 +201,50 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     }))
 }
 
+/// A commit's full name, as the webview sends it back: 40 lowercase hex
+/// digits, or 64 in a SHA-256 repository, so Git cannot take it for an
+/// option, a range, or a ref.
+fn commit_name(sha: &str) -> Result<&str, Error> {
+    let valid = matches!(sha.len(), 40 | 64)
+        && sha
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte));
+    valid
+        .then_some(sha)
+        .ok_or_else(|| Error::InvalidCommit(sha.into()))
+}
+
+/// What `git show` compares a commit with: a merge with its first parent,
+/// a root commit with the empty tree.
+const SHOW: [&str; 4] = ["show", "--format=", "-M", "--diff-merges=first-parent"];
+
+/// The files `sha` changed in the checkout at `checkout`, with their counts.
+pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> {
+    let sha = commit_name(sha)?;
+    let deadline = Instant::now() + DEADLINE;
+    let mut files = parse::name_status(&git::text(
+        checkout,
+        &[&SHOW[..], &["-z", "--name-status", sha]].concat(),
+        "read the commit's files",
+        deadline,
+    )?);
+    // Counts are a nicety: a failure keeps the files without them.
+    if let Ok(numstat) = git::text(
+        checkout,
+        &[&SHOW[..], &["-z", "--numstat", sha]].concat(),
+        "count the commit's lines",
+        deadline,
+    ) {
+        parse::apply_numstat(&mut files, &numstat);
+    }
+    let total_files = files.len();
+    files.truncate(MAX_COMMIT_FILES);
+    Ok(CommitFilesView {
+        files: files.into_iter().map(FileView::from).collect(),
+        total_files,
+    })
+}
+
 /// The remote's default branch as last fetched: what `origin/HEAD` names,
 /// else `origin/main` or `origin/master`, whichever exists.
 fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
@@ -267,20 +322,27 @@ fn read_text(path: &Path) -> Option<String> {
 
 /// `path` is relative to `checkout`, as Git status lists it. The webview
 /// sends it back, so a path that could leave the checkout is refused.
-pub fn read_diff(checkout: &str, path: &str, untracked: bool) -> Result<FileDiff, Error> {
+/// With `commit`, the file's change in that commit; else its uncommitted one.
+pub fn read_diff(
+    checkout: &str,
+    path: &str,
+    untracked: bool,
+    commit: Option<&str>,
+) -> Result<FileDiff, Error> {
     if !Path::new(path)
         .components()
         .all(|part| matches!(part, Component::Normal(_)))
     {
         return Err(Error::OutsideCheckout(path.into()));
     }
-    if untracked {
+    let commit = commit.map(commit_name).transpose()?;
+    if untracked && commit.is_none() {
         let text = read_text(&Path::new(checkout).join(path)).ok_or(Error::NotText)?;
         return Ok(FileDiff::Untracked { text });
     }
-    let bytes = git::run(
-        checkout,
-        &[
+    let args = match commit {
+        Some(sha) => [&SHOW[..], &["--no-color", "--no-ext-diff", sha, "--", path]].concat(),
+        None => vec![
             "diff",
             "--no-color",
             "--no-ext-diff",
@@ -289,6 +351,10 @@ pub fn read_diff(checkout: &str, path: &str, untracked: bool) -> Result<FileDiff
             "--",
             path,
         ],
+    };
+    let bytes = git::run(
+        checkout,
+        &args,
         "read the diff",
         Instant::now() + DEADLINE,
         MAX_DIFF_BYTES,

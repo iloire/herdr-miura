@@ -6,7 +6,7 @@ A desktop client for the [Herdr](https://herdr.dev) daemon whose UI is written i
 be changed with hot reload instead of a Rust rebuild. It is a port of the fundamentals of
 [herdr-gpui](https://github.com/penso/herdr-gpui): the workspace sidebar, tabs, split panes, the terminal
 surface, keyboard, mouse, and paste input, and the command catalog with its shortcuts. A Changes panel shows
-what changed in the checkout you are working in, with each file's diff.
+what changed in the checkout you are working in, with each file's diff, and what each recent commit changed.
 
 It's for people who already run Herdr and want a native window on their sessions they can change quickly.
 Like herdr-gpui it is only a client: closing it leaves the daemon and every terminal running.

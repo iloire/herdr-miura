@@ -3,7 +3,7 @@
 
 use crate::{
     Error, Result,
-    changes::{self, CheckoutView, FileDiff},
+    changes::{self, CheckoutView, CommitFilesView, FileDiff},
     connection::Connection,
     folder::{self, Opener},
 };
@@ -151,16 +151,33 @@ pub async fn change_counts(directories: Vec<String>) -> Result<Vec<Option<usize>
 }
 
 #[tauri::command]
-pub async fn file_diff(checkout: String, path: String, untracked: bool) -> Result<FileDiff> {
-    let read =
-        tauri::async_runtime::spawn_blocking(move || changes::read_diff(&checkout, &path, untracked));
+pub async fn commit_files(checkout: String, sha: String) -> Result<CommitFilesView> {
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&checkout, &sha));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// One file's diff: its uncommitted change, or with `commit`, its change in that commit.
+#[tauri::command]
+pub async fn file_diff(
+    checkout: String,
+    path: String,
+    untracked: bool,
+    commit: Option<String>,
+) -> Result<FileDiff> {
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        changes::read_diff(&checkout, &path, untracked, commit.as_deref())
+    });
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
 /// Moves a tab's panes into a new tab of another workspace through the
 /// `herdr` CLI, on the blocking pool since it waits on child processes.
 #[tauri::command]
-pub async fn move_tab(panes: Vec<String>, workspace_id: String, label: Option<String>) -> Result<()> {
+pub async fn move_tab(
+    panes: Vec<String>,
+    workspace_id: String,
+    label: Option<String>,
+) -> Result<()> {
     let run = tauri::async_runtime::spawn_blocking(move || {
         crate::tab_move::move_tab(&panes, &workspace_id, label.as_deref())
     });

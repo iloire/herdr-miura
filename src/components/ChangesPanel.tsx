@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
-import type { ChangedFile, ChangesStore } from "../changes/store";
+import type { ChangedFile, ChangesStore, RecentCommit } from "../changes/store";
+import type { CommitFilesState } from "../changes/useCommitFiles";
 
 function relativeTime(seconds: number): string {
   const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
@@ -19,21 +20,61 @@ const MARK_LABEL: Record<string, string> = {
   U: "Conflicted",
 };
 
+/// A file whose diff is shown: its uncommitted change, or with `commit`
+/// (a full name), its change in that commit.
+export interface DiffPick {
+  file: ChangedFile;
+  commit: string | null;
+}
+
+function FileRow({ file, current, onOpen }: { file: ChangedFile; current: boolean; onOpen: () => void }) {
+  return (
+    <li>
+      <button
+        className="file"
+        aria-current={current ? "true" : undefined}
+        onClick={onOpen}
+        title={`${MARK_LABEL[file.mark] ?? file.mark}: ${file.path}`}
+      >
+        <span className={`mark mark-${file.mark === "?" ? "untracked" : file.mark}`}>{file.mark}</span>
+        <span className="file-name">
+          <span className="base">{file.path.split("/").pop()}</span>
+          <span className="dir">{file.path.split("/").slice(0, -1).join("/")}</span>
+        </span>
+        {file.additions !== null && (
+          <span className="lines">
+            <span className="plus">+{file.additions}</span> <span className="minus">−{file.deletions}</span>
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
 /// The checkout under the focused pane: branch, changed files, recent
-/// commits. Picking a file opens its diff.
+/// commits. Picking a file opens its diff; picking a commit lists its files
+/// under it, as herdr-gpui's Changes does.
 export function ChangesPanel({
   store,
   selected,
+  openCommit,
+  commitFiles,
   onOpen,
+  onToggleCommit,
   onClose,
 }: {
   store: ChangesStore;
-  selected: string | null;
-  onOpen: (file: ChangedFile) => void;
+  selected: DiffPick | null;
+  openCommit: string | null;
+  commitFiles: CommitFilesState | null;
+  onOpen: (pick: DiffPick) => void;
+  onToggleCommit: (commit: RecentCommit) => void;
   onClose: () => void;
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
+  const isSelected = (file: ChangedFile, commit: string | null) =>
+    selected?.file.path === file.path && selected.commit === commit;
   return (
     <aside className="changes" aria-label="Changes">
       <header className="changes-head">
@@ -76,25 +117,12 @@ export function ChangesPanel({
           </h3>
           <ul className="file-list">
             {checkout.files.map((file) => (
-              <li key={file.path}>
-                <button
-                  className="file"
-                  aria-current={selected === file.path ? "true" : undefined}
-                  onClick={() => onOpen(file)}
-                  title={`${MARK_LABEL[file.mark] ?? file.mark}: ${file.path}`}
-                >
-                  <span className={`mark mark-${file.mark === "?" ? "untracked" : file.mark}`}>{file.mark}</span>
-                  <span className="file-name">
-                    <span className="base">{file.path.split("/").pop()}</span>
-                    <span className="dir">{file.path.split("/").slice(0, -1).join("/")}</span>
-                  </span>
-                  {file.additions !== null && (
-                    <span className="lines">
-                      <span className="plus">+{file.additions}</span> <span className="minus">−{file.deletions}</span>
-                    </span>
-                  )}
-                </button>
-              </li>
+              <FileRow
+                key={file.path}
+                file={file}
+                current={isSelected(file, null)}
+                onOpen={() => onOpen({ file, commit: null })}
+              />
             ))}
           </ul>
           {checkout.total_files > checkout.files.length && (
@@ -104,13 +132,52 @@ export function ChangesPanel({
             <>
               <h3 className="changes-section">Recent commits</h3>
               <ul className="commit-list">
-                {checkout.commits.map((commit) => (
-                  <li key={commit.sha} title={`${commit.sha}\n${commit.author}`}>
-                    <span className="sha">{commit.short}</span>
-                    <span className="subject">{commit.subject}</span>
-                    <span className="when">{relativeTime(commit.time)}</span>
-                  </li>
-                ))}
+                {checkout.commits.map((commit) => {
+                  const open = openCommit === commit.sha;
+                  return (
+                    <li key={commit.sha}>
+                      <button
+                        className="commit"
+                        aria-expanded={open}
+                        onClick={() => onToggleCommit(commit)}
+                        title={`${commit.sha}\n${commit.author}`}
+                      >
+                        <span className="sha">{commit.short}</span>
+                        <span className="subject">{commit.subject}</span>
+                        <span className="when">{relativeTime(commit.time)}</span>
+                      </button>
+                      {open && (
+                        <div className="commit-detail">
+                          <p className="commit-subject">{commit.subject}</p>
+                          <p className="commit-author">{commit.author}</p>
+                          {commitFiles?.phase === "loading" && <p className="empty">Reading the commit…</p>}
+                          {commitFiles?.phase === "failed" && (
+                            <p className="empty error">Could not read the commit: {commitFiles.error}</p>
+                          )}
+                          {commitFiles?.phase === "ready" && (
+                            <>
+                              <ul className="file-list">
+                                {commitFiles.files.map((file) => (
+                                  <FileRow
+                                    key={file.path}
+                                    file={file}
+                                    current={isSelected(file, commit.sha)}
+                                    onOpen={() => onOpen({ file, commit: commit.sha })}
+                                  />
+                                ))}
+                              </ul>
+                              {commitFiles.total_files > commitFiles.files.length && (
+                                <p className="empty">
+                                  and {commitFiles.total_files - commitFiles.files.length} more not listed
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}

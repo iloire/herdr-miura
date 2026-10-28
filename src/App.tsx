@@ -4,8 +4,9 @@ import { attentionCount } from "./app/attention";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
-import { ChangesStore, type ChangedFile } from "./changes/store";
-import { ChangesPanel } from "./components/ChangesPanel";
+import { ChangesStore, type RecentCommit } from "./changes/store";
+import { useCommitFiles } from "./changes/useCommitFiles";
+import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { DiffView } from "./components/DiffView";
 import { Palette } from "./components/Palette";
 import { Sidebar } from "./components/Sidebar";
@@ -31,7 +32,8 @@ export default function App() {
   const changesStore = useMemo(() => new ChangesStore(), []);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
-  const [diffFile, setDiffFile] = useState<ChangedFile | null>(null);
+  const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
+  const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
   const directory = focusedDirectory(state.snapshot);
   const [sidebarWidth, setSidebarWidth] = useState(() => clampWidth(loadWidth(), window.innerWidth));
   const commitSidebarWidth = (width: number) => {
@@ -128,11 +130,23 @@ export default function App() {
   }, [state.changes, directory, changesStore]);
 
   const checkout = changes.phase === "ready" ? changes.checkout : null;
-  // A diff stays open only while its file is still listed in the checkout.
-  const shownDiff = state.changes && checkout && diffFile && checkout.files.find((f) => f.path === diffFile.path);
+  const checkoutPath = checkout?.path ?? null;
+  // A commit opened in one checkout means nothing in the next.
+  useEffect(() => setOpenCommit(null), [checkoutPath]);
+  const commitFiles = useCommitFiles(checkoutPath, openCommit?.sha ?? null);
+
+  // A diff stays open only while its file is still listed: in the checkout,
+  // or in the commit still open in the panel.
+  const diffCommit = diffPick?.commit && diffPick.commit === openCommit?.sha ? openCommit : null;
+  const diffFiles = !diffPick?.commit
+    ? (checkout?.files ?? [])
+    : diffCommit && commitFiles?.phase === "ready"
+      ? commitFiles.files
+      : [];
+  const shownDiff = state.changes && checkout && diffPick && diffFiles.find((f) => f.path === diffPick.file.path);
 
   const closeDiff = () => {
-    setDiffFile(null);
+    setDiffPick(null);
     controller.focusTerminal();
   };
 
@@ -159,9 +173,10 @@ export default function App() {
             {shownDiff && checkout && (
               <DiffView
                 checkout={checkout.path}
-                files={checkout.files}
+                commit={diffCommit}
+                files={diffFiles}
                 file={shownDiff}
-                onSelect={setDiffFile}
+                onSelect={(file) => setDiffPick({ file, commit: diffCommit?.sha ?? null })}
                 onClose={closeDiff}
               />
             )}
@@ -171,8 +186,11 @@ export default function App() {
         <div className={`drawer ${state.changes ? "open" : ""}`} aria-hidden={!state.changes}>
           <ChangesPanel
             store={changesStore}
-            selected={shownDiff ? shownDiff.path : null}
-            onOpen={setDiffFile}
+            selected={shownDiff ? diffPick : null}
+            openCommit={openCommit?.sha ?? null}
+            commitFiles={commitFiles}
+            onOpen={setDiffPick}
+            onToggleCommit={(commit) => setOpenCommit(openCommit?.sha === commit.sha ? null : commit)}
             onClose={() => {
               controller.closeChanges();
               closeDiff();

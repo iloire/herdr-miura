@@ -1,31 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { addedFile, parseUnified, type ParsedDiff } from "../changes/diff";
-import { fileDiff, type ChangedFile } from "../changes/store";
+import { fileDiff, type ChangedFile, type RecentCommit } from "../changes/store";
 
 type Loaded = { phase: "loading" } | { phase: "ready"; diff: ParsedDiff } | { phase: "failed"; error: string };
 
-/// One file's diff over the terminal area. ↑/↓ (or k/j) step through the
-/// checkout's files, Esc closes.
+/// One file's diff over the terminal area: its uncommitted change, or with
+/// `commit`, its change in that commit. ↑/↓ (or k/j) step through `files`,
+/// the checkout's or the commit's, Esc closes.
 export function DiffView({
   checkout,
+  commit,
   files,
   file,
   onSelect,
   onClose,
 }: {
   checkout: string;
+  commit: RecentCommit | null;
   files: ChangedFile[];
   file: ChangedFile;
   onSelect: (file: ChangedFile) => void;
   onClose: () => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded>({ phase: "loading" });
+  const sha = commit?.sha ?? null;
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let current = true;
     setLoaded({ phase: "loading" });
-    fileDiff(checkout, file)
+    fileDiff(checkout, file, sha)
       .then((result) => {
         if (!current) return;
         const diff = result.type === "untracked" ? addedFile(result.text) : parseUnified(result.text);
@@ -36,7 +40,7 @@ export function DiffView({
     return () => {
       current = false;
     };
-  }, [checkout, file]);
+  }, [checkout, file, sha]);
 
   const index = files.findIndex((f) => f.path === file.path);
   const step = (by: number) => {
@@ -59,6 +63,11 @@ export function DiffView({
     >
       <header className="diff-head">
         <span className={`mark mark-${file.mark === "?" ? "untracked" : file.mark}`}>{file.mark}</span>
+        {commit && (
+          <span className="sha" title={`${commit.subject}\n${commit.author}`}>
+            {commit.short}
+          </span>
+        )}
         <span className="diff-path">{file.path}</span>
         <span className="diff-position">
           {index + 1} of {files.length}
