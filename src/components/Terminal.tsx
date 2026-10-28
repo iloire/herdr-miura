@@ -1,12 +1,20 @@
 import { useEffect, useRef } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Controller } from "../app/controller";
 import type { MouseButton, MouseKind, PaneInputEvent, SurfacePane } from "../protocol";
 import { keyInput } from "../terminal/keys";
 import { Painter, measure, popupOrigin } from "../terminal/painter";
 import { DEFAULT_THEME } from "../terminal/theme";
 import { pasteEvents, wheelEvents } from "../terminal/mouse";
+import { linkAt, type Link } from "../terminal/links";
 
 const BUTTONS: MouseButton[] = ["Left", "Middle", "Right"];
+
+function sameLink(a: Link | null, b: Link | null): boolean {
+  if (!a || !b) return a === b;
+  const [ax, bx] = [a.cells[0], b.cells[0]];
+  return a.url === b.url && a.cells.length === b.cells.length && ax.x === bx.x && ax.y === bx.y;
+}
 
 function modifiers(event: MouseEvent | WheelEvent): number {
   return (event.shiftKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.altKey ? 4 : 0);
@@ -31,6 +39,24 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     let composing = false;
     const repaintAll = () => painter.paint(grid, Array.from({ length: grid.height }, (_, y) => y), focused);
 
+    // ⌘ over a URL underlines it and a ⌘-click opens it in the browser.
+    let pointer: { column: number; row: number } | null = null;
+    let commandHeld = false;
+    const updateLink = (): Set<number> => {
+      const link = commandHeld && pointer && !grid.popup ? linkAt(grid, pointer.column, pointer.row) : null;
+      const rows = new Set<number>();
+      if (sameLink(link, painter.link)) return rows;
+      for (const cell of [...(painter.link?.cells ?? []), ...(link?.cells ?? [])]) rows.add(cell.y);
+      painter.link = link;
+      return rows;
+    };
+    const hover = () => {
+      const rows = updateLink();
+      if (rows.size) painter.paint(grid, rows, focused);
+      if (painter.link) canvas.style.cursor = "pointer";
+      else if (canvas.style.cursor === "pointer") canvas.style.cursor = "text";
+    };
+
     // Frames arrive faster than the display refreshes; paint once per frame.
     let pending = new Set<number>();
     let scheduled = 0;
@@ -41,6 +67,8 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
         scheduled = 0;
         const rows = pending;
         pending = new Set();
+        // The text under the pointer may have changed under a held ⌘.
+        for (const y of updateLink()) rows.add(y);
         painter.paint(grid, rows, focused);
       });
     });
@@ -95,6 +123,13 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
       event.preventDefault();
       input.focus();
       const at = cellAt(event);
+      if (event.metaKey && event.button === 0 && !grid.popup) {
+        const link = linkAt(grid, at.column, at.row);
+        if (link) {
+          void openUrl(link.url);
+          return;
+        }
+      }
       const split = grid.splitAt(at.column, at.row);
       const tabId = controller.getState().snapshot?.focused_tab_id;
       if (split && tabId) {
@@ -138,6 +173,9 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
       }
       const split = grid.splitAt(at.column, at.row);
       canvas.style.cursor = split ? (split.direction === "Horizontal" ? "col-resize" : "row-resize") : "text";
+      pointer = { column: at.column, row: at.row };
+      commandHeld = event.metaKey;
+      hover();
       if (pressed) {
         controller.sendInput(
           [mouse({ Drag: pressed.button }, pressed.pane, at.column, at.row, modifiers(event))],
@@ -201,6 +239,11 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
       const text = event.clipboardData?.getData("text/plain");
       if (text) controller.sendInput(pasteEvents(text));
     };
+    const onCommand = (event: KeyboardEvent) => {
+      if (event.key !== "Meta") return;
+      commandHeld = event.type === "keydown";
+      hover();
+    };
     const onFocus = () => {
       focused = true;
       controller.setWindowFocus(true);
@@ -208,6 +251,9 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     };
     const onBlur = () => {
       focused = false;
+      // ⌘-Tab away never delivers the key's release.
+      commandHeld = false;
+      updateLink();
       controller.setWindowFocus(false);
       repaintAll();
     };
@@ -216,6 +262,8 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("keydown", onCommand);
+    window.addEventListener("keyup", onCommand);
     input.addEventListener("keydown", onKeyDown);
     input.addEventListener("input", onInput);
     input.addEventListener("compositionstart", onCompositionStart);
@@ -235,6 +283,8 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
       canvas.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onCommand);
+      window.removeEventListener("keyup", onCommand);
       input.removeEventListener("keydown", onKeyDown);
       input.removeEventListener("input", onInput);
       input.removeEventListener("compositionstart", onCompositionStart);

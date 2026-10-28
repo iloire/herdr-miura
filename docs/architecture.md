@@ -41,6 +41,7 @@ from that release and run the live test against a daemon of that version.
 | `terminal/theme.ts` | The cell color encoding (named 0..=16, indexed `0x01..XX`, RGB `0x02RRGGBB`) and modifiers, ported from herdr-gpui. |
 | `terminal/keys.ts` | Maps a `KeyboardEvent` to a `ClientPaneInputEvent`, and parses and matches GPUI-style shortcuts. |
 | `terminal/mouse.ts` | Wheel events (one event for scrollback, one per line for apps) and the paste bound. |
+| `terminal/links.ts` | Finds the URL under a cell (http(s), or a bare `localhost:port`), within its pane and across wrapped rows. ⌘-hover underlines it, ⌘-click opens it in the browser. |
 | `app/pins.ts` | Pinned tabs, kept by the window (Herdr has none) and keyed by daemon boot. A pin also moves the tab to the front with `tab.move`, so the daemon's order matches the strip. |
 | `app/attention.ts` | Agent status from the snapshot: each workspace's agents sorted blocked, done, working, idle; the workspace card's marks, one per live status (blocked with its count, working, done; idle only when nothing else is), so a finished agent never hides a working one; the Dock badge count (blocked + done); and each agent's name and caption. |
 | `app/workspaceOrder.ts` | The sidebar's workspace order, kept by the window: by hand, the daemon's own list, which dragging a row reorders with `workspace.move` (pointer events, since Tauri's file drop swallows HTML drag and drop); or by attention, blocked, done, working, idle, stable within a status. |
