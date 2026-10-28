@@ -6,6 +6,7 @@ mod changes;
 mod commands;
 mod connection;
 mod error;
+mod folder;
 mod frame;
 mod osc52;
 
@@ -23,8 +24,10 @@ pub fn run() {
             commands::change_counts,
             commands::checkout_changes,
             commands::connect,
+            commands::copy_path,
             commands::disconnect,
             commands::file_diff,
+            commands::open_folder,
             commands::request,
             commands::resize,
             commands::run_command,

@@ -178,6 +178,12 @@ export class Controller {
     send.catch((error) => this.notice(error));
   }
 
+  /// Runs a window-side action, such as opening a folder, showing its failure
+  /// in the status bar.
+  act(action: Promise<unknown>): void {
+    action.catch((error) => this.notice(error));
+  }
+
   request(method: string, params: Record<string, unknown>): void {
     const snapshot = this.state.snapshot;
     if (!snapshot) return;

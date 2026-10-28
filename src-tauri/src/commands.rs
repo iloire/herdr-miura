@@ -5,6 +5,7 @@ use crate::{
     Error, Result,
     changes::{self, CheckoutView, FileDiff},
     connection::Connection,
+    folder::{self, Opener},
 };
 use herdr_client::{
     ConnectOptions, Method,
@@ -186,6 +187,23 @@ pub async fn file_diff(checkout: String, path: String, untracked: bool) -> Resul
     let read =
         tauri::async_runtime::spawn_blocking(move || changes::read_diff(&checkout, &path, untracked));
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// Opens a workspace's folder in the file manager or one of a few known apps.
+#[tauri::command]
+pub fn open_folder(path: String, with: Opener) -> Result<()> {
+    Ok(folder::open(&path, with)?)
+}
+
+/// Copies a workspace's folder path, after checking it names a folder.
+#[tauri::command]
+pub fn copy_path(app: AppHandle, path: String) -> Result<()> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    folder::folder(&path)?;
+    app.clipboard()
+        .write_text(path)
+        .map_err(folder::Error::Clipboard)?;
+    Ok(())
 }
 
 #[cfg(test)]

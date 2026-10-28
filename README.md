@@ -59,7 +59,9 @@ Nothing deploys yet. Builds are local and unsigned.
 Working: the core terminal client, a read-only Changes panel with diffs ([plan](docs/plan-changes.md)),
 and agent status at a glance: each workspace's agents listed under it with a mark for working, waiting on
 you (with a count), done, or idle, and the Dock badge and window title counting agents that finished or need
-you ([plan](docs/plan-agent-status.md)).
+you ([plan](docs/plan-agent-status.md)). The sidebar resizes from its edge, each workspace's branch line counts
+its changed files, and right-clicking a workspace opens its folder in VS Code, GitHub Desktop, or the file
+manager, or copies its path.
 Still to come, roughly in priority order: commit and push, GitHub pull requests, text selection and copy,
 find, terminal graphics, hyperlinks, renaming workspaces and tabs, the config file and themes,
 system notifications, usage, the orchestrator, and remote machines.

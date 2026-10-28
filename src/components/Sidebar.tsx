@@ -1,7 +1,26 @@
+import { useCallback, useState } from "react";
 import type { Controller } from "../app/controller";
+import { copyPath, openFolder } from "../app/folder";
+import { workspaceDirectory } from "../changes/counts";
 import { agentCaption, agentName, agentsByWorkspace, blockedCount } from "../app/attention";
 import type { Agent, Snapshot } from "../protocol";
+import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { BranchIcon, CodeIcon, CopyIcon, OpenIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
+
+/// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
+function folderMenu(controller: Controller, path: string): MenuItem[] {
+  return [
+    { label: "Open in VS Code", icon: <CodeIcon />, onSelect: () => controller.act(openFolder(path, "vs_code")) },
+    {
+      label: "Open in GitHub Desktop",
+      icon: <BranchIcon />,
+      onSelect: () => controller.act(openFolder(path, "github_desktop")),
+    },
+    { label: "Open Folder", icon: <OpenIcon />, onSelect: () => controller.act(openFolder(path, "files")) },
+    { label: "Copy Path", icon: <CopyIcon />, onSelect: () => controller.act(copyPath(path)) },
+  ];
+}
 
 export function Sidebar({
   controller,
@@ -16,6 +35,8 @@ export function Sidebar({
   const workspaces = snapshot?.workspaces ?? [];
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
   const caption = (agent: Agent) => (snapshot ? agentCaption(agent, snapshot) : null);
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <header className="sidebar-head">
@@ -39,6 +60,11 @@ export function Sidebar({
                 className={`workspace status-${workspace.agent_status}`}
                 aria-current={workspace.focused ? "true" : undefined}
                 onClick={() => controller.request("workspace.focus", { workspace_id: workspace.workspace_id })}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  const path = snapshot && workspaceDirectory(workspace, snapshot);
+                  if (path) setMenu({ x: event.clientX, y: event.clientY, items: folderMenu(controller, path) });
+                }}
               >
                 <span className="workspace-number">{workspace.number}</span>
                 <span className="workspace-text">
@@ -63,6 +89,7 @@ export function Sidebar({
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </nav>
   );
 }
