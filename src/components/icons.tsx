@@ -43,3 +43,10 @@ export const CopyIcon = () => (
     <path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" {...LINE} />
   </Icon>
 );
+
+export const TerminalIcon = () => (
+  <Icon>
+    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" {...LINE} />
+    <path d="m4.5 6 2 2-2 2M8.5 10h3" {...LINE} />
+  </Icon>
+);

@@ -133,8 +133,8 @@ body.resizing .app > :not(.sidebar-resizer) {
   padding: 0 6px;
 }
 
-/* The signature: each workspace hangs on a lantern rail whose color is its
-   agent's state, so a blocked agent is visible from across the room. */
+/* Each workspace hangs on a rail in its own hue (herdr-gpui's folder edge
+   bar), set inline from its name; its agent's state is the mark on the right. */
 .workspace {
   --rail: transparent;
   display: grid;
@@ -143,10 +143,9 @@ body.resizing .app > :not(.sidebar-resizer) {
   gap: 8px;
   width: 100%;
   padding: 7px 10px 7px 14px;
-  border-radius: 6px;
   text-align: left;
   box-shadow: inset 3px 0 0 var(--rail);
-  transition: background-color 120ms ease, box-shadow 160ms ease;
+  transition: background-color 120ms ease;
 }
 
 .workspace:hover {
@@ -155,18 +154,6 @@ body.resizing .app > :not(.sidebar-resizer) {
 
 .workspace[aria-current="true"] {
   background: #1f2730;
-}
-
-.workspace.status-working {
-  --rail: var(--working);
-}
-
-.workspace.status-blocked {
-  --rail: var(--lantern);
-}
-
-.workspace.status-done {
-  --rail: var(--done);
 }
 
 .workspace-text {
@@ -280,60 +267,24 @@ body.resizing .app > :not(.sidebar-resizer) {
   }
 }
 
-/* An agent hangs under its workspace, indented a step past its name. */
-.agent-list {
-  list-style: none;
-  margin: 0 0 4px;
-  padding: 0 0 0 12px;
-}
-
-.agent {
+.workspace-marks {
   display: flex;
   align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 3px 8px;
-  border-radius: 5px;
+  gap: 8px;
+}
+
+/* How many agents run here, quiet beside the status mark. */
+.agent-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--muted);
-  font-size: 12px;
-  text-align: left;
+  font: 11px/1 var(--mono);
 }
 
-.agent:hover {
-  background: #1b222a;
-  color: var(--text);
-}
-
-.agent[aria-current="true"] {
-  color: var(--text);
-}
-
-.agent.status-blocked {
-  color: var(--lantern);
-}
-
-.agent .mark-blocked {
-  min-width: 14px;
-  height: 14px;
-  font-size: 9px;
-}
-
-.agent-text {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.agent-name {
-  flex: none;
-}
-
-.agent-caption {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0.7;
+.agent-count svg {
+  width: 12px;
+  height: 12px;
 }
 
 .empty {

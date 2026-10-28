@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Agent, AgentStatus, Pane, Snapshot, Tab } from "../../protocol";
-import { agentCaption, agentName, agentsByWorkspace, attentionCount, blockedCount } from "../attention";
+import type { Agent, AgentStatus, Snapshot } from "../../protocol";
+import { agentsByWorkspace, attentionCount, blockedCount } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -61,57 +61,5 @@ describe("counts", () => {
     expect(attentionCount(snapshot(agents))).toBe(3);
     expect(attentionCount(snapshot([agent("1", "a", "idle")]))).toBe(0);
     expect(attentionCount(null)).toBe(0);
-  });
-});
-
-describe("agentName", () => {
-  it("prefers the agent's display name, then the given name, kind, and title", () => {
-    expect(agentName(agent("1", "a", "idle", { name: "reviewer", display_agent: "Claude" }))).toBe("Claude");
-    expect(agentName(agent("1", "a", "idle", { name: "reviewer" }))).toBe("reviewer");
-    expect(agentName(agent("1", "a", "idle", { agent: null, title: "vim" }))).toBe("vim");
-    expect(agentName(agent("1", "a", "idle", { agent: null }))).toBe("agent");
-  });
-});
-
-describe("agentCaption", () => {
-  const tab = (tab_id: string, label: string, custom_label = false): Tab => ({
-    tab_id,
-    workspace_id: "a",
-    number: 1,
-    label,
-    custom_label,
-    zoomed: false,
-    focused: false,
-    agent_status: "idle",
-  });
-  const pane = (label: string | null): Pane => ({
-    pane_id: "1",
-    workspace_id: "a",
-    tab_id: "t",
-    label,
-    cwd: null,
-    foreground_cwd: null,
-    focused: false,
-    right_click_passthrough: false,
-  });
-  const caption = (tabs: Tab[], panes: Pane[], over: Partial<Agent> = {}) => {
-    const subject = agent("1", "a", "idle", over);
-    return agentCaption(subject, { ...snapshot([subject]), tabs, panes });
-  };
-
-  it("names the tab once the workspace has several, or the tab was named", () => {
-    expect(caption([tab("t", "Shell loading time"), tab("u", "notes")], [pane("p")])).toBe("Shell loading time");
-    expect(caption([tab("t", "review", true)], [pane("p")])).toBe("review");
-  });
-
-  it("falls back to the pane's name, then the agent's title", () => {
-    expect(caption([tab("t", "1")], [pane("renamed")], { title: "Fix CI" })).toBe("renamed");
-    expect(caption([tab("t", "1")], [pane(null)], { title: "Fix CI" })).toBe("Fix CI");
-  });
-
-  it("strips terminal controls and drops blanks and repeats of the name", () => {
-    expect(caption([tab("t", "1")], [pane(null)], { title: "\u001b[31mred\u202e" })).toBe("[31mred");
-    expect(caption([tab("t", "1")], [pane(null)], { title: "   " })).toBeNull();
-    expect(caption([tab("t", "1")], [pane(null)], { title: "claude" })).toBeNull();
   });
 });
