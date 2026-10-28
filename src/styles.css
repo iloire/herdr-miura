@@ -384,25 +384,27 @@ body.reordering * {
 
 .tabbar {
   display: flex;
-  align-items: stretch;
-  gap: 2px;
-  height: 34px;
+  align-items: flex-start;
   padding: 0 6px;
   background: var(--peat);
   border-bottom: 1px solid var(--rule);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
-/* Tabs shrink before they scroll; the wheel and the focused tab drive any scroll left, so no bar. */
-.tabbar::-webkit-scrollbar {
-  display: none;
+/* Tabs that do not fit wrap onto another row, so every tab stays readable and nothing scrolls. */
+.tab-rows {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0 2px;
+  min-width: 0;
 }
 
 .tab {
   display: flex;
   align-items: center;
   flex: 0 1 auto;
+  height: 34px;
   min-width: 90px;
   max-width: 260px;
   border-bottom: 2px solid transparent;
@@ -553,10 +555,6 @@ body.reordering * {
   color: var(--lantern);
   text-decoration: underline;
   font: inherit;
-}
-
-.tabbar-spacer {
-  flex: 1;
 }
 
 .changes-toggle[aria-pressed="true"] {

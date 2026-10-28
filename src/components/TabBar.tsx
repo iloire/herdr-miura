@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { Controller } from "../app/controller";
 import { loadPins, pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
@@ -19,7 +19,6 @@ export function TabBar({
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const barRef = useRef<HTMLDivElement>(null);
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
@@ -65,93 +64,80 @@ export function TabBar({
     ];
   };
 
-  // The bar has no scrollbar, so keep the focused tab in view.
-  const focusedId = tabs.find((tab) => tab.focused)?.tab_id;
-  useEffect(() => {
-    barRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [focusedId]);
-
   return (
-    <div
-      ref={barRef}
-      className="tabbar"
-      role="tablist"
-      aria-label="Tabs"
-      onWheel={(event) => {
-        if (event.deltaX === 0) event.currentTarget.scrollLeft += event.deltaY;
-      }}
-    >
-      {tabs.map((tab) => {
-        const pinned = isPinned(tab);
-        return (
-          <div
-            key={tab.tab_id}
-            className={`tab${pinned ? " tab-pinned" : ""}`}
-            role="tab"
-            aria-selected={tab.focused}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              setMenu({ x: event.clientX, y: event.clientY, items: tabMenu(tab) });
-            }}
-          >
-            {renaming === tab.tab_id ? (
-              <RenameField
-                initial={tab.custom_label ? tab.label : ""}
-                onDone={(label) => {
-                  setRenaming(null);
-                  controller.focusTerminal();
-                  if (label !== null) controller.request("tab.rename", { tab_id: tab.tab_id, label });
-                }}
-              />
-            ) : (
-              <button
-                className="tab-label"
-                title={tab.label}
-                onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
-                onDoubleClick={() => setRenaming(tab.tab_id)}
-                onAuxClick={(event) =>
-                  event.button === 1 && !pinned && controller.request("tab.close", { tab_id: tab.tab_id })
-                }
-              >
-                {pinned && (
-                  <span className="tab-pin" title="Pinned" aria-label="Pinned">
-                    <PinIcon />
-                  </span>
-                )}
-                <StatusMark status={tab.agent_status} />
-                <span className="tab-text">{tab.label}</span>
-                {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
-              </button>
-            )}
-            {!pinned && (
-              <button
-                className="tab-close"
-                aria-label={`Close ${tab.label}`}
-                title="Close tab"
-                onClick={() => controller.request("tab.close", { tab_id: tab.tab_id })}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        );
-      })}
-      <button
-        className="icon-button"
-        title="New tab"
-        aria-label="New tab"
-        disabled={!snapshot?.focused_workspace_id}
-        // Typing goes to the tab this opens: the press must not take focus
-        // from the terminal, and focus elsewhere is handed back to it.
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          controller.run("new_tab");
-          controller.focusTerminal();
-        }}
-      >
-        +
-      </button>
-      <span className="tabbar-spacer" />
+    <div className="tabbar">
+      <div className="tab-rows" role="tablist" aria-label="Tabs">
+        {tabs.map((tab) => {
+          const pinned = isPinned(tab);
+          return (
+            <div
+              key={tab.tab_id}
+              className={`tab${pinned ? " tab-pinned" : ""}`}
+              role="tab"
+              aria-selected={tab.focused}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setMenu({ x: event.clientX, y: event.clientY, items: tabMenu(tab) });
+              }}
+            >
+              {renaming === tab.tab_id ? (
+                <RenameField
+                  initial={tab.custom_label ? tab.label : ""}
+                  onDone={(label) => {
+                    setRenaming(null);
+                    controller.focusTerminal();
+                    if (label !== null) controller.request("tab.rename", { tab_id: tab.tab_id, label });
+                  }}
+                />
+              ) : (
+                <button
+                  className="tab-label"
+                  title={tab.label}
+                  onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
+                  onDoubleClick={() => setRenaming(tab.tab_id)}
+                  onAuxClick={(event) =>
+                    event.button === 1 && !pinned && controller.request("tab.close", { tab_id: tab.tab_id })
+                  }
+                >
+                  {pinned && (
+                    <span className="tab-pin" title="Pinned" aria-label="Pinned">
+                      <PinIcon />
+                    </span>
+                  )}
+                  <StatusMark status={tab.agent_status} />
+                  <span className="tab-text">{tab.label}</span>
+                  {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
+                </button>
+              )}
+              {!pinned && (
+                <button
+                  className="tab-close"
+                  aria-label={`Close ${tab.label}`}
+                  title="Close tab"
+                  onClick={() => controller.request("tab.close", { tab_id: tab.tab_id })}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <button
+          className="icon-button"
+          title="New tab"
+          aria-label="New tab"
+          disabled={!snapshot?.focused_workspace_id}
+          // Typing goes to the tab this opens: the press must not take focus
+          // from the terminal, and focus elsewhere is handed back to it.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            controller.run("new_tab");
+            controller.focusTerminal();
+          }}
+        >
+          +
+        </button>
+      </div>
       <button
         className="icon-button changes-toggle"
         title="Changes"
