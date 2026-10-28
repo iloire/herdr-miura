@@ -33,6 +33,15 @@ export function savePins(
   }
 }
 
+/// The pinned tabs of each workspace, by workspace id, in the daemon's order.
+export function pinnedByWorkspace(tabs: readonly Tab[], isPinned: (tab: Tab) => boolean): Map<string, Tab[]> {
+  const byWorkspace = new Map<string, Tab[]>();
+  for (const tab of tabs.filter(isPinned)) {
+    byWorkspace.set(tab.workspace_id, [...(byWorkspace.get(tab.workspace_id) ?? []), tab]);
+  }
+  return byWorkspace;
+}
+
 /// `tabs` with the pinned ones first, each group in the daemon's order.
 export function pinnedFirst(tabs: readonly Tab[], isPinned: (tab: Tab) => boolean): Tab[] {
   return [...tabs.filter(isPinned), ...tabs.filter((tab) => !isPinned(tab))];

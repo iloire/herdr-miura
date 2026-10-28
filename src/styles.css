@@ -361,6 +361,19 @@ body.reordering * {
   height: 12px;
 }
 
+.pinned-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--lantern);
+  font: 11px/1 var(--mono);
+}
+
+.pinned-tabs svg {
+  width: 12px;
+  height: 12px;
+}
+
 .empty {
   color: var(--muted);
   padding: 8px 16px;
@@ -460,6 +473,11 @@ body.reordering * {
 .tab-pin {
   display: inline-flex;
   color: var(--lantern);
+}
+
+.tab-pin svg {
+  width: 12px;
+  height: 12px;
 }
 
 .tab-pinned .tab-label {

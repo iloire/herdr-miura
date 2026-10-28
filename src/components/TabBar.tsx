@@ -1,21 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 import type { Controller } from "../app/controller";
-import { loadPins, pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
+import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { PinIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
 
 export function TabBar({
   controller,
   snapshot,
   changes,
+  pins,
+  onPinsChange,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
   changes: boolean;
+  pins: Set<string>;
+  onPinsChange: (pins: Set<string>) => void;
 }) {
-  const [pins, setPins] = useState(loadPins);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -32,7 +36,7 @@ export function TabBar({
     const next = new Set(pins);
     const key = pinKey(bootId, tab.tab_id);
     if (!next.delete(key)) next.add(key);
-    setPins(next);
+    onPinsChange(next);
     savePins(next, bootId);
     const index = pinIndex(snapshot.tabs, tab, (other) => next.has(pinKey(bootId, other.tab_id)));
     controller.request("tab.move", { tab_id: tab.tab_id, insert_index: index });
@@ -172,20 +176,5 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (label: str
         else if (event.key === "Escape") onDone(null);
       }}
     />
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        d="M10 2.5 13.5 6l-2 .75-2.25 2.25.25 3L8 13.5 2.5 8 4 6.5l3 .25L9.25 4.5Z M5.25 10.75 2.5 13.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }

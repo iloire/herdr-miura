@@ -64,3 +64,10 @@ export const AttentionOrderIcon = () => (
     <path d="M3 4.5h10M3 8h7M3 11.5h4" {...LINE} />
   </Icon>
 );
+
+/// A pinned tab.
+export const PinIcon = () => (
+  <Icon>
+    <path d="M10 2.5 13.5 6l-2 .75-2.25 2.25.25 3L8 13.5 2.5 8 4 6.5l3 .25L9.25 4.5Z M5.25 10.75 2.5 13.5" {...LINE} />
+  </Icon>
+);

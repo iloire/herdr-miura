@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Tab } from "../../protocol";
-import { loadPins, pinIndex, pinKey, pinnedFirst, savePins } from "../pins";
+import { loadPins, pinIndex, pinKey, pinnedByWorkspace, pinnedFirst, savePins } from "../pins";
 
 const tab = (tab_id: string, workspace_id = "w"): Tab => ({
   tab_id,
@@ -18,6 +18,19 @@ describe("pinnedFirst", () => {
     const pinned = new Set(["c", "a"]);
     const order = pinnedFirst([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id));
     expect(order.map((t) => t.tab_id)).toEqual(["a", "c", "b", "d"]);
+  });
+});
+
+describe("pinnedByWorkspace", () => {
+  it("groups pinned tabs under their workspace and leaves out workspaces with none", () => {
+    const pinned = new Set(["a", "c", "x"]);
+    const byWorkspace = pinnedByWorkspace([tab("a"), tab("b"), tab("x", "other"), tab("c"), tab("y", "none")], (t) =>
+      pinned.has(t.tab_id),
+    );
+    expect([...byWorkspace].map(([w, tabs]) => [w, tabs.map((t) => t.tab_id)])).toEqual([
+      ["w", ["a", "c"]],
+      ["other", ["x"]],
+    ]);
   });
 });
 

@@ -5,8 +5,9 @@ import { copyPath, openFolder, tildePath } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentsByWorkspace, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
+import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
-import type { Agent, Snapshot } from "../protocol";
+import type { Agent, Snapshot, Tab } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import {
   AttentionOrderIcon,
@@ -15,6 +16,7 @@ import {
   CopyIcon,
   HandOrderIcon,
   OpenIcon,
+  PinIcon,
   TerminalIcon,
 } from "./icons";
 import { StatusMark } from "./StatusMark";
@@ -37,11 +39,14 @@ export function Sidebar({
   controller,
   snapshot,
   changedFiles,
+  pins,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
   /// Files changed in each workspace's checkout, by workspace id; absent when none.
   changedFiles: Map<string, number>;
+  /// Pinned tabs, as `pinKey`s.
+  pins: Set<string>;
 }) {
   const [sort, setSort] = useState(loadSort);
   const workspaces = sortWorkspaces(snapshot?.workspaces ?? [], sort);
@@ -58,6 +63,7 @@ export function Sidebar({
     saveSort(next);
   };
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
+  const pinned = pinnedByWorkspace(snapshot?.tabs ?? [], (tab) => pins.has(pinKey(snapshot?.boot_id ?? "", tab.tab_id)));
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const home = useHome();
@@ -120,6 +126,7 @@ export function Sidebar({
                   />
                 </span>
                 <span className="workspace-marks">
+                  <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <AgentCount count={own.length} />
                   {marks.map(({ status, count }) => (
                     <StatusMark key={status} status={status} count={status === "blocked" ? count : undefined} />
@@ -213,6 +220,19 @@ function useHome(): string | null {
     homeDir().then(setHome, () => setHome(null));
   }, []);
   return home;
+}
+
+/// A pin when the workspace has pinned tabs, with their count when more than
+/// one; hovering names them.
+function PinnedTabs({ tabs }: { tabs: Tab[] }) {
+  if (tabs.length === 0) return null;
+  const label = `Pinned: ${tabs.map((tab) => tab.label).join(", ")}`;
+  return (
+    <span className="pinned-tabs" title={label} aria-label={label}>
+      <PinIcon />
+      {tabs.length > 1 && tabs.length}
+    </span>
+  );
 }
 
 /// How many agents run in a workspace, in place of listing each under it.

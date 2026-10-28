@@ -1,6 +1,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
+import { loadPins } from "./app/pins";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
@@ -35,6 +36,8 @@ export default function App() {
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
+  // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
+  const [pins, setPins] = useState(loadPins);
   const directory = focusedDirectory(state.snapshot);
   const [sidebarWidth, setSidebarWidth] = useState(() => clampWidth(loadWidth(), window.innerWidth));
   const commitSidebarWidth = (width: number) => {
@@ -163,7 +166,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} pins={pins} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -172,7 +175,13 @@ export default function App() {
           {/* The diff covers the tab bar too: its tabs are the sessions, not
               the diff's, and would read as if they switched what it shows. */}
           <div className="deck">
-            <TabBar controller={controller} snapshot={state.snapshot} changes={state.changes} />
+            <TabBar
+              controller={controller}
+              snapshot={state.snapshot}
+              changes={state.changes}
+              pins={pins}
+              onPinsChange={setPins}
+            />
             <div className="stage">
               <Terminal controller={controller} fontSize={state.fontSize} />
             </div>
