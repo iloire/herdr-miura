@@ -10,3 +10,11 @@ export function openFolder(path: string, opener: Opener): Promise<void> {
 export function copyPath(path: string): Promise<void> {
   return invoke("copy_path", { path });
 }
+
+/// A path as herdr-gpui's folder cards show it: the home folder as `~`.
+export function tildePath(path: string, home: string | null): string {
+  const root = home?.replace(/\/+$/, "");
+  if (!root) return path;
+  if (path === root) return "~";
+  return path.startsWith(`${root}/`) ? `~${path.slice(root.length)}` : path;
+}

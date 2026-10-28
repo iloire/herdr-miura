@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { homeDir } from "@tauri-apps/api/path";
 import type { Controller } from "../app/controller";
-import { copyPath, openFolder } from "../app/folder";
+import { copyPath, openFolder, tildePath } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentCaption, agentName, agentsByWorkspace, blockedCount } from "../app/attention";
 import type { Agent, Snapshot } from "../protocol";
@@ -37,6 +38,7 @@ export function Sidebar({
   const caption = (agent: Agent) => (snapshot ? agentCaption(agent, snapshot) : null);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const home = useHome();
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <header className="sidebar-head">
@@ -54,6 +56,7 @@ export function Sidebar({
       <ol className="workspace-list">
         {workspaces.map((workspace) => {
           const own = agents.get(workspace.workspace_id) ?? [];
+          const path = snapshot && workspaceDirectory(workspace, snapshot);
           return (
             <li key={workspace.workspace_id}>
               <button
@@ -62,12 +65,16 @@ export function Sidebar({
                 onClick={() => controller.request("workspace.focus", { workspace_id: workspace.workspace_id })}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  const path = snapshot && workspaceDirectory(workspace, snapshot);
                   if (path) setMenu({ x: event.clientX, y: event.clientY, items: folderMenu(controller, path) });
                 }}
               >
                 <span className="workspace-text">
                   <span className="workspace-label">{workspace.label}</span>
+                  {path && (
+                    <span className="workspace-path" title={path}>
+                      {tildePath(path, home)}
+                    </span>
+                  )}
                   <WorkspaceGit
                     branch={workspace.branch}
                     aheadBehind={workspace.git_ahead_behind}
@@ -91,6 +98,15 @@ export function Sidebar({
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </nav>
   );
+}
+
+/// The home folder, read once, so paths under it show as `~`.
+function useHome(): string | null {
+  const [home, setHome] = useState<string | null>(null);
+  useEffect(() => {
+    homeDir().then(setHome, () => setHome(null));
+  }, []);
+  return home;
 }
 
 function AgentRow({ controller, agent, caption }: { controller: Controller; agent: Agent; caption: string | null }) {

@@ -176,10 +176,17 @@ body.resizing .app > :not(.sidebar-resizer) {
 }
 
 .workspace-label,
+.workspace-path,
 .workspace-branch {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.workspace-path {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .workspace-branch {
