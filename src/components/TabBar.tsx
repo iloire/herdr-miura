@@ -141,7 +141,13 @@ export function TabBar({
         title="New tab"
         aria-label="New tab"
         disabled={!snapshot?.focused_workspace_id}
-        onClick={() => controller.run("new_tab")}
+        // Typing goes to the tab this opens: the press must not take focus
+        // from the terminal, and focus elsewhere is handed back to it.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          controller.run("new_tab");
+          controller.focusTerminal();
+        }}
       >
         +
       </button>
