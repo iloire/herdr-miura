@@ -39,7 +39,8 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
       window.removeEventListener("pointerdown", away, true);
       window.removeEventListener("blur", onClose);
       window.removeEventListener("resize", onClose);
-      previous?.focus();
+      // Give focus back only if nothing took it, such as a rename field the menu opened.
+      if (document.activeElement === document.body || !document.activeElement) previous?.focus();
     };
   }, [onClose]);
 

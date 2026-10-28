@@ -9,6 +9,7 @@ mod error;
 mod folder;
 mod frame;
 mod osc52;
+mod tab_move;
 
 pub use error::{Error, Result};
 
@@ -27,6 +28,7 @@ pub fn run() {
             commands::copy_path,
             commands::disconnect,
             commands::file_diff,
+            commands::move_tab,
             commands::open_folder,
             commands::request,
             commands::resize,

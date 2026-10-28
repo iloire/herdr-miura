@@ -189,6 +189,16 @@ pub async fn file_diff(checkout: String, path: String, untracked: bool) -> Resul
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
+/// Moves a tab's panes into a new tab of another workspace through the
+/// `herdr` CLI, on the blocking pool since it waits on child processes.
+#[tauri::command]
+pub async fn move_tab(panes: Vec<String>, workspace_id: String, label: Option<String>) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        crate::tab_move::move_tab(&panes, &workspace_id, label.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
 /// Opens a workspace's folder in the file manager or one of a few known apps.
 #[tauri::command]
 pub fn open_folder(path: String, with: Opener) -> Result<()> {

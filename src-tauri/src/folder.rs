@@ -70,7 +70,10 @@ mod tests {
             "relative/dir".to_owned(),
             String::new(),
         ] {
-            assert!(matches!(folder(&refused), Err(Error::NotFolder(_))), "{refused}");
+            assert!(
+                matches!(folder(&refused), Err(Error::NotFolder(_))),
+                "{refused}"
+            );
         }
     }
 
