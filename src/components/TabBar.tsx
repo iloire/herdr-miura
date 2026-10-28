@@ -1,6 +1,6 @@
 import type { Controller } from "../app/controller";
 import type { Snapshot } from "../protocol";
-import { StatusDot } from "./Sidebar";
+import { StatusMark } from "./StatusMark";
 
 export function TabBar({
   controller,
@@ -21,7 +21,7 @@ export function TabBar({
             onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
             onAuxClick={(event) => event.button === 1 && controller.request("tab.close", { tab_id: tab.tab_id })}
           >
-            <StatusDot status={tab.agent_status} />
+            <StatusMark status={tab.agent_status} />
             {tab.label}
             {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
           </button>

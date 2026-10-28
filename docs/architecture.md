@@ -37,9 +37,10 @@ upstream protocol changes, bump `rev` and run `npm run check`.
 | `terminal/theme.ts` | The cell color encoding (named 0..=16, indexed `0x01..XX`, RGB `0x02RRGGBB`) and modifiers, ported from herdr-gpui. |
 | `terminal/keys.ts` | Maps a `KeyboardEvent` to a `ClientPaneInputEvent`, and parses and matches GPUI-style shortcuts. |
 | `terminal/mouse.ts` | Wheel events (one event for scrollback, one per line for apps) and the paste bound. |
+| `app/attention.ts` | Agent status from the snapshot: each workspace's agents sorted blocked, done, working, idle; how many wait on you; the Dock badge count (blocked + done); and each agent's name and caption. |
 | `changes/diff.ts` | Parses unified diffs into numbered hunks, and strips control and direction-override characters from the untrusted lines. |
 | `changes/store.ts` | Reads the checkout under the focused pane, one read at a time, keeping a request that arrives mid-read for next. |
-| `components/` | React views. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. |
+| `components/` | React views. `StatusMark.tsx` draws herdr-gpui's status icons (a turning orbit, a lantern count badge, a check ring, a hollow ring) as inline SVG. `Terminal.tsx` owns the canvas and a hidden textarea that holds focus, so IME and paste work natively. |
 
 ## Input rules carried over from herdr-gpui
 

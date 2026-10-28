@@ -1,4 +1,6 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { attentionCount } from "./app/attention";
 import { Controller } from "./app/controller";
 import { ChangesStore, type ChangedFile } from "./changes/store";
 import { ChangesPanel } from "./components/ChangesPanel";
@@ -38,9 +40,19 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [controller]);
 
+  // Agents that finished or wait on you badge the Dock and lead the title,
+  // following the daemon's statuses rather than whether the window is in front.
+  const attention = attentionCount(state.snapshot);
   useEffect(() => {
-    document.title = state.title ? `${state.title} — Herdr` : "Herdr";
-  }, [state.title]);
+    const title = state.title ? `${state.title} — Herdr` : "Herdr";
+    document.title = attention > 0 ? `(${attention}) ${title}` : title;
+  }, [state.title, attention]);
+
+  useEffect(() => {
+    getCurrentWindow()
+      .setBadgeCount(attention > 0 ? attention : undefined)
+      .catch(() => {});
+  }, [attention]);
 
   // An open panel follows the focused pane, rereads on a timer, and rereads
   // when the window comes back, since work usually happened elsewhere.

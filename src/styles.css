@@ -153,36 +153,120 @@ input:focus-visible {
   font: 11px/1.3 var(--mono);
 }
 
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+/* Status marks, after herdr-gpui's outline icons. Working turns; a blocked
+   mark is a lantern disc with how many agents wait on you. */
+.mark {
+  width: 14px;
+  height: 14px;
   flex: none;
 }
 
-.dot-idle {
-  background: var(--muted);
-  opacity: 0.5;
+.mark-idle {
+  color: var(--muted);
+  opacity: 0.6;
 }
 
-.dot-working {
-  background: var(--working);
-  animation: breathe 1.6s ease-in-out infinite;
+.mark-working {
+  color: var(--working);
 }
 
-.dot-blocked {
+.mark-orbit {
+  transform-origin: 8px 8px;
+  animation: orbit 0.9s linear infinite;
+}
+
+.mark-done {
+  color: var(--done);
+}
+
+.mark-blocked {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  width: auto;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
   background: var(--lantern);
-  box-shadow: 0 0 6px var(--lantern);
+  color: var(--ink);
+  font: 700 10px/1 var(--mono);
+  box-shadow: 0 0 8px rgb(245 212 145 / 0.45);
+  animation: beckon 2.4s ease-in-out infinite;
 }
 
-.dot-done {
-  background: var(--done);
-}
-
-@keyframes breathe {
-  50% {
-    opacity: 0.35;
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
   }
+}
+
+@keyframes beckon {
+  50% {
+    box-shadow: 0 0 2px rgb(245 212 145 / 0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-orbit,
+  .mark-blocked {
+    animation: none;
+  }
+}
+
+/* An agent hangs under its workspace, indented past the number column. */
+.agent-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0 0 0 38px;
+}
+
+.agent {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+
+.agent:hover {
+  background: #1b222a;
+  color: var(--text);
+}
+
+.agent[aria-current="true"] {
+  color: var(--text);
+}
+
+.agent.status-blocked {
+  color: var(--lantern);
+}
+
+.agent .mark-blocked {
+  min-width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+
+.agent-text {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.agent-name {
+  flex: none;
+}
+
+.agent-caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.7;
 }
 
 .empty {
