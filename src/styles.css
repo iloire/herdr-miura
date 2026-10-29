@@ -1129,11 +1129,6 @@ body.reordering * {
   font: inherit;
 }
 
-.changes-toggle[aria-pressed="true"] {
-  color: var(--hue);
-  background: var(--rule);
-}
-
 /* Changes drawer: slides in and back out, and the terminal resizes once it
    settles rather than on every frame, thanks to the resize debounce. */
 
@@ -2308,30 +2303,81 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* The tab bar's Queue button: an hourglass, the number waiting beside it, and
-   the hourglass turning in the working blue while one of its prompts runs. */
-.queue-toggle {
+/* The side panel's switch, at the tab bar's top right: Changes, Files and
+   Queue as one recessed track whose open panel stands raised in the
+   workspace's hue, and the library beside it. The cluster is as tall as a
+   tab row, so it stays on the first row level with the drawer's header. */
+.panel-tools {
+  flex: none;
+  display: flex;
   align-items: center;
-  display: inline-flex;
-  gap: 3px;
-  width: auto;
-  min-width: 28px;
-  padding: 0 6px;
+  gap: 6px;
+  height: 34px;
+  margin-left: 8px;
 }
 
-.queue-toggle svg {
-  height: 15px;
+.panel-switch {
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: var(--ink);
+}
+
+.panel-toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.panel-toggle svg {
   width: 15px;
+  height: 15px;
 }
 
+.panel-toggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.panel-toggle[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--hue) 18%, var(--raised));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 45%, transparent);
+  color: var(--hue);
+}
+
+/* The library opens a palette, not a panel: a lone key beside the switch. */
+.library-toggle {
+  height: 24px;
+  border: 1px solid transparent;
+}
+
+/* The hourglass turns in the working blue while one of the queue's prompts
+   runs, and the number waiting sits on its corner. */
 .queue-toggle.running svg {
   animation: queue-turn 2.4s ease-in-out infinite;
   color: var(--working);
 }
 
 .queue-toggle-count {
-  color: var(--text);
-  font: 600 calc(11px * var(--ui-scale))/1 var(--mono);
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--text);
+  box-shadow: 0 0 0 2px var(--ink);
+  color: var(--ink);
+  font: 700 calc(9px * var(--ui-scale))/14px var(--mono);
+  text-align: center;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 15:32 — One switch for the side panel
+
+The Changes, Files and Queue buttons sat after the tab rows, centred against them, so with tabs on several
+rows they ended up beside some tab in the middle, and they did not match: Changes was a "±" glyph, the
+Queue button was wider than the rest with its count beside the hourglass. They are now one switch held to
+the tab bar's top right, level with the drawer's header however many rows the tabs take: a recessed track
+of three keys of one size, Changes drawn as a page with a line added and one taken away, and the open
+panel's key raised in the workspace's color. The waiting count is a badge on the hourglass's corner, which
+still turns blue while a prompt runs. The prompt library's book stands just apart from it, since it opens a
+palette rather than a panel.
+
 ## 2026-10-29 15:12 — A button for the prompt library
 
 The prompt library opened only with ⌘⇧L or the command palette, so nothing on screen said it was there. A

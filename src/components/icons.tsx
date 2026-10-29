@@ -93,6 +93,14 @@ export const FolderIcon = () => (
   </Icon>
 );
 
+/// A page with a line added and one removed: the Changes panel.
+export const DiffIcon = () => (
+  <Icon>
+    <rect x="2.75" y="1.75" width="10.5" height="12.5" rx="1.5" {...LINE} />
+    <path d="M8 4.25v4M6 6.25h4M6 11h4" {...LINE} />
+  </Icon>
+);
+
 /// A file in the Files tree.
 export const FileIcon = () => (
   <Icon>
