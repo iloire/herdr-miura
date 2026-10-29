@@ -1,6 +1,8 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clean } from "../changes/diff";
 import { readFile, type FileContents } from "../files/listing";
+import { isMarkdown, renderMarkdown, resolveLink } from "../files/markdown";
 
 type Loaded = { phase: "loading" } | { phase: "ready"; contents: FileContents } | { phase: "failed"; error: string };
 
@@ -25,6 +27,46 @@ function TextBody({ text }: { text: string }) {
   );
 }
 
+/// A Markdown file drawn as a page. A link to the web opens in the browser,
+/// one to a heading scrolls to it, one to another file of the checkout opens
+/// that file here; images in the checkout are read the way the view reads one.
+function MarkdownBody({ root, path, text, onOpen }: { root: string; path: string; text: string; onOpen: (path: string) => void }) {
+  const html = useMemo(() => renderMarkdown(text, path), [text, path]);
+  const pageRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    let current = true;
+    for (const img of pageRef.current?.querySelectorAll<HTMLImageElement>("img[data-path]") ?? []) {
+      readFile(root, img.dataset.path!)
+        .then((contents) => {
+          if (current && contents.type === "image") img.src = `data:${contents.mime};base64,${contents.data}`;
+        })
+        .catch(() => {});
+    }
+    return () => {
+      current = false;
+    };
+  }, [html, root]);
+
+  return (
+    <article
+      className="markdown"
+      ref={pageRef}
+      // markdown-it with `html: false`: the file's own HTML is escaped, see files/markdown.ts.
+      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(event) => {
+        const link = (event.target as Element).closest("a");
+        if (!link) return;
+        event.preventDefault();
+        const target = resolveLink(path, link.getAttribute("href") ?? "");
+        if (target?.kind === "external") void openUrl(target.url);
+        else if (target?.kind === "anchor") pageRef.current?.querySelector(`[id="${CSS.escape(target.id)}"]`)?.scrollIntoView();
+        else if (target?.kind === "file") onOpen(target.path);
+      }}
+    />
+  );
+}
+
 function ImageBody({ src, alt }: { src: string; alt: string }) {
   const [dimensions, setDimensions] = useState<string | null>(null);
   return (
@@ -40,9 +82,21 @@ function ImageBody({ src, alt }: { src: string; alt: string }) {
 }
 
 /// One file of the checkout over the terminal area, as the diff view sits:
-/// text with line numbers, or an image. Esc closes.
-export function FileView({ root, path, onClose }: { root: string; path: string; onClose: () => void }) {
+/// text with line numbers, a Markdown file as a page (its source a click
+/// away), or an image. Esc closes.
+export function FileView({
+  root,
+  path,
+  onOpen,
+  onClose,
+}: {
+  root: string;
+  path: string;
+  onOpen: (path: string) => void;
+  onClose: () => void;
+}) {
   const [loaded, setLoaded] = useState<Loaded>({ phase: "loading" });
+  const [source, setSource] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +112,7 @@ export function FileView({ root, path, onClose }: { root: string; path: string; 
   }, [root, path]);
 
   const contents = loaded.phase === "ready" ? loaded.contents : null;
+  const markdown = isMarkdown(path) && contents?.type === "text" && contents.text !== "";
   return (
     <div
       className="diff-view file-view"
@@ -73,6 +128,16 @@ export function FileView({ root, path, onClose }: { root: string; path: string; 
         <span className="diff-path" title={`${root}/${path}`}>
           {path}
         </span>
+        {markdown && (
+          <div className="segmented" role="radiogroup" aria-label="Show the file as">
+            <button role="radio" aria-checked={!source} onClick={() => setSource(false)}>
+              Preview
+            </button>
+            <button role="radio" aria-checked={source} onClick={() => setSource(true)}>
+              Source
+            </button>
+          </div>
+        )}
         <button className="icon-button" aria-label="Close file" title="Close (Esc)" onClick={onClose}>
           ×
         </button>
@@ -81,7 +146,13 @@ export function FileView({ root, path, onClose }: { root: string; path: string; 
         {loaded.phase === "loading" && <p className="empty">Reading the file…</p>}
         {loaded.phase === "failed" && <p className="empty error">Could not open the file: {loaded.error}</p>}
         {contents?.type === "text" &&
-          (contents.text ? <TextBody text={contents.text} /> : <p className="empty">The file is empty.</p>)}
+          (!contents.text ? (
+            <p className="empty">The file is empty.</p>
+          ) : markdown && !source ? (
+            <MarkdownBody root={root} path={path} text={contents.text} onOpen={onOpen} />
+          ) : (
+            <TextBody text={contents.text} />
+          ))}
         {contents?.type === "image" && (
           <ImageBody src={`data:${contents.mime};base64,${contents.data}`} alt={path.split("/").pop() ?? path} />
         )}

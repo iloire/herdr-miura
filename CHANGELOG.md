@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 23:50 — Markdown files open as a page
+
+A Markdown file opened from the Files panel was shown as its source with line numbers, hard to read
+for anything longer than a page. It now opens rendered: headings, lists, tables, code blocks and the
+checkout's own images, at a reading width, with Preview / Source in the header to see the text. A link
+to another file of the checkout opens it in the same view, one to a heading scrolls there, and a web
+link opens in the browser. The file's raw HTML is shown as text, never run, and web images (a README's
+badges) show their alt text, since the window loads no images from the web.
+
 ## 2026-10-30 00:45 — A commit's diff stays in its column
 
 Opening a commit with a long subject drew its diff wider than the window, over the Changes panel:

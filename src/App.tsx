@@ -458,7 +458,7 @@ export default function App() {
                   onClose={closeDiff}
                 />
               )}
-              {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
+              {shownTreeFile && <FileView root={listingRoot} path={filePick} onOpen={setFilePick} onClose={closeFile} />}
             </div>
             <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
           </main>

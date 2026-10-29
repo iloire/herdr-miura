@@ -7,7 +7,7 @@ be changed with hot reload instead of a Rust rebuild. It is a port of the fundam
 [herdr-gpui](https://github.com/penso/herdr-gpui): the workspace sidebar, tabs, split panes, the terminal
 surface, keyboard, mouse, and paste input, and the command catalog with its shortcuts. A Changes panel shows
 what changed in the checkout you are working in, with each file's diff, and what each recent commit changed.
-A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and opens any file's text or image
+A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and opens any file's text or image, a Markdown file rendered as a page,
 over the terminal.
 A workspace can name a team of agents in `.herdr/team.json`: the sidebar lists each role, a Claude Code
 session in its own tab, with what it is doing, and starts the ones not running ([docs/team.md](docs/team.md)).
