@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
@@ -103,7 +104,12 @@ export default function App() {
       if (controller.shortcut(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    // The macOS app menu's Settings… item, which also owns ⌘, there.
+    const unlisten = listen("menu://open_settings", () => controller.run("open_settings"));
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      void unlisten.then((stop) => stop());
+    };
   }, [controller]);
 
   // Agents that finished or wait on you badge the Dock and lead the title,

@@ -13,6 +13,8 @@ mod frame;
 mod git;
 mod herdr;
 mod listening_ports;
+#[cfg(target_os = "macos")]
+mod menu;
 mod osc52;
 mod process;
 mod prompts;
@@ -28,14 +30,17 @@ pub use error::{Error, Result};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let result = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .manage(claude_usage::Cache::default())
         .manage(connection::Connection::default())
         .manage(queue::Owner::default())
         .manage(session_usage::Cache::default())
-        .manage(ssh_hosts::PendingKeys::default())
+        .manage(ssh_hosts::PendingKeys::default());
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(menu::build).on_menu_event(menu::on_event);
+    let result = builder
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
             commands::change_counts,

@@ -80,6 +80,14 @@ status bar, after the commands hint, now opens it too (through the same `open_se
 with the app-wide things in the status bar rather than with the tab strip's panel buttons, since settings
 belong to the whole app.
 
+## 2026-10-29 13:25 — Settings… in the macOS app menu
+
+The Settings dialog could only be opened with ⌘, or from the command palette. The Herdr menu now has
+**Settings…** (⌘,) under About. The rest of Tauri's default menu stays as it was (About, Hide, Quit, and the
+Edit menu that copy and paste go through). A click emits `menu://open_settings`, and the webview runs the
+catalog's `open_settings` for it. On macOS the menu item owns ⌘,, so the webview's own binding steps aside
+and the dialog opens once. Linux and Windows keep Ctrl+,.
+
 ## 2026-10-29 13:20 — One window owns the queue, with backups
 
 Two windows of the app (the daily one and a worktree's dev build) share one data folder and each saved the

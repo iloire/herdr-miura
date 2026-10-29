@@ -93,6 +93,10 @@ const EXTRA_SHORTCUTS: Record<string, string[]> = {
   previous_workspace: ["alt-up"],
 };
 
+/// Commands whose macOS shortcut belongs to an app menu item (src-tauri's
+/// menu.rs), which runs them through an event, so the webview leaves the key alone.
+const MENU_COMMANDS = new Set(["open_settings"]);
+
 export const DEFAULT_FONT_SIZE = DEFAULT_SETTINGS.terminal.fontSize;
 
 /// The Enter key, typed after a new tab's command.
@@ -455,7 +459,7 @@ export class Controller {
   /// A catalog shortcut for `event`, run if found. Returns whether it was.
   shortcut(event: KeyLike): boolean {
     const command = this.state.commands.find((c) => c.parsed.some((s) => matches(s, event)));
-    if (!command) return false;
+    if (!command || (IS_MAC && MENU_COMMANDS.has(command.name))) return false;
     this.run(command.name);
     return true;
   }
