@@ -144,6 +144,10 @@ export interface View {
   agents: Agent[];
   /// Every pane the snapshot shows.
   panes: ReadonlySet<string>;
+  /// Every agent the snapshot shows, by its pane. An item's own agent is
+  /// looked up here, not in `agents`: if the workspace ever stops mapping to
+  /// the queue's folder, its agent must not pass for exited.
+  byPane: ReadonlyMap<string, Agent>;
 }
 
 export function viewOf(queue: Queue, snapshot: Snapshot, now: number): View {
@@ -154,6 +158,7 @@ export function viewOf(queue: Queue, snapshot: Snapshot, now: number): View {
     workspaces,
     agents: snapshot.agents.filter((a) => ids.has(a.workspace_id)),
     panes: new Set(snapshot.panes.map((p) => p.pane_id)),
+    byPane: new Map(snapshot.agents.map((a) => [a.pane_id, a])),
   };
 }
 
@@ -180,7 +185,7 @@ export function step(queue: Queue, view: View): { queue: Queue; effect: Effect |
       if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
       return { queue: end(queue, active.id, "stopped", now, "its tab was closed"), effect: null };
     }
-    const agent = view.agents.find((a) => a.pane_id === active.paneId);
+    const agent = view.byPane.get(active.paneId);
     if (active.state === "waiting") {
       // Herdr refused to start it, so no agent will ever become ready there.
       if (!agent) {

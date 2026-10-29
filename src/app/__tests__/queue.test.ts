@@ -45,7 +45,7 @@ function agent(pane_id: string, agent_status: AgentStatus, over: Partial<Agent> 
 const workspace = { workspace_id: "w1", new_workspace_cwd: FOLDER } as Workspace;
 
 function view(agents: Agent[], now: number, panes: string[] = agents.map((a) => a.pane_id)): View {
-  return { now, workspaces: [workspace], agents, panes: new Set(panes) };
+  return { now, workspaces: [workspace], agents, panes: new Set(panes), byPane: new Map(agents.map((a) => [a.pane_id, a])) };
 }
 
 /// A queue with `prompts` waiting, in order.
@@ -125,6 +125,15 @@ describe("step", () => {
     queue = step(queue, view([], 2000, ["p1"])).queue;
     const { queue: stopped } = step(queue, view([], 2000 + FINISH_DEBOUNCE_MS, ["p1"]));
     expect(stopped.history[0]).toMatchObject({ state: "stopped", reason: "its agent exited" });
+  });
+
+  it("keeps running an item whose workspace stops mapping to the queue's folder", () => {
+    let queue = running(queued("one"));
+    const elsewhere = { ...view([], 2000, ["p1"]), agents: [], byPane: new Map([["p1", agent("p1", "working")]]) };
+    queue = step(queue, elsewhere).queue;
+    const later = step(queue, { ...elsewhere, now: 2000 + FINISH_DEBOUNCE_MS }).queue;
+    expect(later.items[0]).toMatchObject({ state: "running" });
+    expect(later.history).toEqual([]);
   });
 
   it("prompts an agent that was not ready once it is idle", () => {

@@ -6,6 +6,7 @@
 import { getIdentifier } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCounts } from "../changes/counts";
+import { DEV_BRANCH } from "../components/DevBar";
 import type { Snapshot } from "../protocol";
 import type { Controller } from "./controller";
 import {
@@ -39,7 +40,9 @@ import {
 const TICK_MS = 1000;
 const LOAD_RETRY_MS = 5000;
 /// The app id of the window in daily use. A dev build started with another
-/// one (`com.herdr.tauri.dev`, see CLAUDE.md) keeps a queue of its own.
+/// one (`com.herdr.tauri.dev`, see CLAUDE.md) keeps a queue of its own; one
+/// on a feature branch with this id has no queue at all, so the daily queue
+/// is only ever run by `main`'s code.
 const DAILY_ID = "com.herdr.tauri";
 
 /// Whether this window has the queue, and which one it is.
@@ -113,10 +116,9 @@ export function useQueue(
   useEffect(() => {
     let live = true;
     let timer: number | undefined;
-    const load = (first: boolean) =>
+    const load = (first: boolean, id: string) =>
       loadQueue()
-        .then(async (loaded) => {
-          const id = await getIdentifier().catch(() => DAILY_ID);
+        .then((loaded) => {
           if (!live) return;
           setAccess({ kind: "ready", separate: id !== DAILY_ID });
           void commit(recover(loaded, Date.now()));
@@ -125,9 +127,18 @@ export function useQueue(
           if (!live) return;
           setAccess({ kind: "none", reason: String(error) });
           if (first) controller.act(Promise.reject(error));
-          timer = window.setTimeout(() => load(false), LOAD_RETRY_MS);
+          timer = window.setTimeout(() => load(false, id), LOAD_RETRY_MS);
         });
-    void load(true);
+    void getIdentifier()
+      .catch(() => DAILY_ID)
+      .then((id) => {
+        if (!live) return;
+        if (DEV_BRANCH && id === DAILY_ID) {
+          setAccess({ kind: "none", reason: `The queue runs in the main window; this is a dev build of ${DEV_BRANCH}.` });
+          return;
+        }
+        void load(true, id);
+      });
     return () => {
       live = false;
       clearTimeout(timer);

@@ -17,8 +17,7 @@ its own.
   npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'
   ```
 
-  A dev window shares the daily app's data folder, so it has no prompt queue while the daily window
-  owns it. To try the queue in a worktree, give it its own folder: add `"identifier":"com.herdr.tauri.dev"`
+  A dev window on a feature branch never runs the daily prompt queue: only `main`'s window does. To try the queue in a worktree, give it its own folder: add `"identifier":"com.herdr.tauri.dev"`
   to that `--config`.
 
   The dev window's `DEV · <branch>` strip (absent on `main`) tells the instances apart.
