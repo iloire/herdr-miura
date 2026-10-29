@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 13:54 — A gear for Settings in the status bar
+
+The Settings dialog opened only with ⌘, or from the command palette. A gear button at the right end of the
+status bar, after the commands hint, now opens it too (through the same `open_settings` command). It sits
+with the app-wide things in the status bar rather than with the tab strip's panel buttons, since settings
+belong to the whole app.
+
 ## 2026-10-29 13:20 — One window owns the queue, with backups
 
 Two windows of the app (the daily one and a worktree's dev build) share one data folder and each saved the

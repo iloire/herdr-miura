@@ -4,6 +4,7 @@ import type { ClaudeUsage as Usage } from "../app/claudeUsage";
 import type { ListeningPort } from "../app/ports";
 import { ClaudeUsage } from "./ClaudeUsage";
 import { HostPicker } from "./HostPicker";
+import { GearIcon } from "./icons";
 import { Ports } from "./Ports";
 import { QueueChip } from "./QueueChip";
 import type { Queue } from "../app/queue";
@@ -63,6 +64,14 @@ export function StatusBar({
       <QueueChip queue={queue} onOpen={onOpenQueue} />
       <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
+      <button
+        className="icon-button status-settings"
+        title="Settings (⌘,)"
+        aria-label="Settings"
+        onClick={() => controller.run("open_settings")}
+      >
+        <GearIcon />
+      </button>
     </footer>
   );
 }

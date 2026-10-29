@@ -864,6 +864,21 @@ body.reordering * {
   overflow: hidden;
 }
 
+/* The bar is 24px tall, so its one icon button is smaller than the tab strip's. */
+.status-settings {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: -6px;
+  border-radius: 4px;
+}
+
+.status-settings svg {
+  width: calc(13px * var(--ui-scale));
+  height: calc(13px * var(--ui-scale));
+}
+
 .statusbar.phase-disconnected .connection {
   color: var(--blocked);
 }
