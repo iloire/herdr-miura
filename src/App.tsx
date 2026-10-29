@@ -9,6 +9,8 @@ import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsa
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
+import { fontStack } from "./app/settings";
+import { useSettings } from "./app/useSettings";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
@@ -23,6 +25,7 @@ import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
 import { QueuePanel } from "./components/QueuePanel";
+import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
@@ -58,6 +61,7 @@ export default function App() {
   const changesStore = useMemo(() => new ChangesStore(), []);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
+  const settings = useSettings(controller);
   const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
   const [filePick, setFilePick] = useState<string | null>(null);
@@ -381,8 +385,15 @@ export default function App() {
             />
             <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
             <div className="stage">
-              <Terminal controller={controller} fontSize={state.fontSize} theme={state.theme.terminal} />
+              <Terminal
+                controller={controller}
+                fontSize={state.fontSize}
+                fontFamily={fontStack(state.settings.terminal.fontFamily)}
+                lineHeight={state.settings.terminal.lineHeight}
+                theme={state.theme.terminal}
+              />
             </div>
+            <SettingsWarnings view={settings} />
             {shownFile && checkout && (
               <DiffView
                 checkout={checkout.path}

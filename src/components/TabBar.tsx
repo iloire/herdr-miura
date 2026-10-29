@@ -153,7 +153,7 @@ export function TabBar({
           // from the terminal, and focus elsewhere is handed back to it.
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => {
-            controller.run("new_tab");
+            controller.newTab();
             controller.focusTerminal();
           }}
         >

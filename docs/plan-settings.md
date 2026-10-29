@@ -101,8 +101,8 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
 4. ~~Rust `settings.rs`: path, `settings_load`, `settings_set` with `toml_edit`, `theme_list` /
    `theme_read` for Ghostty's folders (paths resolved, nothing outside them or the named file read).
    Tests with `tempfile`, including that a comment survives a write.~~ ✅
-5. TS `app/settings.ts`: parse into `Settings` with defaults and warnings, reload on window focus, wire
-   each starting setting through. Tests for defaults, bad values and unknown keys.
+5. ~~TS `app/settings.ts`: parse into `Settings` with defaults and warnings, reload on window focus, wire
+   each starting setting through. Tests for defaults, bad values and unknown keys.~~ ✅
 6. Settings dialog and ⌘,.
 7. Provision: `~/dotfiles/herdr/config-tauri.toml` with the starting keys commented, the symlink in
    ansible-recipes `herdr_config`, applied here and checked through the dialog.

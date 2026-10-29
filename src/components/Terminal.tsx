@@ -22,7 +22,20 @@ function modifiers(event: MouseEvent | WheelEvent): number {
 
 /// The daemon's surface on a canvas, with a hidden textarea that owns
 /// keyboard focus so text input, IME composition, and paste work natively.
-export function Terminal({ controller, fontSize, theme }: { controller: Controller; fontSize: number; theme: Theme }) {
+export function Terminal({
+  controller,
+  fontSize,
+  fontFamily,
+  lineHeight,
+  theme,
+}: {
+  controller: Controller;
+  fontSize: number;
+  /// A CSS font list.
+  fontFamily: string;
+  lineHeight: number;
+  theme: Theme;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -41,7 +54,7 @@ export function Terminal({ controller, fontSize, theme }: { controller: Controll
     const input = inputRef.current;
     if (!host || !canvas || !input) return;
     const grid = controller.grid;
-    const metrics = measure(fontSize);
+    const metrics = measure(fontSize, lineHeight, fontFamily);
     const painter = new Painter(canvas, metrics, themeRef.current);
     let focused = document.hasFocus();
     let composing = false;
@@ -306,7 +319,7 @@ export function Terminal({ controller, fontSize, theme }: { controller: Controll
       input.removeEventListener("focus", onFocus);
       input.removeEventListener("blur", onBlur);
     };
-  }, [controller, fontSize]);
+  }, [controller, fontSize, fontFamily, lineHeight]);
 
   return (
     <div className="terminal" ref={hostRef} onMouseDown={() => inputRef.current?.focus()}>

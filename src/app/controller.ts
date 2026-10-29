@@ -3,6 +3,7 @@ import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol
 import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
 import { HERDR_NIGHT, type NamedTheme } from "../themes/catalog";
+import { DEFAULT_SETTINGS, type Settings, saveSetting } from "./settings";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { focusAfterClose, withoutClosing } from "./closing";
@@ -70,6 +71,8 @@ export interface State {
   fontSize: number;
   /// The theme on screen: chrome tokens on :root, terminal colors in the painter.
   theme: NamedTheme;
+  /// What the settings file says, with defaults for what it leaves out.
+  settings: Settings;
   commands: Command[];
 }
 
@@ -83,7 +86,22 @@ const EXTRA_SHORTCUTS: Record<string, string[]> = {
   previous_workspace: ["alt-up"],
 };
 
-export const DEFAULT_FONT_SIZE = 13;
+export const DEFAULT_FONT_SIZE = DEFAULT_SETTINGS.terminal.fontSize;
+
+/// The Enter key, typed after a new tab's command.
+const ENTER: PaneInputEvent = {
+  Key: {
+    code: "Enter",
+    modifiers: 0,
+    kind: "Press",
+    repeat_count: 1,
+    shifted_codepoint: null,
+    generated_text: null,
+    tracks_release: false,
+    physical_key_id: null,
+    windows_record: null,
+  },
+};
 
 /// Owns the connection, the surface grid, and the state React renders. The
 /// grid stays outside React state: the painter reads it on every frame.
@@ -105,6 +123,7 @@ export class Controller {
     queueAuto: false,
     fontSize: DEFAULT_FONT_SIZE,
     theme: HERDR_NIGHT,
+    settings: DEFAULT_SETTINGS,
     commands: [],
   };
   private listeners = new Set<() => void>();
@@ -114,6 +133,8 @@ export class Controller {
   private daemonSnapshot: Snapshot | null = null;
   /// Tabs closed here that the daemon still lists.
   private closing = new Set<string>();
+  /// Each `tab.create` the "+" sent with a command to type, by request ID.
+  private newTabCommands = new Map<string, string>();
   /// Each `tab.close` request in flight, by request ID, to its tab.
   private closeRequests = new Map<string, string>();
   private readonly daemon = new Daemon((event) => this.handle(event));
@@ -140,6 +161,34 @@ export class Controller {
     if (theme === this.state.theme) return;
     applyTheme(theme);
     this.set({ theme });
+  }
+
+  /// Takes what the settings file says: the terminal's size follows it, and
+  /// the chrome's text scales against the default 13 px.
+  applySettings(settings: Settings): void {
+    document.documentElement.style.setProperty("--ui-scale", String(settings.ui.fontSize / DEFAULT_SETTINGS.ui.fontSize));
+    this.set({ settings, fontSize: settings.terminal.fontSize });
+  }
+
+  /// The terminal's font size, kept in the settings file so it survives a relaunch;
+  /// the default removes the key.
+  private setFontSize(fontSize: number): void {
+    if (fontSize === this.state.fontSize) return;
+    const settings = { ...this.state.settings, terminal: { ...this.state.settings.terminal, fontSize } };
+    this.set({ fontSize, settings });
+    this.act(saveSetting("terminal.font_size", fontSize === DEFAULT_FONT_SIZE ? null : fontSize));
+  }
+
+  /// The tab strip's "+": a tab running `new_tab.command` when one is set,
+  /// typed into its shell as herdr-gpui's `plus_command` is, else a plain tab.
+  newTab(): void {
+    const command = this.state.settings.newTabCommand;
+    const snapshot = this.state.snapshot;
+    const workspaceId = snapshot?.focused_workspace_id;
+    if (!command || !workspaceId) return this.run("new_tab");
+    void this.send("tab.create", { workspace_id: workspaceId, focus: true }).then((requestId) => {
+      if (requestId) this.newTabCommands.set(requestId, command);
+    });
   }
 
   loadCatalog(): void {
@@ -246,6 +295,10 @@ export class Controller {
         this.set({ notice: `Not sent: ${event.reason}` });
         break;
       case "response": {
+        const command = this.newTabCommands.get(event.request_id);
+        this.newTabCommands.delete(event.request_id);
+        const paneId = (event.response as { result?: { root_pane?: { pane_id?: string } } } | null)?.result?.root_pane?.pane_id;
+        if (command && paneId) this.sendInput([{ TextCommit: command }, ENTER], paneId);
         const error = (event.response as { error?: { message?: string } } | null)?.error;
         if (error) {
           this.closeFailed(event.request_id);
@@ -308,7 +361,11 @@ export class Controller {
   }
 
   request(method: string, params: Record<string, unknown>): void {
-    if (method === "tab.close") return this.closeTab(String(params.tab_id));
+    if (method === "tab.close") {
+      const tabId = String(params.tab_id);
+      if (this.state.settings.confirmCloseTab && !this.confirmClose(tabId)) return;
+      return this.closeTab(tabId);
+    }
     void this.send(method, params);
   }
 
@@ -320,6 +377,17 @@ export class Controller {
       this.notice(error);
       return null;
     });
+  }
+
+  /// Asks before closing a tab an agent is running in (Herdr reports agents,
+  /// not other processes). Any other tab closes without asking.
+  private confirmClose(tabId: string): boolean {
+    const snapshot = this.state.snapshot;
+    const agents = snapshot?.agents.filter((agent) => agent.tab_id === tabId) ?? [];
+    if (!agents.length) return true;
+    const tab = snapshot?.tabs.find((t) => t.tab_id === tabId);
+    const names = agents.map((agent) => agent.display_agent ?? agent.agent ?? "an agent").join(", ");
+    return window.confirm(`Close ${tab?.label ?? "this tab"}? ${names} is still running in it.`);
   }
 
   /// Hides the tab at once and, if it is the focused one, focuses the tab
@@ -379,11 +447,11 @@ export class Controller {
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
-        return this.set({ fontSize: Math.min(32, this.state.fontSize + 1) });
+        return this.setFontSize(Math.min(32, this.state.fontSize + 1));
       case "decrease_font_size":
-        return this.set({ fontSize: Math.max(8, this.state.fontSize - 1) });
+        return this.setFontSize(Math.max(8, this.state.fontSize - 1));
       case "reset_font_size":
-        return this.set({ fontSize: DEFAULT_FONT_SIZE });
+        return this.setFontSize(DEFAULT_FONT_SIZE);
       case "next_workspace":
       case "previous_workspace": {
         const snapshot = this.state.snapshot;
