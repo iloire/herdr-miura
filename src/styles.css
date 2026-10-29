@@ -391,8 +391,9 @@ body.reordering * {
   padding: 16px 18px 16px 20px;
   background: var(--ink);
   border: 1px solid var(--rule);
-  border-radius: 8px;
-  box-shadow: inset 3px 0 0 var(--state);
+  /* A straight rail: square on its side, so it does not bend round the corners. */
+  border-left: 3px solid var(--state);
+  border-radius: 0 8px 8px 0;
 }
 
 .worktree.pending {
