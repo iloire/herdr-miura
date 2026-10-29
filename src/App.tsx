@@ -1,7 +1,8 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type CSSProperties, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
 import { hueColor } from "./app/hue";
+import { loadLayout, type SavedFile, saveLayout } from "./app/layout";
 import { loadPins } from "./app/pins";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
@@ -71,6 +72,10 @@ export default function App() {
   const [worktreesOf, setWorktreesOf] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
+  // The files picked in the drawer when the window last closed, reopened once
+  // their checkout is read, and until then kept from being saved over.
+  const restore = useRef<{ changesFile: SavedFile | null; treeFile: SavedFile | null } | null>(null);
+  restore.current ??= loadLayout();
   const directory = focusedDirectory(state.snapshot);
   const [sidebarWidth, setSidebarWidth] = useState(() => clampWidth(loadWidth(), window.innerWidth));
   const commitSidebarWidth = (width: number) => {
@@ -281,6 +286,21 @@ export default function App() {
   useEffect(() => setOpenCommit(null), [checkoutPath]);
   const commitFiles = useCommitFiles(checkoutPath, openCommit?.sha ?? null);
 
+  // The first checkout read reopens the diff left open in it, if the file is
+  // still changed; a commit's diff is not kept.
+  useEffect(() => {
+    const saved = restore.current?.changesFile;
+    if (!saved || !checkout) return;
+    const file = saved.root === checkout.path ? checkout.files.find((f) => f.path === saved.path) : undefined;
+    if (file) setDiffPick({ file, commit: null });
+    restore.current = { ...restore.current!, changesFile: null };
+  }, [checkout]);
+  useEffect(() => {
+    if (restore.current?.changesFile) return;
+    const changesFile = checkoutPath && diffPick?.commit === null ? { root: checkoutPath, path: diffPick.file.path } : null;
+    saveLayout({ changesFile });
+  }, [checkoutPath, diffPick]);
+
   // A diff stays open only while what it shows is still listed: the file in
   // the checkout, or the commit still open in the panel.
   const diffCommit = diffPick?.commit && diffPick.commit === openCommit?.sha ? openCommit : null;
@@ -307,8 +327,17 @@ export default function App() {
 
   const listing = useListing(directory, state.files);
   const listingRoot = listing.phase === "ready" ? (listing.listing?.root ?? null) : null;
-  // A file opened in one checkout means nothing in the next.
-  useEffect(() => setFilePick(null), [listingRoot]);
+  // A file opened in one checkout means nothing in the next, except the one
+  // left open when the window last closed.
+  useEffect(() => {
+    const saved = restore.current?.treeFile;
+    setFilePick(saved && saved.root === listingRoot ? saved.path : null);
+    if (saved && listingRoot) restore.current = { ...restore.current!, treeFile: null };
+  }, [listingRoot]);
+  useEffect(() => {
+    if (restore.current?.treeFile) return;
+    saveLayout({ treeFile: listingRoot && filePick ? { root: listingRoot, path: filePick } : null });
+  }, [listingRoot, filePick]);
   const changedMarks = useMemo(
     () => new Map(checkout?.path === listingRoot ? checkout.files.map((f) => [f.path, f.mark]) : []),
     [checkout, listingRoot],

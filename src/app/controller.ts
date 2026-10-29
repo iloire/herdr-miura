@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS, type Settings, saveSetting } from "./settings";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { focusAfterClose, withoutClosing } from "./closing";
+import { type Drawer, loadLayout, saveLayout } from "./layout";
 import { stepWorkspace } from "./step";
 
 export type Status =
@@ -107,6 +108,15 @@ const ENTER: PaneInputEvent = {
   },
 };
 
+/// The drawer's panel as a relaunch should reopen it: a queue that opened on
+/// its own is left to open on its own again.
+function drawerOf(state: State): Drawer | null {
+  if (state.queue) return state.queueAuto ? null : "queue";
+  return state.changes ? "changes" : state.files ? "files" : null;
+}
+
+const layout = loadLayout();
+
 /// Owns the connection, the surface grid, and the state React renders. The
 /// grid stays outside React state: the painter reads it on every frame.
 export class Controller {
@@ -119,13 +129,13 @@ export class Controller {
     snapshot: null,
     notice: null,
     title: null,
-    sidebar: true,
+    sidebar: layout.sidebar,
     palette: false,
     library: false,
     settingsOpen: false,
-    changes: false,
-    files: false,
-    queue: false,
+    changes: layout.drawer === "changes",
+    files: layout.drawer === "files",
+    queue: layout.drawer === "queue",
     queueAuto: false,
     fontSize: DEFAULT_FONT_SIZE,
     theme: HERDR_NIGHT,
@@ -158,7 +168,12 @@ export class Controller {
   }
 
   private set(patch: Partial<State>): void {
+    const previous = this.state;
     this.state = { ...this.state, ...patch };
+    const drawer = drawerOf(this.state);
+    if (this.state.sidebar !== previous.sidebar || drawer !== drawerOf(previous)) {
+      saveLayout({ sidebar: this.state.sidebar, drawer });
+    }
     for (const listener of this.listeners) listener();
   }
 
