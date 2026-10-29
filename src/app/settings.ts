@@ -125,6 +125,11 @@ export function saveSetting(key: string, value: string | number | boolean | null
   return invoke("settings_set", { key, value });
 }
 
+/// Opens the settings file in VS Code, making it first when there is none.
+export function openSettingsFile(): Promise<void> {
+  return invoke("settings_open");
+}
+
 /// The terminal's font list: the chosen face, then the usual monospace fallbacks.
 export function fontStack(family: string): string {
   const quoted = family.includes(",") || family.includes('"') ? family : `"${family}"`;

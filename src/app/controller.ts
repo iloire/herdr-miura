@@ -60,6 +60,8 @@ export interface State {
   title: string | null;
   sidebar: boolean;
   palette: boolean;
+  /// The Settings dialog is open.
+  settingsOpen: boolean;
   /// The Changes panel is open.
   changes: boolean;
   /// The Files panel is open. It shares the drawer with Changes, so at most one is.
@@ -117,6 +119,7 @@ export class Controller {
     title: null,
     sidebar: true,
     palette: false,
+    settingsOpen: false,
     changes: false,
     files: false,
     queue: false,
@@ -436,6 +439,8 @@ export class Controller {
 
   run(name: string): void {
     switch (name) {
+      case "open_settings":
+        return this.set({ settingsOpen: !this.state.settingsOpen, palette: false });
       case "command_palette":
         return this.set({ palette: !this.state.palette });
       case "add_to_queue":

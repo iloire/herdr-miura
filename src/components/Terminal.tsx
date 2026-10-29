@@ -296,7 +296,9 @@ export function Terminal({
     input.addEventListener("paste", onPaste);
     input.addEventListener("focus", onFocus);
     input.addEventListener("blur", onBlur);
-    input.focus();
+    // A font setting changed from the Settings dialog rebuilds this view: the
+    // dialog keeps the focus it has.
+    if (!document.activeElement || document.activeElement === document.body) input.focus();
     controller.focusTerminal = () => input.focus();
     return () => {
       retheme.current = () => {};

@@ -103,7 +103,7 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
    Tests with `tempfile`, including that a comment survives a write.~~ ✅
 5. ~~TS `app/settings.ts`: parse into `Settings` with defaults and warnings, reload on window focus, wire
    each starting setting through. Tests for defaults, bad values and unknown keys.~~ ✅
-6. Settings dialog and ⌘,.
+6. ~~Settings dialog and ⌘,.~~ ✅
 7. Provision: `~/dotfiles/herdr/config-tauri.toml` with the starting keys commented, the symlink in
    ansible-recipes `herdr_config`, applied here and checked through the dialog.
 8. Docs: the file's keys in a `docs/settings.md` (the schema, next to nothing else), README status, the

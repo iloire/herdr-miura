@@ -65,6 +65,7 @@ pub fn run() {
             commands::send_popup_input,
             commands::session_usage,
             commands::settings_load,
+            commands::settings_open,
             commands::settings_set,
             commands::scan_host_key,
             commands::set_focus,

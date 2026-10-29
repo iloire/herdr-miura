@@ -79,7 +79,12 @@ fn file_in(root: &str, path: &str) -> Result<PathBuf, Error> {
 
 /// Opens one file of the folder `root` in VS Code, the only editor offered.
 pub fn open_file(root: &str, path: &str) -> Result<(), Error> {
-    tauri_plugin_opener::open_path(file_in(root, path)?, Opener::VsCode.app()).map_err(Error::Open)
+    open_in_editor(&file_in(root, path)?)
+}
+
+/// Opens a file this app chose (the settings file) in VS Code.
+pub fn open_in_editor(file: &Path) -> Result<(), Error> {
+    tauri_plugin_opener::open_path(file, Opener::VsCode.app()).map_err(Error::Open)
 }
 
 #[cfg(test)]

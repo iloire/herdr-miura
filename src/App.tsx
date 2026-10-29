@@ -25,6 +25,7 @@ import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
 import { QueuePanel } from "./components/QueuePanel";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
@@ -393,7 +394,8 @@ export default function App() {
                 theme={state.theme.terminal}
               />
             </div>
-            <SettingsWarnings view={settings} />
+            {/* The dialog lists them itself. */}
+            {!state.settingsOpen && <SettingsWarnings view={settings} />}
             {shownFile && checkout && (
               <DiffView
                 checkout={checkout.path}
@@ -464,6 +466,17 @@ export default function App() {
           workspace={shownWorktrees.workspace.label}
           worktrees={shownWorktrees.list}
           onClose={closeWorktrees}
+        />
+      )}
+      {state.settingsOpen && (
+        <SettingsDialog
+          controller={controller}
+          settings={state.settings}
+          view={settings}
+          onClose={() => {
+            controller.run("open_settings");
+            controller.focusTerminal();
+          }}
         />
       )}
       {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
