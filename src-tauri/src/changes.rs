@@ -247,7 +247,7 @@ pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> 
 
 /// The remote's default branch as last fetched: what `origin/HEAD` names,
 /// else `origin/main` or `origin/master`, whichever exists.
-fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
+pub fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
     if let Ok(head) = git::text(
         checkout,
         &[
@@ -288,17 +288,21 @@ pub fn count_changes(directories: &[String]) -> Vec<Option<usize>> {
     directories
         .iter()
         .take(MAX_COUNTED)
-        .map(|directory| {
-            git::text(
-                directory,
-                &["status", "--porcelain", "--untracked-files=normal", "-z"],
-                "count working tree changes",
-                Instant::now() + DEADLINE,
-            )
-            .ok()
-            .map(|status| parse::count_porcelain(&status))
-        })
+        .map(|directory| count_in(directory, Instant::now() + DEADLINE))
         .collect()
+}
+
+/// How many files the checkout `directory` sits in has changed, untracked
+/// ones included; `None` outside Git or when the read failed.
+pub fn count_in(directory: &str, deadline: Instant) -> Option<usize> {
+    git::text(
+        directory,
+        &["status", "--porcelain", "--untracked-files=normal", "-z"],
+        "count working tree changes",
+        deadline,
+    )
+    .ok()
+    .map(|status| parse::count_porcelain(&status))
 }
 
 /// A regular file's text: not through a symlink, at most 1 MiB, UTF-8,

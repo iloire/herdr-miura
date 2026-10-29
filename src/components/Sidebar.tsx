@@ -8,6 +8,7 @@ import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
+import type { Worktree } from "../changes/worktrees";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import {
@@ -21,6 +22,7 @@ import {
   TerminalIcon,
 } from "./icons";
 import { Ports } from "./Ports";
+import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
@@ -41,6 +43,7 @@ export function Sidebar({
   controller,
   snapshot,
   changedFiles,
+  worktrees,
   pins,
   ports,
 }: {
@@ -48,6 +51,8 @@ export function Sidebar({
   snapshot: Snapshot | null;
   /// Files changed in each workspace's checkout, by workspace id; absent when none.
   changedFiles: Map<string, number>;
+  /// Linked worktrees of each workspace's checkout, by workspace id; absent when none.
+  worktrees: Map<string, Worktree[]>;
   /// Pinned tabs, as `pinKey`s.
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
@@ -129,6 +134,7 @@ export function Sidebar({
                     branch={workspace.branch}
                     aheadBehind={workspace.git_ahead_behind}
                     changed={changedFiles.get(workspace.workspace_id) ?? 0}
+                    worktrees={worktrees.get(workspace.workspace_id) ?? []}
                   />
                 </span>
                 <span className="workspace-marks">
@@ -260,18 +266,21 @@ function AgentCount({ count }: { count: number }) {
 }
 
 /// The branch line, as herdr-gpui's folder card has it: the branch, commits to
-/// push and pull, and how many files are changed. Only what is non-zero shows.
+/// push and pull, how many files are changed, and how many linked worktrees
+/// the checkout has. Only what is non-zero shows.
 function WorkspaceGit({
   branch,
   aheadBehind,
   changed,
+  worktrees,
 }: {
   branch: string | null;
   aheadBehind: [number, number] | null;
   changed: number;
+  worktrees: Worktree[];
 }) {
   const [ahead, behind] = aheadBehind ?? [0, 0];
-  if (!branch && !changed) return null;
+  if (!branch && !changed && worktrees.length === 0) return null;
   return (
     <span className="workspace-branch">
       {branch && <span className="workspace-branch-name">{branch}</span>}
@@ -282,6 +291,7 @@ function WorkspaceGit({
           ±{changed}
         </span>
       )}
+      <Worktrees worktrees={worktrees} />
     </span>
   );
 }

@@ -5,12 +5,15 @@ import type { ListeningPort } from "../app/ports";
 import { ClaudeUsage } from "./ClaudeUsage";
 import { HostPicker } from "./HostPicker";
 import { Ports } from "./Ports";
+import { Worktrees } from "./Worktrees";
+import type { Worktree } from "../changes/worktrees";
 
 /// Connection state first, so an old local error never hides a disconnect.
 export function StatusBar({
   controller,
   state,
   workspace,
+  worktrees,
   ports,
   usage,
   now,
@@ -19,6 +22,8 @@ export function StatusBar({
   state: State;
   /// The focused workspace's label, shown beside a dot in its hue.
   workspace?: string;
+  /// The focused workspace's linked worktrees.
+  worktrees: Worktree[];
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
   /// This Mac's Claude plan usage: the account's, so it sits with the
@@ -45,6 +50,7 @@ export function StatusBar({
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}
+      <Worktrees worktrees={worktrees} />
       <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
     </footer>

@@ -10,6 +10,7 @@ use crate::{
     folder::{self, Opener},
     listening_ports,
     ssh_hosts,
+    worktrees,
 };
 use crate::herdr::{
     ConnectOptions, Target,
@@ -210,6 +211,17 @@ pub async fn listening_ports(
     connection.ensure_local()?;
     let scan = tauri::async_runtime::spawn_blocking(listening_ports::scan);
     Ok(scan.await.map_err(listening_ports::Error::Worker)??)
+}
+
+/// The linked worktrees of each directory's checkout; `None` outside Git.
+#[tauri::command]
+pub async fn worktrees(
+    connection: State<'_, Connection>,
+    directories: Vec<String>,
+) -> Result<Vec<Option<Vec<worktrees::Worktree>>>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || worktrees::list(&directories));
+    Ok(read.await.map_err(changes::Error::Worker)?)
 }
 
 /// Every file of the checkout `directory` sits in, or `None` outside Git.

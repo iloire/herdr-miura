@@ -8,6 +8,7 @@ import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
+import { readWorktrees, type Worktree } from "./changes/worktrees";
 import { ChangesStore, type RecentCommit } from "./changes/store";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
@@ -95,14 +96,16 @@ export default function App() {
       .catch(() => {});
   }, [attention]);
 
-  // Every workspace's changed-file count, one `git status` per folder, never
-  // two rounds at once. Reread on a timer and when the window comes back.
+  // Every workspace's changed-file count, one `git status` per folder, and
+  // its checkout's linked worktrees, never two rounds at once. Reread on a
+  // timer and when the window comes back.
   const counted = useMemo(
     () => (state.snapshot ? countedDirectories(state.snapshot) : { byWorkspace: new Map<string, string>(), directories: [] }),
     [state.snapshot],
   );
   const directoriesKey = counted.directories.join("\0");
   const [counts, setCounts] = useState<Map<string, number | null>>(new Map());
+  const [worktreeLists, setWorktreeLists] = useState<Map<string, Worktree[] | null>>(new Map());
   useEffect(() => {
     const directories = directoriesKey ? directoriesKey.split("\0") : [];
     if (directories.length === 0) return;
@@ -111,8 +114,10 @@ export default function App() {
     const refresh = () => {
       if (reading) return;
       reading = true;
-      readCounts(directories)
-        .then((next) => live && setCounts(next))
+      Promise.all([
+        readCounts(directories).then((next) => live && setCounts(next)),
+        readWorktrees(directories).then((next) => live && setWorktreeLists(next)),
+      ])
         .catch(() => {})
         .finally(() => (reading = false));
     };
@@ -133,6 +138,14 @@ export default function App() {
     }
     return byWorkspace;
   }, [counted, counts]);
+  const worktrees = useMemo(() => {
+    const byWorkspace = new Map<string, Worktree[]>();
+    for (const [workspace, directory] of counted.byWorkspace) {
+      const list = worktreeLists.get(directory);
+      if (list?.length) byWorkspace.set(workspace, list);
+    }
+    return byWorkspace;
+  }, [counted, worktreeLists]);
 
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
@@ -254,7 +267,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} pins={pins} ports={ports} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} pins={pins} ports={ports} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -299,7 +312,7 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} ports={focusedPorts} usage={usage.usage} now={usage.now} />
         </main>
         <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
           {state.files ? (

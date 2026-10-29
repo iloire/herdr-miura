@@ -17,6 +17,7 @@ mod osc52;
 mod process;
 mod ssh_hosts;
 mod tab_move;
+mod worktrees;
 
 pub use error::{Error, Result};
 
@@ -51,6 +52,7 @@ pub fn run() {
             commands::set_focus,
             commands::ssh_hosts,
             commands::trust_host_key,
+            commands::worktrees,
             // keep-sorted end
         ])
         .run(tauri::generate_context!());

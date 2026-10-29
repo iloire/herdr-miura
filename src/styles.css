@@ -288,6 +288,18 @@ body.reordering * {
   color: var(--lantern);
 }
 
+/* Linked worktrees: muted once all are merged and clean, else colored like
+   commits to push, since their work has not landed yet. */
+.git-worktrees {
+  flex: none;
+  color: var(--muted);
+  font: 11px/1.3 var(--mono);
+}
+
+.git-worktrees.pending {
+  color: var(--done);
+}
+
 /* Status marks, after herdr-gpui's outline icons. Working turns; a blocked
    mark is a lantern disc with how many agents wait on you. */
 .mark {
