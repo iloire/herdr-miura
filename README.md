@@ -14,6 +14,10 @@ session in its own tab, with what it is doing, and starts the ones not running (
 Each workspace also has a prompt queue, a panel beside Changes and Files (⌘⇧A): prompts you hand it run one at a time, each in a new tab
 and a fresh Claude session, the next only once nothing else there is at work and the tree is clean
 ([docs/plan-agent-queue.md](docs/plan-agent-queue.md)).
+Settings live in `~/.config/herdr/config-tauri.toml`, which the Settings dialog (⌘,) writes as you change
+things: the theme (herdr-gpui's theme names, any Ghostty theme, or a light and dark pair that follows macOS),
+the terminal's font, size and line height, the interface text size, and what a new tab runs
+([docs/settings.md](docs/settings.md)).
 
 It's for people who already run Herdr and want a native window on their sessions they can change quickly.
 Like herdr-gpui it is only a client: closing it leaves the daemon and every terminal running.
@@ -21,6 +25,8 @@ Like herdr-gpui it is only a client: closing it leaves the daemon and every term
 ![Herdr Tauri showing three workspaces and a split tab](docs/screenshots/main-window.png)
 
 ![The Changes panel beside a file's diff](docs/screenshots/changes.png)
+
+![Herdr Tauri in the GitHub Light Default theme](docs/screenshots/light-theme.png)
 
 ## How it is split
 
@@ -82,7 +88,8 @@ its changed files, and right-clicking a workspace opens its folder in VS Code, G
 manager, or copies its path. Workspaces sort by hand, dragged into place (the daemon keeps that order), or
 by attention, with those waiting on you first. Right-clicking a tab opens a new tab, or renames, pins, moves to another
 workspace, or closes it. The status bar's host picker attaches to Herdr on another machine over SSH, one host
-at a time, and asks before trusting a new host's key ([how](docs/ssh.md)).
+at a time, and asks before trusting a new host's key ([how](docs/ssh.md)). A settings file and a Settings
+dialog (⌘,) choose the theme, fonts and a few behaviors ([settings](docs/settings.md), [plan](docs/plan-settings.md)).
 Still to come, roughly in priority order: commit and push, GitHub pull requests, text selection and copy,
-find, terminal graphics, hyperlinks, renaming workspaces, the config file and themes,
-system notifications, usage, the orchestrator, and the Changes panel on remote machines.
+find, terminal graphics, hyperlinks, renaming workspaces, more settings (status bar items, the Dock badge,
+key bindings), system notifications, usage, the orchestrator, and the Changes panel on remote machines.

@@ -106,8 +106,8 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
 6. ~~Settings dialog and ⌘,.~~ ✅
 7. ~~Provision: `~/dotfiles/herdr/config-tauri.toml` with the starting keys commented, the symlink in
    ansible-recipes `herdr_config`, applied here and checked through the dialog.~~ ✅
-8. Docs: the file's keys in a `docs/settings.md` (the schema, next to nothing else), README status, the
-   architecture table, CHANGELOG, and a screenshot with a light theme.
+8. ~~Docs: the file's keys in a `docs/settings.md` (the schema, next to nothing else), README status, the
+   architecture table, CHANGELOG, and a screenshot with a light theme.~~ ✅
 
 ## Open questions
 
