@@ -5,6 +5,11 @@ export interface Worktree {
   path: string;
   /// `null` when its HEAD is detached.
   branch: string | null;
+  /// Its last commit's subject and Unix time; `null` when unread.
+  subject: string | null;
+  time: number | null;
+  /// The remote's default branch `unmerged` counts against, as `origin/main`.
+  base: string | null;
   /// Commits the remote's default branch lacks; `null` when unknown.
   unmerged: number | null;
   /// Files changed in it; `null` when unread.
@@ -22,17 +27,18 @@ export function isPending(worktree: Worktree): boolean {
   return (worktree.unmerged ?? 0) > 0 || (worktree.changed ?? 0) > 0;
 }
 
-/// One line per worktree for a tooltip: its branch, or its folder's name
-/// when detached, then what is still pending in it.
-export function worktreeLines(worktrees: Worktree[]): string[] {
-  return worktrees.map((worktree) => {
-    const name = worktree.branch ?? `${worktree.path.split("/").pop()} (detached)`;
-    const state = [];
-    if (worktree.unmerged) state.push(`${worktree.unmerged} unmerged`);
-    if (worktree.changed) state.push(`${worktree.changed} changed`);
-    if (state.length === 0) state.push(worktree.unmerged === 0 ? "merged, clean" : "clean");
-    return `${name}: ${state.join(", ")}`;
-  });
+/// Its branch, or its folder's name when detached.
+export function worktreeName(worktree: Worktree): string {
+  return worktree.branch ?? `${worktree.path.split("/").pop()} (detached)`;
+}
+
+/// What is still pending in it, or that nothing is.
+function worktreeState(worktree: Worktree): string[] {
+  const state = [];
+  if (worktree.unmerged) state.push(`${worktree.unmerged} unmerged`);
+  if (worktree.changed) state.push(`${worktree.changed} changed`);
+  if (state.length === 0) state.push(worktree.unmerged === 0 ? "merged, clean" : "clean");
+  return state;
 }
 
 /// The `⑂3` mark's tooltip: how many, how many pending, then each.
@@ -40,5 +46,6 @@ export function worktreeTitle(worktrees: Worktree[]): string {
   const pending = worktrees.filter(isPending).length;
   const count = `${worktrees.length} ${worktrees.length === 1 ? "worktree" : "worktrees"}`;
   const head = pending > 0 ? `${count}, ${pending} not merged` : `${count}, all merged`;
-  return [head, ...worktreeLines(worktrees)].join("\n");
+  const lines = worktrees.map((worktree) => `${worktreeName(worktree)}: ${worktreeState(worktree).join(", ")}`);
+  return [head, ...lines].join("\n");
 }

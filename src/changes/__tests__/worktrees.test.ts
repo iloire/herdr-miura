@@ -4,6 +4,9 @@ import { isPending, type Worktree, worktreeTitle } from "../worktrees";
 const worktree = (overrides: Partial<Worktree>): Worktree => ({
   path: "/r/.claude/worktrees/venice",
   branch: "venice",
+  subject: null,
+  time: null,
+  base: "origin/main",
   unmerged: 0,
   changed: 0,
   ...overrides,

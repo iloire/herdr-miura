@@ -1,8 +1,9 @@
 //! The linked worktrees beside each workspace's checkout, for the `⑂3` on
 //! its card. Git is asked from the workspace's folder, so worktrees an agent
 //! made under `.claude/worktrees/` count although no pane sits in them. Each
-//! is read for its branch, the commits the remote's default branch lacks and
-//! its uncommitted files: together, whether its work is still pending.
+//! is read for its branch, its last commit, the commits the remote's default
+//! branch lacks and its uncommitted files: together, what the work is and
+//! whether it is still pending.
 
 use crate::{changes, git};
 use serde::Serialize;
@@ -19,6 +20,11 @@ pub struct Worktree {
     pub path: String,
     /// `None` when its HEAD is detached.
     pub branch: Option<String>,
+    /// Its last commit's subject and Unix time; `None` when unread.
+    pub subject: Option<String>,
+    pub time: Option<i64>,
+    /// The remote's default branch `unmerged` counts against, as `origin/main`.
+    pub base: Option<String>,
     /// Commits the remote's default branch lacks; `None` when there is no
     /// such branch or the count failed.
     pub unmerged: Option<u32>,
@@ -54,16 +60,39 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
         linked
             .into_iter()
             .take(MAX_WORKTREES)
-            .map(|entry| Worktree {
-                unmerged: base
-                    .as_deref()
-                    .and_then(|base| unmerged(directory, base, &entry.head, deadline)),
-                changed: changes::count_in(&entry.path, deadline),
-                path: entry.path,
-                branch: entry.branch,
+            .map(|entry| {
+                let (time, subject) = last_commit(directory, &entry.head, deadline).unzip();
+                Worktree {
+                    unmerged: base
+                        .as_deref()
+                        .and_then(|base| unmerged(directory, base, &entry.head, deadline)),
+                    changed: changes::count_in(&entry.path, deadline),
+                    base: base.clone(),
+                    subject,
+                    time,
+                    path: entry.path,
+                    branch: entry.branch,
+                }
             })
             .collect(),
     )
+}
+
+fn last_commit(directory: &str, head: &str, deadline: Instant) -> Option<(i64, String)> {
+    let line = git::text(
+        directory,
+        &["log", "-1", "--format=%ct%x1f%s", head],
+        "read the last commit",
+        deadline,
+    )
+    .ok()?;
+    parse_commit(&line)
+}
+
+/// `%ct%x1f%s`: the commit's Unix time, then its subject.
+fn parse_commit(line: &str) -> Option<(i64, String)> {
+    let (time, subject) = line.split_once('\x1f')?;
+    Some((time.parse().ok()?, subject.to_owned()))
 }
 
 fn unmerged(directory: &str, base: &str, head: &str, deadline: Instant) -> Option<u32> {

@@ -22,6 +22,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
+import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { useListing } from "./files/listing";
 import type { Snapshot } from "./protocol";
@@ -51,6 +52,8 @@ export default function App() {
   const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
   const [filePick, setFilePick] = useState<string | null>(null);
+  // The workspace whose worktrees the details dialog shows.
+  const [worktreesOf, setWorktreesOf] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
   const directory = focusedDirectory(state.snapshot);
@@ -256,6 +259,17 @@ export default function App() {
     controller.focusTerminal();
   };
 
+  // The dialog closes on its own once the workspace is gone or its last
+  // worktree is removed.
+  const worktreesWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === worktreesOf);
+  const worktreesList = worktreesOf ? worktrees.get(worktreesOf) : undefined;
+  const shownWorktrees =
+    worktreesWorkspace && worktreesList ? { workspace: worktreesWorkspace, list: worktreesList } : null;
+  const closeWorktrees = () => {
+    setWorktreesOf(null);
+    controller.focusTerminal();
+  };
+
   const paletteCommands = useMemo(
     // `focus_tab_3` and friends are shortcuts, not things anyone searches for.
     () => state.commands.filter((command) => !/_\d$/.test(command.name)),
@@ -267,7 +281,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} pins={pins} ports={ports} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} pins={pins} ports={ports} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -312,7 +326,7 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} ports={focusedPorts} usage={usage.usage} now={usage.now} />
         </main>
         <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
           {state.files ? (
@@ -344,6 +358,15 @@ export default function App() {
         </div>
       </div>
       {state.palette && <Palette controller={controller} commands={paletteCommands} />}
+      {shownWorktrees && (
+        <WorktreesDialog
+          controller={controller}
+          workspaceId={shownWorktrees.workspace.workspace_id}
+          workspace={shownWorktrees.workspace.label}
+          worktrees={shownWorktrees.list}
+          onClose={closeWorktrees}
+        />
+      )}
       {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
     </div>
   );

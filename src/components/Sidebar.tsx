@@ -1,7 +1,7 @@
-import { type CSSProperties, type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
-import { homeDir } from "@tauri-apps/api/path";
+import { type CSSProperties, type PointerEvent, useCallback, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder, tildePath } from "../app/folder";
+import { useHome } from "../app/useHome";
 import { workspaceDirectory } from "../changes/counts";
 import { agentsByWorkspace, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
@@ -44,6 +44,7 @@ export function Sidebar({
   snapshot,
   changedFiles,
   worktrees,
+  onOpenWorktrees,
   pins,
   ports,
 }: {
@@ -53,6 +54,8 @@ export function Sidebar({
   changedFiles: Map<string, number>;
   /// Linked worktrees of each workspace's checkout, by workspace id; absent when none.
   worktrees: Map<string, Worktree[]>;
+  /// Opens the details of a workspace's worktrees.
+  onOpenWorktrees: (workspaceId: string) => void;
   /// Pinned tabs, as `pinKey`s.
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
@@ -135,6 +138,7 @@ export function Sidebar({
                     aheadBehind={workspace.git_ahead_behind}
                     changed={changedFiles.get(workspace.workspace_id) ?? 0}
                     worktrees={worktrees.get(workspace.workspace_id) ?? []}
+                    onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
                   />
                 </span>
                 <span className="workspace-marks">
@@ -231,15 +235,6 @@ function useRowDrag(enabled: boolean, onDrop: (from: number, slot: number) => vo
   };
 }
 
-/// The home folder, read once, so paths under it show as `~`.
-function useHome(): string | null {
-  const [home, setHome] = useState<string | null>(null);
-  useEffect(() => {
-    homeDir().then(setHome, () => setHome(null));
-  }, []);
-  return home;
-}
-
 /// A pin when the workspace has pinned tabs, with their count when more than
 /// one; hovering names them.
 function PinnedTabs({ tabs }: { tabs: Tab[] }) {
@@ -273,11 +268,13 @@ function WorkspaceGit({
   aheadBehind,
   changed,
   worktrees,
+  onOpenWorktrees,
 }: {
   branch: string | null;
   aheadBehind: [number, number] | null;
   changed: number;
   worktrees: Worktree[];
+  onOpenWorktrees: () => void;
 }) {
   const [ahead, behind] = aheadBehind ?? [0, 0];
   if (!branch && !changed && worktrees.length === 0) return null;
@@ -291,7 +288,7 @@ function WorkspaceGit({
           ±{changed}
         </span>
       )}
-      <Worktrees worktrees={worktrees} />
+      <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
     </span>
   );
 }

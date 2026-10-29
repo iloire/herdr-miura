@@ -14,6 +14,7 @@ export function StatusBar({
   state,
   workspace,
   worktrees,
+  onOpenWorktrees,
   ports,
   usage,
   now,
@@ -24,6 +25,7 @@ export function StatusBar({
   workspace?: string;
   /// The focused workspace's linked worktrees.
   worktrees: Worktree[];
+  onOpenWorktrees: () => void;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
   /// This Mac's Claude plan usage: the account's, so it sits with the
@@ -50,7 +52,7 @@ export function StatusBar({
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}
-      <Worktrees worktrees={worktrees} />
+      <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
       <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
     </footer>

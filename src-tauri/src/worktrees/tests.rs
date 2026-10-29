@@ -50,3 +50,13 @@ fn paths_with_spaces_survive() {
     assert_eq!(entries[0].path, "/My Drive/w t");
     assert_eq!(entries[0].branch.as_deref(), Some("a/b"));
 }
+
+#[test]
+fn a_last_commit_reads_as_its_time_and_subject() {
+    assert_eq!(
+        parse_commit("1761700000\x1ffeat: venice - canals at dusk"),
+        Some((1_761_700_000, "feat: venice - canals at dusk".to_owned()))
+    );
+    assert_eq!(parse_commit("no separator"), None);
+    assert_eq!(parse_commit("soon\x1fsubject"), None);
+}
