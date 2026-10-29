@@ -84,6 +84,8 @@ export interface State {
 /// Shortcuts beyond the catalog's defaults, the Option-arrows herdr-gpui
 /// answers through Herdr's `[keys]`: Up and Down step through workspaces,
 /// Left and Right through the focused workspace's tabs.
+const MOVES = new Set(["tab.focus", "workspace.focus", "pane.focus"]);
+
 const EXTRA_SHORTCUTS: Record<string, string[]> = {
   next_tab: ["alt-right"],
   next_workspace: ["alt-down"],
@@ -388,6 +390,9 @@ export class Controller {
       return this.closeTab(tabId);
     }
     void this.send(method, params);
+    // However the move was asked for (a key, the palette, a card, the strip),
+    // typing goes to the tab, workspace or pane moved to.
+    if (MOVES.has(method)) this.focusTerminal();
   }
 
   /// The request's ID once queued, or null if it was not.

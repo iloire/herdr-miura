@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 17:24 — Typing follows a move to another tab
+
+Only a click on a tab handed the keyboard to its terminal. Moving with ⌥← / ⌥→, ⌘⇧[ / ⌘⇧], ⌘1–9, ⌥↑ / ⌥↓,
+the palette, a workspace card, a team member or a queue item's tab left focus where it was, often on the
+button just clicked, so typing went nowhere. `Controller.request` now gives the terminal focus after any
+`tab.focus`, `workspace.focus` or `pane.focus`, whatever asked for it.
+
 ## 2026-10-29 17:10 — The panel switch moves to the title bar
 
 The Changes, Files and Queue switch and the library's book sat at the tab bar's top right and took that
