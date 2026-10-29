@@ -1358,6 +1358,9 @@ body.reordering * {
   inset: 0;
   display: grid;
   grid-template-rows: auto 1fr;
+  /* Without this the column grows to a long commit subject, and the view
+     overflows the window and paints over the side panel. */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--ink);
   outline: none;
   animation: fade 120ms ease-out;

@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 00:45 — A commit's diff stays in its column
+
+Opening a commit with a long subject drew its diff wider than the window, over the Changes panel:
+the subject never wraps, and the diff view's grid column grew to fit it. The column is now held to
+the view's width, so the subject ends in an ellipsis and the diff scrolls inside its own column.
+
 ## 2026-10-29 19:30 — A frontend role in the starter team
 
 New Team wrote a lead, a reviewer and a qa, so a repo with a UI had nobody whose job was how it looks.
