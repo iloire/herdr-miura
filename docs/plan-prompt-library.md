@@ -74,10 +74,17 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
 ## Steps
 
 1. ~~Write this plan.~~ ✅
-2. **First slice: read both folders, the palette and its three actions.** `prompts.rs`
+2. ~~**First slice: read both folders, the palette and its three actions.**~~ ✅ `prompts.rs`
    (`prompt_library(directory)`, `prompt_send(pane, text)`; `queue::open` / `queue::prompt` accept `p`
-   names), `app/frontmatter.ts` shared with `agentFile.ts`, `app/promptLibrary.ts` with its tests, and
-   `components/PromptPalette.tsx` behind ⌘⇧L.
+   names), `app/frontmatter.ts` shared with `agentFile.ts`, `app/promptLibrary.ts` with 10 Vitest cases
+   (letting the global prompt through beside the project one turns the override test red), and
+   `components/PromptPalette.tsx` behind ⌘⇧L. Checked with the frontend on the dev server and a stubbed
+   bridge: project prompts list before global ones, a project `remind` hides the global one, an unclosed
+   frontmatter shows as broken with its actions off, and the three actions send the edited text to
+   `prompt_send`, `queue_open` + `queue_prompt` and the queue. Checked against Herdr: `herdr agent prompt
+   <pane id>` reached a Claude named `p1` and it answered. Still to try by hand in the window itself: a
+   new tab that opens on an untrusted folder fails with the reason and leaves its tab, and does not wait
+   for the agent as a queued item does.
 3. **Pin and hide per project.** Kept by the window, keyed by workspace folder as the queue is
    (`local:<folder>`), in the app's data folder beside the queue rather than in the repo: what you pin is
    your view, not the project's. Pinned prompts sort first; hidden global ones drop out of the list, with a

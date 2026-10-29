@@ -60,6 +60,8 @@ export interface State {
   title: string | null;
   sidebar: boolean;
   palette: boolean;
+  /// The prompt library's palette is open.
+  library: boolean;
   /// The Settings dialog is open.
   settingsOpen: boolean;
   /// The Changes panel is open.
@@ -119,6 +121,7 @@ export class Controller {
     title: null,
     sidebar: true,
     palette: false,
+    library: false,
     settingsOpen: false,
     changes: false,
     files: false,
@@ -442,7 +445,9 @@ export class Controller {
       case "open_settings":
         return this.set({ settingsOpen: !this.state.settingsOpen, palette: false });
       case "command_palette":
-        return this.set({ palette: !this.state.palette });
+        return this.set({ palette: !this.state.palette, library: false });
+      case "prompt_library":
+        return this.set({ library: !this.state.library, palette: false });
       case "add_to_queue":
         return this.set({ queue: !this.state.queue, queueAuto: false, changes: false, files: false });
       case "review_changes":
@@ -511,5 +516,9 @@ export class Controller {
 
   closePalette(): void {
     this.set({ palette: false });
+  }
+
+  closeLibrary(): void {
+    this.set({ library: false });
   }
 }

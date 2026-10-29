@@ -8,7 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, Listing},
     folder::{self, Opener},
-    listening_ports, queue,
+    listening_ports, prompts, queue,
     session_usage::{self, SessionUsage},
     settings,
     ssh_hosts,
@@ -393,6 +393,24 @@ pub async fn queue_open(
 pub async fn queue_prompt(connection: State<'_, Connection>, name: String, text: String) -> Result<()> {
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || queue::prompt(&name, &text));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// The prompt library's files: `~/.claude/commands/` and, given the focused
+/// workspace's folder, its `.claude/commands/`. This Mac only.
+#[tauri::command]
+pub async fn prompt_library(connection: State<'_, Connection>, directory: Option<String>) -> Result<prompts::Library> {
+    connection.ensure_local()?;
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let run = tauri::async_runtime::spawn_blocking(move || prompts::library(home.as_deref(), directory.as_deref()));
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Submits a prompt from the library to the agent in the pane `pane`.
+#[tauri::command]
+pub async fn prompt_send(connection: State<'_, Connection>, pane: String, text: String) -> Result<()> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || queue::send(&pane, &text));
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 

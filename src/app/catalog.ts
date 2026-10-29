@@ -215,6 +215,7 @@ const DEFINITIONS: Definition[] = [
   { name: "review_changes", label: "Review Changes", mac: [], other: [], action: "window" },
   { name: "browse_files", label: "Browse Files", mac: ["cmd-shift-e"], other: ["ctrl-shift-e"], action: "window" },
   { name: "add_to_queue", label: "Add to Queue", mac: ["cmd-shift-a"], other: ["ctrl-shift-a"], action: "window" },
+  { name: "prompt_library", label: "Prompt Library", mac: ["cmd-shift-l"], other: ["ctrl-shift-l"], action: "window" },
   { name: "detach", label: "Detach", mac: [], other: [], action: "window" },
   { name: "reconnect", label: "Reconnect", mac: [], other: [], action: "window" },
 ];

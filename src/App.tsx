@@ -24,6 +24,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
+import { PromptPalette } from "./components/PromptPalette";
 import { QueuePanel } from "./components/QueuePanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
@@ -460,6 +461,14 @@ export default function App() {
         </div>
       </div>
       {state.palette && <Palette controller={controller} commands={paletteCommands} />}
+      {state.library && (
+        <PromptPalette
+          controller={controller}
+          snapshot={state.snapshot}
+          folder={local ? queueFolder : null}
+          queue={local && queueAccess.kind === "ready" ? queueActions : null}
+        />
+      )}
       {shownWorktrees && (
         <WorktreesDialog
           controller={controller}

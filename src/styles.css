@@ -3266,3 +3266,181 @@ kbd {
   margin-top: 6px;
   vertical-align: middle;
 }
+
+/* Prompt library (⌘⇧L): the command palette's look, with the selected
+   prompt's text beside the list. */
+.palette.prompt-palette {
+  width: min(920px, calc(100vw - 32px));
+}
+
+.prompt-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) 1fr;
+  height: min(480px, 62vh);
+}
+
+.prompt-list {
+  max-height: none;
+  border-right: 1px solid var(--rule);
+}
+
+.prompt-list li {
+  align-items: baseline;
+  gap: 8px;
+}
+
+.prompt-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: calc(13px * var(--ui-scale)) var(--mono);
+}
+
+.prompt-group {
+  margin-left: 8px;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--sans);
+}
+
+.prompt-scope {
+  flex: none;
+  font: calc(10px * var(--ui-scale)) var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.prompt-scope.project {
+  color: var(--working);
+}
+
+.prompt-list li.broken .prompt-name {
+  color: var(--muted);
+}
+
+.prompt-broken-mark {
+  display: inline-block;
+  width: 1.4em;
+  color: var(--blocked);
+  font-weight: 700;
+}
+
+.prompt-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.prompt-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--bright);
+  font: calc(14px * var(--ui-scale)) var(--mono);
+}
+
+.prompt-head code {
+  color: var(--muted);
+  font: calc(12px * var(--ui-scale)) var(--mono);
+}
+
+.prompt-note {
+  color: var(--lantern);
+  font: calc(11px * var(--ui-scale)) var(--sans);
+}
+
+.prompt-description,
+.prompt-path,
+.prompt-problem,
+.prompt-footnote {
+  margin: 0;
+  font: calc(12px * var(--ui-scale)) var(--sans);
+  color: var(--muted);
+}
+
+.prompt-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: calc(11px * var(--ui-scale));
+  color: var(--faint);
+}
+
+.prompt-problem {
+  color: var(--blocked);
+}
+
+.prompt-footnote {
+  padding: 6px 16px 8px;
+  border-top: 1px solid var(--rule);
+  color: var(--lantern);
+}
+
+.prompt-text {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  padding: 10px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font: calc(12px * var(--ui-scale)) / 1.5 var(--mono);
+}
+
+.prompt-text:focus {
+  outline: none;
+  border-color: var(--rule-strong);
+}
+
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.prompt-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font: calc(13px * var(--ui-scale)) var(--sans);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.prompt-actions button:hover:not(:disabled),
+.prompt-actions button:focus-visible {
+  background: var(--rule);
+  border-color: var(--rule-strong);
+  outline: none;
+}
+
+.prompt-actions button.primary {
+  border-color: color-mix(in srgb, var(--working) 45%, var(--rule));
+  background: color-mix(in srgb, var(--working) 12%, transparent);
+}
+
+.prompt-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .prompt-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 40% 1fr;
+  }
+
+  .prompt-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+}

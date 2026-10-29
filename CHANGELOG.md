@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 15:05 — A prompt library
+
+Prompts you send often had nowhere to live but a note, and reached an agent by copy and paste. They are now
+Claude Code's own command files, `~/.claude/commands/*.md` and a repo's `.claude/commands/*.md`, so one
+file is `/name` inside Claude and an entry in Herdr's ⌘⇧L palette. Project prompts list first and hide a
+global one of the same name; a file that cannot be used (frontmatter that does not parse, too large, a link
+out of the repo) is listed as broken with the reason rather than skipped. The selected prompt's text can be
+edited before it goes to the focused agent (⌘1), a fresh Claude in a new tab (⌘2) or the workspace's queue
+(⌘3). An optional `herdr.run` key picks what Enter does. Pins, variables and the rest are later steps in
+[docs/plan-prompt-library.md](docs/plan-prompt-library.md).
+
 ## 2026-10-29 14:25 — Copy a finished prompt
 
 A prompt that stopped or failed (its tab closed, its agent exited, you removed it) showed only its first line

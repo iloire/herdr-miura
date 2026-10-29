@@ -319,9 +319,10 @@ struct CreatedPane {
     tab_id: String,
 }
 
-/// An agent's name: `q` and the item's number, never read as an option.
+/// An agent's name: `q` and a queued item's number, or `p` and a number for
+/// one the prompt library started, never read as an option.
 fn agent_name(name: &str) -> Result<&str, Error> {
-    let digits = name.strip_prefix('q').unwrap_or_default();
+    let digits = name.strip_prefix(['q', 'p']).unwrap_or_default();
     if (1..=9).contains(&digits.len()) && digits.bytes().all(|b| b.is_ascii_digit()) {
         Ok(name)
     } else {
@@ -436,7 +437,16 @@ fn while_busy<T>(
 /// Submits `text` to the agent `name` as one prompt and returns once it has
 /// started working on it, or is waiting on you. Blocking.
 pub fn prompt(name: &str, text: &str) -> Result<(), Error> {
-    agent_name(name)?;
+    submit(agent_name(name)?, text)
+}
+
+/// Submits `text` to the agent in the pane `pane`, whatever it is named, as
+/// `prompt` does. Blocking.
+pub fn send(pane: &str, text: &str) -> Result<(), Error> {
+    submit(checked(pane)?, text)
+}
+
+fn submit(target: &str, text: &str) -> Result<(), Error> {
     plain(text, MAX_PROMPT, true)?;
     let cli = herdr()?;
     // Herdr's CLI takes `--` only with nothing after the text, and the wait
@@ -445,7 +455,7 @@ pub fn prompt(name: &str, text: &str) -> Result<(), Error> {
     run(
         &cli,
         &[
-            "agent", "prompt", name, &text, "--wait", "--until", "working", "--until", "blocked", "--timeout",
+            "agent", "prompt", target, &text, "--wait", "--until", "working", "--until", "blocked", "--timeout",
             "20000",
         ],
     )?;
@@ -536,9 +546,10 @@ mod tests {
     }
 
     #[test]
-    fn agent_names_are_q_and_a_number() {
+    fn agent_names_are_q_or_p_and_a_number() {
         assert!(agent_name("q12").is_ok());
-        for bad in ["", "q", "12", "q1a", "-q1", "q1234567890", "qq1"] {
+        assert!(agent_name("p123456789").is_ok());
+        for bad in ["", "q", "p", "12", "q1a", "-q1", "q1234567890", "qq1", "pq1", "x1"] {
             assert!(agent_name(bad).is_err(), "{bad:?}");
         }
     }

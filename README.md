@@ -14,6 +14,10 @@ session in its own tab, with what it is doing, and starts the ones not running (
 Each workspace also has a prompt queue, a panel beside Changes and Files (⌘⇧A): prompts you hand it run one at a time, each in a new tab
 and a fresh Claude session, the next only once nothing else there is at work and the tree is clean
 ([docs/plan-agent-queue.md](docs/plan-agent-queue.md)).
+Prompts you send often are Claude Code's own command files (`~/.claude/commands/*.md` and a repo's
+`.claude/commands/*.md`): ⌘⇧L opens them in a palette, project ones first, where you can edit the text and
+send it to the focused agent, to a fresh Claude in a new tab, or to the queue
+([docs/plan-prompt-library.md](docs/plan-prompt-library.md)).
 Settings live in `~/.config/herdr/config-tauri.toml`, which the Settings dialog (⌘,) writes as you change
 things: the theme (herdr-gpui's theme names, any Ghostty theme, or a light and dark pair that follows macOS),
 the terminal's font, size and line height, the interface text size, and what a new tab runs
