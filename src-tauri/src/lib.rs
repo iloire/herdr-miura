@@ -51,6 +51,8 @@ pub fn run() {
             commands::open_file,
             commands::open_folder,
             commands::queue_commits,
+            commands::queue_inbox_list,
+            commands::queue_inbox_settle,
             commands::queue_load,
             commands::queue_open,
             commands::queue_prompt,

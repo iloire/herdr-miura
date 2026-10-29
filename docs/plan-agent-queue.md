@@ -202,19 +202,27 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
 
 ## Later, not in this step
 
-- **"Add this to the queue", said to an agent** (and the same thing from any terminal):
+- ~~**"Add this to the queue", said to an agent** (and the same thing from any terminal).~~ ✅
   - **An inbox, not the file.** The window holds the queue in memory and saves it whole, so nothing else
-    may write `queue-tauri.json`. Others drop one JSON file each into `queue-inbox/` beside it:
-    `{ "workspace_id" | "folder", "prompt", "front" }`. On each tick a `queue_inbox_take` command reads
-    and deletes them, and the window adds each one as if typed in the dialog.
-  - **`herdr-queue add [--front]`** in `~/dotfiles/bin` reads the prompt on stdin and writes that file
-    with a temp-then-rename. It names the workspace from `$HERDR_WORKSPACE_ID`, which every Herdr pane
-    exports, so an agent never has to work out a folder.
-  - **A `/queue` skill** in dotfiles for Claude Code. The queued run starts in a fresh session that
-    knows nothing of this one, so the skill has the agent first rewrite "this" as a prompt that stands
-    on its own (the goal, the files, what is decided, how to check it), show it, and then pipe it into
-    `herdr-queue add`.
-  - Deployed by ansible-recipes like the rest of dotfiles' `bin/` and Claude skills.
+    may write `queue-tauri.json`. Others drop one JSON file each into `queue-inbox/` beside it,
+    `<unix-ms>-<random>.json`, written as `.tmp` and renamed:
+    `{ "version": 1, "workspace_id": "w4H" | null, "folder": "/abs" | null, "prompt": "…", "front": false,
+    "source": "…" }`. Once a second the window lists them (`queue_inbox_list`), adds each to its
+    workspace's queue as if typed in the panel, saves, and only then deletes the file
+    (`queue_inbox_settle`). A file that fails the checks, or whose workspace has not opened within 24 h,
+    moves to `queue-inbox/rejected/` with a `.reason.txt`. Its card reads "Queued from an agent".
+  - **`herdr-queue add [--front] [--workspace ID | --folder PATH]`** in `~/dotfiles/bin` reads the prompt
+    on stdin and writes that file. It names the workspace from `$HERDR_WORKSPACE_ID`, which every Herdr
+    pane exports, else the git checkout of the current directory, so an agent never has to work one out.
+  - **A `/queue` skill** in `~/dotfiles/claude/skills/queue`. The queued run starts in a fresh session
+    that knows nothing of this one, so the skill has the agent first rewrite "this" as a prompt that
+    stands on its own (the goal, the files, what is decided, how to check it), one task per prompt,
+    show it, and then pipe it into `herdr-queue add` through a quoted heredoc. The global CLAUDE.md
+    points to it.
+  - Deployed by ansible-recipes' `claude` role, which links each `dotfiles/claude/skills/*` folder into
+    `~/.claude/skills` (`queue` on macOS only); `herdr-queue` rides the dotfiles checkout's `bin/` on PATH.
+  - A failed save leaves the files in the inbox, so a later launch may add one twice: a duplicate rather
+    than a lost prompt.
 - **Other agents** (`codex`, `opencode`): the `kind` setting already allows them, but only Claude is
   tested.
 - **Remote hosts**: run the CLI over the SSH connection the window already holds.

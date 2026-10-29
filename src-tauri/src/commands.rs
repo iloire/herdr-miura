@@ -338,6 +338,25 @@ pub fn queue_save(app: AppHandle, data: Value) -> Result<()> {
     Ok(queue::save(&queue_path(&app)?, &data)?)
 }
 
+/// The inbox beside the queue file, where others leave prompts for the queue.
+fn inbox_path(app: &AppHandle) -> Result<std::path::PathBuf> {
+    Ok(queue_path(app)?.with_file_name("queue-inbox"))
+}
+
+/// The prompts waiting in the inbox, in the order they were sent; a file that
+/// fails the checks is moved to `queue-inbox/rejected/` instead.
+#[tauri::command]
+pub fn queue_inbox_list(app: AppHandle) -> Result<Vec<queue::Entry>> {
+    Ok(queue::inbox(&inbox_path(&app)?)?)
+}
+
+/// Deletes an inbox file whose prompt the saved queue now holds, or, with a
+/// `reason`, moves it to `rejected/`.
+#[tauri::command]
+pub fn queue_inbox_settle(app: AppHandle, name: String, reason: Option<String>) -> Result<()> {
+    Ok(queue::settle(&inbox_path(&app)?, &name, reason.as_deref())?)
+}
+
 /// Opens a tab for one queued prompt and starts its agent, through the
 /// `herdr` CLI on the blocking pool; the prompt follows with `queue_prompt`.
 #[tauri::command]

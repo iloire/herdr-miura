@@ -20,6 +20,9 @@ export const COMMIT_SUFFIX = "When you are done, commit your work: stage only th
 /// How long an agent must stay done or idle before its item counts as finished,
 /// so a pause between tool calls does not end it.
 export const FINISH_DEBOUNCE_MS = 5000;
+/// How long an inbox prompt for a workspace that is not open may wait for it
+/// before it is moved to `queue-inbox/rejected/`.
+export const INBOX_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 /// How long a newly opened tab may be missing from the snapshot before its item
 /// counts as closed: the snapshot that shows it can lag the CLI's answer.
 const OPEN_GRACE_MS = 15_000;
@@ -51,6 +54,9 @@ export interface Item {
   reason?: string;
   /// Since when its agent has been done or idle without a break.
   quietSince?: number;
+  /// Set when it came through the inbox (an agent's `herdr-queue add`), not
+  /// the panel: who sent it, in their words, or "" when they did not say.
+  source?: string;
 }
 
 export interface Queue {
@@ -232,14 +238,65 @@ export function recover(file: QueueFile, now: number): QueueFile {
 }
 
 /// Adds a prompt at the end, or at the front of what is waiting.
-export function addItem(file: QueueFile, folder: string, prompt: string, front: boolean, now: number): QueueFile {
+export function addItem(
+  file: QueueFile,
+  folder: string,
+  prompt: string,
+  front: boolean,
+  now: number,
+  source?: string,
+): QueueFile {
   const key = queueKey(folder);
   const queue = file.queues[key] ?? emptyQueue(folder);
   const seq = file.seq + 1;
   const item: Item = { id: `q${seq}`, n: queue.nextN, prompt: prompt.trim(), state: "queued", added: now };
+  if (source !== undefined) item.source = source;
   const at = front ? queue.items.filter(isActive).length : queue.items.length;
   const items = [...queue.items.slice(0, at), item, ...queue.items.slice(at)];
   return { ...file, seq, queues: { ...file.queues, [key]: { ...queue, nextN: queue.nextN + 1, items } } };
+}
+
+/// A prompt another program left in `queue-inbox/`, as `queue_inbox_list`
+/// read and checked it.
+export interface InboxEntry {
+  name: string;
+  workspace_id: string | null;
+  folder: string | null;
+  prompt: string;
+  front: boolean;
+  source: string | null;
+  age_ms: number;
+}
+
+/// The folder whose queue an inbox prompt joins: its workspace's while the
+/// snapshot shows that workspace, else the folder it names, if any.
+export function inboxFolder(entry: InboxEntry, snapshot: Snapshot): string | null {
+  const workspace = snapshot.workspaces.find((w) => w.workspace_id === entry.workspace_id);
+  return (workspace && workspaceFolder(workspace, snapshot)) || entry.folder;
+}
+
+/// Adds the inbox's prompts to their queues, in the order given. Returns the
+/// new file, the entries it added (to delete once that file is saved), and
+/// those to reject: a workspace not open after `INBOX_MAX_AGE_MS`. Any other
+/// entry is left for a later tick.
+export function takeInbox(
+  file: QueueFile,
+  entries: InboxEntry[],
+  snapshot: Snapshot,
+  now: number,
+): { file: QueueFile; added: string[]; rejected: { name: string; reason: string }[] } {
+  const added: string[] = [];
+  const rejected: { name: string; reason: string }[] = [];
+  for (const entry of entries) {
+    const folder = inboxFolder(entry, snapshot);
+    if (folder) {
+      file = addItem(file, folder, entry.prompt, entry.front, now, entry.source ?? "");
+      added.push(entry.name);
+    } else if (entry.age_ms > INBOX_MAX_AGE_MS) {
+      rejected.push({ name: entry.name, reason: `Workspace ${entry.workspace_id} was not open within 24 hours.` });
+    }
+  }
+  return { file, added, rejected };
 }
 
 /// Moves a waiting item `delta` places among the waiting ones.
@@ -297,6 +354,11 @@ export function summary(queue: Queue): string {
 
 export const loadQueue = () => invoke<QueueFile>("queue_load");
 export const saveQueue = (data: QueueFile) => invoke<void>("queue_save", { data });
+
+export const readInbox = () => invoke<InboxEntry[]>("queue_inbox_list");
+/// Deletes an inbox file, or with a reason moves it to `rejected/`.
+export const settleInbox = (name: string, reason: string | null) =>
+  invoke<void>("queue_inbox_settle", { name, reason });
 
 export interface Opened {
   tab_id: string;

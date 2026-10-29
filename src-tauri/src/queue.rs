@@ -24,6 +24,8 @@ const KINDS: &[&str] = &[
 /// Well under the argument limit the prompt travels within.
 const MAX_PROMPT: usize = 100_000;
 const MAX_ARGS: usize = 16;
+const MAX_SOURCE: usize = 200;
+const MAX_FOLDER: usize = 4096;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -35,6 +37,10 @@ pub enum StoreError {
     Write(#[source] std::io::Error),
     #[error("the queue is not in a form this app writes")]
     Shape,
+    #[error("could not read or move a file in the queue inbox")]
+    Inbox(#[source] std::io::Error),
+    #[error("not a queue inbox file: {0}")]
+    InboxName(String),
 }
 
 /// The queue file, or an empty queue when there is none. A file that does
@@ -72,6 +78,126 @@ pub fn save(path: &Path, data: &Value) -> Result<(), StoreError> {
 
 fn valid(data: &Value) -> bool {
     data["version"] == 1 && data["queues"].is_object()
+}
+
+/// One prompt as a writer leaves it in the inbox.
+#[derive(Deserialize)]
+struct Sent {
+    version: u32,
+    workspace_id: Option<String>,
+    folder: Option<String>,
+    prompt: String,
+    #[serde(default)]
+    front: bool,
+    source: Option<String>,
+}
+
+/// An inbox file that passed the checks, for the window to add to a queue.
+#[derive(Debug, Serialize, PartialEq)]
+pub struct Entry {
+    /// The file's name, by which the window settles it.
+    pub name: String,
+    pub workspace_id: Option<String>,
+    pub folder: Option<String>,
+    pub prompt: String,
+    pub front: bool,
+    pub source: Option<String>,
+    /// How long ago it was written, so one for a workspace that never opens
+    /// can be given up on.
+    pub age_ms: u64,
+}
+
+/// The inbox file `text` as an entry, or why it cannot be one.
+fn sent(text: &str) -> Result<Sent, String> {
+    let sent: Sent = serde_json::from_str(text).map_err(|error| format!("not a queue inbox file: {error}"))?;
+    if sent.version != 1 {
+        return Err(format!("version {} is not 1", sent.version));
+    }
+    if plain(&sent.prompt, MAX_PROMPT, true).is_err() {
+        return Err("the prompt is empty, over 100,000 bytes, or holds control characters".into());
+    }
+    match (&sent.workspace_id, &sent.folder) {
+        (None, None) => return Err("it names neither a workspace_id nor a folder".into()),
+        (Some(id), _) if checked(id).is_err() => return Err(format!("{id:?} is not a workspace id")),
+        (_, Some(folder)) if plain(folder, MAX_FOLDER, false).is_err() || !Path::new(folder).is_absolute() => {
+            return Err(format!("the folder {folder:?} is not an absolute path"));
+        }
+        _ => {}
+    }
+    if sent.source.as_deref().is_some_and(|source| plain(source, MAX_SOURCE, false).is_err()) {
+        return Err("the source is empty, over 200 bytes, or holds control characters".into());
+    }
+    Ok(sent)
+}
+
+/// A name `settle` may act on: a `.json` file directly in the inbox.
+fn entry_name(name: &str) -> Result<&str, StoreError> {
+    let stem = name.strip_suffix(".json").unwrap_or_default();
+    let fine = |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.');
+    if stem.is_empty() || stem.starts_with('.') || !stem.bytes().all(fine) {
+        return Err(StoreError::InboxName(name.into()));
+    }
+    Ok(name)
+}
+
+/// The inbox's prompts, oldest name first, so they keep the order they were
+/// sent in. Writers rename a finished `.tmp` file to `.json`, so a half-written
+/// one is never read. A file that fails the checks is moved to `rejected/`
+/// with its reason beside it, never deleted.
+pub fn inbox(dir: &Path) -> Result<Vec<Entry>, StoreError> {
+    let listing = match std::fs::read_dir(dir) {
+        Ok(listing) => listing,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(StoreError::Inbox(error)),
+    };
+    let mut names: Vec<String> = listing
+        .filter_map(Result::ok)
+        .filter(|file| file.file_type().is_ok_and(|kind| kind.is_file()))
+        .filter_map(|file| file.file_name().into_string().ok())
+        .filter(|name| entry_name(name).is_ok())
+        .collect();
+    names.sort();
+    let mut entries = Vec::new();
+    for name in names {
+        let path = dir.join(&name);
+        // Gone or unreadable for now: the next listing tries again.
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        match sent(&text) {
+            Ok(sent) => {
+                let modified = std::fs::metadata(&path).and_then(|meta| meta.modified()).ok();
+                let age = modified.and_then(|time| time.elapsed().ok()).unwrap_or_default();
+                entries.push(Entry {
+                    name,
+                    workspace_id: sent.workspace_id,
+                    folder: sent.folder,
+                    prompt: sent.prompt,
+                    front: sent.front,
+                    source: sent.source,
+                    age_ms: u64::try_from(age.as_millis()).unwrap_or(u64::MAX),
+                });
+            }
+            Err(reason) => reject(dir, &name, &reason)?,
+        }
+    }
+    Ok(entries)
+}
+
+/// Ends an inbox file's stay: deleted once its prompt is in the saved queue
+/// (`reason` none), or moved to `rejected/` with `reason` beside it.
+pub fn settle(dir: &Path, name: &str, reason: Option<&str>) -> Result<(), StoreError> {
+    let name = entry_name(name)?;
+    match reason {
+        None => std::fs::remove_file(dir.join(name)).map_err(StoreError::Inbox),
+        Some(reason) => reject(dir, name, reason),
+    }
+}
+
+fn reject(dir: &Path, name: &str, reason: &str) -> Result<(), StoreError> {
+    let rejected = dir.join("rejected");
+    std::fs::create_dir_all(&rejected).map_err(StoreError::Inbox)?;
+    std::fs::rename(dir.join(name), rejected.join(name)).map_err(StoreError::Inbox)?;
+    let stem = name.strip_suffix(".json").unwrap_or(name);
+    std::fs::write(rejected.join(format!("{stem}.reason.txt")), format!("{reason}\n")).map_err(StoreError::Inbox)
 }
 
 /// What `open` made: the tab and its pane, whether the agent is ready for its
@@ -330,5 +456,62 @@ mod tests {
             assert!(!commit_id(bad), "{bad:?}");
         }
         assert!(commits("/tmp", "HEAD~3").is_err());
+    }
+
+    #[test]
+    fn the_inbox_lists_good_files_in_name_order_and_skips_temporary_ones() {
+        let dir = temp("inbox");
+        std::fs::write(dir.join("2-b.json"), r#"{"version":1,"workspace_id":"w4H","folder":null,"prompt":"second","front":true,"source":"tab 3"}"#).unwrap();
+        std::fs::write(dir.join("1-a.json"), r#"{"version":1,"folder":"/code/app","prompt":"first\n\tthen this"}"#).unwrap();
+        std::fs::write(dir.join("3-c.json.tmp"), "{ half").unwrap();
+        let entries = inbox(&dir).unwrap();
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["1-a.json", "2-b.json"]);
+        assert_eq!((entries[0].folder.as_deref(), entries[0].front, entries[0].source.as_deref()), (Some("/code/app"), false, None));
+        assert_eq!((entries[1].workspace_id.as_deref(), entries[1].front, entries[1].source.as_deref()), (Some("w4H"), true, Some("tab 3")));
+        assert!(dir.join("3-c.json.tmp").exists());
+        settle(&dir, "1-a.json", None).unwrap();
+        assert!(!dir.join("1-a.json").exists() && dir.join("2-b.json").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_bad_inbox_file_is_rejected_with_its_reason_and_kept() {
+        let bad = [
+            ("not-json", "{ half"),
+            ("version", r#"{"version":2,"folder":"/x","prompt":"p"}"#),
+            ("empty", r#"{"version":1,"folder":"/x","prompt":"  \n"}"#),
+            ("escape", r#"{"version":1,"folder":"/x","prompt":"a\u001b[2Jb"}"#),
+            ("nowhere", r#"{"version":1,"prompt":"p"}"#),
+            ("relative", r#"{"version":1,"folder":"code/app","prompt":"p"}"#),
+            ("option", r#"{"version":1,"workspace_id":"--all","prompt":"p"}"#),
+        ];
+        let dir = temp("reject");
+        for (name, text) in bad {
+            std::fs::write(dir.join(format!("{name}.json")), text).unwrap();
+        }
+        std::fs::write(dir.join("long.json"), serde_json::json!({"version":1,"folder":"/x","prompt":"x".repeat(MAX_PROMPT + 1)}).to_string()).unwrap();
+        assert_eq!(inbox(&dir).unwrap(), []);
+        for name in bad.iter().map(|(name, _)| *name).chain(["long"]) {
+            assert!(!dir.join(format!("{name}.json")).exists(), "{name}");
+            assert!(dir.join("rejected").join(format!("{name}.json")).exists(), "{name}");
+            let reason = std::fs::read_to_string(dir.join("rejected").join(format!("{name}.reason.txt"))).unwrap();
+            assert!(!reason.trim().is_empty(), "{name}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn settle_rejects_with_a_reason_and_acts_only_on_inbox_names() {
+        let dir = temp("settle");
+        std::fs::write(dir.join("1-a.json"), "{}").unwrap();
+        settle(&dir, "1-a.json", Some("workspace w4H never opened")).unwrap();
+        assert!(dir.join("rejected/1-a.json").exists());
+        assert_eq!(std::fs::read_to_string(dir.join("rejected/1-a.reason.txt")).unwrap(), "workspace w4H never opened\n");
+        for bad in ["../queue-tauri.json", "rejected/1-a.json", ".json", "a.json.tmp", "a b.json", ".hidden.json"] {
+            assert!(matches!(settle(&dir, bad, None), Err(StoreError::InboxName(_))), "{bad:?}");
+        }
+        assert!(inbox(&dir.join("missing")).unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -317,6 +317,7 @@ function Running({
         <p className="queue-card-title" title={item.prompt}>
           {title(item.prompt, 120)}
         </p>
+        <FromAgent item={item} />
         {item.state === "waiting" && item.reason && (
           <p className="queue-note">Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
         )}
@@ -409,6 +410,7 @@ function Waiting({
               {next && <em> next</em>}
             </span>
             <span className="queue-row-title">{title(item.prompt, 120)}</span>
+            <FromAgent item={item} />
             {open && lines.length > 1 && <span className="queue-row-rest">{lines.slice(1).join("\n")}</span>}
           </button>
           <span className="queue-tools">
@@ -428,6 +430,16 @@ function Waiting({
         </div>
       )}
     </li>
+  );
+}
+
+/// Marks a prompt that came through the inbox, naming its sender on hover.
+function FromAgent({ item }: { item: Item }) {
+  if (item.source === undefined) return null;
+  return (
+    <span className="queue-from" title={item.source || undefined}>
+      Queued from an agent
+    </span>
   );
 }
 

@@ -1,6 +1,7 @@
 // The window's side of the prompt queue: loads the file, runs `step` for
 // every queue on each snapshot and once a second (for the finish debounce),
-// carries out what it asks for, and saves after every change.
+// carries out what it asks for, and saves after every change. Once a second it
+// also takes what other programs left in the queue's inbox (`herdr-queue add`).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCounts } from "../changes/counts";
@@ -22,11 +23,14 @@ import {
   type Queue,
   type QueueFile,
   queueKey,
+  readInbox,
   recover,
   removeItem,
   restoreItem,
   saveQueue,
+  settleInbox,
   step,
+  takeInbox,
   viewOf,
 } from "./queue";
 
@@ -55,11 +59,18 @@ export function useQueue(
   const latest = useRef({ snapshot, local });
   latest.current = { snapshot, local };
 
+  /// Inbox files added but not yet deleted, so a slow save never adds one twice.
+  const taken = useRef(new Set<string>());
+  const draining = useRef(false);
+
+  /// Shows `next` and saves it; the promise settles once it is on disk.
   const commit = useCallback(
     (next: QueueFile) => {
       current.current = next;
       setFile(next);
-      controller.act(saveQueue(next));
+      const saved = saveQueue(next);
+      controller.act(saved);
+      return saved;
     },
     [controller],
   );
@@ -81,7 +92,9 @@ export function useQueue(
   useEffect(() => {
     let live = true;
     loadQueue()
-      .then((loaded) => live && commit(recover(loaded, Date.now())))
+      .then((loaded) => {
+        if (live) void commit(recover(loaded, Date.now()));
+      })
       .catch((error) => controller.act(Promise.reject(error)));
     return () => {
       live = false;
@@ -159,11 +172,43 @@ export function useQueue(
     for (const [folder, effect] of effects) void carryOut(folder, effect);
   }, [carryOut, commit]);
 
+  /// Adds the inbox's prompts to their queues and saves, and only then deletes
+  /// their files, so a prompt is never lost between the two.
+  const drainInbox = useCallback(async () => {
+    if (draining.current || !current.current || !latest.current.local) return;
+    draining.current = true;
+    try {
+      const entries = (await readInbox()).filter((entry) => !taken.current.has(entry.name));
+      const { snapshot, local } = latest.current;
+      const file = current.current;
+      if (!entries.length || !snapshot || !local) return;
+      const result = takeInbox(file, entries, snapshot, Date.now());
+      for (const { name, reason } of result.rejected) await settleInbox(name, reason);
+      if (!result.added.length) return;
+      for (const name of result.added) taken.current.add(name);
+      // A failed save is shown by `commit`; the files stay until a later
+      // launch, where a duplicate is better than a lost prompt.
+      if (!(await commit(result.file).then(() => true, () => false))) return;
+      for (const name of result.added) {
+        await settleInbox(name, null);
+        taken.current.delete(name);
+      }
+      tick();
+    } catch (error) {
+      controller.act(Promise.reject(error));
+    } finally {
+      draining.current = false;
+    }
+  }, [commit, controller, tick]);
+
   useEffect(tick, [tick, snapshot, local, file === null]);
   useEffect(() => {
-    const timer = window.setInterval(tick, TICK_MS);
+    const timer = window.setInterval(() => {
+      tick();
+      void drainInbox();
+    }, TICK_MS);
     return () => clearInterval(timer);
-  }, [tick]);
+  }, [tick, drainInbox]);
 
   const actions = useMemo<QueueActions>(
     () => ({

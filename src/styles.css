@@ -2542,6 +2542,13 @@ kbd {
   -webkit-line-clamp: 2;
 }
 
+.queue-from {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
 .queue-row-rest {
   margin-top: 4px;
   color: var(--muted);

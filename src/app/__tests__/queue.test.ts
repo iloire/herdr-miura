@@ -5,6 +5,8 @@ import {
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
+  type InboxEntry,
+  INBOX_MAX_AGE_MS,
   itemOfTab,
   moveItem,
   promptText,
@@ -14,6 +16,7 @@ import {
   removeItem,
   restoreItem,
   step,
+  takeInbox,
   title,
   type View,
   viewOf,
@@ -219,5 +222,52 @@ describe("text", () => {
     const found = itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t1");
     expect(found).toMatchObject({ item: { n: 1 }, position: 1, total: 2, next: { n: 2 } });
     expect(itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t9")).toBeNull();
+  });
+});
+
+describe("the inbox", () => {
+  const snapshot = { workspaces: [{ ...workspace, workspace_id: "w4H" }], panes: [], agents: [] } as unknown as Snapshot;
+  const entry = (name: string, over: Partial<InboxEntry> = {}): InboxEntry => ({
+    name,
+    workspace_id: "w4H",
+    folder: null,
+    prompt: `prompt ${name}`,
+    front: false,
+    source: "tab 3",
+    age_ms: 0,
+    ...over,
+  });
+
+  it("adds prompts to their workspace's folder, in the order sent, marked as from an agent", () => {
+    const { file, added, rejected } = takeInbox(EMPTY_FILE, [entry("1.json"), entry("2.json", { source: null })], snapshot, 5);
+    const items = file.queues[queueKey(FOLDER)].items;
+    expect(items.map((i) => [i.prompt, i.source, i.n])).toEqual([
+      ["prompt 1.json", "tab 3", 1],
+      ["prompt 2.json", "", 2],
+    ]);
+    expect(added).toEqual(["1.json", "2.json"]);
+    expect(rejected).toEqual([]);
+  });
+
+  it("puts a front prompt ahead of what waits", () => {
+    let file = addItem(EMPTY_FILE, FOLDER, "typed", false, 0);
+    file = takeInbox(file, [entry("1.json", { front: true })], snapshot, 5).file;
+    expect(file.queues[queueKey(FOLDER)].items.map((i) => i.prompt)).toEqual(["prompt 1.json", "typed"]);
+  });
+
+  it("falls back to the folder when the workspace is not open, and waits when there is none", () => {
+    const entries = [
+      entry("1.json", { workspace_id: "gone", folder: "/other" }),
+      entry("2.json", { workspace_id: "gone" }),
+      entry("3.json", { workspace_id: "gone", age_ms: INBOX_MAX_AGE_MS + 1 }),
+    ];
+    const { file, added, rejected } = takeInbox(EMPTY_FILE, entries, snapshot, 5);
+    expect(Object.keys(file.queues)).toEqual([queueKey("/other")]);
+    expect(added).toEqual(["1.json"]);
+    expect(rejected).toEqual([{ name: "3.json", reason: "Workspace gone was not open within 24 hours." }]);
+  });
+
+  it("leaves a typed prompt without a source", () => {
+    expect(addItem(EMPTY_FILE, FOLDER, "typed", false, 0).queues[queueKey(FOLDER)].items[0]).not.toHaveProperty("source");
   });
 });
