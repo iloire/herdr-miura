@@ -163,3 +163,9 @@ export const LibraryIcon = () => (
     <path d="M8 4.25C6.75 3.25 4.5 3 2.5 3.25v9C4.5 12 6.75 12.25 8 13.25c1.25-1 3.5-1.25 5.5-1v-9C11.5 3 9.25 3.25 8 4.25Zm0 0v9" {...LINE} />
   </Icon>
 );
+
+export const RenameIcon = () => (
+  <Icon>
+    <path d="M10.5 3 13 5.5 6 12.5H3.5V10L10.5 3Z" {...LINE} />
+  </Icon>
+);

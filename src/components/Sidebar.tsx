@@ -23,10 +23,12 @@ import {
   OpenIcon,
   PinIcon,
   QueueIcon,
+  RenameIcon,
   TeamIcon,
 } from "./icons";
 import { Ports } from "./Ports";
 import { QueueChip } from "./QueueChip";
+import { RenameField } from "./RenameField";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
@@ -103,6 +105,7 @@ export function Sidebar({
   const pinned = pinnedByWorkspace(snapshot?.tabs ?? [], (tab) => pins.has(pinKey(snapshot?.boot_id ?? "", tab.tab_id)));
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const home = useHome();
   const [teamVersion, setTeamVersion] = useState(0);
   // New team writes the starter team, then shows it: the workspace takes focus and its file is read again.
@@ -153,6 +156,22 @@ export function Sidebar({
             if (drag.consumeClick()) return;
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
           };
+          const details = (
+            <>
+              {path && (
+                <span className="workspace-path" title={path}>
+                  {tildePath(path, home)}
+                </span>
+              )}
+              <WorkspaceGit
+                branch={workspace.branch}
+                aheadBehind={workspace.git_ahead_behind}
+                changed={changedFiles.get(workspace.workspace_id) ?? 0}
+                worktrees={worktrees.get(workspace.workspace_id) ?? []}
+                onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
+              />
+            </>
+          );
           return (
             <li
               key={workspace.workspace_id}
@@ -168,35 +187,56 @@ export function Sidebar({
                 onContextMenu={(event) => {
                   event.preventDefault();
                   const folder = workspace.new_workspace_cwd || path;
+                  const rename: MenuItem = {
+                    label: "Rename…",
+                    icon: <RenameIcon />,
+                    onSelect: () => setRenaming(workspace.workspace_id),
+                  };
+                  const items = [rename];
                   if (path && folder) {
                     const queue: MenuItem = {
                       label: "Add to Queue…",
                       icon: <QueueIcon />,
                       onSelect: () => onOpenQueue(workspace.workspace_id),
                     };
-                    const items = [...folderMenu(controller, path), newTeam(workspace.workspace_id, folder), queue];
-                    setMenu({ x: event.clientX, y: event.clientY, items });
+                    items.push(...folderMenu(controller, path), newTeam(workspace.workspace_id, folder), queue);
                   }
+                  setMenu({ x: event.clientX, y: event.clientY, items });
                 }}
               >
-                <button className="workspace-main" aria-current={workspace.focused ? "true" : undefined} onClick={focus}>
-                  <span className="workspace-head">
-                    <span className="workspace-label">{workspace.label}</span>
-                    <AgentTally agents={own} marks={marks} />
-                  </span>
-                  {path && (
-                    <span className="workspace-path" title={path}>
-                      {tildePath(path, home)}
+                {/* While its name is edited the card is a plain box: a field cannot sit in a button. */}
+                {renaming === workspace.workspace_id ? (
+                  <div className="workspace-main">
+                    <span className="workspace-head">
+                      <RenameField
+                        className="workspace-rename"
+                        label="Workspace name"
+                        initial={workspace.label}
+                        onDone={(label) => {
+                          setRenaming(null);
+                          controller.focusTerminal();
+                          if (label !== null && label !== workspace.label)
+                            controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
+                        }}
+                      />
+                      <AgentTally agents={own} marks={marks} />
                     </span>
-                  )}
-                  <WorkspaceGit
-                    branch={workspace.branch}
-                    aheadBehind={workspace.git_ahead_behind}
-                    changed={changedFiles.get(workspace.workspace_id) ?? 0}
-                    worktrees={worktrees.get(workspace.workspace_id) ?? []}
-                    onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
-                  />
-                </button>
+                    {details}
+                  </div>
+                ) : (
+                  <button
+                    className="workspace-main"
+                    aria-current={workspace.focused ? "true" : undefined}
+                    onClick={focus}
+                    onDoubleClick={() => setRenaming(workspace.workspace_id)}
+                  >
+                    <span className="workspace-head">
+                      <span className="workspace-label">{workspace.label}</span>
+                      <AgentTally agents={own} marks={marks} />
+                    </span>
+                    {details}
+                  </button>
+                )}
                 {/* What else lives here, a chip each on the card's last line, so the
                     name keeps its width however much is going on. Beside the
                     card's button, not in it: a port is a button of its own. */}

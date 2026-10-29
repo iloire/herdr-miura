@@ -241,6 +241,20 @@ body.reordering * {
   min-width: 0;
 }
 
+/* The name being edited, in its place and on the card's rail color. */
+.workspace-rename {
+  flex: 1;
+  min-width: 0;
+  margin: -3px 0 -3px -7px;
+  padding: 2px 6px;
+  border: 1px solid var(--rail);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bright);
+  font: inherit;
+  outline: none;
+}
+
 /* The agents here by status: the badge for those waiting, then a mark and
    its count for each other live status. */
 .agent-tally {

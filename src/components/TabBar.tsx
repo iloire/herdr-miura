@@ -8,6 +8,7 @@ import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { PinIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
+import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
 
 export function TabBar({
@@ -89,6 +90,8 @@ export function TabBar({
             >
               {renaming === tab.tab_id ? (
                 <RenameField
+                  className="tab-rename"
+                  label="Tab name"
                   initial={tab.custom_label ? tab.label : ""}
                   onDone={(label) => {
                     setRenaming(null);
@@ -149,28 +152,5 @@ export function TabBar({
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </div>
-  );
-}
-
-/// Inline rename: Enter saves, Escape or leaving cancels. An empty name is
-/// not sent, so the tab keeps the name Herdr gives it.
-function RenameField({ initial, onDone }: { initial: string; onDone: (label: string | null) => void }) {
-  const [value, setValue] = useState(initial);
-  return (
-    <input
-      className="tab-rename"
-      aria-label="Tab name"
-      autoFocus
-      value={value}
-      maxLength={200}
-      onFocus={(event) => event.currentTarget.select()}
-      onChange={(event) => setValue(event.target.value)}
-      onBlur={() => onDone(null)}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === "Enter") onDone(value.trim() || null);
-        else if (event.key === "Escape") onDone(null);
-      }}
-    />
   );
 }

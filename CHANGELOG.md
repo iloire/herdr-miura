@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 18:03 — Rename a workspace from its card
+
+A workspace kept the name it was opened with, even after its panes moved to another folder, and nothing in
+the app could change it. Right-click a workspace card and pick Rename…, or double-click the card: the name
+becomes a field holding the current one. Enter renames it in Herdr, Escape or clicking away cancels. Tabs
+use the same field.
+
 ## 2026-10-29 17:24 — Typing follows a move to another tab
 
 Only a click on a tab handed the keyboard to its terminal. Moving with ⌥← / ⌥→, ⌘⇧[ / ⌘⇧], ⌘1–9, ⌥↑ / ⌥↓,
