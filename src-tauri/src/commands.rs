@@ -327,15 +327,19 @@ fn queue_path(app: &AppHandle) -> Result<std::path::PathBuf> {
     Ok(dir.join("queue-tauri.json"))
 }
 
-/// The prompt queue, every workspace's, as the webview last saved it.
+/// The prompt queue, every workspace's, as the webview last saved it, once
+/// this window owns it (`queue::Owner`).
 #[tauri::command]
-pub fn queue_load(app: AppHandle) -> Result<Value> {
-    Ok(queue::load(&queue_path(&app)?)?)
+pub fn queue_load(app: AppHandle, owner: State<'_, queue::Owner>) -> Result<Value> {
+    let path = queue_path(&app)?;
+    owner.claim(&path)?;
+    Ok(queue::load(&path)?)
 }
 
 /// Replaces the saved prompt queue with `data`.
 #[tauri::command]
-pub fn queue_save(app: AppHandle, data: Value) -> Result<()> {
+pub fn queue_save(app: AppHandle, owner: State<'_, queue::Owner>, data: Value) -> Result<()> {
+    owner.check()?;
     Ok(queue::save(&queue_path(&app)?, &data)?)
 }
 
@@ -347,14 +351,21 @@ fn inbox_path(app: &AppHandle) -> Result<std::path::PathBuf> {
 /// The prompts waiting in the inbox, in the order they were sent; a file that
 /// fails the checks is moved to `queue-inbox/rejected/` instead.
 #[tauri::command]
-pub fn queue_inbox_list(app: AppHandle) -> Result<Vec<queue::Entry>> {
+pub fn queue_inbox_list(app: AppHandle, owner: State<'_, queue::Owner>) -> Result<Vec<queue::Entry>> {
+    owner.check()?;
     Ok(queue::inbox(&inbox_path(&app)?)?)
 }
 
-/// Deletes an inbox file whose prompt the saved queue now holds, or, with a
-/// `reason`, moves it to `rejected/`.
+/// Moves an inbox file whose prompt the saved queue now holds to `taken/`,
+/// or, with a `reason`, to `rejected/`.
 #[tauri::command]
-pub fn queue_inbox_settle(app: AppHandle, name: String, reason: Option<String>) -> Result<()> {
+pub fn queue_inbox_settle(
+    app: AppHandle,
+    owner: State<'_, queue::Owner>,
+    name: String,
+    reason: Option<String>,
+) -> Result<()> {
+    owner.check()?;
     Ok(queue::settle(&inbox_path(&app)?, &name, reason.as_deref())?)
 }
 

@@ -11,8 +11,10 @@ use crate::tab_move::{Error, checked, herdr, run};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
+    fs::{File, TryLockError},
     path::Path,
-    time::{Duration, Instant},
+    sync::Mutex,
+    time::{Duration, Instant, SystemTime},
 };
 
 /// The agent kinds `herdr agent start --kind` accepts in Herdr 0.9.5.
@@ -26,6 +28,11 @@ const MAX_PROMPT: usize = 100_000;
 const MAX_ARGS: usize = 16;
 const MAX_SOURCE: usize = 200;
 const MAX_FOLDER: usize = 4096;
+/// A copy of the queue file is kept at most this often, and this many are kept.
+const BACKUP_EVERY: Duration = Duration::from_secs(60 * 60);
+const BACKUPS_KEPT: usize = 48;
+/// How long a taken inbox file is kept in `taken/`.
+const TAKEN_KEPT: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -41,6 +48,50 @@ pub enum StoreError {
     Inbox(#[source] std::io::Error),
     #[error("not a queue inbox file: {0}")]
     InboxName(String),
+    #[error("the queue runs in another Herdr Tauri window, so this one leaves it alone")]
+    Owned,
+}
+
+/// Which window keeps the queue. Every window that runs this app (the one in
+/// daily use and each worktree's dev build) shares the one data folder, and
+/// each holds the queue in memory and saves it whole, so two at once lose
+/// each other's prompts. The first to load it takes an exclusive lock on
+/// `queue.lock` for as long as it runs; any other may not load, save or
+/// drain the inbox. The OS drops the lock with the process, even a crashed one.
+#[derive(Default)]
+pub struct Owner(Mutex<Option<File>>);
+
+impl Owner {
+    /// Takes the lock beside the queue file at `path`, unless held already.
+    pub fn claim(&self, path: &Path) -> Result<(), StoreError> {
+        let mut held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if held.is_some() {
+            return Ok(());
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(StoreError::Write)?;
+        }
+        let file = File::options()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(path.with_file_name("queue.lock"))
+            .map_err(StoreError::Write)?;
+        match file.try_lock() {
+            Ok(()) => {
+                *held = Some(file);
+                Ok(())
+            }
+            Err(TryLockError::WouldBlock) => Err(StoreError::Owned),
+            Err(TryLockError::Error(error)) => Err(StoreError::Write(error)),
+        }
+    }
+
+    /// Refuses unless this window holds the lock.
+    pub fn check(&self) -> Result<(), StoreError> {
+        let held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        held.as_ref().map(|_| ()).ok_or(StoreError::Owned)
+    }
 }
 
 /// The queue file, or an empty queue when there is none. A file that does
@@ -73,7 +124,38 @@ pub fn save(path: &Path, data: &Value) -> Result<(), StoreError> {
     let temporary = path.with_extension("json.tmp");
     let text = serde_json::to_vec_pretty(data).map_err(|error| StoreError::Write(error.into()))?;
     std::fs::write(&temporary, text).map_err(StoreError::Write)?;
+    // A backup that fails must not stop the save it guards.
+    let _ = backup(path, SystemTime::now());
     std::fs::rename(&temporary, path).map_err(StoreError::Write)
+}
+
+/// Copies the queue file as it is, before a save replaces it, into
+/// `queue-backups/queue-tauri-<unix ms>.json`, unless the newest copy is
+/// under `BACKUP_EVERY` old; keeps the newest `BACKUPS_KEPT`.
+fn backup(path: &Path, now: SystemTime) -> std::io::Result<()> {
+    let dir = path.with_file_name("queue-backups");
+    std::fs::create_dir_all(&dir)?;
+    let stamp = |name: &str| name.strip_prefix("queue-tauri-")?.strip_suffix(".json")?.parse::<u128>().ok();
+    let mut copies: Vec<(u128, String)> = std::fs::read_dir(&dir)?
+        .filter_map(Result::ok)
+        .filter_map(|file| file.file_name().into_string().ok())
+        .filter_map(|name| Some((stamp(&name)?, name)))
+        .collect();
+    copies.sort();
+    let now = now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
+    if copies.last().is_some_and(|(newest, _)| now.saturating_sub(*newest) < BACKUP_EVERY.as_millis()) {
+        return Ok(());
+    }
+    let name = format!("queue-tauri-{now}.json");
+    match std::fs::copy(path, dir.join(&name)) {
+        Ok(_) => copies.push((now, name)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    }
+    for (_, old) in &copies[..copies.len().saturating_sub(BACKUPS_KEPT)] {
+        std::fs::remove_file(dir.join(old))?;
+    }
+    Ok(())
 }
 
 fn valid(data: &Value) -> bool {
@@ -182,14 +264,29 @@ pub fn inbox(dir: &Path) -> Result<Vec<Entry>, StoreError> {
     Ok(entries)
 }
 
-/// Ends an inbox file's stay: deleted once its prompt is in the saved queue
-/// (`reason` none), or moved to `rejected/` with `reason` beside it.
+/// Ends an inbox file's stay: once its prompt is in the saved queue (`reason`
+/// none) it moves to `taken/`, kept for `TAKEN_KEPT` so the prompt's text
+/// outlives the queue file, or with `reason` it moves to `rejected/`.
 pub fn settle(dir: &Path, name: &str, reason: Option<&str>) -> Result<(), StoreError> {
     let name = entry_name(name)?;
     match reason {
-        None => std::fs::remove_file(dir.join(name)).map_err(StoreError::Inbox),
+        None => take(dir, name, SystemTime::now()),
         Some(reason) => reject(dir, name, reason),
     }
+}
+
+fn take(dir: &Path, name: &str, now: SystemTime) -> Result<(), StoreError> {
+    let taken = dir.join("taken");
+    std::fs::create_dir_all(&taken).map_err(StoreError::Inbox)?;
+    std::fs::rename(dir.join(name), taken.join(name)).map_err(StoreError::Inbox)?;
+    // A rename keeps the time the file was sent, which is what ages it out.
+    for file in std::fs::read_dir(&taken).map_err(StoreError::Inbox)?.filter_map(Result::ok) {
+        let sent = file.metadata().and_then(|meta| meta.modified());
+        if sent.is_ok_and(|sent| now.duration_since(sent).is_ok_and(|age| age > TAKEN_KEPT)) {
+            std::fs::remove_file(file.path()).map_err(StoreError::Inbox)?;
+        }
+    }
+    Ok(())
 }
 
 fn reject(dir: &Path, name: &str, reason: &str) -> Result<(), StoreError> {
@@ -566,6 +663,71 @@ mod tests {
             assert!(matches!(settle(&dir, bad, None), Err(StoreError::InboxName(_))), "{bad:?}");
         }
         assert!(inbox(&dir.join("missing")).unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_taken_inbox_file_is_kept_until_it_ages_out() {
+        let dir = temp("take");
+        std::fs::write(dir.join("1-a.json"), "{}").unwrap();
+        settle(&dir, "1-a.json", None).unwrap();
+        assert!(!dir.join("1-a.json").exists());
+        assert!(dir.join("taken/1-a.json").exists());
+        std::fs::write(dir.join("2-b.json"), "{}").unwrap();
+        take(&dir, "2-b.json", SystemTime::now() + TAKEN_KEPT + Duration::from_secs(60)).unwrap();
+        assert!(std::fs::read_dir(dir.join("taken")).unwrap().next().is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn only_one_owner_holds_the_queue_and_the_lock_goes_with_it() {
+        let dir = temp("owner");
+        let path = dir.join("queue-tauri.json");
+        let (first, second) = (Owner::default(), Owner::default());
+        assert!(matches!(second.check(), Err(StoreError::Owned)));
+        first.claim(&path).unwrap();
+        first.claim(&path).unwrap();
+        first.check().unwrap();
+        assert!(matches!(second.claim(&path), Err(StoreError::Owned)));
+        assert!(matches!(second.check(), Err(StoreError::Owned)));
+        drop(first);
+        // A child that another test forks shares the lock until it execs, as
+        // one the app forks would; the window retries its load for the same reason.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while matches!(second.claim(&path), Err(StoreError::Owned)) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        second.check().unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_save_keeps_an_hourly_copy_of_the_file_it_replaces() {
+        let dir = temp("backup");
+        let path = dir.join("queue-tauri.json");
+        let copies = || {
+            let mut names: Vec<String> = std::fs::read_dir(dir.join("queue-backups"))
+                .unwrap()
+                .map(|file| file.unwrap().file_name().into_string().unwrap())
+                .collect();
+            names.sort();
+            names
+        };
+        let start = SystemTime::UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+        backup(&path, start).unwrap();
+        assert!(copies().is_empty(), "nothing to copy before the first save");
+        std::fs::write(&path, "v1").unwrap();
+        backup(&path, start).unwrap();
+        std::fs::write(&path, "v2").unwrap();
+        backup(&path, start + Duration::from_secs(60)).unwrap();
+        assert_eq!(copies().len(), 1, "a minute later is too soon for another copy");
+        assert_eq!(std::fs::read_to_string(dir.join("queue-backups").join(&copies()[0])).unwrap(), "v1");
+        for hour in 1..=BACKUPS_KEPT as u64 + 2 {
+            backup(&path, start + BACKUP_EVERY * hour as u32).unwrap();
+        }
+        let kept = copies();
+        assert_eq!(kept.len(), BACKUPS_KEPT);
+        assert!(!kept.contains(&format!("queue-tauri-{}.json", 1_800_000_000_000u128)), "the oldest went first");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -32,6 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(claude_usage::Cache::default())
         .manage(connection::Connection::default())
+        .manage(queue::Owner::default())
         .manage(session_usage::Cache::default())
         .manage(ssh_hosts::PendingKeys::default())
         .invoke_handler(tauri::generate_handler![

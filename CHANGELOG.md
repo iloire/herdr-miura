@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 13:20 — One window owns the queue, with backups
+
+Two windows of the app (the daily one and a worktree's dev build) share one data folder and each saved the
+queue whole from memory, so one overwrote prompts the other had taken from the inbox: two queued prompts
+were lost. Now the first window to load the queue holds an exclusive lock on `queue.lock` until it exits,
+and any other leaves the queue and its inbox alone, retrying every 5 s. A save first copies the file it
+replaces into `queue-backups/` (hourly, last 48 kept), and inbox files move to `queue-inbox/taken/`
+(kept 30 days) instead of being deleted.
+
 ## 2026-10-29 12:55 — No dev bar on main
 
 A `tauri dev` window on `main` no longer shows the `DEV · main` strip or `[main]` in its title; feature

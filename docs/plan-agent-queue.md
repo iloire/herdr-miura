@@ -208,8 +208,9 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
     `<unix-ms>-<random>.json`, written as `.tmp` and renamed:
     `{ "version": 1, "workspace_id": "w4H" | null, "folder": "/abs" | null, "prompt": "…", "front": false,
     "source": "…" }`. Once a second the window lists them (`queue_inbox_list`), adds each to its
-    workspace's queue as if typed in the panel, saves, and only then deletes the file
-    (`queue_inbox_settle`). A file that fails the checks, or whose workspace has not opened within 24 h,
+    workspace's queue as if typed in the panel, saves, and only then moves the file to
+    `queue-inbox/taken/`, kept 30 days (`queue_inbox_settle`). Only the window that owns the queue's lock
+    (`queue.lock`) drains it: two windows sharing the data folder once lost each other's prompts. A file that fails the checks, or whose workspace has not opened within 24 h,
     moves to `queue-inbox/rejected/` with a `.reason.txt`. Its card reads "Queued from an agent".
   - **`herdr-queue add [--front] [--workspace ID | --folder PATH]`** in `~/dotfiles/bin` reads the prompt
     on stdin and writes that file. It names the workspace from `$HERDR_WORKSPACE_ID`, which every Herdr

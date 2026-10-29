@@ -36,6 +36,7 @@ import {
 } from "./queue";
 
 const TICK_MS = 1000;
+const LOAD_RETRY_MS = 5000;
 
 export interface QueueActions {
   add(folder: string, prompt: string, front: boolean): void;
@@ -93,15 +94,25 @@ export function useQueue(
     [commit],
   );
 
+  /// Only one window may own the queue (`queue::Owner`), so while another
+  /// does, or the load fails, this one tries again every few seconds and
+  /// says why only the first time.
   useEffect(() => {
     let live = true;
-    loadQueue()
-      .then((loaded) => {
-        if (live) void commit(recover(loaded, Date.now()));
-      })
-      .catch((error) => controller.act(Promise.reject(error)));
+    let timer: number | undefined;
+    const load = (first: boolean) =>
+      loadQueue()
+        .then((loaded) => {
+          if (live) void commit(recover(loaded, Date.now()));
+        })
+        .catch((error) => {
+          if (first) controller.act(Promise.reject(error));
+          if (live) timer = window.setTimeout(() => load(false), LOAD_RETRY_MS);
+        });
+    void load(true);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
   }, [commit, controller]);
 
