@@ -3,6 +3,7 @@
 // carries out what it asks for, and saves after every change. Once a second it
 // also takes what other programs left in the queue's inbox (`herdr-queue add`).
 
+import { getIdentifier } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCounts } from "../changes/counts";
 import type { Snapshot } from "../protocol";
@@ -37,6 +38,17 @@ import {
 
 const TICK_MS = 1000;
 const LOAD_RETRY_MS = 5000;
+/// The app id of the window in daily use. A dev build started with another
+/// one (`com.herdr.tauri.dev`, see CLAUDE.md) keeps a queue of its own.
+const DAILY_ID = "com.herdr.tauri";
+
+/// Whether this window has the queue, and which one it is.
+export type QueueAccess =
+  | { kind: "loading" }
+  /// Another window owns it, or it could not be read: this one shows it as off.
+  | { kind: "none"; reason: string }
+  /// Loaded; `separate` when it is a dev build's own queue, not the daily one.
+  | { kind: "ready"; separate: boolean };
 
 export interface QueueActions {
   add(folder: string, prompt: string, front: boolean): void;
@@ -58,8 +70,9 @@ export function useQueue(
   controller: Controller,
   snapshot: Snapshot | null,
   local: boolean,
-): { file: QueueFile | null; actions: QueueActions } {
+): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
   const [file, setFile] = useState<QueueFile | null>(null);
+  const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
   const latest = useRef({ snapshot, local });
   latest.current = { snapshot, local };
@@ -102,12 +115,17 @@ export function useQueue(
     let timer: number | undefined;
     const load = (first: boolean) =>
       loadQueue()
-        .then((loaded) => {
-          if (live) void commit(recover(loaded, Date.now()));
+        .then(async (loaded) => {
+          const id = await getIdentifier().catch(() => DAILY_ID);
+          if (!live) return;
+          setAccess({ kind: "ready", separate: id !== DAILY_ID });
+          void commit(recover(loaded, Date.now()));
         })
         .catch((error) => {
+          if (!live) return;
+          setAccess({ kind: "none", reason: String(error) });
           if (first) controller.act(Promise.reject(error));
-          if (live) timer = window.setTimeout(() => load(false), LOAD_RETRY_MS);
+          timer = window.setTimeout(() => load(false), LOAD_RETRY_MS);
         });
     void load(true);
     return () => {
@@ -263,5 +281,5 @@ export function useQueue(
     [commit, tick, update],
   );
 
-  return { file, actions };
+  return { file, access, actions };
 }

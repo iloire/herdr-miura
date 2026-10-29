@@ -21,6 +21,7 @@ import {
   title,
   type View,
   viewOf,
+  workspaceFolder,
 } from "../queue";
 
 const FOLDER = "/code/app";
@@ -184,6 +185,39 @@ describe("viewOf", () => {
     const seen = viewOf(emptyQueue(FOLDER), snapshot, 5);
     expect(seen.workspaces.map((w) => w.workspace_id)).toEqual(["w1", "w2"]);
     expect(seen.agents.map((a) => a.pane_id)).toEqual(["a"]);
+  });
+});
+
+describe("workspaceFolder", () => {
+  const tab = (tab_id: string, number: number) => ({ tab_id, number, workspace_id: "w1" });
+  const pane = (tab_id: string, cwd: string) => ({ pane_id: `p${tab_id}`, tab_id, cwd, foreground_cwd: cwd });
+  const opened = (active_tab_id: string) => ({ workspace_id: "w1", new_workspace_cwd: "", active_tab_id }) as Workspace;
+  const snapshot = (panes: [string, string][]) =>
+    ({
+      tabs: panes.map(([id], i) => tab(id, i + 1)),
+      panes: panes.map(([id, cwd]) => pane(id, cwd)),
+    }) as unknown as Snapshot;
+
+  it("is the folder herdr opened the workspace on, when it names one", () => {
+    const shot = snapshot([["t1", "/elsewhere"]]);
+    expect(workspaceFolder({ ...opened("t1"), new_workspace_cwd: FOLDER }, shot)).toBe(FOLDER);
+  });
+
+  it("does not follow the focused tab into another folder", () => {
+    const shot = snapshot([
+      ["t1", FOLDER],
+      ["t2", "/dotfiles"],
+      ["t3", FOLDER],
+    ]);
+    for (const active of ["t1", "t2", "t3"]) expect(workspaceFolder(opened(active), shot)).toBe(FOLDER);
+  });
+
+  it("gives a tie to the lowest tab number", () => {
+    const shot = snapshot([
+      ["t1", "/dotfiles"],
+      ["t2", FOLDER],
+    ]);
+    expect(workspaceFolder(opened("t2"), shot)).toBe("/dotfiles");
   });
 });
 

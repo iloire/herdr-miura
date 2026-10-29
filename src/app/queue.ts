@@ -88,9 +88,25 @@ export const isActive = (item: Item) => ACTIVE.has(item.state);
 /// Queues are this Mac's: the CLI that starts agents runs here.
 export const queueKey = (folder: string) => `local:${folder}`;
 
-/// The folder a workspace was opened on, where its queue's agents start.
+/// The folder a workspace was opened on, where its queue's agents start. The
+/// queue is kept by this folder, so it must not follow the focused tab: when
+/// herdr names no folder, it is the one most of the workspace's tabs are in,
+/// a tie going to the lowest tab number, so one agent in another checkout or a
+/// restart that focuses another tab never shows a different, empty queue.
 export function workspaceFolder(workspace: Workspace, snapshot: Snapshot): string | null {
-  return workspace.new_workspace_cwd || workspaceDirectory(workspace, snapshot);
+  if (workspace.new_workspace_cwd) return workspace.new_workspace_cwd;
+  const tabs = snapshot.tabs
+    .filter((tab) => tab.workspace_id === workspace.workspace_id)
+    .sort((a, b) => a.number - b.number);
+  const count = new Map<string, number>();
+  for (const tab of tabs) {
+    const pane = snapshot.panes.find((p) => p.tab_id === tab.tab_id);
+    const folder = pane?.cwd || pane?.foreground_cwd;
+    if (folder) count.set(folder, (count.get(folder) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  for (const [folder, n] of count) if (best === null || n > (count.get(best) ?? 0)) best = folder;
+  return best ?? workspaceDirectory(workspace, snapshot);
 }
 
 export function emptyQueue(folder: string): Queue {

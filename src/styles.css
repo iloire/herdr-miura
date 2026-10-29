@@ -2293,6 +2293,16 @@ kbd {
   min-width: 0;
 }
 
+.queue-head-folder {
+  overflow: hidden;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
 .queue-head-title b {
   overflow: hidden;
   color: var(--hue);
@@ -2352,6 +2362,23 @@ kbd {
 
 .queue-banner button:hover {
   background: color-mix(in srgb, var(--lantern) 14%, transparent);
+}
+
+.queue-off {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.5;
+}
+
+.queue-off p {
+  margin: 0;
+}
+
+.queue-off b {
+  color: var(--text);
 }
 
 .queue-track {

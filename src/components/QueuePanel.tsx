@@ -1,8 +1,10 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
+import { tildePath } from "../app/folder";
 import { hueColor } from "../app/hue";
+import { useHome } from "../app/useHome";
 import { emptyQueue, isActive, type Item, type Queue, title } from "../app/queue";
-import type { QueueActions } from "../app/useQueue";
+import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 import { PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 
@@ -20,6 +22,7 @@ export function QueuePanel({
   workspace,
   folder,
   queue: saved,
+  access,
   actions,
   focusComposer,
   onClose,
@@ -30,6 +33,7 @@ export function QueuePanel({
   /// The workspace's folder; null when there is no workspace or it is on another machine.
   folder: string | null;
   queue: Queue | null;
+  access: QueueAccess;
   actions: QueueActions | null;
   /// Put the cursor in the prompt box: when opened by hand, not when it opened on its own.
   focusComposer: boolean;
@@ -43,6 +47,25 @@ export function QueuePanel({
       </button>
     </header>
   );
+  // Without the queue file there is nothing to show and nowhere to add to, so
+  // the panel says so rather than look like an empty queue.
+  if (access.kind !== "ready") {
+    return (
+      <aside className="changes queue-panel" aria-label="Queue">
+        {head}
+        {access.kind === "loading" ? (
+          <p className="empty">Loading the queue…</p>
+        ) : (
+          <div className="queue-off" role="status">
+            <p>
+              <b>No queue in this window.</b>
+            </p>
+            <p>{access.reason}</p>
+          </div>
+        )}
+      </aside>
+    );
+  }
   if (!workspace || !folder || !actions) {
     return (
       <aside className="changes queue-panel" aria-label="Queue">
@@ -60,6 +83,7 @@ export function QueuePanel({
       workspace={workspace}
       folder={folder}
       queue={saved ?? emptyQueue(folder)}
+      separate={access.separate}
       actions={actions}
       focusComposer={focusComposer}
       onClose={onClose}
@@ -73,6 +97,7 @@ function QueueBody({
   workspace,
   folder,
   queue,
+  separate,
   actions,
   focusComposer,
   onClose,
@@ -82,10 +107,13 @@ function QueueBody({
   workspace: Workspace;
   folder: string;
   queue: Queue;
+  /// A dev build's own queue, apart from the daily window's.
+  separate: boolean;
   actions: QueueActions;
   focusComposer: boolean;
   onClose: () => void;
 }) {
+  const home = useHome();
   const [draft, setDraft] = useState("");
   const [removed, setRemoved] = useState<{ title: string; undo: () => void } | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -123,6 +151,9 @@ function QueueBody({
       <header className="changes-head queue-head">
         <span className="queue-head-title">
           Queue <b title={folder}>{workspace.label}</b>
+          <span className="queue-head-folder" title="This workspace's queue is kept for this folder, whichever tab is focused">
+            {tildePath(folder, home)}
+          </span>
         </span>
         <button
           className={`icon-button queue-pause-toggle ${queue.paused ? "paused" : ""}`}
@@ -137,6 +168,15 @@ function QueueBody({
           ×
         </button>
       </header>
+
+      {separate && (
+        <div className="queue-banner" role="status">
+          <p>
+            <b>Test queue.</b> This dev build keeps a queue of its own. Your daily window's queue is not shown here
+            and is left alone.
+          </p>
+        </div>
+      )}
 
       {queue.paused && (
         <div className="queue-banner" role="status">

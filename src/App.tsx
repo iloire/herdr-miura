@@ -169,7 +169,7 @@ export default function App() {
   // host's servers are not reachable at its localhost from here.
   const local = state.status.phase === "connected" && state.host === null;
   // Each workspace folder's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, actions: queueActions } = useQueue(controller, state.snapshot, local);
+  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;
@@ -426,6 +426,7 @@ export default function App() {
               workspace={focusedWorkspace ?? null}
               folder={local ? queueFolder : null}
               queue={focusedQueue}
+              access={queueAccess}
               actions={local ? queueActions : null}
               focusComposer={!state.queueAuto}
               onClose={closeQueue}

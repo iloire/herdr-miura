@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 14:10 — A workspace's queue stays on one folder
+
+Queues are kept by folder, and a workspace that herdr names no folder for took the focused tab's, so focusing
+a tab in another checkout (an agent started in `~/dotfiles`, say), or a restart that focused one, showed that
+folder's empty queue in place of the real one. Nothing was lost, but it looked lost. Such a workspace's folder
+is now the one most of its tabs are in, whichever tab is focused, and the panel's header shows it. A window
+that does not own the queue (another window holds `queue.lock`) says so instead of showing an empty queue
+whose Add button silently did nothing, and a dev build started with its own app id labels its queue a test
+queue.
+
 ## 2026-10-29 13:54 — A gear for Settings in the status bar
 
 The Settings dialog opened only with ⌘, or from the command palette. A gear button at the right end of the

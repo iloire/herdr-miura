@@ -24,7 +24,7 @@ context, and no two queued agents ever run at once.
 
 ## Decisions
 
-- **One queue per workspace, keyed by the workspace's folder** (`new_workspace_cwd`) and host. Workspace
+- **One queue per workspace, keyed by the workspace's folder** (`new_workspace_cwd`, else the folder most of its tabs are in, never the focused tab's alone) and host. Workspace
   ids change when the daemon restarts, while the folder does not.
 - **Sequential means no other agent at work in the workspace.** The next item starts only when no agent
   in the workspace is `working` or `blocked` and none carries a loop tag. Agents you started by hand count

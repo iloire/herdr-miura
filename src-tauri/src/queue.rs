@@ -48,7 +48,7 @@ pub enum StoreError {
     Inbox(#[source] std::io::Error),
     #[error("not a queue inbox file: {0}")]
     InboxName(String),
-    #[error("the queue runs in another Herdr Tauri window, so this one leaves it alone")]
+    #[error("Your queue is open in another Herdr Tauri window, the one you use every day. This one cannot show, add to or run it, and takes it over once that window closes.")]
     Owned,
 }
 
