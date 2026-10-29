@@ -1,13 +1,15 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import type { Controller } from "../app/controller";
 import { hueColor } from "../app/hue";
 import { type Member, STATE_WORDS, startTeam, TEAM_FILE, type TeamState, teamRows } from "../app/team";
 import type { Snapshot, Workspace } from "../protocol";
+import { TeamDialog } from "./TeamDialog";
 
 /// The focused workspace's team, under the workspace list: each role with a
 /// letter in its hue and what it is doing. A started role's row focuses its
 /// tab; one not started yet starts it, and Start starts every missing one.
-/// Nothing shows for a folder without a team file.
+/// Nothing shows for a folder without a team file. The header opens the team
+/// in full, with what each role's agent file says.
 export function TeamSection({
   controller,
   snapshot,
@@ -22,14 +24,29 @@ export function TeamSection({
   directory: string;
   team: TeamState;
 }) {
+  const [open, setOpen] = useState(false);
   if (team.phase === "none") return null;
+  const dialog = open && (
+    <TeamDialog
+      controller={controller}
+      snapshot={snapshot}
+      workspace={workspace}
+      directory={directory}
+      team={team}
+      onClose={() => setOpen(false)}
+    />
+  );
+  const title = (count?: number) => (
+    <button className="team-title" title="Show each role's agent, tools and prompt" onClick={() => setOpen(true)}>
+      Team {count !== undefined && <span className="team-count">{count}</span>}
+    </button>
+  );
   if (team.phase === "invalid") {
     return (
       <section className="team" aria-label="Team">
-        <header className="sidebar-head">
-          <span>Team</span>
-        </header>
+        <header className="sidebar-head">{title()}</header>
         <p className="empty error">{team.error}</p>
+        {dialog}
       </section>
     );
   }
@@ -40,9 +57,7 @@ export function TeamSection({
   return (
     <section className="team" aria-label="Team">
       <header className="sidebar-head">
-        <span>
-          Team <span className="team-count">{rows.length}</span>
-        </span>
+        {title(rows.length)}
         {missing.length > 0 && (
           <button
             className="team-start"
@@ -77,6 +92,7 @@ export function TeamSection({
           </li>
         ))}
       </ul>
+      {dialog}
     </section>
   );
 }

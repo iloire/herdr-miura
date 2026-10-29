@@ -109,7 +109,7 @@ pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
 
 /// `path` under `root`, after resolving symlinks, refused when it leaves
 /// the checkout. The webview sends both back, so neither is trusted.
-fn inside(root: &str, path: &str) -> Result<PathBuf, Error> {
+pub fn inside(root: &str, path: &str) -> Result<PathBuf, Error> {
     let outside = || Error::OutsideCheckout(path.into());
     if path.is_empty()
         || !Path::new(path)

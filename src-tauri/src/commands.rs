@@ -295,6 +295,14 @@ pub fn create_team(connection: State<'_, Connection>, directory: String) -> Resu
     Ok(crate::team::create(&directory)?)
 }
 
+/// Writes one role's agent file from its starter, or a stub, never over one
+/// that is there; returns the file's path in the folder.
+#[tauri::command]
+pub fn create_agent(connection: State<'_, Connection>, directory: String, agent: String) -> Result<String> {
+    connection.ensure_local()?;
+    Ok(crate::team::create_agent(&directory, &agent)?)
+}
+
 /// Opens a tab per team member in a workspace and starts its agent there,
 /// through the `herdr` CLI, on the blocking pool since it waits on child processes.
 #[tauri::command]
@@ -370,6 +378,13 @@ pub async fn queue_commits(connection: State<'_, Connection>, directory: String,
 pub fn open_folder(connection: State<'_, Connection>, path: String, with: Opener) -> Result<()> {
     connection.ensure_local()?;
     Ok(folder::open(&path, with)?)
+}
+
+/// Opens one file of a workspace's folder in VS Code, refusing any path that leaves it.
+#[tauri::command]
+pub fn open_file(connection: State<'_, Connection>, root: String, path: String) -> Result<()> {
+    connection.ensure_local()?;
+    Ok(folder::open_file(&root, &path)?)
 }
 
 /// Copies a workspace's folder path, after checking it names a folder.

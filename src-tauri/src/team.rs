@@ -90,6 +90,10 @@ pub enum CreateError {
     NotFolder(String),
     #[error("this workspace already has a team: edit {0}")]
     Exists(String),
+    #[error("{0} already exists")]
+    AgentExists(String),
+    #[error("`{0}` is not an agent name")]
+    BadName(String),
     #[error("could not write {path}")]
     Write {
         path: String,
@@ -106,27 +110,34 @@ const STARTER: &[(&str, &str)] = &[
     (".claude/agents/qa.md", include_str!("../templates/team/qa.md")),
 ];
 
-/// Writes the starter team into the folder `directory`, refusing a folder
-/// that already has a team file and keeping any agent file already there,
-/// so the repo's own roles win. Returns the files it wrote.
-pub fn create(directory: &str) -> Result<Vec<String>, CreateError> {
+/// Writes `text` to `full`, making its folder, but never over a file there.
+fn write_new(full: &Path, text: &str) -> std::io::Result<()> {
+    if let Some(parent) = full.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::io::Write::write_all(
+        &mut std::fs::OpenOptions::new().write(true).create_new(true).open(full)?,
+        text.as_bytes(),
+    )
+}
+
+/// `directory` when it is an existing absolute folder.
+fn team_folder(directory: &str) -> Result<&Path, CreateError> {
     let root = Path::new(directory);
     if !root.is_absolute() || !root.is_dir() {
         return Err(CreateError::NotFolder(directory.into()));
     }
+    Ok(root)
+}
+
+/// Writes the starter team into the folder `directory`, refusing a folder
+/// that already has a team file and keeping any agent file already there,
+/// so the repo's own roles win. Returns the files it wrote.
+pub fn create(directory: &str) -> Result<Vec<String>, CreateError> {
+    let root = team_folder(directory)?;
     let mut written = Vec::new();
     for (i, (path, text)) in STARTER.iter().enumerate() {
-        let full = root.join(path);
-        let write = || {
-            if let Some(parent) = full.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::io::Write::write_all(
-                &mut std::fs::OpenOptions::new().write(true).create_new(true).open(&full)?,
-                text.as_bytes(),
-            )
-        };
-        match write() {
+        match write_new(&root.join(path), text) {
             Ok(()) => written.push((*path).to_owned()),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
                 // The team file comes first, so an existing one stops here, before any agent.
@@ -143,6 +154,36 @@ pub fn create(directory: &str) -> Result<Vec<String>, CreateError> {
         }
     }
     Ok(written)
+}
+
+/// The agent file a role starts from: its starter when New Team has one by
+/// that name, else a stub with the frontmatter Claude Code needs to load it.
+fn agent_text(agent: &str, path: &str) -> String {
+    STARTER
+        .iter()
+        .find(|(starter, _)| *starter == path)
+        .map_or_else(
+            || {
+                format!(
+                    "---\nname: {agent}\ndescription: What the {agent} role does, and when to hand it work\n---\n\
+                     You are the {agent} of this repo. Say what you do, what you never do, and how you report back.\n"
+                )
+            },
+            |(_, text)| (*text).to_owned(),
+        )
+}
+
+/// Writes `.claude/agents/<agent>.md` into the folder `directory`, from
+/// `agent_text`, never over a file already there. Returns its path there.
+pub fn create_agent(directory: &str, agent: &str) -> Result<String, CreateError> {
+    let root = team_folder(directory)?;
+    name(agent).map_err(|_| CreateError::BadName(agent.into()))?;
+    let path = format!(".claude/agents/{agent}.md");
+    match write_new(&root.join(&path), &agent_text(agent, &path)) {
+        Ok(()) => Ok(path),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Err(CreateError::AgentExists(path)),
+        Err(source) => Err(CreateError::Write { path, source }),
+    }
 }
 
 #[cfg(test)]
@@ -163,6 +204,24 @@ mod tests {
         assert!(matches!(create(root), Err(CreateError::Exists(_))));
         assert!(matches!(create("relative"), Err(CreateError::NotFolder(_))));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn create_agent_writes_a_starter_or_a_stub_and_never_overwrites() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        assert_eq!(create_agent(root, "qa").unwrap(), ".claude/agents/qa.md");
+        assert_eq!(std::fs::read_to_string(dir.path().join(".claude/agents/qa.md")).unwrap(), STARTER[3].1);
+        create_agent(root, "designer").unwrap();
+        let stub = std::fs::read_to_string(dir.path().join(".claude/agents/designer.md")).unwrap();
+        assert!(stub.starts_with("---\nname: designer\ndescription: "), "{stub}");
+        std::fs::write(dir.path().join(".claude/agents/qa.md"), "mine").unwrap();
+        assert!(matches!(create_agent(root, "qa"), Err(CreateError::AgentExists(_))));
+        assert_eq!(std::fs::read_to_string(dir.path().join(".claude/agents/qa.md")).unwrap(), "mine");
+        for bad in ["../x", "a/b", "-x", ""] {
+            assert!(matches!(create_agent(root, bad), Err(CreateError::BadName(_))), "{bad}");
+        }
+        assert!(matches!(create_agent("relative", "qa"), Err(CreateError::NotFolder(_))));
     }
 
     #[test]

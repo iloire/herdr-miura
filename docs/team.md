@@ -10,6 +10,31 @@ You still route the work between them. Nothing here passes messages from one age
 Every workspace card with a team shows a violet team mark: the number of roles, or `2/3` once some of
 them are running. Hover over it to see each role's state.
 
+## The Team dialog
+
+Click the Team section's header (**TEAM 3**) to see the team in full. There is one card per role: its
+letter in the role's hue, the agent it runs when that isn't the role's name, its state, and what its agent
+file says: the description, pills for the model, the tools and the skills, and the first three lines of
+the prompt. The files are read when the dialog opens and again whenever the window comes back to the
+front, so an edit made in VS Code shows up when you switch back.
+
+The dialog is read-only. **Edit** opens the role's agent file in VS Code, and **Open team.json** opens the
+team file. A role whose file isn't in the repo gets **Create from template** instead: it writes New Team's
+starter of that name if there is one (lead, reviewer, qa), otherwise a stub with a `name` and a
+`description`, and opens it. It never writes over a file that is there.
+
+A card with a problem gets a red rail and says what is wrong. It never stops you starting the role:
+
+| Shown | Why |
+| --- | --- |
+| Start will fail unless qa is a user or plugin agent: .claude/agents/qa.md is not in this repo | The dialog only looks in the repo. `~/.claude/agents/` and plugins can still provide the agent. |
+| Claude Code skips .claude/agents/qa.md: … | The frontmatter doesn't parse, or it has no `name` or no `description`. Claude Code doesn't load such a file. |
+| .claude/agents/qa.md says name: qa-browser, but claude --agent qa looks agents up by name | Claude Code doesn't require the file name to match, but `--agent` looks agents up by `name`, so Start would not find this one. |
+
+The frontmatter is read by a small parser in `app/agentFile.ts`. It handles the forms these files use:
+flat `key: value`, `tools` as `Read, Grep` or `[Read, Grep]`, YAML `- item` lists (as `skills` is
+written), and `|`/`>` text blocks. Nested maps such as `hooks` are skipped.
+
 ## Making one
 
 Right-click a workspace and pick **New Team**. It writes a starter team into the workspace's folder:
