@@ -79,27 +79,31 @@ export const STATE_WORDS: Record<MemberState, string> = {
 
 export type TeamState = { phase: "none" } | { phase: "ready"; members: Member[] } | { phase: "invalid"; error: string };
 
-/// The team of the folder `directory`, read when it changes and again when
-/// the window comes back, since the file is edited elsewhere. A folder
-/// without the file has no team.
-/// `version` rereads it at once, after New team has written it.
-export function useTeam(directory: string | null, version = 0): TeamState {
-  const [state, setState] = useState<TeamState>({ phase: "none" });
+/// One folder's team: none without the file, or what is wrong with it.
+async function readTeam(directory: string): Promise<TeamState> {
+  try {
+    const contents = await readFile(directory, TEAM_FILE);
+    if (contents.type !== "text") return { phase: "invalid", error: `${TEAM_FILE} is not text` };
+    const parsed = parseTeam(contents.text);
+    return Array.isArray(parsed) ? { phase: "ready", members: parsed } : { phase: "invalid", ...parsed };
+  } catch {
+    return { phase: "none" };
+  }
+}
+
+/// The team of each of `directories`, read when they change and again when
+/// the window comes back, since the files are edited elsewhere. `version`
+/// rereads them at once, after New team has written one.
+export function useTeams(directories: readonly string[], version: number): Map<string, TeamState> {
+  const [teams, setTeams] = useState<Map<string, TeamState>>(new Map());
+  const key = directories.join("\0");
   useEffect(() => {
-    if (!directory) {
-      setState({ phase: "none" });
-      return;
-    }
+    const list = key ? key.split("\0") : [];
     let live = true;
     const refresh = () => {
-      readFile(directory, TEAM_FILE)
-        .then((contents) => {
-          if (!live) return;
-          if (contents.type !== "text") return setState({ phase: "invalid", error: `${TEAM_FILE} is not text` });
-          const parsed = parseTeam(contents.text);
-          setState(Array.isArray(parsed) ? { phase: "ready", members: parsed } : { phase: "invalid", ...parsed });
-        })
-        .catch(() => live && setState({ phase: "none" }));
+      Promise.all(list.map(readTeam)).then((states) => {
+        if (live) setTeams(new Map(list.map((directory, i) => [directory, states[i]])));
+      });
     };
     refresh();
     window.addEventListener("focus", refresh);
@@ -107,8 +111,8 @@ export function useTeam(directory: string | null, version = 0): TeamState {
       live = false;
       window.removeEventListener("focus", refresh);
     };
-  }, [directory, version]);
-  return state;
+  }, [key, version]);
+  return teams;
 }
 
 /// Writes the starter team into the folder `directory`; resolves with the files written.

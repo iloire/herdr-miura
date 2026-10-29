@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Controller } from "../app/controller";
 import { hueColor } from "../app/hue";
-import { type Member, STATE_WORDS, startTeam, TEAM_FILE, teamRows, useTeam } from "../app/team";
+import { type Member, STATE_WORDS, startTeam, TEAM_FILE, type TeamState, teamRows } from "../app/team";
 import type { Snapshot, Workspace } from "../protocol";
 
 /// The focused workspace's team, under the workspace list: each role with a
@@ -13,17 +13,15 @@ export function TeamSection({
   snapshot,
   workspace,
   directory,
-  version,
+  team,
 }: {
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace;
   /// The workspace's folder: where the team file is read and the tabs open.
   directory: string;
-  /// Bumped when New team writes a team file, so it is read at once.
-  version: number;
+  team: TeamState;
 }) {
-  const team = useTeam(directory, version);
   if (team.phase === "none") return null;
   if (team.phase === "invalid") {
     return (

@@ -9,7 +9,7 @@ import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
-import type { Agent, Snapshot, Tab } from "../protocol";
+import type { Agent, Snapshot, Tab, Workspace } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { LoopMark } from "./LoopMark";
@@ -27,7 +27,7 @@ import { Ports } from "./Ports";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
-import { createTeam } from "../app/team";
+import { createTeam, STATE_WORDS, teamRows, type TeamState, useTeams } from "../app/team";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
 function folderMenu(controller: Controller, path: string): MenuItem[] {
@@ -95,8 +95,13 @@ export function Sidebar({
     },
   });
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
+  const folderOf = (workspace: Workspace) =>
+    (snapshot && (workspace.new_workspace_cwd || workspaceDirectory(workspace, snapshot))) || null;
+  const folders = [...new Set(workspaces.map(folderOf).filter((folder) => folder !== null))].sort();
+  const teams = useTeams(folders, teamVersion);
+  const teamOf = (workspace: Workspace): TeamState => teams.get(folderOf(workspace) ?? "") ?? { phase: "none" };
   const focused = workspaces.find((workspace) => workspace.focused);
-  const focusedFolder = focused && snapshot && (focused.new_workspace_cwd || workspaceDirectory(focused, snapshot));
+  const focusedFolder = focused && folderOf(focused);
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <header className="sidebar-head">
@@ -163,6 +168,7 @@ export function Sidebar({
                   />
                 </span>
                 <span className="workspace-marks">
+                  {snapshot && <TeamMark team={teamOf(workspace)} workspaceId={workspace.workspace_id} snapshot={snapshot} />}
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
                   <AgentCount count={own.length} />
@@ -188,7 +194,7 @@ export function Sidebar({
           snapshot={snapshot}
           workspace={focused}
           directory={focusedFolder}
-          version={teamVersion}
+          team={teamOf(focused)}
         />
       )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
@@ -308,6 +314,33 @@ function WorkspaceGit({
         </span>
       )}
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
+    </span>
+  );
+}
+
+/// The team mark: a workspace with a team file shows the team icon and how
+/// many of its roles are running out of how many it has; hovering names each
+/// role and what it is doing. A file with a mistake in it shows the icon in
+/// the error color.
+function TeamMark({ team, workspaceId, snapshot }: { team: TeamState; workspaceId: string; snapshot: Snapshot }) {
+  if (team.phase === "none") return null;
+  if (team.phase === "invalid") {
+    return (
+      <span className="team-mark invalid" title={team.error} aria-label={team.error}>
+        <TeamIcon />
+      </span>
+    );
+  }
+  const rows = teamRows(team.members, workspaceId, snapshot);
+  const running = rows.filter((row) => row.state !== "absent").length;
+  const title = [
+    `Team: ${running} of ${rows.length} running`,
+    ...rows.map((row) => `${row.member.role}: ${STATE_WORDS[row.state]}`),
+  ].join("\n");
+  return (
+    <span className={`team-mark${running > 0 ? " running" : ""}`} title={title} aria-label={title}>
+      <TeamIcon />
+      {running > 0 ? `${running}/${rows.length}` : rows.length}
     </span>
   );
 }

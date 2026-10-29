@@ -1838,3 +1838,28 @@ kbd {
 .team-member.state-done .team-state {
   color: var(--done);
 }
+
+/* A workspace with a team: the team icon and its size, or running/size once
+   any role runs; violet so it never reads as an agent status. */
+.team-mark {
+  align-items: center;
+  color: #b9a3ff;
+  display: inline-flex;
+  font: 11px/1 var(--mono);
+  gap: 2px;
+  opacity: 0.7;
+}
+
+.team-mark.running {
+  opacity: 1;
+}
+
+.team-mark.invalid {
+  color: var(--blocked);
+  opacity: 1;
+}
+
+.team-mark svg {
+  height: 12px;
+  width: 12px;
+}
