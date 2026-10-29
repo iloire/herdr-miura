@@ -14,6 +14,7 @@ import { ChangesStore, type RecentCommit } from "./changes/store";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
+import { DEV_BRANCH } from "./components/DevBar";
 import { DiffView } from "./components/DiffView";
 import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
@@ -94,7 +95,8 @@ export default function App() {
   // following the daemon's statuses rather than whether the window is in front.
   const attention = attentionCount(state.snapshot);
   useEffect(() => {
-    const title = state.title ? `${state.title} — Herdr` : "Herdr";
+    const app = DEV_BRANCH ? `Herdr [${DEV_BRANCH}]` : "Herdr";
+    const title = state.title ? `${state.title} — ${app}` : app;
     document.title = attention > 0 ? `(${attention}) ${title}` : title;
   }, [state.title, attention]);
 

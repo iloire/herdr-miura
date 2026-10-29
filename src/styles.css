@@ -27,6 +27,17 @@ body,
   margin: 0;
 }
 
+/* The dev bar sits under the app, which takes the rest of the window. */
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+#root > .app {
+  flex: 1;
+  min-height: 0;
+}
+
 body {
   background: var(--ink);
   color: var(--text);
@@ -1862,4 +1873,14 @@ kbd {
 .team-mark svg {
   height: 12px;
   width: 12px;
+}
+
+/* A dev window's foot: the branch in its hue, loud enough to tell at a glance. */
+.dev-bar {
+  background: var(--hue);
+  color: var(--ink);
+  flex: none;
+  font: 600 11px/20px var(--mono);
+  letter-spacing: 0.04em;
+  text-align: center;
 }
