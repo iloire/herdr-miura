@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 15:10 — A calmer workspace card
+
+A busy workspace's card put the team, queue, pins, loop, agent count and every status mark in one row beside
+the name, and squeezed the name down to nothing. The card now reads in lines: the name with a tally of its
+agents by status, the folder, the Git line, and a tray of chips under it for the team, queue, pinned tabs, loop
+and ports, each in its own color, wrapping instead of crowding. A quiet workspace shows no tray at all. Ports
+moved into the tray instead of hanging under the card.
+
 ## 2026-10-29 15:05 — A prompt library
 
 Prompts you send often had nowhere to live but a note, and reached an agent by copy and paste. They are now

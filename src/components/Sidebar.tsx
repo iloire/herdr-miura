@@ -11,8 +11,7 @@ import { groupWorktrees } from "../app/worktreeGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
-import type { Agent, Snapshot, Tab, Workspace } from "../protocol";
-import { AgentCount } from "./AgentCount";
+import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { LoopMark } from "./LoopMark";
 import {
@@ -150,6 +149,10 @@ export function Sidebar({
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
           const listening = ports.get(workspace.workspace_id) ?? [];
+          const focus = () => {
+            if (drag.consumeClick()) return;
+            controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
+          };
           return (
             <li
               key={workspace.workspace_id}
@@ -157,16 +160,11 @@ export function Sidebar({
             >
               {/* A worktree hangs off its main checkout's card, on that card's rail color. */}
               {parent && <span className="worktree-link" aria-hidden="true" />}
-              <button
-                className={["workspace", needsYou && "needs-you", listening.length > 0 && "has-ports"].filter(Boolean).join(" ")}
+              <div
+                className={["workspace", workspace.focused && "current", needsYou && "needs-you"].filter(Boolean).join(" ")}
                 style={{ "--rail": hueColor((parent ?? workspace).label) } as CSSProperties}
                 title={parent ? `A worktree of ${parent.label}` : undefined}
-                aria-current={workspace.focused ? "true" : undefined}
                 {...drag.handlers(index)}
-                onClick={() => {
-                  if (drag.consumeClick()) return;
-                  controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
-                }}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   const folder = workspace.new_workspace_cwd || path;
@@ -181,8 +179,11 @@ export function Sidebar({
                   }
                 }}
               >
-                <span className="workspace-text">
-                  <span className="workspace-label">{workspace.label}</span>
+                <button className="workspace-main" aria-current={workspace.focused ? "true" : undefined} onClick={focus}>
+                  <span className="workspace-head">
+                    <span className="workspace-label">{workspace.label}</span>
+                    <AgentTally agents={own} marks={marks} />
+                  </span>
                   {path && (
                     <span className="workspace-path" title={path}>
                       {tildePath(path, home)}
@@ -195,24 +196,18 @@ export function Sidebar({
                     worktrees={worktrees.get(workspace.workspace_id) ?? []}
                     onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
                   />
-                </span>
-                <span className="workspace-marks">
+                </button>
+                {/* What else lives here, a chip each on the card's last line, so the
+                    name keeps its width however much is going on. Beside the
+                    card's button, not in it: a port is a button of its own. */}
+                <div className="workspace-tray" onClick={focus}>
                   {snapshot && <TeamMark team={teamOf(workspace)} workspaceId={workspace.workspace_id} snapshot={snapshot} />}
                   <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
-                  <AgentCount count={own.length} />
-                  {marks.map(({ status, count }) => (
-                    <StatusMark key={status} status={status} count={status === "blocked" ? count : undefined} />
-                  ))}
-                </span>
-              </button>
-              {/* Beside the card's button, not in it: each port is a button of its own. */}
-              {listening.length > 0 && (
-                <span className="workspace-ports">
                   <Ports ports={listening} />
-                </span>
-              )}
+                </div>
+              </div>
             </li>
           );
         })}
@@ -300,6 +295,29 @@ function useRowDrag(enabled: boolean, onDrop: (from: number, slot: number) => vo
       return was;
     },
   };
+}
+
+/// Its agents by status, beside the name: the badge for those waiting on you,
+/// then each other live status's mark with how many when more than one.
+/// Hovering gives the whole count.
+function AgentTally({ agents, marks }: { agents: Agent[]; marks: { status: AgentStatus; count: number }[] }) {
+  const shown = marks.filter(({ status }) => status !== "unknown");
+  if (shown.length === 0) return null;
+  const label = agents.length > 0 ? `${agents.length} ${agents.length === 1 ? "agent" : "agents"}` : undefined;
+  return (
+    <span className="agent-tally" title={label}>
+      {shown.map(({ status, count }) =>
+        status === "blocked" ? (
+          <StatusMark key={status} status={status} count={count} />
+        ) : (
+          <span key={status} className="tally">
+            <StatusMark status={status} />
+            {count > 1 && count}
+          </span>
+        ),
+      )}
+    </span>
+  );
 }
 
 /// A pin when the workspace has pinned tabs, with their count when more than
