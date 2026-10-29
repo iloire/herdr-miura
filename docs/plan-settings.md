@@ -91,8 +91,8 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
 
 ## Steps
 
-1. Tokenize `styles.css`: replace every literal color with a token or a `color-mix` of tokens, no visual
-   change. Screenshot before and after to prove it.
+1. ~~Tokenize `styles.css`: replace every literal color with a token or a `color-mix` of tokens, no visual
+   change. Screenshot before and after to prove it.~~ ✅
 2. TS theme model: Ghostty parser, bundled themes, `chromeTokens`, contrast nudge. Vitest for the parser
    (a malformed line, a missing palette slot), the derivation on one dark and one light theme, and the
    `light:,dark:` pair. Break the nudge once and watch its test fail.

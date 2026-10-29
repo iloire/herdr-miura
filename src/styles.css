@@ -11,6 +11,19 @@
   --working: #82c4ff;
   --blocked: #f28b94;
   --done: #98c379;
+  /* Every other color the chrome uses: a theme sets these too (app/chrome.ts),
+     so nothing below names a color of its own. */
+  --hover: #1b222a; /* a row under the pointer, menus */
+  --active: #1f2730; /* the selected row */
+  --raised: #26303b; /* a focused menu item */
+  --rule-strong: #33404d; /* a focused button's border */
+  --elbow: #3b4653; /* the line joining a worktree to its checkout */
+  --gutter: #141a21; /* a diff's line-number column */
+  --faint: #4b5562; /* line numbers */
+  --bright: #ffffff; /* the current workspace's name, dialog titles */
+  --team: #b9a3ff;
+  --scrim: rgb(5 8 11 / 0.45);
+  --shadow: #000000;
   --mono: "JetBrains Mono", "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -204,18 +217,18 @@ body.reordering * {
 }
 
 .workspace:hover {
-  background: color-mix(in srgb, var(--rail) 6%, #1b222a);
+  background: color-mix(in srgb, var(--rail) 6%, var(--hover));
 }
 
 /* The picked card takes a wash of its own hue and a thicker rail, the same
    hue the tab bar's selected tab carries. */
 .workspace[aria-current="true"] {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 16%, #1f2730), #1f2730);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 16%, var(--active)), var(--active));
   box-shadow: inset 4px 0 0 var(--rail);
 }
 
 .workspace[aria-current="true"] .workspace-label {
-  color: #fff;
+  color: var(--bright);
   font-weight: 500;
 }
 
@@ -223,16 +236,16 @@ body.reordering * {
    turns amber and thickens, and it glows with the badge, so it stands out
    from across the list rather than only by the small disc on its right. */
 .workspace.needs-you {
-  background: linear-gradient(90deg, rgb(245 212 145 / 0.16), rgb(245 212 145 / 0.05));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--lantern) 16%, transparent), color-mix(in srgb, var(--lantern) 5%, transparent));
   box-shadow:
     inset 4px 0 0 var(--lantern),
-    inset 0 0 0 1px rgb(245 212 145 / 0.35);
+    inset 0 0 0 1px color-mix(in srgb, var(--lantern) 35%, transparent);
   animation: beckon-card 2.4s ease-in-out infinite;
 }
 
 .workspace.needs-you:hover,
 .workspace.needs-you[aria-current="true"] {
-  background: linear-gradient(90deg, rgb(245 212 145 / 0.24), rgb(245 212 145 / 0.08));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--lantern) 24%, transparent), color-mix(in srgb, var(--lantern) 8%, transparent));
 }
 
 .workspace.needs-you .workspace-label {
@@ -244,7 +257,7 @@ body.reordering * {
   50% {
     box-shadow:
       inset 4px 0 0 var(--lantern),
-      inset 0 0 0 1px rgb(245 212 145 / 0.12);
+      inset 0 0 0 1px color-mix(in srgb, var(--lantern) 12%, transparent);
   }
 }
 
@@ -353,7 +366,7 @@ body.reordering * {
 
 .worktrees-head h2 {
   margin: 0;
-  color: #fff;
+  color: var(--bright);
   font: 600 22px/1.25 var(--sans);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -420,7 +433,7 @@ body.reordering * {
 
 .worktree-name {
   min-width: 0;
-  color: #fff;
+  color: var(--bright);
   font: 600 15px var(--mono);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -537,7 +550,7 @@ body.reordering * {
 .worktree-actions button:hover,
 .worktree-actions button:focus-visible {
   background: var(--rule);
-  border-color: #33404d;
+  border-color: var(--rule-strong);
   outline: none;
 }
 
@@ -602,7 +615,7 @@ body.reordering * {
   background: var(--lantern);
   color: var(--ink);
   font: 700 10px/1 var(--mono);
-  box-shadow: 0 0 8px rgb(245 212 145 / 0.45);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--lantern) 45%, transparent);
   animation: beckon 2.4s ease-in-out infinite;
 }
 
@@ -614,7 +627,7 @@ body.reordering * {
 
 @keyframes beckon {
   50% {
-    box-shadow: 0 0 2px rgb(245 212 145 / 0.15);
+    box-shadow: 0 0 2px color-mix(in srgb, var(--lantern) 15%, transparent);
   }
 }
 
@@ -1127,11 +1140,11 @@ body.reordering * {
 }
 
 .file:hover {
-  background: #1b222a;
+  background: var(--hover);
 }
 
 .file[aria-current="true"] {
-  background: #1f2730;
+  background: var(--active);
 }
 
 .file-name {
@@ -1193,11 +1206,11 @@ body.reordering * {
 }
 
 .commit:hover {
-  background: #1b222a;
+  background: var(--hover);
 }
 
 .commit[aria-expanded="true"] {
-  background: #1f2730;
+  background: var(--active);
 }
 
 /* An open commit: its whole subject, then its files, indented under the row. */
@@ -1308,7 +1321,7 @@ body.reordering * {
   text-align: left;
   font-weight: 400;
   color: var(--muted);
-  background: #141a21;
+  background: var(--gutter);
   padding: 4px 12px;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
@@ -1319,7 +1332,7 @@ body.reordering * {
   min-width: 44px;
   padding: 0 8px;
   text-align: right;
-  color: #4b5562;
+  color: var(--faint);
   user-select: none;
   vertical-align: top;
 }
@@ -1337,7 +1350,7 @@ body.reordering * {
 }
 
 .line.added {
-  background: rgba(152, 195, 121, 0.11);
+  background: color-mix(in srgb, var(--done) 11%, transparent);
 }
 
 .line.added .sign,
@@ -1346,7 +1359,7 @@ body.reordering * {
 }
 
 .line.removed {
-  background: rgba(242, 139, 148, 0.11);
+  background: color-mix(in srgb, var(--blocked) 11%, transparent);
 }
 
 .line.removed .sign,
@@ -1359,7 +1372,7 @@ body.reordering * {
 .palette-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(5, 8, 11, 0.45);
+  background: var(--scrim);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1372,7 +1385,7 @@ body.reordering * {
   background: var(--peat);
   border: 1px solid var(--rule);
   border-radius: 10px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--shadow) 50%, transparent);
   overflow: hidden;
   animation: drop 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1404,7 +1417,7 @@ body.reordering * {
 }
 
 .palette-list li[aria-selected="true"] {
-  background: #1f2730;
+  background: var(--active);
 }
 
 kbd {
@@ -1446,8 +1459,8 @@ kbd {
   padding: 5px;
   border: 1px solid var(--rule);
   border-radius: 9px;
-  background: #1b222a;
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  background: var(--hover);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow) 45%, transparent);
 }
 
 .context-menu button {
@@ -1463,7 +1476,7 @@ kbd {
 
 .context-menu button:hover:not(:disabled),
 .context-menu button:focus-visible {
-  background: #26303b;
+  background: var(--raised);
   outline: none;
 }
 
@@ -1596,11 +1609,11 @@ kbd {
 }
 
 .tree-row:hover {
-  background: #1b222a;
+  background: var(--hover);
 }
 
 .tree-row[aria-current="true"] {
-  background: #1f2730;
+  background: var(--active);
 }
 
 .chevron {
@@ -1651,7 +1664,7 @@ kbd {
   min-width: 52px;
   padding-right: 12px !important;
   text-align: right;
-  color: #4b5562;
+  color: var(--faint);
   background: var(--ink);
   user-select: none;
 }
@@ -1671,7 +1684,7 @@ kbd {
 .file-image img {
   max-width: 100%;
   image-rendering: auto;
-  background: repeating-conic-gradient(#1b222a 0% 25%, #232b34 0% 50%) 0 0 / 16px 16px;
+  background: repeating-conic-gradient(var(--hover) 0% 25%, var(--rule) 0% 50%) 0 0 / 16px 16px;
   border: 1px solid var(--rule);
 }
 
@@ -1894,7 +1907,7 @@ kbd {
 .team-open-file:hover,
 .team-open-file:focus-visible {
   background: var(--rule);
-  border-color: #33404d;
+  border-color: var(--rule-strong);
   outline: none;
 }
 
@@ -2009,7 +2022,7 @@ kbd {
 .team-card-action:hover,
 .team-card-action:focus-visible {
   background: var(--rule);
-  border-color: #33404d;
+  border-color: var(--rule-strong);
   color: var(--text);
   outline: none;
 }
@@ -2052,8 +2065,8 @@ kbd {
 }
 
 .team-pill.model {
-  background: color-mix(in srgb, #b9a3ff 16%, transparent);
-  color: #b9a3ff;
+  background: color-mix(in srgb, var(--team) 16%, transparent);
+  color: var(--team);
 }
 
 .team-pill.skill {
@@ -2110,7 +2123,7 @@ kbd {
    any role runs; violet so it never reads as an agent status. */
 .team-mark {
   align-items: center;
-  color: #b9a3ff;
+  color: var(--team);
   display: inline-flex;
   font: 11px/1 var(--mono);
   gap: 2px;
@@ -2148,9 +2161,9 @@ kbd {
 }
 
 .worktree-link {
-  border-bottom: 1.5px solid #3b4653;
+  border-bottom: 1.5px solid var(--elbow);
   border-bottom-left-radius: 6px;
-  border-left: 1.5px solid #3b4653;
+  border-left: 1.5px solid var(--elbow);
   height: calc(50% + 6px);
   left: 9px;
   pointer-events: none;
