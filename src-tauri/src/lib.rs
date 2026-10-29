@@ -18,6 +18,7 @@ mod process;
 mod session_usage;
 mod ssh_hosts;
 mod tab_move;
+mod team;
 mod worktrees;
 
 pub use error::{Error, Result};
@@ -54,6 +55,7 @@ pub fn run() {
             commands::scan_host_key,
             commands::set_focus,
             commands::ssh_hosts,
+            commands::start_team,
             commands::trust_host_key,
             commands::worktrees,
             // keep-sorted end

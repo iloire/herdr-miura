@@ -25,6 +25,7 @@ import {
 import { Ports } from "./Ports";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
+import { TeamSection } from "./TeamSection";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
 function folderMenu(controller: Controller, path: string): MenuItem[] {
@@ -81,6 +82,9 @@ export function Sidebar({
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const home = useHome();
+  // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
+  const focused = workspaces.find((workspace) => workspace.focused);
+  const focusedFolder = focused && snapshot && (focused.new_workspace_cwd || workspaceDirectory(focused, snapshot));
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <header className="sidebar-head">
@@ -162,6 +166,9 @@ export function Sidebar({
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+      {snapshot && focused && focusedFolder && (
+        <TeamSection controller={controller} snapshot={snapshot} workspace={focused} directory={focusedFolder} />
+      )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </nav>
   );

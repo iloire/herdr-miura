@@ -287,6 +287,22 @@ pub async fn move_tab(
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 
+/// Opens a tab per team member in a workspace and starts its agent there,
+/// through the `herdr` CLI, on the blocking pool since it waits on child processes.
+#[tauri::command]
+pub async fn start_team(
+    connection: State<'_, Connection>,
+    workspace_id: String,
+    directory: String,
+    members: Vec<crate::team::Member>,
+) -> Result<()> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        crate::team::start(&workspace_id, &directory, &members)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
 /// Opens a workspace's folder in the file manager or one of a few known apps.
 #[tauri::command]
 pub fn open_folder(connection: State<'_, Connection>, path: String, with: Opener) -> Result<()> {

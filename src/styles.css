@@ -1743,3 +1743,98 @@ kbd {
 .tab-agent-loop {
   color: var(--working);
 }
+
+/* The focused workspace's team: a role per row, its letter in the role's hue,
+   what it is doing on the right; waiting on you in the blocked color. */
+.team {
+  border-top: 1px solid var(--rule);
+  margin-top: 8px;
+}
+
+.team-count {
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+
+.team-start {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0;
+  padding: 1px 8px;
+  text-transform: none;
+}
+
+.team-start:hover {
+  border-color: var(--muted);
+}
+
+.team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 10px;
+}
+
+.team-member {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  padding: 4px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.team-member:hover {
+  background: var(--rule);
+}
+
+.team-avatar {
+  background: color-mix(in srgb, var(--hue) 22%, transparent);
+  border-radius: 50%;
+  color: var(--hue);
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  width: 18px;
+}
+
+.team-role {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-state {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.team-member.state-absent .team-role,
+.team-member.state-absent .team-avatar {
+  opacity: 0.5;
+}
+
+.team-member.state-blocked .team-state {
+  color: var(--blocked);
+}
+
+.team-member.state-working .team-state {
+  color: var(--working);
+}
+
+.team-member.state-done .team-state {
+  color: var(--done);
+}

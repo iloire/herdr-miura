@@ -9,6 +9,8 @@ surface, keyboard, mouse, and paste input, and the command catalog with its shor
 what changed in the checkout you are working in, with each file's diff, and what each recent commit changed.
 A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and opens any file's text or image
 over the terminal.
+A workspace can name a team of agents in `.herdr/team.json`: the sidebar lists each role, a Claude Code
+session in its own tab, with what it is doing, and starts the ones not running ([docs/team.md](docs/team.md)).
 
 It's for people who already run Herdr and want a native window on their sessions they can change quickly.
 Like herdr-gpui it is only a client: closing it leaves the daemon and every terminal running.

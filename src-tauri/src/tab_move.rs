@@ -22,7 +22,7 @@ pub enum Error {
     MissingCli,
     #[error("could not run `herdr`")]
     Spawn(#[source] std::io::Error),
-    #[error("Herdr refused the move: {0}")]
+    #[error("Herdr refused: {0}")]
     Refused(String),
     #[error("Herdr did not move the pane")]
     Unchanged,
@@ -50,14 +50,14 @@ const EXTRA_DIRS: &[&str] = &[
 
 /// An id the CLI takes as one argument: non-empty, never read as an option,
 /// and free of control characters.
-fn checked(id: &str) -> Result<&str, Error> {
+pub(crate) fn checked(id: &str) -> Result<&str, Error> {
     if id.is_empty() || id.starts_with('-') || id.chars().any(char::is_control) {
         return Err(Error::InvalidId(id.into()));
     }
     Ok(id)
 }
 
-fn herdr() -> Result<PathBuf, Error> {
+pub(crate) fn herdr() -> Result<PathBuf, Error> {
     let home = env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     let path = env::var_os("PATH").unwrap_or_default();
     env::split_paths(&path)
@@ -105,7 +105,7 @@ struct Moved {
 
 /// Runs `herdr args…` and returns its result, or Herdr's own error message,
 /// which the CLI prints as the last line of either stream.
-fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error> {
+pub(crate) fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error> {
     let output = crate::process::command(cli)
         .args(args)
         .output()
