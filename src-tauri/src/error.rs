@@ -11,6 +11,8 @@ pub enum Error {
     #[error(transparent)]
     TabMove(#[from] crate::tab_move::Error),
     #[error(transparent)]
+    TeamCreate(#[from] crate::team::CreateError),
+    #[error(transparent)]
     SshHosts(#[from] crate::ssh_hosts::Error),
     #[error(transparent)]
     Folder(#[from] crate::folder::Error),

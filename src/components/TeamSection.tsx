@@ -13,14 +13,17 @@ export function TeamSection({
   snapshot,
   workspace,
   directory,
+  version,
 }: {
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace;
   /// The workspace's folder: where the team file is read and the tabs open.
   directory: string;
+  /// Bumped when New team writes a team file, so it is read at once.
+  version: number;
 }) {
-  const team = useTeam(directory);
+  const team = useTeam(directory, version);
   if (team.phase === "none") return null;
   if (team.phase === "invalid") {
     return (

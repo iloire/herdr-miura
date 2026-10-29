@@ -82,7 +82,8 @@ export type TeamState = { phase: "none" } | { phase: "ready"; members: Member[] 
 /// The team of the folder `directory`, read when it changes and again when
 /// the window comes back, since the file is edited elsewhere. A folder
 /// without the file has no team.
-export function useTeam(directory: string | null): TeamState {
+/// `version` rereads it at once, after New team has written it.
+export function useTeam(directory: string | null, version = 0): TeamState {
   const [state, setState] = useState<TeamState>({ phase: "none" });
   useEffect(() => {
     if (!directory) {
@@ -106,8 +107,13 @@ export function useTeam(directory: string | null): TeamState {
       live = false;
       window.removeEventListener("focus", refresh);
     };
-  }, [directory]);
+  }, [directory, version]);
   return state;
+}
+
+/// Writes the starter team into the folder `directory`; resolves with the files written.
+export function createTeam(directory: string): Promise<string[]> {
+  return invoke("create_team", { directory });
 }
 
 /// Opens a tab for each of `members` in the workspace and starts its agent.

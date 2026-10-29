@@ -84,10 +84,95 @@ pub fn start(workspace: &str, directory: &str, members: &[Member]) -> Result<(),
     Ok(())
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum CreateError {
+    #[error("`{0}` is not a folder on this Mac")]
+    NotFolder(String),
+    #[error("this workspace already has a team: edit {0}")]
+    Exists(String),
+    #[error("could not write {path}")]
+    Write {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
+/// The starter team New team writes: the team file, then an agent per role.
+const STARTER: &[(&str, &str)] = &[
+    (".herdr/team.json", include_str!("../templates/team/team.json")),
+    (".claude/agents/lead.md", include_str!("../templates/team/lead.md")),
+    (".claude/agents/reviewer.md", include_str!("../templates/team/reviewer.md")),
+    (".claude/agents/qa.md", include_str!("../templates/team/qa.md")),
+];
+
+/// Writes the starter team into the folder `directory`, refusing a folder
+/// that already has a team file and keeping any agent file already there,
+/// so the repo's own roles win. Returns the files it wrote.
+pub fn create(directory: &str) -> Result<Vec<String>, CreateError> {
+    let root = Path::new(directory);
+    if !root.is_absolute() || !root.is_dir() {
+        return Err(CreateError::NotFolder(directory.into()));
+    }
+    let mut written = Vec::new();
+    for (i, (path, text)) in STARTER.iter().enumerate() {
+        let full = root.join(path);
+        let write = || {
+            if let Some(parent) = full.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::io::Write::write_all(
+                &mut std::fs::OpenOptions::new().write(true).create_new(true).open(&full)?,
+                text.as_bytes(),
+            )
+        };
+        match write() {
+            Ok(()) => written.push((*path).to_owned()),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                // The team file comes first, so an existing one stops here, before any agent.
+                if i == 0 {
+                    return Err(CreateError::Exists((*path).to_owned()));
+                }
+            }
+            Err(source) => {
+                return Err(CreateError::Write {
+                    path: (*path).to_owned(),
+                    source,
+                });
+            }
+        }
+    }
+    Ok(written)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_team_writes_the_starter_and_keeps_what_is_there() {
+        let dir = std::env::temp_dir().join(format!("herdr-team-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".claude/agents")).unwrap();
+        std::fs::write(dir.join(".claude/agents/qa.md"), "mine").unwrap();
+        let root = dir.to_str().unwrap();
+        let written = create(root).unwrap();
+        assert_eq!(written, [".herdr/team.json", ".claude/agents/lead.md", ".claude/agents/reviewer.md"]);
+        assert_eq!(std::fs::read_to_string(dir.join(".claude/agents/qa.md")).unwrap(), "mine");
+        assert!(matches!(create(root), Err(CreateError::Exists(_))));
+        assert!(matches!(create("relative"), Err(CreateError::NotFolder(_))));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_starter_team_names_an_agent_file_for_every_role() {
+        let team: serde_json::Value = serde_json::from_str(STARTER[0].1).unwrap();
+        for member in team["members"].as_array().unwrap() {
+            let file = format!(".claude/agents/{}.md", member["role"].as_str().unwrap());
+            assert!(STARTER.iter().any(|(path, _)| *path == file), "{file}");
+        }
+    }
 
     #[test]
     fn names_are_plain_words() {

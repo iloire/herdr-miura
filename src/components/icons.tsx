@@ -107,3 +107,11 @@ export const ClaudeIcon = () => (
     <path d="M8 2v12M2 8h12M3.75 3.75l8.5 8.5M12.25 3.75l-8.5 8.5" {...LINE} />
   </Icon>
 );
+
+export const TeamIcon = () => (
+  <Icon>
+    <circle cx="6" cy="5.5" r="2" {...LINE} />
+    <circle cx="11.5" cy="6.5" r="1.5" {...LINE} />
+    <path d="M2.5 13c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5M10 9.8c.4-.2.9-.3 1.5-.3 1.4 0 2.5 1 2.5 2.8" {...LINE} />
+  </Icon>
+);

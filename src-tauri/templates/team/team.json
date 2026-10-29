@@ -1,0 +1,7 @@
+{
+  "members": [
+    { "role": "lead" },
+    { "role": "reviewer" },
+    { "role": "qa" }
+  ]
+}

@@ -21,11 +21,13 @@ import {
   HandOrderIcon,
   OpenIcon,
   PinIcon,
+  TeamIcon,
 } from "./icons";
 import { Ports } from "./Ports";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
+import { createTeam } from "../app/team";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
 function folderMenu(controller: Controller, path: string): MenuItem[] {
@@ -82,6 +84,16 @@ export function Sidebar({
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const home = useHome();
+  const [teamVersion, setTeamVersion] = useState(0);
+  // New team writes the starter team, then shows it: the workspace takes focus and its file is read again.
+  const newTeam = (workspaceId: string, folder: string): MenuItem => ({
+    label: "New Team",
+    icon: <TeamIcon />,
+    onSelect: () => {
+      controller.request("workspace.focus", { workspace_id: workspaceId });
+      controller.act(createTeam(folder).then(() => setTeamVersion((v) => v + 1)));
+    },
+  });
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
   const focused = workspaces.find((workspace) => workspace.focused);
   const focusedFolder = focused && snapshot && (focused.new_workspace_cwd || workspaceDirectory(focused, snapshot));
@@ -128,7 +140,11 @@ export function Sidebar({
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  if (path) setMenu({ x: event.clientX, y: event.clientY, items: folderMenu(controller, path) });
+                  const folder = workspace.new_workspace_cwd || path;
+                  if (path && folder) {
+                    const items = [...folderMenu(controller, path), newTeam(workspace.workspace_id, folder)];
+                    setMenu({ x: event.clientX, y: event.clientY, items });
+                  }
                 }}
               >
                 <span className="workspace-text">
@@ -167,7 +183,13 @@ export function Sidebar({
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
       {snapshot && focused && focusedFolder && (
-        <TeamSection controller={controller} snapshot={snapshot} workspace={focused} directory={focusedFolder} />
+        <TeamSection
+          controller={controller}
+          snapshot={snapshot}
+          workspace={focused}
+          directory={focusedFolder}
+          version={teamVersion}
+        />
       )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </nav>

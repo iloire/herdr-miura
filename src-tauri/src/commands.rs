@@ -287,6 +287,14 @@ pub async fn move_tab(
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 
+/// Writes a starter team into a workspace's folder: the team file and an
+/// agent per role, keeping any agent file the repo already has.
+#[tauri::command]
+pub fn create_team(connection: State<'_, Connection>, directory: String) -> Result<Vec<String>> {
+    connection.ensure_local()?;
+    Ok(crate::team::create(&directory)?)
+}
+
 /// Opens a tab per team member in a workspace and starts its agent there,
 /// through the `herdr` CLI, on the blocking pool since it waits on child processes.
 #[tauri::command]

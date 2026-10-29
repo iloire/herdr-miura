@@ -7,6 +7,13 @@ role that is not running yet.
 
 You still route the work between them. Nothing here passes messages from one agent to another.
 
+## Making one
+
+Right-click a workspace and pick **New Team**. It writes a starter team into the workspace's folder:
+`.herdr/team.json` with a lead, a reviewer and a qa role, and a generic agent file for each of them in
+`.claude/agents/`. An agent file the repo already has is kept, and a folder that already has a team file
+is refused. Commit the files and edit them to suit the repo. The starters are in `src-tauri/templates/team/`.
+
 ## The team file
 
 `.herdr/team.json` in the workspace's folder (the folder new tabs open in):

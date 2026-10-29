@@ -39,6 +39,7 @@ pub fn run() {
             commands::claude_usage,
             commands::connect,
             commands::copy_path,
+            commands::create_team,
             commands::disconnect,
             commands::commit_files,
             commands::file_diff,
