@@ -305,83 +305,164 @@ body.reordering * {
   cursor: pointer;
 }
 
-/* Worktree details: one block per worktree, its branch and what is pending
-   first, then its last commit, where it is, and ways to open it. */
-.worktrees-dialog {
-  width: min(640px, calc(100vw - 32px));
-  max-height: 76vh;
+/* Worktree details. The dialog wears its workspace's hue, as the sidebar
+   card does; each worktree is a card whose rail says whether its work has
+   landed: green while it holds commits or files, muted once merged. */
+/* Doubled so it outranks `.palette`'s width, which comes later. */
+.palette.worktrees-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
+  border-top: 3px solid var(--hue);
   color: var(--text);
-  font: 13px/1.45 var(--sans);
+  font: 14px/1.5 var(--sans);
 }
 
 .worktrees-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 10px 10px 18px;
-  border-bottom: 1px solid var(--rule);
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 20px 18px 28px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hue) 9%, var(--peat)), var(--peat));
+}
+
+.worktrees-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.worktrees-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--hue);
+  font: 600 11px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .worktrees-head h2 {
   margin: 0;
-  font: 600 15px var(--sans);
-}
-
-.worktrees-summary {
-  flex: 1;
-  color: var(--muted);
-}
-
-.worktrees-list {
-  list-style: none;
-  margin: 0;
-  padding: 6px 0;
-  overflow-y: auto;
-}
-
-.worktrees-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: 10px 18px;
-  border-left: 2px solid transparent;
-}
-
-.worktrees-list li + li {
-  border-top: 1px solid var(--rule);
-}
-
-.worktrees-list li.pending {
-  border-left-color: var(--done);
-}
-
-.worktree-line,
-.worktree-commit {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
-}
-
-.worktree-name {
-  font: 600 13px var(--mono);
+  color: #fff;
+  font: 600 22px/1.25 var(--sans);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.worktree-state {
-  display: flex;
-  gap: 10px;
-  flex: none;
+.worktrees-summary {
+  margin: 6px 0 0;
   color: var(--muted);
-  font: 11px var(--mono);
+}
+
+.worktrees-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.worktrees-close:hover,
+.worktrees-close:focus-visible {
+  background: var(--rule);
+  color: var(--text);
+  outline: none;
+}
+
+.worktrees-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 6px 28px 28px;
+  overflow-y: auto;
+}
+
+.worktree {
+  --state: var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 18px 16px 20px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: inset 3px 0 0 var(--state);
+}
+
+.worktree.pending {
+  --state: var(--done);
+}
+
+.worktree-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.worktree-name {
+  min-width: 0;
+  color: #fff;
+  font: 600 15px var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree.landed {
+  background: transparent;
+}
+
+.worktree.landed .worktree-name {
+  color: var(--text);
+}
+
+.worktree-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.worktree-pill {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font: 500 12px/1.5 var(--sans);
+  white-space: nowrap;
+}
+
+.worktree-pill.unmerged {
+  color: var(--done);
+  background: color-mix(in srgb, var(--done) 14%, transparent);
+}
+
+.worktree-pill.uncommitted {
+  color: var(--lantern);
+  background: color-mix(in srgb, var(--lantern) 13%, transparent);
+}
+
+.worktree-pill.quiet {
+  color: var(--muted);
+  background: var(--rule);
+}
+
+.worktree-commit {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
 }
 
 .worktree-subject {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -394,30 +475,83 @@ body.reordering * {
 }
 
 .worktree-path {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
   color: var(--muted);
-  font: 11px var(--mono);
+  font: 12px var(--mono);
+}
+
+.worktree-path svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+
+.worktree-path span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: text;
 }
 
 .worktree-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
 }
 
 .worktree-actions button {
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
   border: 1px solid var(--rule);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--text);
-  font: 12px var(--sans);
+  font: 13px var(--sans);
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
-.worktree-actions button:hover {
+.worktree-actions button svg {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+
+.worktree-actions button:hover,
+.worktree-actions button:focus-visible {
   background: var(--rule);
+  border-color: #33404d;
+  outline: none;
+}
+
+.worktree-actions button.primary {
+  border-color: color-mix(in srgb, var(--hue) 45%, var(--rule));
+  background: color-mix(in srgb, var(--hue) 10%, transparent);
+}
+
+.worktree-actions button.primary svg {
+  color: var(--hue);
+}
+
+.worktree-actions button.primary:hover,
+.worktree-actions button.primary:focus-visible {
+  background: color-mix(in srgb, var(--hue) 20%, transparent);
+}
+
+@media (max-width: 560px) {
+  .worktrees-head {
+    padding: 18px 14px 14px 18px;
+  }
+
+  .worktrees-list {
+    padding: 4px 16px 18px;
+  }
 }
 
 /* Status marks, after herdr-gpui's outline icons. Working turns; a blocked
