@@ -17,6 +17,7 @@ mod osc52;
 mod process;
 mod queue;
 mod session_usage;
+mod settings;
 mod ssh_hosts;
 mod tab_move;
 mod team;
@@ -63,10 +64,14 @@ pub fn run() {
             commands::send_input,
             commands::send_popup_input,
             commands::session_usage,
+            commands::settings_load,
+            commands::settings_set,
             commands::scan_host_key,
             commands::set_focus,
             commands::ssh_hosts,
             commands::start_team,
+            commands::theme_list,
+            commands::theme_read,
             commands::trust_host_key,
             commands::worktrees,
             // keep-sorted end

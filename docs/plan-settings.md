@@ -98,9 +98,9 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
    `light:,dark:` pair. Break the nudge once and watch its test fail.~~ ✅
 3. ~~Apply a theme live: tokens on `:root`, painter theme and repaint, `hueColor` from the active palette.
    Hardcode a second theme to check it end to end.~~ ✅
-4. Rust `settings.rs`: path, `settings_load`, `settings_set` with `toml_edit`, `theme_list` /
+4. ~~Rust `settings.rs`: path, `settings_load`, `settings_set` with `toml_edit`, `theme_list` /
    `theme_read` for Ghostty's folders (paths resolved, nothing outside them or the named file read).
-   Tests with `tempfile`, including that a comment survives a write.
+   Tests with `tempfile`, including that a comment survives a write.~~ ✅
 5. TS `app/settings.ts`: parse into `Settings` with defaults and warnings, reload on window focus, wire
    each starting setting through. Tests for defaults, bad values and unknown keys.
 6. Settings dialog and ⌘,.

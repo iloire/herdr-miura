@@ -10,6 +10,7 @@ use crate::{
     folder::{self, Opener},
     listening_ports, queue,
     session_usage::{self, SessionUsage},
+    settings,
     ssh_hosts,
     worktrees,
 };
@@ -457,4 +458,31 @@ pub async fn scan_host_key(
 #[tauri::command]
 pub fn trust_host_key(pending: State<'_, ssh_hosts::PendingKeys>, host: String) -> Result<()> {
     Ok(ssh_hosts::trust(&pending, &host)?)
+}
+
+/// The settings file as JSON. Settings and themes are this Mac's, whichever
+/// host the window is attached to.
+#[tauri::command]
+pub fn settings_load() -> Result<settings::Loaded> {
+    Ok(settings::load_from(&settings::path()?)?)
+}
+
+/// Sets one key of the settings file (null removes it), keeping its comments.
+#[tauri::command]
+pub fn settings_set(key: String, value: Value) -> Result<()> {
+    Ok(settings::set_in(&settings::path()?, &key, &value)?)
+}
+
+/// Every Ghostty theme installed on this Mac, by file name.
+#[tauri::command]
+pub async fn theme_list() -> Result<Vec<String>> {
+    let list = tauri::async_runtime::spawn_blocking(|| settings::list_in(&settings::theme_directories()));
+    Ok(list.await.map_err(settings::Error::Worker)?)
+}
+
+/// One theme file's text, from a theme folder or the path the settings file names.
+#[tauri::command]
+pub async fn theme_read(name: String) -> Result<String> {
+    let read = tauri::async_runtime::spawn_blocking(move || settings::read_theme(&name));
+    Ok(read.await.map_err(settings::Error::Worker)??)
 }

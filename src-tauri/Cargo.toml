@@ -26,6 +26,8 @@ tauri = { version = "2", features = [] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 thiserror = "2"
+# Writes one settings key at a time, keeping the file's comments and layout.
+toml_edit = "0.25"
 # Claude plan usage from Anthropic's OAuth usage endpoint.
 ureq = "3"
 
