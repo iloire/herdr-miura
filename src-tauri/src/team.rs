@@ -108,6 +108,7 @@ const STARTER: &[(&str, &str)] = &[
     (".claude/agents/lead.md", include_str!("../templates/team/lead.md")),
     (".claude/agents/reviewer.md", include_str!("../templates/team/reviewer.md")),
     (".claude/agents/qa.md", include_str!("../templates/team/qa.md")),
+    (".claude/agents/frontend.md", include_str!("../templates/team/frontend.md")),
 ];
 
 /// Writes `text` to `full`, making its folder, but never over a file there.
@@ -199,7 +200,10 @@ mod tests {
         std::fs::write(dir.join(".claude/agents/qa.md"), "mine").unwrap();
         let root = dir.to_str().unwrap();
         let written = create(root).unwrap();
-        assert_eq!(written, [".herdr/team.json", ".claude/agents/lead.md", ".claude/agents/reviewer.md"]);
+        assert_eq!(
+            written,
+            [".herdr/team.json", ".claude/agents/lead.md", ".claude/agents/reviewer.md", ".claude/agents/frontend.md"]
+        );
         assert_eq!(std::fs::read_to_string(dir.join(".claude/agents/qa.md")).unwrap(), "mine");
         assert!(matches!(create(root), Err(CreateError::Exists(_))));
         assert!(matches!(create("relative"), Err(CreateError::NotFolder(_))));

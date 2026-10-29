@@ -1,6 +1,7 @@
 {
   "members": [
     { "role": "lead" },
+    { "role": "frontend" },
     { "role": "reviewer" },
     { "role": "qa" }
   ]

@@ -20,7 +20,7 @@ front, so an edit made in VS Code shows up when you switch back.
 
 The dialog is read-only. **Edit** opens the role's agent file in VS Code, and **Open team.json** opens the
 team file. A role whose file isn't in the repo gets **Create from template** instead: it writes New Team's
-starter of that name if there is one (lead, reviewer, qa), otherwise a stub with a `name` and a
+starter of that name if there is one (lead, frontend, reviewer, qa), otherwise a stub with a `name` and a
 `description`, and opens it. It never writes over a file that is there.
 
 A card with a problem gets a red rail and says what is wrong. It never stops you starting the role:
@@ -38,7 +38,7 @@ written), and `|`/`>` text blocks. Nested maps such as `hooks` are skipped.
 ## Making one
 
 Right-click a workspace and pick **New Team**. It writes a starter team into the workspace's folder:
-`.herdr/team.json` with a lead, a reviewer and a qa role, and a generic agent file for each of them in
+`.herdr/team.json` with a lead, a frontend, a reviewer and a qa role, and a generic agent file for each of them in
 `.claude/agents/`. An agent file the repo already has is kept, and a folder that already has a team file
 is refused. Commit the files and edit them to suit the repo. The starters are in `src-tauri/templates/team/`.
 

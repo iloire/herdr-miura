@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 19:30 — A frontend role in the starter team
+
+New Team wrote a lead, a reviewer and a qa, so a repo with a UI had nobody whose job was how it looks.
+The starter team now has a frontend role between the lead and the reviewer: it owns layout, type, colour,
+motion and accessibility, extends the UI the repo already has, and screenshots its work at phone and
+desktop widths before handing it to the reviewer and qa. Create from template writes it too.
+
 ## 2026-10-29 18:03 — Rename a workspace from its card
 
 A workspace kept the name it was opened with, even after its panes moved to another folder, and nothing in
