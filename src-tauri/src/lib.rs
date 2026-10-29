@@ -15,6 +15,7 @@ mod herdr;
 mod listening_ports;
 mod osc52;
 mod process;
+mod queue;
 mod session_usage;
 mod ssh_hosts;
 mod tab_move;
@@ -47,6 +48,11 @@ pub fn run() {
             commands::list_files,
             commands::move_tab,
             commands::open_folder,
+            commands::queue_commits,
+            commands::queue_load,
+            commands::queue_open,
+            commands::queue_prompt,
+            commands::queue_save,
             commands::read_file,
             commands::request,
             commands::resize,

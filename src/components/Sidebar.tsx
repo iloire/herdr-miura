@@ -3,6 +3,7 @@ import type { Controller } from "../app/controller";
 import { copyPath, openFolder, tildePath } from "../app/folder";
 import { useHome } from "../app/useHome";
 import { workspaceDirectory } from "../changes/counts";
+import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
@@ -22,9 +23,11 @@ import {
   HandOrderIcon,
   OpenIcon,
   PinIcon,
+  QueueIcon,
   TeamIcon,
 } from "./icons";
 import { Ports } from "./Ports";
+import { QueueChip } from "./QueueChip";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
@@ -50,6 +53,8 @@ export function Sidebar({
   changedFiles,
   worktrees,
   onOpenWorktrees,
+  queues,
+  onOpenQueue,
   pins,
   ports,
 }: {
@@ -61,6 +66,10 @@ export function Sidebar({
   worktrees: Map<string, Worktree[]>;
   /// Opens the details of a workspace's worktrees.
   onOpenWorktrees: (workspaceId: string) => void;
+  /// Each workspace's prompt queue, by workspace id; absent when it has none.
+  queues: Map<string, Queue>;
+  /// Opens a workspace's prompt queue.
+  onOpenQueue: (workspaceId: string) => void;
   /// Pinned tabs, as `pinKey`s.
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
@@ -68,8 +77,7 @@ export function Sidebar({
 }) {
   const [sort, setSort] = useState(loadSort);
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
-  const folderOf = (workspace: Workspace) =>
-    (snapshot && (workspace.new_workspace_cwd || workspaceDirectory(workspace, snapshot))) || null;
+  const folderOf = (workspace: Workspace) => (snapshot && workspaceFolder(workspace, snapshot)) || null;
   const rows = groupWorktrees(
     sortWorkspaces(snapshot?.workspaces ?? [], sort),
     folderOf,
@@ -163,7 +171,12 @@ export function Sidebar({
                   event.preventDefault();
                   const folder = workspace.new_workspace_cwd || path;
                   if (path && folder) {
-                    const items = [...folderMenu(controller, path), newTeam(workspace.workspace_id, folder)];
+                    const queue: MenuItem = {
+                      label: "Add to Queue…",
+                      icon: <QueueIcon />,
+                      onSelect: () => onOpenQueue(workspace.workspace_id),
+                    };
+                    const items = [...folderMenu(controller, path), newTeam(workspace.workspace_id, folder), queue];
                     setMenu({ x: event.clientX, y: event.clientY, items });
                   }
                 }}
@@ -185,6 +198,7 @@ export function Sidebar({
                 </span>
                 <span className="workspace-marks">
                   {snapshot && <TeamMark team={teamOf(workspace)} workspaceId={workspace.workspace_id} snapshot={snapshot} />}
+                  <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
                   <AgentCount count={own.length} />

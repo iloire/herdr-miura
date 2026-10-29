@@ -5,6 +5,8 @@ import type { ListeningPort } from "../app/ports";
 import { ClaudeUsage } from "./ClaudeUsage";
 import { HostPicker } from "./HostPicker";
 import { Ports } from "./Ports";
+import { QueueChip } from "./QueueChip";
+import type { Queue } from "../app/queue";
 import { Worktrees } from "./Worktrees";
 import type { Worktree } from "../changes/worktrees";
 
@@ -15,6 +17,8 @@ export function StatusBar({
   workspace,
   worktrees,
   onOpenWorktrees,
+  queue,
+  onOpenQueue,
   ports,
   usage,
   now,
@@ -26,6 +30,9 @@ export function StatusBar({
   /// The focused workspace's linked worktrees.
   worktrees: Worktree[];
   onOpenWorktrees: () => void;
+  /// The focused workspace's prompt queue.
+  queue: Queue | null;
+  onOpenQueue: () => void;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
   /// This Mac's Claude plan usage: the account's, so it sits with the
@@ -53,6 +60,7 @@ export function StatusBar({
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
+      <QueueChip queue={queue} onOpen={onOpenQueue} />
       <Ports ports={ports} />
       {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
     </footer>

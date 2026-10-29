@@ -115,3 +115,22 @@ export const TeamIcon = () => (
     <path d="M2.5 13c0-2.2 1.6-3.5 3.5-3.5s3.5 1.3 3.5 3.5M10 9.8c.4-.2.9-.3 1.5-.3 1.4 0 2.5 1 2.5 2.8" {...LINE} />
   </Icon>
 );
+
+/// An hourglass: the prompt queue.
+export const QueueIcon = () => (
+  <Icon>
+    <path d="M4 2.5h8M4 13.5h8M5 2.5c0 3 6 3.5 6 5.5s-6 2.5-6 5.5M11 2.5c0 3-6 3.5-6 5.5s6 2.5 6 5.5" {...LINE} />
+  </Icon>
+);
+
+export const PauseIcon = () => (
+  <Icon>
+    <path d="M6 4v8M10 4v8" {...LINE} />
+  </Icon>
+);
+
+export const PlayIcon = () => (
+  <Icon>
+    <path d="M5.5 3.5v9l7-4.5z" {...LINE} />
+  </Icon>
+);

@@ -213,6 +213,7 @@ const DEFINITIONS: Definition[] = [
   { name: "command_palette", label: "Command Palette", mac: ["cmd-shift-p"], other: ["ctrl-shift-p"], action: "window" },
   { name: "review_changes", label: "Review Changes", mac: [], other: [], action: "window" },
   { name: "browse_files", label: "Browse Files", mac: ["cmd-shift-e"], other: ["ctrl-shift-e"], action: "window" },
+  { name: "add_to_queue", label: "Add to Queue", mac: ["cmd-shift-a"], other: ["ctrl-shift-a"], action: "window" },
   { name: "detach", label: "Detach", mac: [], other: [], action: "window" },
   { name: "reconnect", label: "Reconnect", mac: [], other: [], action: "window" },
 ];

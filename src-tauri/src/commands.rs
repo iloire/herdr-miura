@@ -8,7 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, Listing},
     folder::{self, Opener},
-    listening_ports,
+    listening_ports, queue,
     session_usage::{self, SessionUsage},
     ssh_hosts,
     worktrees,
@@ -309,6 +309,60 @@ pub async fn start_team(
         crate::team::start(&workspace_id, &directory, &members)
     });
     Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Where the prompt queue is kept: the app's own data folder, since it is
+/// what the window remembers, not a setting.
+fn queue_path(app: &AppHandle) -> Result<std::path::PathBuf> {
+    let dir = app.path().app_data_dir().map_err(|_| queue::StoreError::NoDataDir)?;
+    Ok(dir.join("queue-tauri.json"))
+}
+
+/// The prompt queue, every workspace's, as the webview last saved it.
+#[tauri::command]
+pub fn queue_load(app: AppHandle) -> Result<Value> {
+    Ok(queue::load(&queue_path(&app)?)?)
+}
+
+/// Replaces the saved prompt queue with `data`.
+#[tauri::command]
+pub fn queue_save(app: AppHandle, data: Value) -> Result<()> {
+    Ok(queue::save(&queue_path(&app)?, &data)?)
+}
+
+/// Opens a tab for one queued prompt and starts its agent, through the
+/// `herdr` CLI on the blocking pool; the prompt follows with `queue_prompt`.
+#[tauri::command]
+pub async fn queue_open(
+    connection: State<'_, Connection>,
+    workspace_id: String,
+    directory: String,
+    label: String,
+    name: String,
+    kind: String,
+    args: Vec<String>,
+) -> Result<queue::Opened> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        queue::open(&workspace_id, &directory, &label, &name, &kind, &args)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Submits a queued prompt to the agent `queue_open` started.
+#[tauri::command]
+pub async fn queue_prompt(connection: State<'_, Connection>, name: String, text: String) -> Result<()> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || queue::prompt(&name, &text));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// How many commits a queued prompt left in its checkout since `since`.
+#[tauri::command]
+pub async fn queue_commits(connection: State<'_, Connection>, directory: String, since: String) -> Result<u32> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || queue::commits(&directory, &since));
+    Ok(run.await.map_err(changes::Error::Worker)?.map_err(changes::Error::Git)?)
 }
 
 /// Opens a workspace's folder in the file manager or one of a few known apps.

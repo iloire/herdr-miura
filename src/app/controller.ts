@@ -57,6 +57,8 @@ export interface State {
   title: string | null;
   sidebar: boolean;
   palette: boolean;
+  /// The workspace whose prompt queue dialog is open.
+  queue: string | null;
   /// The Changes panel is open.
   changes: boolean;
   /// The Files panel is open. It shares the drawer with Changes, so at most one is.
@@ -91,6 +93,7 @@ export class Controller {
     title: null,
     sidebar: true,
     palette: false,
+    queue: null,
     changes: false,
     files: false,
     fontSize: DEFAULT_FONT_SIZE,
@@ -352,6 +355,10 @@ export class Controller {
     switch (name) {
       case "command_palette":
         return this.set({ palette: !this.state.palette });
+      case "add_to_queue": {
+        const workspace = this.state.snapshot?.focused_workspace_id ?? null;
+        return this.set({ queue: this.state.queue ? null : workspace });
+      }
       case "review_changes":
         return this.set({ changes: !this.state.changes, files: false });
       case "browse_files":
@@ -397,6 +404,14 @@ export class Controller {
 
   closeFiles(): void {
     this.set({ files: false });
+  }
+
+  openQueue(workspaceId: string): void {
+    this.set({ queue: workspaceId });
+  }
+
+  closeQueue(): void {
+    this.set({ queue: null });
   }
 
   closePalette(): void {

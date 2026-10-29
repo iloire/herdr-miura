@@ -13,6 +13,7 @@ import {
   weighted,
   windowStart,
 } from "../app/sessionUsage";
+import { type Item, title } from "../app/queue";
 import type { Agent, Snapshot } from "../protocol";
 import { StatusMark } from "./StatusMark";
 
@@ -28,10 +29,13 @@ export function TabHeader({
   snapshot,
   usages,
   plan,
+  queued,
 }: {
   snapshot: Snapshot | null;
   usages: Map<string, SessionUsage | null>;
   plan: ClaudeUsage | null;
+  /// The queued prompt this tab runs, where it stands in its queue, and what follows it.
+  queued: { item: Item; position: number; total: number; next: Item | null } | null;
 }) {
   const agents = snapshot?.agents.filter((agent) => agent.tab_id === snapshot.focused_tab_id) ?? [];
   if (agents.length === 0) return null;
@@ -48,6 +52,12 @@ export function TabHeader({
           now={Math.floor(now / 1000)}
         />
       ))}
+      {queued && (
+        <span className="tab-queue" title={queued.item.prompt}>
+          queue #{queued.item.n} · {queued.position} of {queued.total}
+          {queued.next && <> · next: {title(queued.next.prompt, 40)}</>}
+        </span>
+      )}
     </div>
   );
 }

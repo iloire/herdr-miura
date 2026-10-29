@@ -7,6 +7,8 @@ import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
+import { itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
+import { useQueue } from "./app/useQueue";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
@@ -20,6 +22,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
+import { QueueDialog, QueueUnavailable } from "./components/QueueDialog";
 import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
@@ -160,6 +163,19 @@ export default function App() {
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const local = state.status.phase === "connected" && state.host === null;
+  // Each workspace folder's prompt queue, run one prompt at a time on this Mac.
+  const { file: queueFile, actions: queueActions } = useQueue(controller, state.snapshot, local);
+  const queues = useMemo(() => {
+    const byWorkspace = new Map<string, Queue>();
+    const snapshot = state.snapshot;
+    if (!snapshot || !local) return byWorkspace;
+    for (const workspace of snapshot.workspaces) {
+      const folder = workspaceFolder(workspace, snapshot);
+      const queue = folder ? queueFile?.queues[queueKey(folder)] : undefined;
+      if (queue) byWorkspace.set(workspace.workspace_id, queue);
+    }
+    return byWorkspace;
+  }, [state.snapshot, local, queueFile]);
   const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
   useEffect(() => {
     if (!local) {
@@ -308,6 +324,15 @@ export default function App() {
     controller.focusTerminal();
   };
 
+  // The queue dialog closes on its own once its workspace is gone.
+  const queueWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.queue);
+  const queueFolder = state.snapshot && queueWorkspace ? workspaceFolder(queueWorkspace, state.snapshot) : null;
+  const closeQueue = () => {
+    controller.closeQueue();
+    controller.focusTerminal();
+  };
+  const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
+
   const paletteCommands = useMemo(
     // `focus_tab_3` and friends are shortcuts, not things anyone searches for.
     () => state.commands.filter((command) => !/_\d$/.test(command.name)),
@@ -319,7 +344,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} pins={pins} ports={ports} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={(id) => controller.openQueue(id)} pins={pins} ports={ports} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -341,7 +366,7 @@ export default function App() {
               pins={pins}
               onPinsChange={setPins}
             />
-            <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} />
+            <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
             <div className="stage">
               <Terminal controller={controller} fontSize={state.fontSize} />
             </div>
@@ -365,7 +390,7 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={queues.get(focusedWorkspace?.workspace_id ?? "") ?? null} onOpenQueue={() => focusedWorkspace && controller.openQueue(focusedWorkspace.workspace_id)} ports={focusedPorts} usage={usage.usage} now={usage.now} />
         </main>
         <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
           {state.files ? (
@@ -405,6 +430,21 @@ export default function App() {
           worktrees={shownWorktrees.list}
           onClose={closeWorktrees}
         />
+      )}
+      {queueWorkspace && queueFolder && state.snapshot && (
+        local ? (
+          <QueueDialog
+            controller={controller}
+            snapshot={state.snapshot}
+            workspace={queueWorkspace}
+            folder={queueFolder}
+            queue={queueFile?.queues[queueKey(queueFolder)] ?? null}
+            actions={queueActions}
+            onClose={closeQueue}
+          />
+        ) : (
+          <QueueUnavailable onClose={closeQueue} />
+        )
       )}
       {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
     </div>
