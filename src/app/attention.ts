@@ -56,7 +56,13 @@ export function workspaceMarks(
 /// "↻ loop 14:32", the next wakeup). Herdr has no idea of a loop: between
 /// ticks it reports the session done or idle.
 export function loopTag(agent: Agent): string | null {
-  return agent.tokens.find(([name]) => name.replace(/^\$/, "") === "attn_loop")?.[1] ?? null;
+  return agentToken(agent, "attn_loop");
+}
+
+/// A metadata token reported on the agent's pane, by name, with or without
+/// the `$` Herdr's config writes before it.
+export function agentToken(agent: Agent, name: string): string | null {
+  return agent.tokens.find(([key]) => key.replace(/^\$/, "") === name)?.[1] ?? null;
 }
 
 /// The loop tags among some agents: a tab's or a workspace's.

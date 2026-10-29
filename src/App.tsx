@@ -5,6 +5,7 @@ import { hueColor } from "./app/hue";
 import { loadPins } from "./app/pins";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
+import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
@@ -22,6 +23,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
+import { TabHeader } from "./components/TabHeader";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { useListing } from "./files/listing";
@@ -37,6 +39,9 @@ const PORTS_POLL_MS = 5000;
 /// How often Claude usage is asked for and its countdowns redrawn; the
 /// backend reads Anthropic at most every ten minutes whatever this is.
 const USAGE_POLL_MS = 60_000;
+/// How often each Claude session's transcript is reread for the tab header;
+/// only what was appended since is read.
+const SESSIONS_POLL_MS = 15_000;
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -196,6 +201,37 @@ export default function App() {
     };
   }, []);
 
+  // Each Claude session's token use, from its transcript on this Mac.
+  const sessions = useMemo(
+    () => [...new Set(state.snapshot?.agents.map(sessionOf).filter((id) => id !== null))].sort(),
+    [state.snapshot],
+  );
+  const sessionKey = sessions.join("\n");
+  const [sessionUsages, setSessionUsages] = useState<Map<string, SessionUsage | null>>(new Map());
+  useEffect(() => {
+    const ids = sessionKey ? sessionKey.split("\n") : [];
+    if (!local || ids.length === 0) {
+      setSessionUsages(new Map());
+      return;
+    }
+    let reading = false;
+    let live = true;
+    const refresh = () => {
+      if (reading) return;
+      reading = true;
+      readSessionUsage(ids)
+        .then((next) => live && setSessionUsages(next))
+        .catch(() => {})
+        .finally(() => (reading = false));
+    };
+    refresh();
+    const timer = window.setInterval(refresh, SESSIONS_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [local, sessionKey]);
+
   const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
   const focusedWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.snapshot?.focused_workspace_id);
 
@@ -303,6 +339,7 @@ export default function App() {
               pins={pins}
               onPinsChange={setPins}
             />
+            <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} />
             <div className="stage">
               <Terminal controller={controller} fontSize={state.fontSize} />
             </div>

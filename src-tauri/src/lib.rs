@@ -15,6 +15,7 @@ mod herdr;
 mod listening_ports;
 mod osc52;
 mod process;
+mod session_usage;
 mod ssh_hosts;
 mod tab_move;
 mod worktrees;
@@ -28,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(claude_usage::Cache::default())
         .manage(connection::Connection::default())
+        .manage(session_usage::Cache::default())
         .manage(ssh_hosts::PendingKeys::default())
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
@@ -48,6 +50,7 @@ pub fn run() {
             commands::resize,
             commands::send_input,
             commands::send_popup_input,
+            commands::session_usage,
             commands::scan_host_key,
             commands::set_focus,
             commands::ssh_hosts,

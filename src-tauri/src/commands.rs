@@ -9,6 +9,7 @@ use crate::{
     files::{self, Contents, Listing},
     folder::{self, Opener},
     listening_ports,
+    session_usage::{self, SessionUsage},
     ssh_hosts,
     worktrees,
 };
@@ -221,6 +222,29 @@ pub async fn worktrees(
 ) -> Result<Vec<Option<Vec<worktrees::Worktree>>>> {
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || worktrees::list(&directories));
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Each Claude Code session's token use, by session id; `None` for one whose
+/// transcript is not in `~/.claude/projects` or cannot be read. The
+/// transcripts are this Mac's, as the panes are.
+#[tauri::command]
+pub async fn session_usage(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    sessions: Vec<String>,
+) -> Result<Vec<Option<SessionUsage>>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let Some(home) = std::env::var_os("HOME") else {
+            return vec![None; sessions.len()];
+        };
+        let projects = std::path::Path::new(&home).join(".claude/projects");
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs() as i64);
+        app.state::<session_usage::Cache>().read(&projects, &sessions, now)
+    });
     Ok(read.await.map_err(changes::Error::Worker)?)
 }
 

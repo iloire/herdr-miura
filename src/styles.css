@@ -676,7 +676,8 @@ body.reordering * {
 .deck {
   position: relative;
   display: grid;
-  grid-template-rows: auto 1fr;
+  /* Tabs, the tab header (absent for a tab without agents), the terminal. */
+  grid-template-rows: auto auto 1fr;
   min-height: 0;
 }
 
@@ -798,6 +799,7 @@ body.reordering * {
 }
 
 .stage {
+  grid-row: 3;
   position: relative;
   min-height: 0;
   display: grid;
@@ -1680,4 +1682,53 @@ kbd {
 .loop-mark svg {
   width: 12px;
   height: 12px;
+}
+
+/* The focused tab's agents, over its terminal: one group per agent. */
+.tab-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  padding: 5px 12px;
+  overflow: hidden;
+  background: var(--peat);
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font: 11px/1 var(--mono);
+  white-space: nowrap;
+}
+
+.tab-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tab-agent .mark {
+  width: 12px;
+  height: 12px;
+}
+
+.tab-agent-name {
+  color: var(--text);
+}
+
+.tab-agent-model {
+  color: var(--muted);
+}
+
+.tab-fact b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tab-burn {
+  width: 20px;
+  height: 12px;
+  fill: var(--working);
+}
+
+.tab-agent-loop {
+  color: var(--working);
 }
