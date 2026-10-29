@@ -16,7 +16,7 @@ export const DEFAULT_THEME_NAME = "Herdr Night";
 
 /// Herdr Night's chrome is hand-drawn, not derived: these are styles.css's
 /// :root values, which a test keeps equal.
-const HERDR_NIGHT: NamedTheme = {
+export const HERDR_NIGHT: NamedTheme = {
   name: DEFAULT_THEME_NAME,
   terminal: DEFAULT_THEME,
   chrome: {

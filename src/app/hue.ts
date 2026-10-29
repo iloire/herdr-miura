@@ -1,7 +1,7 @@
 // The color that tells a workspace apart, ported from herdr-gpui's
 // `folders::model::hue`, so a name lands on the same slot in both apps.
 
-import { DEFAULT_THEME } from "../terminal/theme";
+import { activeTheme } from "../themes/active";
 
 /// The palette slot, red (1) to cyan (6), for `name`: the same on every launch.
 export function hue(name: string): number {
@@ -17,7 +17,7 @@ export function hue(name: string): number {
   return 1 + ((hash >>> 0) % 6);
 }
 
-/// `name`'s hue as a CSS color.
+/// `name`'s hue as a CSS color, from the active theme's palette.
 export function hueColor(name: string): string {
-  return `#${DEFAULT_THEME.palette[hue(name)].toString(16).padStart(6, "0")}`;
+  return `#${activeTheme().terminal.palette[hue(name)].toString(16).padStart(6, "0")}`;
 }

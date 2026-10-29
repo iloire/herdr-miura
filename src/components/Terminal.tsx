@@ -4,7 +4,7 @@ import type { Controller } from "../app/controller";
 import type { MouseButton, MouseKind, PaneInputEvent, SurfacePane } from "../protocol";
 import { keyInput } from "../terminal/keys";
 import { Painter, measure, popupOrigin } from "../terminal/painter";
-import { DEFAULT_THEME } from "../terminal/theme";
+import type { Theme } from "../terminal/theme";
 import { pasteEvents, wheelEvents } from "../terminal/mouse";
 import { linkAt, type Link } from "../terminal/links";
 
@@ -22,10 +22,18 @@ function modifiers(event: MouseEvent | WheelEvent): number {
 
 /// The daemon's surface on a canvas, with a hidden textarea that owns
 /// keyboard focus so text input, IME composition, and paste work natively.
-export function Terminal({ controller, fontSize }: { controller: Controller; fontSize: number }) {
+export function Terminal({ controller, fontSize, theme }: { controller: Controller; fontSize: number; theme: Theme }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // A theme change repaints with the painter already there: nothing is
+  // remeasured, resized or resubscribed.
+  const themeRef = useRef(theme);
+  const retheme = useRef<(theme: Theme) => void>(() => {});
+  useEffect(() => {
+    themeRef.current = theme;
+    retheme.current(theme);
+  }, [theme]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -34,10 +42,14 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     if (!host || !canvas || !input) return;
     const grid = controller.grid;
     const metrics = measure(fontSize);
-    const painter = new Painter(canvas, metrics, DEFAULT_THEME);
+    const painter = new Painter(canvas, metrics, themeRef.current);
     let focused = document.hasFocus();
     let composing = false;
     const repaintAll = () => painter.paint(grid, Array.from({ length: grid.height }, (_, y) => y), focused);
+    retheme.current = (theme) => {
+      painter.theme = theme;
+      repaintAll();
+    };
 
     // ⌘ over a URL underlines it and a ⌘-click opens it in the browser.
     let pointer: { column: number; row: number } | null = null;
@@ -274,6 +286,7 @@ export function Terminal({ controller, fontSize }: { controller: Controller; fon
     input.focus();
     controller.focusTerminal = () => input.focus();
     return () => {
+      retheme.current = () => {};
       controller.focusTerminal = () => {};
       unsubscribe();
       cancelAnimationFrame(scheduled);

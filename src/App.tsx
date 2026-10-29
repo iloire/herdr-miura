@@ -381,7 +381,7 @@ export default function App() {
             />
             <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
             <div className="stage">
-              <Terminal controller={controller} fontSize={state.fontSize} />
+              <Terminal controller={controller} fontSize={state.fontSize} theme={state.theme.terminal} />
             </div>
             {shownFile && checkout && (
               <DiffView

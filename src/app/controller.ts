@@ -1,6 +1,8 @@
 import { Daemon, type Fingerprint } from "../daemon";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
+import { applyTheme } from "../themes/active";
+import { HERDR_NIGHT, type NamedTheme } from "../themes/catalog";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { focusAfterClose, withoutClosing } from "./closing";
@@ -66,6 +68,8 @@ export interface State {
   /// It opened on its own, for a workspace with prompts queued, so it closes on its own too.
   queueAuto: boolean;
   fontSize: number;
+  /// The theme on screen: chrome tokens on :root, terminal colors in the painter.
+  theme: NamedTheme;
   commands: Command[];
 }
 
@@ -100,6 +104,7 @@ export class Controller {
     queue: false,
     queueAuto: false,
     fontSize: DEFAULT_FONT_SIZE,
+    theme: HERDR_NIGHT,
     commands: [],
   };
   private listeners = new Set<() => void>();
@@ -128,6 +133,13 @@ export class Controller {
   private set(patch: Partial<State>): void {
     this.state = { ...this.state, ...patch };
     for (const listener of this.listeners) listener();
+  }
+
+  /// Shows `theme` at once: the chrome, every pane's colors and the workspace hues.
+  setTheme(theme: NamedTheme): void {
+    if (theme === this.state.theme) return;
+    applyTheme(theme);
+    this.set({ theme });
   }
 
   loadCatalog(): void {

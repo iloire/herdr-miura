@@ -96,8 +96,8 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
 2. ~~TS theme model: Ghostty parser, bundled themes, `chromeTokens`, contrast nudge. Vitest for the parser
    (a malformed line, a missing palette slot), the derivation on one dark and one light theme, and the
    `light:,dark:` pair. Break the nudge once and watch its test fail.~~ ✅
-3. Apply a theme live: tokens on `:root`, painter theme and repaint, `hueColor` from the active palette.
-   Hardcode a second theme to check it end to end.
+3. ~~Apply a theme live: tokens on `:root`, painter theme and repaint, `hueColor` from the active palette.
+   Hardcode a second theme to check it end to end.~~ ✅
 4. Rust `settings.rs`: path, `settings_load`, `settings_set` with `toml_edit`, `theme_list` /
    `theme_read` for Ghostty's folders (paths resolved, nothing outside them or the named file read).
    Tests with `tempfile`, including that a comment survives a write.
