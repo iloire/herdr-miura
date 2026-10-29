@@ -29,6 +29,7 @@ export function useSettings(controller: Controller): SettingsView {
     let current: Settings | null = null;
     // Answers can arrive out of order; only the last asked counts.
     let asked = 0;
+    let loads = 0;
     const appearance = window.matchMedia(LIGHT);
     const showTheme = (settings: Settings) => {
       const ask = ++asked;
@@ -39,9 +40,10 @@ export function useSettings(controller: Controller): SettingsView {
       });
     };
     const reload = () => {
+      const load = ++loads;
       loadSettings()
         .then((loaded) => {
-          if (!live) return;
+          if (!live || load !== loads) return;
           current = loaded.settings;
           controller.applySettings(loaded.settings);
           setFileWarnings(loaded.warnings);
