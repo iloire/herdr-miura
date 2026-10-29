@@ -42,7 +42,8 @@ body,
   margin: 0;
 }
 
-/* The dev bar sits under the app, which takes the rest of the window. */
+/* The title bar sits over the app and the dev bar under it; the app takes
+   the rest of the window. */
 #root {
   display: flex;
   flex-direction: column;
@@ -777,7 +778,7 @@ body.reordering * {
 .deck {
   position: relative;
   display: grid;
-  /* Tabs, the tab header (absent for a tab without agents), the terminal. */
+  /* Tabs, the tab header (absent with no tab focused), the terminal. */
   grid-template-rows: auto auto 1fr;
   min-height: 0;
 }
@@ -2303,19 +2304,36 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* The side panel's switch, at the tab bar's top right: Changes, Files and
-   Queue as one recessed track whose open panel stands raised in the
-   workspace's hue, and the library beside it. The cluster is as tall as a
-   tab row, so it stays on the first row level with the drawer's header. */
-.panel-tools {
+/* The window's top strip, in place of macOS's titlebar (its traffic lights
+   sit over the left end): it drags the window, its title centred, and holds
+   the side panel's switch at the right, so the tabs keep the full width. */
+.titlebar {
+  --hue: var(--text);
   flex: none;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  margin-left: 8px;
+  justify-content: flex-end;
+  height: 30px;
+  padding: 0 8px 0 78px;
+  background: var(--peat);
+  border-bottom: 1px solid var(--rule);
 }
 
+.titlebar-title {
+  position: absolute;
+  left: 50%;
+  max-width: 50%;
+  overflow: hidden;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Changes, Files and Queue as one recessed track whose open panel stands
+   raised in the workspace's hue. */
 .panel-switch {
   display: flex;
   gap: 1px;
@@ -2329,8 +2347,8 @@ kbd {
   position: relative;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 22px;
+  width: 26px;
+  height: 20px;
   border-radius: 5px;
   color: var(--muted);
 }
@@ -2351,10 +2369,16 @@ kbd {
   color: var(--hue);
 }
 
-/* The library opens a palette, not a panel: a lone key beside the switch. */
+/* The library opens a palette for this tab's agent, not a panel: a lone key
+   at the tab header's right end, after the queue line if there is one. */
 .library-toggle {
-  height: 24px;
-  border: 1px solid transparent;
+  flex: none;
+  height: 20px;
+  margin: -3px -6px -3px auto;
+}
+
+.tab-queue ~ .library-toggle {
+  margin-left: 4px;
 }
 
 /* The hourglass turns in the working blue while one of the queue's prompts

@@ -33,6 +33,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
+import { TitleBar } from "./components/TitleBar";
 import { TabHeader } from "./components/TabHeader";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
@@ -108,11 +109,12 @@ export default function App() {
   // Agents that finished or wait on you badge the Dock and lead the title,
   // following the daemon's statuses rather than whether the window is in front.
   const attention = attentionCount(state.snapshot);
+  const app = DEV_BRANCH ? `Herdr [${DEV_BRANCH}]` : "Herdr";
+  const titled = state.title ? `${state.title} — ${app}` : app;
+  const windowTitle = attention > 0 ? `(${attention}) ${titled}` : titled;
   useEffect(() => {
-    const app = DEV_BRANCH ? `Herdr [${DEV_BRANCH}]` : "Herdr";
-    const title = state.title ? `${state.title} — ${app}` : app;
-    document.title = attention > 0 ? `(${attention}) ${title}` : title;
-  }, [state.title, attention]);
+    document.title = windowTitle;
+  }, [windowTitle]);
 
   useEffect(() => {
     getCurrentWindow()
@@ -383,143 +385,149 @@ export default function App() {
   );
 
   return (
-    <div
-      className={`app ${state.sidebar ? "" : "no-sidebar"}`}
-      style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
-    >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
-      {state.sidebar && (
-        <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
-      )}
-      <div className="workarea">
-        {/* The focused workspace's hue marks the selected tab and the status
-            bar, so the main column reads as the card picked in the sidebar. */}
-        <main
-          className="main"
-          style={focusedWorkspace ? ({ "--hue": hueColor(focusedWorkspace.label) } as CSSProperties) : undefined}
-        >
-          {/* The diff covers the tab bar too: its tabs are the sessions, not
-              the diff's, and would read as if they switched what it shows. */}
-          <div className="deck">
-            <TabBar
-              controller={controller}
-              snapshot={state.snapshot}
-              changes={state.changes}
-              files={state.files}
-              queue={state.queue}
-              queued={{
-                waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
-                running: Boolean(focusedQueue?.items.some(isActive)),
-              }}
-              library={state.library}
-              pins={pins}
-              onPinsChange={setPins}
-            />
-            <TabHeader snapshot={state.snapshot} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
-            <div className="stage">
-              <Terminal
+    <>
+      <TitleBar
+        controller={controller}
+        title={windowTitle}
+        hue={focusedWorkspace ? hueColor(focusedWorkspace.label) : null}
+        changes={state.changes}
+        files={state.files}
+        queue={state.queue}
+        queued={{
+          waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
+          running: Boolean(focusedQueue?.items.some(isActive)),
+        }}
+      />
+      <div
+        className={`app ${state.sidebar ? "" : "no-sidebar"}`}
+        style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
+      >
+        {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
+        {state.sidebar && (
+          <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
+        )}
+        <div className="workarea">
+          {/* The focused workspace's hue marks the selected tab and the status
+              bar, so the main column reads as the card picked in the sidebar. */}
+          <main
+            className="main"
+            style={focusedWorkspace ? ({ "--hue": hueColor(focusedWorkspace.label) } as CSSProperties) : undefined}
+          >
+            {/* The diff covers the tab bar too: its tabs are the sessions, not
+                the diff's, and would read as if they switched what it shows. */}
+            <div className="deck">
+              <TabBar
                 controller={controller}
-                fontSize={state.fontSize}
-                fontFamily={fontStack(state.settings.terminal.fontFamily)}
-                lineHeight={state.settings.terminal.lineHeight}
-                theme={state.theme.terminal}
+                snapshot={state.snapshot}
+                pins={pins}
+                onPinsChange={setPins}
               />
+              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
+              <div className="stage">
+                <Terminal
+                  controller={controller}
+                  fontSize={state.fontSize}
+                  fontFamily={fontStack(state.settings.terminal.fontFamily)}
+                  lineHeight={state.settings.terminal.lineHeight}
+                  theme={state.theme.terminal}
+                />
+              </div>
+              {/* The dialog lists them itself. */}
+              {!state.settingsOpen && <SettingsWarnings view={settings} />}
+              {shownFile && checkout && (
+                <DiffView
+                  checkout={checkout.path}
+                  files={checkout.files}
+                  file={shownFile}
+                  onSelect={(file) => setDiffPick({ file, commit: null })}
+                  onClose={closeDiff}
+                />
+              )}
+              {shownCommit && checkout && (
+                <CommitDiffView
+                  checkout={checkout.path}
+                  commit={shownCommit}
+                  state={commitFiles}
+                  focus={diffPick?.file ?? null}
+                  onClose={closeDiff}
+                />
+              )}
+              {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
             </div>
-            {/* The dialog lists them itself. */}
-            {!state.settingsOpen && <SettingsWarnings view={settings} />}
-            {shownFile && checkout && (
-              <DiffView
-                checkout={checkout.path}
-                files={checkout.files}
-                file={shownFile}
-                onSelect={(file) => setDiffPick({ file, commit: null })}
-                onClose={closeDiff}
+            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+          </main>
+          <div className={`drawer ${readChanges || state.queue ? "open" : ""}`} aria-hidden={!(readChanges || state.queue)}>
+            {state.queue && state.snapshot ? (
+              <QueuePanel
+                controller={controller}
+                snapshot={state.snapshot}
+                workspace={focusedWorkspace ?? null}
+                folder={local ? queueFolder : null}
+                queue={focusedQueue}
+                access={queueAccess}
+                actions={local ? queueActions : null}
+                focusComposer={!state.queueAuto}
+                onClose={closeQueue}
+              />
+            ) : state.files ? (
+              <FilesPanel
+                state={listing}
+                changed={changedMarks}
+                selected={shownTreeFile ? filePick : null}
+                onOpen={setFilePick}
+                onLeave={() => controller.focusTerminal()}
+                onClose={() => {
+                  controller.closeFiles();
+                  closeFile();
+                }}
+              />
+            ) : (
+              <ChangesPanel
+                store={changesStore}
+                selected={shownDiff ? diffPick : null}
+                openCommit={openCommit?.sha ?? null}
+                commitFiles={commitFiles}
+                onOpen={setDiffPick}
+                onToggleCommit={toggleCommit}
+                onClose={() => {
+                  controller.closeChanges();
+                  closeDiff();
+                }}
               />
             )}
-            {shownCommit && checkout && (
-              <CommitDiffView
-                checkout={checkout.path}
-                commit={shownCommit}
-                state={commitFiles}
-                focus={diffPick?.file ?? null}
-                onClose={closeDiff}
-              />
-            )}
-            {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
-        </main>
-        <div className={`drawer ${readChanges || state.queue ? "open" : ""}`} aria-hidden={!(readChanges || state.queue)}>
-          {state.queue && state.snapshot ? (
-            <QueuePanel
-              controller={controller}
-              snapshot={state.snapshot}
-              workspace={focusedWorkspace ?? null}
-              folder={local ? queueFolder : null}
-              queue={focusedQueue}
-              access={queueAccess}
-              actions={local ? queueActions : null}
-              focusComposer={!state.queueAuto}
-              onClose={closeQueue}
-            />
-          ) : state.files ? (
-            <FilesPanel
-              state={listing}
-              changed={changedMarks}
-              selected={shownTreeFile ? filePick : null}
-              onOpen={setFilePick}
-              onLeave={() => controller.focusTerminal()}
-              onClose={() => {
-                controller.closeFiles();
-                closeFile();
-              }}
-            />
-          ) : (
-            <ChangesPanel
-              store={changesStore}
-              selected={shownDiff ? diffPick : null}
-              openCommit={openCommit?.sha ?? null}
-              commitFiles={commitFiles}
-              onOpen={setDiffPick}
-              onToggleCommit={toggleCommit}
-              onClose={() => {
-                controller.closeChanges();
-                closeDiff();
-              }}
-            />
-          )}
         </div>
+        {state.palette && <Palette controller={controller} commands={paletteCommands} />}
+        {state.library && (
+          <PromptPalette
+            controller={controller}
+            snapshot={state.snapshot}
+            folder={local ? queueFolder : null}
+            queue={local && queueAccess.kind === "ready" ? queueActions : null}
+          />
+        )}
+        {shownWorktrees && (
+          <WorktreesDialog
+            controller={controller}
+            workspaceId={shownWorktrees.workspace.workspace_id}
+            workspace={shownWorktrees.workspace.label}
+            worktrees={shownWorktrees.list}
+            onClose={closeWorktrees}
+          />
+        )}
+        {state.settingsOpen && (
+          <SettingsDialog
+            controller={controller}
+            settings={state.settings}
+            view={settings}
+            onClose={() => {
+              controller.run("open_settings");
+              controller.focusTerminal();
+            }}
+          />
+        )}
+        {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
       </div>
-      {state.palette && <Palette controller={controller} commands={paletteCommands} />}
-      {state.library && (
-        <PromptPalette
-          controller={controller}
-          snapshot={state.snapshot}
-          folder={local ? queueFolder : null}
-          queue={local && queueAccess.kind === "ready" ? queueActions : null}
-        />
-      )}
-      {shownWorktrees && (
-        <WorktreesDialog
-          controller={controller}
-          workspaceId={shownWorktrees.workspace.workspace_id}
-          workspace={shownWorktrees.workspace.label}
-          worktrees={shownWorktrees.list}
-          onClose={closeWorktrees}
-        />
-      )}
-      {state.settingsOpen && (
-        <SettingsDialog
-          controller={controller}
-          settings={state.settings}
-          view={settings}
-          onClose={() => {
-            controller.run("open_settings");
-            controller.focusTerminal();
-          }}
-        />
-      )}
-      {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
-    </div>
+    </>
   );
 }

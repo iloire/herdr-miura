@@ -14,7 +14,9 @@ import {
   windowStart,
 } from "../app/sessionUsage";
 import { type Item, title } from "../app/queue";
+import type { Controller } from "../app/controller";
 import type { Agent, Snapshot } from "../protocol";
+import { LibraryIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
 
 /// Weighted tokens per bar below which the burn chart does not scale up, so
@@ -23,22 +25,28 @@ const BURN_FLOOR = 50_000;
 
 /// A strip over the focused tab's terminal with what matters about each of
 /// its agents at all times: status, model, context, spend this plan window,
-/// the last fifteen minutes' burn, and a loop's next tick. Absent for a tab
-/// without agents.
+/// the last fifteen minutes' burn, and a loop's next tick. At its right end
+/// the prompt library, whose prompts go to this tab's agent; for a tab
+/// without agents the library is all it holds.
 export function TabHeader({
+  controller,
   snapshot,
   usages,
   plan,
   queued,
+  library,
 }: {
+  controller: Controller;
   snapshot: Snapshot | null;
   usages: Map<string, SessionUsage | null>;
   plan: ClaudeUsage | null;
   /// The queued prompt this tab runs, where it stands in its queue, and what follows it.
   queued: { item: Item; position: number; total: number; next: Item | null } | null;
+  /// The prompt library's palette is open.
+  library: boolean;
 }) {
-  const agents = snapshot?.agents.filter((agent) => agent.tab_id === snapshot.focused_tab_id) ?? [];
-  if (agents.length === 0) return null;
+  if (!snapshot?.focused_tab_id) return null;
+  const agents = snapshot.agents.filter((agent) => agent.tab_id === snapshot.focused_tab_id);
   const now = Date.now();
   const since = windowStart(plan, now);
   return (
@@ -58,6 +66,15 @@ export function TabHeader({
           {queued.next && <> · next: {title(queued.next.prompt, 40)}</>}
         </span>
       )}
+      <button
+        className="panel-toggle library-toggle"
+        title="Prompt library (⌘⇧L)"
+        aria-label="Prompt library"
+        aria-pressed={library}
+        onClick={() => controller.run("prompt_library")}
+      >
+        <LibraryIcon />
+      </button>
     </div>
   );
 }

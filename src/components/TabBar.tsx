@@ -6,31 +6,18 @@ import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { DiffIcon, FolderIcon, LibraryIcon, PinIcon, QueueIcon } from "./icons";
+import { PinIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { StatusMark } from "./StatusMark";
 
 export function TabBar({
   controller,
   snapshot,
-  changes,
-  files,
-  queue,
-  queued,
-  library,
   pins,
   onPinsChange,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
-  changes: boolean;
-  files: boolean;
-  /// The Queue panel is open.
-  queue: boolean;
-  /// Prompts waiting in the focused workspace's queue, and whether one runs.
-  queued: { waiting: number; running: boolean };
-  /// The prompt library's palette is open.
-  library: boolean;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
 }) {
@@ -161,50 +148,6 @@ export function TabBar({
           }}
         >
           +
-        </button>
-      </div>
-      {/* Held to the top row, level with the drawer's header, however many
-          rows the tabs wrap onto. The three panels are one switch; the
-          library, a palette rather than a panel, stands apart from it. */}
-      <div className="panel-tools">
-        <div className="panel-switch" role="group" aria-label="Side panel">
-          <button
-            className="panel-toggle"
-            title="Changes"
-            aria-label="Changes"
-            aria-pressed={changes}
-            onClick={() => controller.run("review_changes")}
-          >
-            <DiffIcon />
-          </button>
-          <button
-            className="panel-toggle"
-            title="Files"
-            aria-label="Files"
-            aria-pressed={files}
-            onClick={() => controller.run("browse_files")}
-          >
-            <FolderIcon />
-          </button>
-          <button
-            className={`panel-toggle queue-toggle ${queued.running ? "running" : ""}`}
-            title={`Queue (⌘⇧A)${queued.waiting ? `: ${queued.waiting} waiting` : ""}`}
-            aria-label={`Queue${queued.waiting ? `, ${queued.waiting} waiting` : ""}`}
-            aria-pressed={queue}
-            onClick={() => controller.run("add_to_queue")}
-          >
-            <QueueIcon />
-            {queued.waiting > 0 && <span className="queue-toggle-count">{queued.waiting}</span>}
-          </button>
-        </div>
-        <button
-          className="panel-toggle library-toggle"
-          title="Prompt library (⌘⇧L)"
-          aria-label="Prompt library"
-          aria-pressed={library}
-          onClick={() => controller.run("prompt_library")}
-        >
-          <LibraryIcon />
         </button>
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}

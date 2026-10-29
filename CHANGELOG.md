@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 17:10 — The panel switch moves to the title bar
+
+The Changes, Files and Queue switch and the library's book sat at the tab bar's top right and took that
+width from every row of tabs. The window now draws its own title bar over macOS's (`titleBarStyle:
+Overlay`, the title hidden): a strip as tall as the old one that drags the window, shows its title centred
+and holds the switch at its right end, so the tabs get the full width. The book moves into the tab header,
+at its right end, since the library sends its prompts to that tab's agent rather than opening a panel; a
+tab without agents now has a header holding only the book.
+
 ## 2026-10-29 15:32 — One switch for the side panel
 
 The Changes, Files and Queue buttons sat after the tab rows, centred against them, so with tabs on several
