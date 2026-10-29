@@ -6,7 +6,7 @@ import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { FolderIcon, PinIcon, QueueIcon } from "./icons";
+import { FolderIcon, LibraryIcon, PinIcon, QueueIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { StatusMark } from "./StatusMark";
 
@@ -17,6 +17,7 @@ export function TabBar({
   files,
   queue,
   queued,
+  library,
   pins,
   onPinsChange,
 }: {
@@ -28,6 +29,8 @@ export function TabBar({
   queue: boolean;
   /// Prompts waiting in the focused workspace's queue, and whether one runs.
   queued: { waiting: number; running: boolean };
+  /// The prompt library's palette is open.
+  library: boolean;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
 }) {
@@ -187,6 +190,15 @@ export function TabBar({
       >
         <QueueIcon />
         {queued.waiting > 0 && <span className="queue-toggle-count">{queued.waiting}</span>}
+      </button>
+      <button
+        className="icon-button changes-toggle"
+        title="Prompt library (⌘⇧L)"
+        aria-label="Prompt library"
+        aria-pressed={library}
+        onClick={() => controller.run("prompt_library")}
+      >
+        <LibraryIcon />
       </button>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </div>

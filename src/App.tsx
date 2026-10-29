@@ -411,6 +411,7 @@ export default function App() {
                 waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
                 running: Boolean(focusedQueue?.items.some(isActive)),
               }}
+              library={state.library}
               pins={pins}
               onPinsChange={setPins}
             />

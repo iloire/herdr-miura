@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 15:12 — A button for the prompt library
+
+The prompt library opened only with ⌘⇧L or the command palette, so nothing on screen said it was there. A
+book button at the right end of the tab strip, after the Queue hourglass, now opens it, and shows pressed
+while it is open. It sits with the drawer's buttons because it acts on the focused workspace, as they do.
+
 ## 2026-10-29 15:10 — A calmer workspace card
 
 A busy workspace's card put the team, queue, pins, loop, agent count and every status mark in one row beside

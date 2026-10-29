@@ -56,7 +56,8 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
 - **TypeScript decides, in a pure module.** `app/promptLibrary.ts` turns the two raw listings into the
   palette's entries: parse frontmatter, apply the override, mark the broken ones, sort and filter. Vitest
   covers it. The frontmatter reader moves out of `agentFile.ts` into `app/frontmatter.ts`, shared by both.
-- **The palette** opens with ⌘⇧L ("Prompt Library"), also from the command palette. It searches name,
+- **The palette** opens with ⌘⇧L ("Prompt Library"), also from the command palette and the book button at the
+  right end of the tab strip, beside Changes, Files and Queue. It searches name,
   description and body; project prompts sort before global ones. The right side shows the selected
   prompt's text in an editable box: what you send is what the box holds, so a one-off change never
   touches the file. Three actions on every entry:
