@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Tab } from "../../protocol";
-import { loadPins, pinIndex, pinKey, pinnedByWorkspace, pinnedFirst, savePins } from "../pins";
+import { loadPins, pinIndex, pinKey, pinnedByWorkspace, savePins, stripOrder } from "../pins";
 
-const tab = (tab_id: string, workspace_id = "w"): Tab => ({
+const tab = (tab_id: string, workspace_id = "w", agent_status: Tab["agent_status"] = "idle"): Tab => ({
   tab_id,
   workspace_id,
   number: 1,
@@ -10,14 +10,20 @@ const tab = (tab_id: string, workspace_id = "w"): Tab => ({
   custom_label: false,
   zoomed: false,
   focused: false,
-  agent_status: "idle",
+  agent_status,
 });
 
-describe("pinnedFirst", () => {
+describe("stripOrder", () => {
   it("puts pinned tabs first and keeps the daemon's order within each group", () => {
     const pinned = new Set(["c", "a"]);
-    const order = pinnedFirst([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id));
+    const order = stripOrder([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id));
     expect(order.map((t) => t.tab_id)).toEqual(["a", "c", "b", "d"]);
+  });
+
+  it("puts tabs with an agent working right after the pinned ones", () => {
+    const tabs = [tab("a"), tab("b", "w", "done"), tab("c", "w", "working"), tab("d", "w", "working"), tab("e", "w", "working")];
+    const order = stripOrder(tabs, (t) => t.tab_id === "e" || t.tab_id === "a");
+    expect(order.map((t) => t.tab_id)).toEqual(["a", "e", "c", "d", "b"]);
   });
 });
 

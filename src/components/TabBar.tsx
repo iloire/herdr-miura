@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 import { agentCountsByTab, loopTags } from "../app/attention";
 import type { Controller } from "../app/controller";
-import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
+import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -37,7 +37,7 @@ export function TabBar({
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
-  const tabs = pinnedFirst(
+  const tabs = stripOrder(
     snapshot?.tabs.filter((tab) => tab.workspace_id === snapshot.focused_workspace_id) ?? [],
     isPinned,
   );

@@ -42,9 +42,16 @@ export function pinnedByWorkspace(tabs: readonly Tab[], isPinned: (tab: Tab) => 
   return byWorkspace;
 }
 
-/// `tabs` with the pinned ones first, each group in the daemon's order.
-export function pinnedFirst(tabs: readonly Tab[], isPinned: (tab: Tab) => boolean): Tab[] {
-  return [...tabs.filter(isPinned), ...tabs.filter((tab) => !isPinned(tab))];
+/// `tabs` as the strip shows them: pinned first, then those with an agent
+/// working, then the rest, each group in the daemon's order. Only pins move
+/// a tab in the daemon; a working tab goes back to its place once it stops.
+export function stripOrder(tabs: readonly Tab[], isPinned: (tab: Tab) => boolean): Tab[] {
+  const rest = tabs.filter((tab) => !isPinned(tab));
+  return [
+    ...tabs.filter(isPinned),
+    ...rest.filter((tab) => tab.agent_status === "working"),
+    ...rest.filter((tab) => tab.agent_status !== "working"),
+  ];
 }
 
 /// Where `tab` belongs in its workspace once pinned or unpinned: right after
