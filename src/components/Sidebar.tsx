@@ -6,6 +6,7 @@ import { workspaceDirectory } from "../changes/counts";
 import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
+import { groupWorktrees } from "../app/worktreeGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
@@ -66,10 +67,22 @@ export function Sidebar({
   ports: Map<string, ListeningPort[]>;
 }) {
   const [sort, setSort] = useState(loadSort);
-  const workspaces = sortWorkspaces(snapshot?.workspaces ?? [], sort);
+  // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
+  const folderOf = (workspace: Workspace) =>
+    (snapshot && (workspace.new_workspace_cwd || workspaceDirectory(workspace, snapshot))) || null;
+  const rows = groupWorktrees(
+    sortWorkspaces(snapshot?.workspaces ?? [], sort),
+    folderOf,
+    (workspace) => worktrees.get(workspace.workspace_id) ?? [],
+  );
+  const workspaces = rows.map((row) => row.workspace);
+  // Rows are dragged where they show, but Herdr moves workspaces in its own
+  // list, which keeps worktrees wherever they were opened: translate both.
   const drag = useRowDrag(sort === "manual", (from, slot) => {
-    const workspace = snapshot?.workspaces[from];
-    const index = moveIndex(from, slot);
+    const daemon = snapshot?.workspaces ?? [];
+    const workspace = workspaces[from];
+    const at = (shown: Workspace | undefined) => (shown ? daemon.indexOf(shown) : daemon.length);
+    const index = workspace ? moveIndex(at(workspace), at(workspaces[slot])) : null;
     if (workspace && index !== null) {
       controller.request("workspace.move", { workspace_id: workspace.workspace_id, insert_index: index });
     }
@@ -94,9 +107,6 @@ export function Sidebar({
       controller.act(createTeam(folder).then(() => setTeamVersion((v) => v + 1)));
     },
   });
-  // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
-  const folderOf = (workspace: Workspace) =>
-    (snapshot && (workspace.new_workspace_cwd || workspaceDirectory(workspace, snapshot))) || null;
   const folders = [...new Set(workspaces.map(folderOf).filter((folder) => folder !== null))].sort();
   const teams = useTeams(folders, teamVersion);
   const teamOf = (workspace: Workspace): TeamState => teams.get(folderOf(workspace) ?? "") ?? { phase: "none" };
@@ -126,17 +136,23 @@ export function Sidebar({
         </button>
       </header>
       <ol className="workspace-list" ref={drag.list}>
-        {workspaces.map((workspace, index) => {
+        {rows.map(({ workspace, parent }, index) => {
           const own = agents.get(workspace.workspace_id) ?? [];
           const path = snapshot && workspaceDirectory(workspace, snapshot);
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
           const listening = ports.get(workspace.workspace_id) ?? [];
           return (
-            <li key={workspace.workspace_id} className={drag.rowClass(index, workspaces.length)}>
+            <li
+              key={workspace.workspace_id}
+              className={[drag.rowClass(index, workspaces.length), parent && "worktree-child"].filter(Boolean).join(" ") || undefined}
+            >
+              {/* A worktree hangs off its main checkout's card, on that card's rail color. */}
+              {parent && <span className="worktree-link" aria-hidden="true" />}
               <button
                 className={["workspace", needsYou && "needs-you", listening.length > 0 && "has-ports"].filter(Boolean).join(" ")}
-                style={{ "--rail": hueColor(workspace.label) } as CSSProperties}
+                style={{ "--rail": hueColor((parent ?? workspace).label) } as CSSProperties}
+                title={parent ? `A worktree of ${parent.label}` : undefined}
                 aria-current={workspace.focused ? "true" : undefined}
                 {...drag.handlers(index)}
                 onClick={() => {

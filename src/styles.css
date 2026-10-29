@@ -1884,3 +1884,21 @@ kbd {
   letter-spacing: 0.04em;
   text-align: center;
 }
+
+/* A workspace on a linked worktree sits indented under its main checkout's
+   card, joined to it by an elbow, and hangs on that card's rail color. */
+.workspace-list > li.worktree-child {
+  padding-left: 18px;
+}
+
+.worktree-link {
+  border-bottom: 1.5px solid #3b4653;
+  border-bottom-left-radius: 6px;
+  border-left: 1.5px solid #3b4653;
+  height: calc(50% + 6px);
+  left: 9px;
+  pointer-events: none;
+  position: absolute;
+  top: -6px;
+  width: 8px;
+}
