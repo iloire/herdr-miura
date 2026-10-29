@@ -1,6 +1,8 @@
 import type { Controller, State } from "../app/controller";
 import { shortcutLabel } from "../terminal/keys";
+import type { ClaudeUsage as Usage } from "../app/claudeUsage";
 import type { ListeningPort } from "../app/ports";
+import { ClaudeUsage } from "./ClaudeUsage";
 import { HostPicker } from "./HostPicker";
 import { Ports } from "./Ports";
 
@@ -10,6 +12,8 @@ export function StatusBar({
   state,
   workspace,
   ports,
+  usage,
+  now,
 }: {
   controller: Controller;
   state: State;
@@ -17,6 +21,10 @@ export function StatusBar({
   workspace?: string;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
+  /// This Mac's Claude plan usage: the account's, so it sits with the
+  /// app-wide half of the bar rather than the focused workspace's.
+  usage: Usage | null;
+  now: number;
 }) {
   const { status, notice } = state;
   const palette = state.commands.find((command) => command.name === "command_palette")?.parsed[0];
@@ -33,6 +41,7 @@ export function StatusBar({
           Reconnect
         </button>
       )}
+      <ClaudeUsage usage={usage} now={now} />
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}

@@ -93,3 +93,10 @@ export const FileIcon = () => (
     <path d="M4 1.75h5L12.5 5.25v8a1 1 0 0 1-1 1h-7.5a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1ZM8.75 1.75v3.5h3.5M5.5 8.5h5M5.5 11h3.5" {...LINE} />
   </Icon>
 );
+
+/// Claude's mark, beside its plan usage in the status bar.
+export const ClaudeIcon = () => (
+  <Icon>
+    <path d="M8 2v12M2 8h12M3.75 3.75l8.5 8.5M12.25 3.75l-8.5 8.5" {...LINE} />
+  </Icon>
+);

@@ -4,6 +4,7 @@
 use crate::{
     Error, Result,
     changes::{self, CheckoutView, CommitFilesView, FileDiff},
+    claude_usage,
     connection::Connection,
     files::{self, Contents, Listing},
     folder::{self, Opener},
@@ -18,7 +19,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use tauri::{
-    AppHandle, State,
+    AppHandle, Manager, State,
     ipc::{Channel, InvokeResponseBody},
 };
 
@@ -191,6 +192,14 @@ pub async fn file_diff(
         changes::read_diff(&checkout, &path, untracked, commit.as_deref())
     });
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// This Mac's Claude plan usage, whichever host the window is connected to:
+/// the account is the user's, not the host's.
+#[tauri::command]
+pub async fn claude_usage(app: AppHandle) -> Result<Option<claude_usage::Usage>> {
+    let read = tauri::async_runtime::spawn_blocking(move || app.state::<claude_usage::Cache>().read());
+    Ok(read.await.map_err(claude_usage::Error::Worker)?)
 }
 
 /// The TCP ports each workspace's processes listen on, by workspace id.

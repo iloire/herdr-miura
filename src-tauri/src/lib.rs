@@ -3,6 +3,7 @@
 //! owns the socket and the wire format and exposes them as Tauri commands.
 
 mod changes;
+mod claude_usage;
 mod commands;
 mod connection;
 mod error;
@@ -24,12 +25,14 @@ pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(claude_usage::Cache::default())
         .manage(connection::Connection::default())
         .manage(ssh_hosts::PendingKeys::default())
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
             commands::change_counts,
             commands::checkout_changes,
+            commands::claude_usage,
             commands::connect,
             commands::copy_path,
             commands::disconnect,

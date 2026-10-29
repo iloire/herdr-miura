@@ -3,6 +3,7 @@ import { type CSSProperties, useEffect, useMemo, useState, useSyncExternalStore 
 import { attentionCount } from "./app/attention";
 import { hueColor } from "./app/hue";
 import { loadPins } from "./app/pins";
+import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
 import { Controller } from "./app/controller";
@@ -31,6 +32,9 @@ const COUNTS_POLL_MS = 10000;
 /// How often listening ports are rescanned: servers start and stop at human
 /// pace, and `lsof` is not free on a busy machine.
 const PORTS_POLL_MS = 5000;
+/// How often Claude usage is asked for and its countdowns redrawn; the
+/// backend reads Anthropic at most every ten minutes whatever this is.
+const USAGE_POLL_MS = 60_000;
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -158,6 +162,24 @@ export default function App() {
       window.removeEventListener("focus", refresh);
     };
   }, [local]);
+  // Claude plan usage is this Mac's account, so it is read whichever host
+  // the window is connected to.
+  const [usage, setUsage] = useState<{ usage: ClaudeUsage | null; now: number }>({ usage: null, now: Date.now() });
+  useEffect(() => {
+    let live = true;
+    const refresh = () => {
+      readClaudeUsage()
+        .then((next) => live && setUsage({ usage: next, now: Date.now() }))
+        .catch(() => {});
+    };
+    refresh();
+    const timer = window.setInterval(refresh, USAGE_POLL_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
   const focusedWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.snapshot?.focused_workspace_id);
 
@@ -277,7 +299,7 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} ports={focusedPorts} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} ports={focusedPorts} usage={usage.usage} now={usage.now} />
         </main>
         <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
           {state.files ? (
