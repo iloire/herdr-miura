@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 12:55 — No dev bar on main
+
+A `tauri dev` window on `main` no longer shows the `DEV · main` strip or `[main]` in its title; feature
+branches and worktrees still do.
+
 ## 2026-10-29 12:47 — Settings docs
 
 - `docs/settings.md` documents every key of `config-tauri.toml` and how a theme is found. The README, its status

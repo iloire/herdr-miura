@@ -17,7 +17,7 @@ its own.
   npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'
   ```
 
-  The dev window's `DEV · <branch>` strip tells the instances apart.
+  The dev window's `DEV · <branch>` strip (absent on `main`) tells the instances apart.
 - Run `npm run check` inside the worktree before landing.
 - Land it by rebasing onto `main` and fast-forwarding. Then remove the worktree and delete the
   branch in the same turn (`git worktree remove .claude/worktrees/<name>` + `git branch -d <branch>`),

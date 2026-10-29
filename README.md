@@ -51,7 +51,7 @@ It finds the daemon by Herdr's own rules. `HERDR_SOCKET_PATH`, `HERDR_CLIENT_SOC
 `HERDR_SESSION` override that. A shell inside a Herdr pane already has `HERDR_SOCKET_PATH` set, so to try it
 against a throwaway daemon, set both socket variables.
 
-A dev window has a colored strip along its foot naming its branch (`DEV · feat/x`), and the branch in its
+A dev window on any branch but `main` has a colored strip along its foot naming its branch (`DEV · feat/x`), and the branch in its
 title, so it can't be mistaken for the app you use every day. To run a branch beside the one you already
 have open, give it its own port:
 

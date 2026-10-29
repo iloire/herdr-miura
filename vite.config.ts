@@ -6,12 +6,12 @@ import process from "node:process";
 import { execSync } from "node:child_process";
 const host = process.env.TAURI_DEV_HOST;
 
-/// The checked-out branch, so a dev window says which one it runs; empty
-/// outside Git or on a detached HEAD.
+/// The checked-out branch, so a dev window says which one it runs; empty on
+/// `main` (the app in daily use), outside Git or on a detached HEAD.
 function branch(): string {
   try {
     const name = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf8" }).trim();
-    return name === "HEAD" ? "" : name;
+    return name === "HEAD" || name === "main" ? "" : name;
   } catch {
     return "";
   }
@@ -20,7 +20,7 @@ function branch(): string {
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Only `vite` serving (`tauri dev`) gets a branch: a built app never shows the dev bar.
+  // Only `vite` serving (`tauri dev`) off `main` gets a branch: a built app never shows the dev bar.
   define: { __DEV_BRANCH__: JSON.stringify(command === "serve" ? branch() : "") },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
