@@ -305,8 +305,8 @@ body.reordering * {
   cursor: pointer;
 }
 
-/* Worktree details. The dialog wears its workspace's hue, as the sidebar
-   card does; each worktree is a card whose rail says whether its work has
+/* Worktree details. The header takes a faint wash of its workspace's hue,
+   as the sidebar card does; each worktree is a card whose rail says whether its work has
    landed: green while it holds commits or files, muted once merged. */
 /* Doubled so it outranks `.palette`'s width, which comes later. */
 .palette.worktrees-dialog {
@@ -314,7 +314,6 @@ body.reordering * {
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  border-top: 3px solid var(--hue);
   color: var(--text);
   font: 14px/1.5 var(--sans);
 }
