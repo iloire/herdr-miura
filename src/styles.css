@@ -769,10 +769,6 @@ body.reordering * {
   height: 12px;
 }
 
-.tab-pinned .tab-label {
-  padding-right: 10px;
-}
-
 .tab-rename {
   width: 180px;
   margin: 0 6px;

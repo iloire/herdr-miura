@@ -89,7 +89,7 @@ export function TabBar({
           return (
             <div
               key={tab.tab_id}
-              className={`tab${pinned ? " tab-pinned" : ""}`}
+              className="tab"
               role="tab"
               aria-selected={tab.focused}
               onContextMenu={(event) => {
@@ -133,16 +133,14 @@ export function TabBar({
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
                 </button>
               )}
-              {!pinned && (
-                <button
-                  className="tab-close"
-                  aria-label={`Close ${tab.label}`}
-                  title="Close tab"
-                  onClick={() => controller.request("tab.close", { tab_id: tab.tab_id })}
-                >
-                  ×
-                </button>
-              )}
+              <button
+                className="tab-close"
+                aria-label={`Close ${tab.label}`}
+                title="Close tab"
+                onClick={() => controller.request("tab.close", { tab_id: tab.tab_id })}
+              >
+                ×
+              </button>
             </div>
           );
         })}
