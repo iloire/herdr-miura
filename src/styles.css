@@ -1959,197 +1959,366 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* The Queue dialog: the worktrees dialog's frame, a body that scrolls, and the
-   composer pinned at its foot so a prompt can always be added. */
-.queue-dialog .worktrees-head {
+/* The tab bar's Queue button: an hourglass, the number waiting beside it, and
+   the hourglass turning in the working blue while one of its prompts runs. */
+.queue-toggle {
   align-items: center;
+  display: inline-flex;
+  gap: 3px;
+  width: auto;
+  min-width: 28px;
+  padding: 0 6px;
 }
 
-.queue-pause {
+.queue-toggle svg {
+  height: 15px;
+  width: 15px;
+}
+
+.queue-toggle.running svg {
+  animation: queue-turn 2.4s ease-in-out infinite;
+  color: var(--working);
+}
+
+.queue-toggle-count {
+  color: var(--text);
+  font: 600 11px/1 var(--mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-toggle.running svg {
+    animation: none;
+  }
+}
+
+/* The Queue panel. A track runs down its left: one node per prompt, the one
+   running lit in the working blue (the lantern while it waits on you),
+   the waiting ones hollow, and the line ends at a + by the prompt box. */
+.queue-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-head-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-head-title b {
+  overflow: hidden;
+  color: var(--hue);
+  font: 600 12px var(--sans);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.queue-pause-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.queue-pause-toggle.paused {
+  color: var(--lantern);
+}
+
+.queue-banner {
+  display: flex;
   align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  background: color-mix(in srgb, var(--lantern) 9%, var(--peat));
+  border-bottom: 1px solid color-mix(in srgb, var(--lantern) 25%, var(--rule));
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.queue-banner p {
+  flex: 1;
+  margin: 0;
+}
+
+.queue-banner b {
+  color: var(--lantern);
+}
+
+.queue-banner button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--lantern) 45%, var(--rule));
+  border-radius: 6px;
+  color: var(--lantern);
+  font: 12px var(--sans);
+}
+
+.queue-banner button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.queue-banner button:hover {
+  background: color-mix(in srgb, var(--lantern) 14%, transparent);
+}
+
+.queue-track {
+  margin: 0;
+  padding: 16px 14px 4px;
+  list-style: none;
+}
+
+.queue-stop {
+  position: relative;
+  padding: 0 0 14px 28px;
+}
+
+/* The line from this node down to the next. */
+.queue-stop::before {
+  position: absolute;
+  top: 18px;
+  bottom: -2px;
+  left: 8px;
+  width: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  content: "";
+}
+
+.queue-stop.running::before {
+  background: linear-gradient(var(--working), var(--rule));
+}
+
+.queue-compose::before {
+  display: none;
+}
+
+.queue-node {
+  position: absolute;
+  top: 3px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 70%, transparent);
+  border-radius: 50%;
+  background: var(--peat);
+}
+
+.queue-stop.running .queue-node {
+  --lit: var(--working);
+  border-color: var(--lit);
+  background: radial-gradient(circle, var(--lit) 0 3px, var(--peat) 3.5px);
+  animation: queue-beat 2s ease-out infinite;
+}
+
+.queue-stop.running.needs-you .queue-node {
+  --lit: var(--lantern);
+}
+
+.queue-node.add {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  top: 6px;
+  left: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--hue) 75%, transparent);
+  color: var(--hue);
+  font: 600 13px/1 var(--sans);
+}
+
+@keyframes queue-beat {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--lit) 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-stop.running .queue-node {
+    animation: none;
+  }
+}
+
+/* What runs now: a card in the working blue's wash. */
+.queue-card {
+  --lit: var(--working);
+  padding: 10px 12px 12px;
+  background: color-mix(in srgb, var(--lit) 7%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--lit) 28%, var(--rule));
+  border-radius: 8px;
+}
+
+.needs-you .queue-card {
+  --lit: var(--lantern);
+}
+
+.queue-card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.queue-state {
+  color: var(--lit);
+  font: 600 11px var(--sans);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.queue-num {
+  flex: none;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+.queue-num em {
+  color: var(--hue);
+  font-style: normal;
+}
+
+.queue-card-title {
+  display: -webkit-box;
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.queue-note {
+  margin: 8px 0 0;
+  color: var(--lantern);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.queue-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.queue-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
   border: 1px solid var(--rule);
   border-radius: 6px;
   color: var(--text);
-  display: inline-flex;
-  flex: none;
-  font: 13px var(--sans);
-  gap: 7px;
-  padding: 6px 12px;
+  font: 12px var(--sans);
 }
 
-.queue-pause svg {
-  height: 14px;
-  width: 14px;
+.queue-card-actions button svg {
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
 }
 
-.queue-pause:hover,
-.queue-pause:focus-visible {
-  background: var(--rule);
-  outline: none;
+.queue-card-actions button.primary {
+  border-color: color-mix(in srgb, var(--lit) 40%, var(--rule));
+  background: color-mix(in srgb, var(--lit) 12%, transparent);
 }
 
-.queue-pause[aria-pressed="true"] {
+.queue-card-actions button.primary svg {
+  color: var(--lit);
+}
+
+.queue-card-actions button[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--lantern) 45%, var(--rule));
   color: var(--lantern);
 }
 
-.queue-paused {
-  align-items: center;
-  background: color-mix(in srgb, var(--lantern) 10%, var(--peat));
-  border-bottom: 1px solid color-mix(in srgb, var(--lantern) 30%, var(--rule));
-  border-left: 3px solid var(--lantern);
-  border-top: 1px solid color-mix(in srgb, var(--lantern) 30%, var(--rule));
-  color: var(--text);
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 10px 20px 10px 25px;
-}
-
-.queue-paused b {
-  color: var(--lantern);
-}
-
-.queue-paused button,
-.queue-undo button {
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  color: var(--text);
-  flex: none;
-  font: 13px var(--sans);
-  padding: 4px 12px;
-}
-
-.queue-paused button:hover,
-.queue-undo button:hover {
+.queue-card-actions button:hover:not(:disabled) {
   background: var(--rule);
 }
 
-.queue-body {
+/* A waiting prompt: its title, the rest on click, tools on hover. */
+.queue-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin: -3px -4px 0 -6px;
+  border-radius: 6px;
+}
+
+.queue-row:hover,
+.queue-row:focus-within {
+  background: color-mix(in srgb, var(--rule) 70%, transparent);
+}
+
+.queue-row-text {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 18px;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 14px 28px 20px;
-}
-
-.queue-section {
-  color: var(--muted);
-  font: 600 11px var(--sans);
-  letter-spacing: 0.08em;
-  margin: 0 0 8px;
-  text-transform: uppercase;
-}
-
-.queue-empty {
-  color: var(--muted);
-  margin: 0;
-}
-
-.queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.queue-item {
-  --state: var(--rule);
-  background: var(--ink);
-  border: 1px solid var(--rule);
-  border-left: 3px solid var(--state);
-  border-radius: 0 8px 8px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
-  padding: 12px 14px 12px 16px;
+  padding: 3px 6px 5px;
+  color: var(--text);
+  text-align: left;
 }
 
-.queue-item.running {
-  --state: var(--working);
-  padding: 16px 18px 16px 20px;
-}
-
-.queue-item.editing {
-  --state: var(--hue);
-}
-
-.queue-item-top {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  min-width: 0;
-}
-
-.queue-item-top .mark {
-  flex: none;
-  height: 14px;
-  width: 14px;
-}
-
-.queue-n {
-  color: var(--muted);
-  flex: none;
-  font: 12px var(--mono);
-}
-
-.queue-title {
-  color: #fff;
-  flex: 1;
-  font-weight: 600;
-  min-width: 0;
+.queue-row-title {
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.queue-when {
-  color: var(--muted);
-  flex: none;
-  font-size: 12px;
-}
-
-.queue-preview {
+  font-size: 13px;
+  line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  color: var(--muted);
-  cursor: pointer;
-  display: -webkit-box;
-  font-size: 13px;
-  margin: 0;
-  overflow: hidden;
-  white-space: pre-wrap;
 }
 
-.queue-preview.open {
-  -webkit-line-clamp: unset;
-  cursor: default;
+.queue-row-rest {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
   user-select: text;
 }
 
-.queue-note {
-  color: var(--lantern);
-  font-size: 13px;
-  margin: 0;
+/* Over the row's top right corner, so a title gets the whole width until hovered. */
+.queue-tools {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: flex;
+  padding: 2px;
+  background: var(--peat);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
 }
 
-.queue-tools {
-  display: inline-flex;
-  flex: none;
-  gap: 2px;
+.queue-row:hover .queue-tools,
+.queue-row:focus-within .queue-tools {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .queue-tools button {
+  width: 22px;
+  height: 22px;
   border-radius: 5px;
   color: var(--muted);
-  font-size: 14px;
-  height: 26px;
-  width: 26px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .queue-tools button:hover:not(:disabled),
@@ -2159,150 +2328,247 @@ kbd {
   outline: none;
 }
 
-.queue-tools button:disabled {
-  opacity: 0.3;
-}
-
-.queue-history {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.queue-done {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  min-width: 0;
-  padding: 4px 4px 4px 2px;
-}
-
-.queue-done .queue-title {
-  color: var(--text);
-  font-weight: 400;
-}
-
-.queue-done-mark {
-  flex: none;
-  text-align: center;
-  width: 14px;
-}
-
-.queue-done.ok .queue-done-mark {
-  color: var(--done);
-}
-
-.queue-done.bad .queue-done-mark,
-.queue-done.bad .queue-when {
+.queue-tools button.danger:hover {
   color: var(--blocked);
 }
 
-.queue-done.bad .queue-when {
-  max-width: 50%;
+.queue-tools button:disabled {
+  opacity: 0.25;
+}
+
+/* The prompt box, at the end of the track. */
+.queue-compose-box,
+.queue-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.queue-hint b {
+  color: var(--hue);
+  font-weight: 600;
+}
+
+.queue-compose-box textarea,
+.queue-edit textarea {
+  width: 100%;
+  padding: 9px 10px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--text);
+  font: 12.5px/1.5 var(--mono);
+  resize: vertical;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+
+.queue-compose-box textarea::placeholder {
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+
+.queue-compose-box textarea:focus,
+.queue-edit textarea:focus {
+  border-color: color-mix(in srgb, var(--hue) 65%, var(--rule));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 14%, transparent);
+  outline: none;
+}
+
+.queue-compose-row {
+  display: flex;
+  gap: 6px;
+}
+
+.queue-add,
+.queue-add-first {
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font: 12.5px var(--sans);
+  white-space: nowrap;
+}
+
+.queue-add {
+  flex: 1;
+  border-color: color-mix(in srgb, var(--hue) 50%, var(--rule));
+  background: color-mix(in srgb, var(--hue) 16%, transparent);
+  font-weight: 500;
+}
+
+.queue-add kbd {
+  margin-left: 4px;
+  color: var(--muted);
+  font: 11px var(--sans);
+}
+
+.queue-add:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hue) 26%, transparent);
+}
+
+.queue-add-first:hover:not(:disabled) {
+  background: var(--rule);
+}
+
+.queue-add:disabled,
+.queue-add-first:disabled {
+  opacity: 0.4;
+}
+
+.queue-options {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.queue-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.queue-options input {
+  margin: 0;
+  accent-color: var(--hue);
+}
+
+.queue-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 14px 10px;
+  padding: 6px 8px 6px 12px;
+  background: var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.queue-undo span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.queue-composer {
-  background: var(--peat);
+.queue-undo button {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--hue);
+  font: 600 12px var(--sans);
+}
+
+.queue-undo button:hover {
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+}
+
+/* Finished prompts, folded under one row at the foot. */
+.queue-done-list {
+  margin-top: auto;
+  padding: 4px 6px 0;
   border-top: 1px solid var(--rule);
+}
+
+.queue-done-toggle {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 28px 18px;
-}
-
-.queue-composer textarea,
-.queue-item.editing textarea {
-  background: var(--ink);
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  color: var(--text);
-  font: 13px/1.5 var(--mono);
-  padding: 10px 12px;
-  resize: vertical;
-  width: 100%;
-}
-
-.queue-composer textarea:focus,
-.queue-item.editing textarea:focus {
-  border-color: color-mix(in srgb, var(--hue) 60%, var(--rule));
-  outline: none;
-}
-
-.queue-composer-row,
-.queue-edit-row {
   align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.queue-edit-row {
-  justify-content: flex-end;
-}
-
-.queue-composer-row label {
-  align-items: center;
-  color: var(--muted);
-  display: inline-flex;
-  font-size: 13px;
   gap: 6px;
+  width: 100%;
+  padding: 8px 8px 6px;
+  color: var(--muted);
+  font: 600 11px var(--sans);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
 }
 
-.queue-composer-row label input {
-  accent-color: var(--hue);
+.queue-done-toggle .chevron {
+  display: inline-block;
+  transition: transform 120ms;
+}
+
+.queue-done-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.queue-done-list ul {
   margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
 }
 
-.queue-add,
-.queue-add-front,
-.queue-edit-row button {
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  color: var(--text);
-  font: 13px var(--sans);
-  padding: 6px 14px;
-}
-
-.queue-add {
-  background: color-mix(in srgb, var(--hue) 18%, transparent);
-  border-color: color-mix(in srgb, var(--hue) 50%, var(--rule));
-}
-
-.queue-add kbd {
-  color: var(--muted);
-  font: 11px var(--sans);
-  margin-left: 4px;
-}
-
-.queue-add:hover:not(:disabled),
-.queue-add-front:hover:not(:disabled),
-.queue-edit-row button:hover {
-  background: var(--rule);
-}
-
-.queue-add:disabled,
-.queue-add-front:disabled {
-  opacity: 0.4;
-}
-
-.queue-undo {
-  align-items: center;
-  color: var(--muted);
+.queue-finished {
   display: flex;
-  font-size: 13px;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
 }
 
-@media (max-width: 560px) {
-  .queue-body,
-  .queue-composer {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
+.queue-finished:hover {
+  background: color-mix(in srgb, var(--rule) 70%, transparent);
+}
+
+.queue-finished-mark {
+  flex: none;
+  width: 14px;
+  color: var(--done);
+  font: 600 12px/18px var(--sans);
+  text-align: center;
+}
+
+.queue-finished.bad .queue-finished-mark,
+.queue-finished.bad .queue-finished-facts {
+  color: var(--blocked);
+}
+
+.queue-finished-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text);
+}
+
+.queue-finished-text .queue-row-title {
+  font-size: 12px;
+  -webkit-line-clamp: 1;
+}
+
+.queue-finished-facts {
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+.queue-finished-go {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.queue-finished-go svg {
+  width: 13px;
+  height: 13px;
+}
+
+.queue-finished:hover .queue-finished-go,
+.queue-finished-go:focus-visible {
+  opacity: 1;
+}
+
+.queue-finished-go:hover {
+  background: var(--rule);
+  color: var(--text);
 }

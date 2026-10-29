@@ -11,7 +11,7 @@ A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and 
 over the terminal.
 A workspace can name a team of agents in `.herdr/team.json`: the sidebar lists each role, a Claude Code
 session in its own tab, with what it is doing, and starts the ones not running ([docs/team.md](docs/team.md)).
-Each workspace also has a prompt queue (⌘⇧A): prompts you hand it run one at a time, each in a new tab
+Each workspace also has a prompt queue, a panel beside Changes and Files (⌘⇧A): prompts you hand it run one at a time, each in a new tab
 and a fresh Claude session, the next only once nothing else there is at work and the tree is clean
 ([docs/plan-agent-queue.md](docs/plan-agent-queue.md)).
 

@@ -192,7 +192,9 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
    can be prompted later. Tests for the round trip, the `.bak`, the shape check and every refusal.
 3. ~~TS `app/queue.ts`.~~ ✅ 18 Vitest cases; dropping the "agent at work" gate turns its test red.
 4. ~~The dispatcher (`app/useQueue.ts`).~~ ✅
-5. ~~UI.~~ ✅ Dialog, ⌘⇧A, the right-click item, the card and status bar chip, the tab header field.
+5. ~~UI.~~ ✅ Built first as a dialog, then moved into the right-hand drawer as a Queue panel beside Changes
+   and Files, which opens on its own for a workspace with prompts queued. ⌘⇧A, a tab bar button, the
+   right-click item, the card and status bar chip, the tab header field.
    Reordering is ↑ ↓ only; dragging is left out. Checked live on a scratch repo: two prompts ran one after
    the other, each committed once, and an untrusted folder held the first one in `waiting` until answered.
    The dialog itself is still to be tried by hand.

@@ -7,7 +7,7 @@ import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
-import { itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
+import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
@@ -22,7 +22,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { Palette } from "./components/Palette";
-import { QueueDialog, QueueUnavailable } from "./components/QueueDialog";
+import { QueuePanel } from "./components/QueuePanel";
 import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
@@ -324,9 +324,17 @@ export default function App() {
     controller.focusTerminal();
   };
 
-  // The queue dialog closes on its own once its workspace is gone.
-  const queueWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.queue);
-  const queueFolder = state.snapshot && queueWorkspace ? workspaceFolder(queueWorkspace, state.snapshot) : null;
+  // The Queue panel shows the focused workspace's queue, and opens on its own
+  // when that workspace has prompts queued or running.
+  const queueFolder = state.snapshot && focusedWorkspace ? workspaceFolder(focusedWorkspace, state.snapshot) : null;
+  const focusedQueue = queues.get(focusedWorkspace?.workspace_id ?? "") ?? null;
+  const queueBusy = Boolean(focusedQueue?.items.some((item) => item.state === "queued" || isActive(item)));
+  useEffect(() => controller.followQueue(queueBusy), [controller, queueBusy, focusedWorkspace?.workspace_id]);
+  // The chip on a card focuses that workspace too, so the panel shows its queue.
+  const openQueue = (workspaceId: string) => {
+    controller.request("workspace.focus", { workspace_id: workspaceId });
+    controller.openQueue();
+  };
   const closeQueue = () => {
     controller.closeQueue();
     controller.focusTerminal();
@@ -344,7 +352,7 @@ export default function App() {
       className={`app ${state.sidebar ? "" : "no-sidebar"}`}
       style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
     >
-      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={(id) => controller.openQueue(id)} pins={pins} ports={ports} />}
+      {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
       {state.sidebar && (
         <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
       )}
@@ -363,6 +371,11 @@ export default function App() {
               snapshot={state.snapshot}
               changes={state.changes}
               files={state.files}
+              queue={state.queue}
+              queued={{
+                waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
+                running: Boolean(focusedQueue?.items.some(isActive)),
+              }}
               pins={pins}
               onPinsChange={setPins}
             />
@@ -390,10 +403,21 @@ export default function App() {
             )}
             {shownTreeFile && <FileView root={listingRoot} path={filePick} onClose={closeFile} />}
           </div>
-          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={queues.get(focusedWorkspace?.workspace_id ?? "") ?? null} onOpenQueue={() => focusedWorkspace && controller.openQueue(focusedWorkspace.workspace_id)} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+          <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
         </main>
-        <div className={`drawer ${readChanges ? "open" : ""}`} aria-hidden={!readChanges}>
-          {state.files ? (
+        <div className={`drawer ${readChanges || state.queue ? "open" : ""}`} aria-hidden={!(readChanges || state.queue)}>
+          {state.queue && state.snapshot ? (
+            <QueuePanel
+              controller={controller}
+              snapshot={state.snapshot}
+              workspace={focusedWorkspace ?? null}
+              folder={local ? queueFolder : null}
+              queue={focusedQueue}
+              actions={local ? queueActions : null}
+              focusComposer={!state.queueAuto}
+              onClose={closeQueue}
+            />
+          ) : state.files ? (
             <FilesPanel
               state={listing}
               changed={changedMarks}
@@ -430,21 +454,6 @@ export default function App() {
           worktrees={shownWorktrees.list}
           onClose={closeWorktrees}
         />
-      )}
-      {queueWorkspace && queueFolder && state.snapshot && (
-        local ? (
-          <QueueDialog
-            controller={controller}
-            snapshot={state.snapshot}
-            workspace={queueWorkspace}
-            folder={queueFolder}
-            queue={queueFile?.queues[queueKey(queueFolder)] ?? null}
-            actions={queueActions}
-            onClose={closeQueue}
-          />
-        ) : (
-          <QueueUnavailable onClose={closeQueue} />
-        )
       )}
       {state.hostKey && <HostKeyDialog controller={controller} hostKey={state.hostKey} />}
     </div>

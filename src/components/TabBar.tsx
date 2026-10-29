@@ -6,7 +6,7 @@ import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { FolderIcon, PinIcon } from "./icons";
+import { FolderIcon, PinIcon, QueueIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { StatusMark } from "./StatusMark";
 
@@ -15,6 +15,8 @@ export function TabBar({
   snapshot,
   changes,
   files,
+  queue,
+  queued,
   pins,
   onPinsChange,
 }: {
@@ -22,6 +24,10 @@ export function TabBar({
   snapshot: Snapshot | null;
   changes: boolean;
   files: boolean;
+  /// The Queue panel is open.
+  queue: boolean;
+  /// Prompts waiting in the focused workspace's queue, and whether one runs.
+  queued: { waiting: number; running: boolean };
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
 }) {
@@ -173,6 +179,16 @@ export function TabBar({
         onClick={() => controller.run("browse_files")}
       >
         <FolderIcon />
+      </button>
+      <button
+        className={`icon-button changes-toggle queue-toggle ${queued.running ? "running" : ""}`}
+        title={`Queue (⌘⇧A)${queued.waiting ? `: ${queued.waiting} waiting` : ""}`}
+        aria-label={`Queue${queued.waiting ? `, ${queued.waiting} waiting` : ""}`}
+        aria-pressed={queue}
+        onClick={() => controller.run("add_to_queue")}
+      >
+        <QueueIcon />
+        {queued.waiting > 0 && <span className="queue-toggle-count">{queued.waiting}</span>}
       </button>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </div>

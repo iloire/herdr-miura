@@ -57,12 +57,14 @@ export interface State {
   title: string | null;
   sidebar: boolean;
   palette: boolean;
-  /// The workspace whose prompt queue dialog is open.
-  queue: string | null;
   /// The Changes panel is open.
   changes: boolean;
   /// The Files panel is open. It shares the drawer with Changes, so at most one is.
   files: boolean;
+  /// The Queue panel is open, the third in the drawer.
+  queue: boolean;
+  /// It opened on its own, for a workspace with prompts queued, so it closes on its own too.
+  queueAuto: boolean;
   fontSize: number;
   commands: Command[];
 }
@@ -93,9 +95,10 @@ export class Controller {
     title: null,
     sidebar: true,
     palette: false,
-    queue: null,
     changes: false,
     files: false,
+    queue: false,
+    queueAuto: false,
     fontSize: DEFAULT_FONT_SIZE,
     commands: [],
   };
@@ -355,14 +358,12 @@ export class Controller {
     switch (name) {
       case "command_palette":
         return this.set({ palette: !this.state.palette });
-      case "add_to_queue": {
-        const workspace = this.state.snapshot?.focused_workspace_id ?? null;
-        return this.set({ queue: this.state.queue ? null : workspace });
-      }
+      case "add_to_queue":
+        return this.set({ queue: !this.state.queue, queueAuto: false, changes: false, files: false });
       case "review_changes":
-        return this.set({ changes: !this.state.changes, files: false });
+        return this.set({ changes: !this.state.changes, files: false, queue: false, queueAuto: false });
       case "browse_files":
-        return this.set({ files: !this.state.files, changes: false });
+        return this.set({ files: !this.state.files, changes: false, queue: false, queueAuto: false });
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
@@ -406,12 +407,21 @@ export class Controller {
     this.set({ files: false });
   }
 
-  openQueue(workspaceId: string): void {
-    this.set({ queue: workspaceId });
+  openQueue(): void {
+    this.set({ queue: true, queueAuto: false, changes: false, files: false });
   }
 
   closeQueue(): void {
-    this.set({ queue: null });
+    this.set({ queue: false, queueAuto: false });
+  }
+
+  /// Follows the focused workspace: its queue holding prompts opens the panel
+  /// when the drawer is free, and one opened that way closes again once the
+  /// focused workspace has none. A panel opened or closed by hand is left be.
+  followQueue(busy: boolean): void {
+    const { queue, queueAuto, changes, files } = this.state;
+    if (busy && !queue && !changes && !files) this.set({ queue: true, queueAuto: true });
+    else if (!busy && queue && queueAuto) this.set({ queue: false, queueAuto: false });
   }
 
   closePalette(): void {
