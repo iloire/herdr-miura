@@ -158,6 +158,7 @@ function QueueBody({
             stopAfter={queue.stopAfter}
             onGo={() => goTo(active)}
             onStopAfter={() => actions.set(folder, { stopAfter: !queue.stopAfter })}
+            onDrop={() => actions.drop(folder, active.id)}
           />
         )}
         {waiting.map((item, index) => (
@@ -283,12 +284,14 @@ function Running({
   stopAfter,
   onGo,
   onStopAfter,
+  onDrop,
 }: {
   item: Item;
   snapshot: Snapshot;
   stopAfter: boolean;
   onGo: () => void;
   onStopAfter: () => void;
+  onDrop: () => void;
 }) {
   const agent = snapshot.agents.find((a) => a.pane_id === item.paneId);
   const blocked = agent?.agent_status === "blocked";
@@ -330,6 +333,11 @@ function Running({
             <PauseIcon />
             {stopAfter ? "Pausing after" : "Pause after"}
           </button>
+          {item.state !== "starting" && item.state !== "prompting" && (
+            <button onClick={onDrop} title="Take it off the queue; its tab and agent stay as they are">
+              Remove
+            </button>
+          )}
         </div>
       </div>
     </li>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Workspace } from "../../protocol";
 import {
   addItem,
+  dropItem,
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
@@ -135,6 +136,25 @@ describe("step", () => {
     expect(step(prompting, view([agent("p1", "idle")], 4000)).effect).toBeNull();
   });
 
+  it("fails a waiting item whose agent never started, once the grace for a new tab is over", () => {
+    const queue = running(queued("one", "two"));
+    const waiting = {
+      ...queue,
+      items: queue.items.map((i, n) => (n === 0 ? { ...i, state: "waiting" as const, reason: "not an available shell" } : i)),
+    };
+    expect(step(waiting, view([], 2000, ["p1"])).queue).toBe(waiting);
+    const { queue: failed } = step(waiting, view([], 1000 + 15_000, ["p1"]));
+    expect(failed.history[0]).toMatchObject({ state: "failed", reason: "its agent never started: not an available shell" });
+    expect(failed.paused?.reason).toBe("#1 its agent never started: not an available shell.");
+    expect(failed.items.map((i) => i.state)).toEqual(["queued"]);
+  });
+
+  it("keeps waiting while its agent is there but not ready", () => {
+    const queue = running(queued("one"));
+    const waiting = { ...queue, items: queue.items.map((i) => ({ ...i, state: "waiting" as const })) };
+    expect(step(waiting, view([agent("p1", "blocked")], 99_000)).queue).toBe(waiting);
+  });
+
   it("pauses after the running item when asked to stop after it", () => {
     let queue = { ...running(queued("one", "two")), stopAfter: true };
     queue = step(queue, view([agent("p1", "done")], 2000)).queue;
@@ -193,6 +213,20 @@ describe("editing a queue", () => {
     const { queue, index } = removeItem(started, started.items[1].id);
     expect(queue.items.map((i) => i.prompt)).toEqual(["a", "c"]);
     expect(restoreItem(queue, started.items[1], index).items.map((i) => i.prompt)).toEqual(["a", "b", "c"]);
+  });
+
+  it("drops the item in progress into the history without pausing, but not mid-call", () => {
+    const queue = running(queued("a", "b"));
+    const id = queue.items[0].id;
+    const dropped = dropItem(queue, id, 5000);
+    expect(dropped.items.map((i) => i.prompt)).toEqual(["b"]);
+    expect(dropped.history[0]).toMatchObject({ id, state: "stopped", reason: "removed by you", finished: 5000 });
+    expect(dropped.paused).toBeNull();
+    const paused = { ...queue, paused: { reason: "Paused by you." } };
+    expect(dropItem(paused, id, 5000).paused).toEqual({ reason: "Paused by you." });
+    const starting = step(queued("a"), view([], 1000)).queue;
+    expect(dropItem(starting, starting.items[0].id, 5000)).toBe(starting);
+    expect(dropItem(queue, queue.items[1].id, 5000)).toBe(queue);
   });
 
   it("fails an item caught starting when the app closed, and runs one caught prompting", () => {

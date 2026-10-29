@@ -166,7 +166,13 @@ export function step(queue: Queue, view: View): { queue: Queue; effect: Effect |
     }
     const agent = view.agents.find((a) => a.pane_id === active.paneId);
     if (active.state === "waiting") {
-      if (agent?.agent_status !== "idle" && agent?.agent_status !== "done") return same;
+      // Herdr refused to start it, so no agent will ever become ready there.
+      if (!agent) {
+        if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
+        const reason = active.reason ? `its agent never started: ${active.reason}` : "its agent never started";
+        return { queue: end(queue, active.id, "failed", now, reason), effect: null };
+      }
+      if (agent.agent_status !== "idle" && agent.agent_status !== "done") return same;
       const item = { ...active, state: "prompting" as const, reason: undefined };
       return { queue: replace(queue, item), effect: { kind: "prompt", item } };
     }
@@ -213,6 +219,16 @@ export function end(queue: Queue, id: string, state: "done" | "failed" | "stoppe
     history: [ended, ...queue.history].slice(0, HISTORY),
     paused: state === "done" ? queue.paused : { reason: `#${item.n} ${reason ?? state}.` },
   };
+}
+
+/// Takes the item in progress out of the queue by your hand, leaving its tab
+/// and agent as they are. Unlike `end`, it does not pause, so the next prompt
+/// starts once nothing in the workspace is busy. Not while `queue_open` or
+/// `queue_prompt` is in flight, whose answer would find no item.
+export function dropItem(queue: Queue, id: string, now: number): Queue {
+  const item = queue.items.find((i) => i.id === id);
+  if (!item || !isActive(item) || item.state === "starting" || item.state === "prompting") return queue;
+  return { ...end(queue, id, "stopped", now, "removed by you"), paused: queue.paused };
 }
 
 /// Puts a `starting` item back at its place and pauses, for a start refused

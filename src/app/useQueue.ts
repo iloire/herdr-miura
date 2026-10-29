@@ -10,6 +10,7 @@ import type { Controller } from "./controller";
 import {
   addItem,
   countCommits,
+  dropItem,
   type Effect,
   emptyQueue,
   end,
@@ -41,6 +42,9 @@ export interface QueueActions {
   edit(folder: string, id: string, prompt: string): void;
   /// Removes a waiting item and returns a function that puts it back.
   remove(folder: string, id: string): () => void;
+  /// Takes the item in progress off the queue without pausing it; its tab and
+  /// agent are left alone.
+  drop(folder: string, id: string): void;
   move(folder: string, id: string, delta: number): void;
   /// Pauses with a reason, or resumes with null.
   pause(folder: string, paused: boolean): void;
@@ -229,6 +233,10 @@ export function useQueue(
           return queue;
         });
         return undo;
+      },
+      drop(folder, id) {
+        update(folder, (q) => dropItem(q, id, Date.now()));
+        tick();
       },
       move(folder, id, delta) {
         update(folder, (q) => moveItem(q, id, delta));
