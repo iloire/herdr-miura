@@ -61,7 +61,8 @@ Nothing deploys yet. Builds are local and unsigned.
 Working: the core terminal client, a read-only Changes panel with diffs ([plan](docs/plan-changes.md)),
 and agent status at a glance: each workspace's agents listed under it with a mark for working, waiting on
 you (with a count), done, or idle, and the Dock badge and window title counting agents that finished or need
-you ([plan](docs/plan-agent-status.md)). The sidebar resizes from its edge, each workspace's branch line counts
+you ([plan](docs/plan-agent-status.md)), plus a ↻ on the tab and workspace card of a Claude session that `/loop`
+will run again (read from a tag Claude Code's hooks report, see [architecture](docs/architecture.md)). The sidebar resizes from its edge, each workspace's branch line counts
 its changed files, and right-clicking a workspace opens its folder in VS Code, GitHub Desktop, or the file
 manager, or copies its path. Workspaces sort by hand, dragged into place (the daemon keeps that order), or
 by attention, with those waiting on you first. Right-clicking a tab opens a new tab, or renames, pins, moves to another

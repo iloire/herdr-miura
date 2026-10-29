@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot } from "../../protocol";
-import { agentCountsByTab, agentsByWorkspace, attentionCount, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentsByWorkspace, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -12,6 +12,7 @@ function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus,
     agent: "claude",
     title: null,
     agent_status,
+    tokens: [],
     focused: false,
     ...over,
   };
@@ -93,5 +94,25 @@ describe("agentCountsByTab", () => {
       ]),
     );
     expect(Object.fromEntries(counts)).toEqual({ t1: 2, t2: 1, t3: 3 });
+  });
+});
+
+describe("loopTag", () => {
+  it("reads the loop tag herdr-attention reports, with or without the $ the config writes", () => {
+    expect(loopTag(agent("1", "a", "done", { tokens: [["attn_done", "✓ done"], ["attn_loop", "↻ loop 14:32"]] }))).toBe(
+      "↻ loop 14:32",
+    );
+    expect(loopTag(agent("1", "a", "done", { tokens: [["$attn_loop", "↻ loop"]] }))).toBe("↻ loop");
+    expect(loopTag(agent("1", "a", "done", { tokens: [["attn_done", "✓ done"]] }))).toBeNull();
+  });
+
+  it("collects the loops among a tab's or workspace's agents", () => {
+    const agents = [
+      agent("1", "a", "idle", { tokens: [["attn_loop", "↻ loop 09:05"]] }),
+      agent("2", "a", "working"),
+      agent("3", "a", "done", { tokens: [["attn_loop", "↻ loop"]] }),
+    ];
+    expect(loopTags(agents)).toEqual(["↻ loop 09:05", "↻ loop"]);
+    expect(loopTags([agent("2", "a", "working")])).toEqual([]);
   });
 });

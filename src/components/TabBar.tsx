@@ -1,12 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
-import { agentCountsByTab } from "../app/attention";
+import { agentCountsByTab, loopTags } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { FolderIcon, PinIcon } from "./icons";
+import { LoopMark } from "./LoopMark";
 import { StatusMark } from "./StatusMark";
 
 export function TabBar({
@@ -121,6 +122,7 @@ export function TabBar({
                   )}
                   <StatusMark status={tab.agent_status} />
                   <span className="tab-text">{tab.label}</span>
+                  <LoopMark tags={loopTags(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])} />
                   {agents > 1 && <AgentCount count={agents} />}
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
                 </button>

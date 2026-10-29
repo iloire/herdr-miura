@@ -50,6 +50,8 @@ export interface Agent {
   agent: string | null;
   title: string | null;
   agent_status: AgentStatus;
+  /// Metadata tokens reported on the agent's pane, e.g. `["attn_loop", "↻ loop 14:32"]`.
+  tokens: [string, string][];
   focused: boolean;
 }
 

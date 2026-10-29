@@ -94,6 +94,13 @@ export const FileIcon = () => (
   </Icon>
 );
 
+/// A session `/loop` will run again.
+export const LoopIcon = () => (
+  <Icon>
+    <path d="M13 8a5 5 0 1 1-1.46-3.54M9.25 4.6h2.4V2.2" {...LINE} />
+  </Icon>
+);
+
 /// Claude's mark, beside its plan usage in the status bar.
 export const ClaudeIcon = () => (
   <Icon>

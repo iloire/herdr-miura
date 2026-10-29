@@ -3,7 +3,7 @@ import type { Controller } from "../app/controller";
 import { copyPath, openFolder, tildePath } from "../app/folder";
 import { useHome } from "../app/useHome";
 import { workspaceDirectory } from "../changes/counts";
-import { agentsByWorkspace, workspaceMarks } from "../app/attention";
+import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
@@ -12,6 +12,7 @@ import type { Worktree } from "../changes/worktrees";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
   BranchIcon,
@@ -143,6 +144,7 @@ export function Sidebar({
                 </span>
                 <span className="workspace-marks">
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
+                  <LoopMark tags={loopTags(own)} />
                   <AgentCount count={own.length} />
                   {marks.map(({ status, count }) => (
                     <StatusMark key={status} status={status} count={status === "blocked" ? count : undefined} />
