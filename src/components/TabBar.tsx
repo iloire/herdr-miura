@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
+import { agentCountsByTab } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, pinnedFirst, savePins } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
+import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { FolderIcon, PinIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
@@ -32,6 +34,7 @@ export function TabBar({
     snapshot?.tabs.filter((tab) => tab.workspace_id === snapshot.focused_workspace_id) ?? [],
     isPinned,
   );
+  const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
 
   const togglePin = (tab: Tab) => {
     if (!snapshot) return;
@@ -75,6 +78,7 @@ export function TabBar({
       <div className="tab-rows" role="tablist" aria-label="Tabs">
         {tabs.map((tab) => {
           const pinned = isPinned(tab);
+          const agents = agentCounts.get(tab.tab_id) ?? 0;
           return (
             <div
               key={tab.tab_id}
@@ -117,6 +121,7 @@ export function TabBar({
                   )}
                   <StatusMark status={tab.agent_status} />
                   <span className="tab-text">{tab.label}</span>
+                  {agents > 1 && <AgentCount count={agents} />}
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
                 </button>
               )}

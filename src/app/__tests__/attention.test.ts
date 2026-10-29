@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot } from "../../protocol";
-import { agentsByWorkspace, attentionCount, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentsByWorkspace, attentionCount, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -77,5 +77,21 @@ describe("counts", () => {
     expect(attentionCount(snapshot(agents))).toBe(3);
     expect(attentionCount(snapshot([agent("1", "a", "idle")]))).toBe(0);
     expect(attentionCount(null)).toBe(0);
+  });
+});
+
+describe("agentCountsByTab", () => {
+  it("counts the agents in each tab, across workspaces", () => {
+    const counts = agentCountsByTab(
+      snapshot([
+        agent("1", "a", "working", { tab_id: "t1" }),
+        agent("2", "a", "done", { tab_id: "t1" }),
+        agent("3", "a", "idle", { tab_id: "t2" }),
+        agent("4", "b", "blocked", { tab_id: "t3" }),
+        agent("5", "b", "working", { tab_id: "t3" }),
+        agent("6", "b", "working", { tab_id: "t3" }),
+      ]),
+    );
+    expect(Object.fromEntries(counts)).toEqual({ t1: 2, t2: 1, t3: 3 });
   });
 });

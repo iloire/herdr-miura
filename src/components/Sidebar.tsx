@@ -10,6 +10,7 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, Snapshot, Tab } from "../protocol";
+import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import {
   AttentionOrderIcon,
@@ -19,7 +20,6 @@ import {
   HandOrderIcon,
   OpenIcon,
   PinIcon,
-  TerminalIcon,
 } from "./icons";
 import { Ports } from "./Ports";
 import { Worktrees } from "./Worktrees";
@@ -244,18 +244,6 @@ function PinnedTabs({ tabs }: { tabs: Tab[] }) {
     <span className="pinned-tabs" title={label} aria-label={label}>
       <PinIcon />
       {tabs.length > 1 && tabs.length}
-    </span>
-  );
-}
-
-/// How many agents run in a workspace, in place of listing each under it.
-function AgentCount({ count }: { count: number }) {
-  if (count === 0) return null;
-  const label = `${count} ${count === 1 ? "agent" : "agents"}`;
-  return (
-    <span className="agent-count" title={label} aria-label={label}>
-      <TerminalIcon />
-      {count}
     </span>
   );
 }

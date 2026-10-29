@@ -27,6 +27,13 @@ export function agentsByWorkspace(snapshot: Snapshot): Map<string, Agent[]> {
   return byWorkspace;
 }
 
+/// How many agents run in each tab, for the count a tab with several shows.
+export function agentCountsByTab(snapshot: Snapshot): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const agent of snapshot.agents) counts.set(agent.tab_id, (counts.get(agent.tab_id) ?? 0) + 1);
+  return counts;
+}
+
 /// A workspace card's marks: one per live status among its agents, so a
 /// finished agent cannot hide one still working or one waiting on you. Idle
 /// shows only when nothing else does, and a workspace without agents falls
