@@ -1,3 +1,4 @@
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
@@ -6,10 +7,12 @@ import { useHome } from "../app/useHome";
 import { emptyQueue, isActive, type Item, type Queue, title } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
-import { PauseIcon, PlayIcon, TerminalIcon } from "./icons";
+import { CheckIcon, CopyIcon, PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 
 /// How long a removed prompt can be brought back.
 const UNDO_MS = 6000;
+/// How long a copy button shows that it copied.
+const COPIED_MS = 1500;
 
 /// The focused workspace's prompt queue in the right-hand drawer, beside
 /// Changes and Files. A track runs down it: the prompt running now is its lit
@@ -506,11 +509,38 @@ function Finished({ item, onGo }: { item: Item; onGo: (() => void) | null }) {
         <span className="queue-row-title">{title(item.prompt, 80)}</span>
         <span className="queue-finished-facts">{facts.filter(Boolean).join(" · ")}</span>
       </span>
+      <CopyPrompt item={item} />
       {onGo && (
         <button className="queue-finished-go" title="Open its tab" aria-label={`Open the tab of #${item.n}`} onClick={onGo}>
           <TerminalIcon />
         </button>
       )}
     </li>
+  );
+}
+
+/// Copies a finished item's whole prompt, so a stopped one can be queued again.
+function CopyPrompt({ item }: { item: Item }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  const copy = () => {
+    writeText(item.prompt).then(
+      () => setCopied(true),
+      (error) => console.error("could not copy the prompt", error),
+    );
+  };
+  return (
+    <button
+      className={`queue-finished-go${copied ? " copied" : ""}`}
+      title={copied ? "Copied" : "Copy the prompt"}
+      aria-label={copied ? `Copied the prompt of #${item.n}` : `Copy the prompt of #${item.n}`}
+      onClick={copy}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
   );
 }

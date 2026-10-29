@@ -2884,8 +2884,13 @@ kbd {
 }
 
 .queue-finished:hover .queue-finished-go,
-.queue-finished-go:focus-visible {
+.queue-finished-go:focus-visible,
+.queue-finished-go.copied {
   opacity: 1;
+}
+
+.queue-finished-go.copied {
+  color: var(--done);
 }
 
 .queue-finished-go:hover {

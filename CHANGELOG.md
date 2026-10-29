@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-29 14:25 — Copy a finished prompt
+
+A prompt that stopped or failed (its tab closed, its agent exited, you removed it) showed only its first line
+in the done list, so there was no easy way to get its text back to queue it again. Each finished row now has
+a copy button beside its open-tab button that puts the whole prompt, every line, on the clipboard and shows a
+check for a moment. It goes through Tauri's clipboard plugin (already in the Rust side; its JS package and
+`clipboard-manager:allow-write-text` are new) rather than `navigator.clipboard`, which the built app's custom
+scheme may not allow.
+
 ## 2026-10-29 14:10 — A workspace's queue stays on one folder
 
 Queues are kept by folder, and a workspace that herdr names no folder for took the focused tab's, so focusing

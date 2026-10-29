@@ -44,6 +44,12 @@ export const CopyIcon = () => (
   </Icon>
 );
 
+export const CheckIcon = () => (
+  <Icon>
+    <path d="m3 8.5 3.25 3.25L13 5" {...LINE} />
+  </Icon>
+);
+
 export const TerminalIcon = () => (
   <Icon>
     <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" {...LINE} />
