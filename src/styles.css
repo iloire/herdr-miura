@@ -11,7 +11,7 @@
   --working: #82c4ff;
   --blocked: #f28b94;
   --done: #98c379;
-  /* Every other color the chrome uses: a theme sets these too (app/chrome.ts),
+  /* Every other color the chrome uses: a theme sets these too (themes/chrome.ts),
      so nothing below names a color of its own. */
   --hover: #1b222a; /* a row under the pointer, menus */
   --active: #1f2730; /* the selected row */
