@@ -22,8 +22,9 @@ pub enum Error {
     MissingCli,
     #[error("could not run `herdr`")]
     Spawn(#[source] std::io::Error),
-    #[error("Herdr refused: {0}")]
-    Refused(String),
+    /// Herdr's message, and its error code when it gave one.
+    #[error("Herdr refused: {message}")]
+    Refused { code: Option<String>, message: String },
     #[error("Herdr did not move the pane")]
     Unchanged,
     #[error("Herdr answered in a form this app does not read")]
@@ -81,6 +82,8 @@ struct Envelope {
 
 #[derive(Deserialize)]
 struct ErrorBody {
+    #[serde(default)]
+    code: Option<String>,
     message: String,
 }
 
@@ -119,12 +122,18 @@ pub(crate) fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error>
     match envelope {
         Some(Envelope {
             error: Some(error), ..
-        }) => Err(Error::Refused(error.message)),
+        }) => Err(Error::Refused {
+            code: error.code,
+            message: error.message,
+        }),
         Some(Envelope {
             result: Some(result),
             ..
         }) if output.status.success() => Ok(result),
-        _ => Err(Error::Refused(text.trim().chars().take(300).collect())),
+        _ => Err(Error::Refused {
+            code: None,
+            message: text.trim().chars().take(300).collect(),
+        }),
     }
 }
 

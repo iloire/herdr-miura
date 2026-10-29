@@ -296,7 +296,12 @@ pub fn open(
         start.push("--");
         start.extend(args.iter().map(String::as_str));
     }
-    let started = run(&cli, &start);
+    // A shell that never came up is not an agent asking a question; waiting
+    // on it would wait forever, so the item fails with Herdr's reason.
+    let started = match while_busy(Instant::now() + SHELL_START, || run(&cli, &start), std::thread::sleep) {
+        Err(error) if busy(&error) => return Err(error),
+        other => other,
+    };
     Ok(Opened {
         tab_id: pane.tab_id,
         pane_id: pane.pane_id,
@@ -304,6 +309,31 @@ pub fn open(
         note: started.err().map(|error| error.to_string()),
         head: head(directory),
     })
+}
+
+/// How long a new tab's shell gets to start before its agent can, as
+/// herdr-gpui allows: a prompt that prints a banner first takes a moment.
+const SHELL_START: Duration = Duration::from_secs(10);
+const SHELL_POLL: Duration = Duration::from_millis(200);
+
+/// Herdr's answer to `agent start` on a pane whose shell is still starting.
+fn busy(error: &Error) -> bool {
+    matches!(error, Error::Refused { code: Some(code), .. } if code == "agent_pane_busy")
+}
+
+/// Runs `attempt` again while Herdr says the pane's shell is busy, until
+/// `deadline`; any other answer is returned as it is.
+fn while_busy<T>(
+    deadline: Instant,
+    mut attempt: impl FnMut() -> Result<T, Error>,
+    mut pause: impl FnMut(Duration),
+) -> Result<T, Error> {
+    loop {
+        match attempt() {
+            Err(error) if busy(&error) && Instant::now() + SHELL_POLL < deadline => pause(SHELL_POLL),
+            other => return other,
+        }
+    }
 }
 
 /// Submits `text` to the agent `name` as one prompt and returns once it has
@@ -499,6 +529,30 @@ mod tests {
             assert!(!reason.trim().is_empty(), "{name}");
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn agent_start_waits_out_a_busy_shell_but_nothing_else() {
+        let refused = |code: &str| Error::Refused { code: Some(code.into()), message: code.into() };
+        let later = Instant::now() + Duration::from_secs(60);
+        let mut tries = 0;
+        let started = while_busy(
+            later,
+            || {
+                tries += 1;
+                if tries < 3 { Err(refused("agent_pane_busy")) } else { Ok(tries) }
+            },
+            |_| {},
+        );
+        assert_eq!(started.unwrap(), 3);
+
+        let mut tries = 0;
+        let other = while_busy(later, || -> Result<(), _> { tries += 1; Err(refused("timeout")) }, |_| {});
+        assert!(matches!(other, Err(Error::Refused { .. })) && tries == 1);
+
+        let mut tries = 0;
+        let late = while_busy(Instant::now(), || -> Result<(), _> { tries += 1; Err(refused("agent_pane_busy")) }, |_| {});
+        assert!(late.as_ref().is_err_and(busy) && tries == 1);
     }
 
     #[test]

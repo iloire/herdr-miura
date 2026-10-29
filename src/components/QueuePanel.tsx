@@ -319,7 +319,7 @@ function Running({
         </p>
         <FromAgent item={item} />
         {item.state === "waiting" && item.reason && (
-          <p className="queue-note">Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
+          <p className="queue-note" title={item.reason}>Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
         )}
         <div className="queue-card-actions">
           <button className="primary" disabled={!item.tabId} onClick={onGo}>
