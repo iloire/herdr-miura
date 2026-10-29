@@ -2,6 +2,8 @@ import { loopTag } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
 import {
   burn,
+  contextLevel,
+  contextTitle,
   formatTokens,
   type SessionUsage,
   sessionOf,
@@ -75,7 +77,7 @@ function AgentFacts({
       </span>
       {usage && spent && (
         <>
-          <span className="tab-fact" title="Context: what the session's next turn starts from">
+          <span className={`tab-fact ctx-${contextLevel(usage.context)}`} title={contextTitle(usage.context)}>
             ctx <b>{formatTokens(usage.context)}</b>
           </span>
           <span className="tab-fact" title={spendTitle(spent, since)}>

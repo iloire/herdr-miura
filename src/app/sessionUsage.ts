@@ -90,6 +90,29 @@ export function burn(usages: readonly SessionUsage[], now: number, count = 5, mi
   return bars;
 }
 
+/// Context sizes the header marks: every turn pays about its context, and a
+/// long one also recalls less well, so past `high` it is worth noticing and
+/// past `over` worth a `/compact` or a fresh session. Constants until the
+/// settings file (docs/plan-settings.md) can hold them.
+export const CONTEXT_LIMITS = { high: 150_000, over: 300_000 };
+
+export type ContextLevel = "ok" | "high" | "over";
+
+export function contextLevel(context: number): ContextLevel {
+  if (context >= CONTEXT_LIMITS.over) return "over";
+  if (context >= CONTEXT_LIMITS.high) return "high";
+  return "ok";
+}
+
+/// The context figure's tooltip, saying why it is colored when it is.
+export function contextTitle(context: number): string {
+  const what = "Context: what the session's next turn starts from, and pays for";
+  const level = contextLevel(context);
+  if (level === "over") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.over)}: worth a /compact or a fresh session`;
+  if (level === "high") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.high)}: getting large`;
+  return what;
+}
+
 /// `950`, `14k`, `1.8M`.
 export function formatTokens(count: number): string {
   if (count < 1000) return `${Math.round(count)}`;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeUsage } from "../claudeUsage";
-import { burn, formatTokens, type Minute, type SessionUsage, tokensSince, weighted, windowStart } from "../sessionUsage";
+import { burn, contextLevel, formatTokens, type Minute, type SessionUsage, tokensSince, weighted, windowStart } from "../sessionUsage";
 
 function minute(at: number, over: Partial<Minute> = {}): Minute {
   return { at, input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0, ...over };
@@ -53,5 +53,11 @@ describe("burn", () => {
 describe("formatTokens", () => {
   it("rounds to what fits a header", () => {
     expect([950, 14_200, 999_999, 1_840_000].map(formatTokens)).toEqual(["950", "14k", "1.0M", "1.8M"]);
+  });
+});
+
+describe("contextLevel", () => {
+  it("marks a context from 150k as high and from 300k as over", () => {
+    expect([149_999, 150_000, 299_999, 300_000, 900_000].map(contextLevel)).toEqual(["ok", "high", "high", "over", "over"]);
   });
 });

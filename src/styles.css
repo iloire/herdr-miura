@@ -1723,6 +1723,17 @@ kbd {
   font-weight: 600;
 }
 
+/* A context large enough to be worth noticing, then worth compacting. */
+.tab-fact.ctx-high,
+.tab-fact.ctx-high b {
+  color: var(--lantern);
+}
+
+.tab-fact.ctx-over,
+.tab-fact.ctx-over b {
+  color: var(--blocked);
+}
+
 .tab-burn {
   width: 20px;
   height: 12px;
