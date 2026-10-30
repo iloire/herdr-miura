@@ -413,10 +413,6 @@ export default function App() {
     controller.request("workspace.focus", { workspace_id: workspaceId });
     controller.openQueue();
   };
-  const closeQueue = () => {
-    controller.closeQueue();
-    controller.focusTerminal();
-  };
   const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
 
   const paletteCommands = useMemo(
@@ -516,7 +512,6 @@ export default function App() {
                 access={queueAccess}
                 actions={local ? queueActions : null}
                 focusComposer={!state.queueAuto}
-                onClose={closeQueue}
               />
             ) : state.files ? (
               <FilesPanel
@@ -525,10 +520,6 @@ export default function App() {
                 selected={shownTreeFile ? filePick : null}
                 onOpen={setFilePick}
                 onLeave={() => controller.focusTerminal()}
-                onClose={() => {
-                  controller.closeFiles();
-                  closeFile();
-                }}
               />
             ) : (
               <ChangesPanel
@@ -538,10 +529,6 @@ export default function App() {
                 commitFiles={commitFiles}
                 onOpen={setDiffPick}
                 onToggleCommit={toggleCommit}
-                onClose={() => {
-                  controller.closeChanges();
-                  closeDiff();
-                }}
               />
             )}
           </div>

@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 13:24 — The right panels lose their × and the switch hands focus back
+
+Changes, Files and Queue no longer have a × in their header: it sat next to the panel switch, whose lit toggle already
+closes the panel. Closing a panel with its toggle, ⌘⇧E, ⌘⇧A or the command palette now puts the cursor back in the
+terminal, as the × did, so you can type straight away. Opening a panel moves nothing, and the queue still puts the
+cursor in its prompt box. A diff left open comes back when Changes reopens, and a diff or file view keeps its own × and
+Esc.
+
 ## 2026-10-30 13:14 — Workspace cards collapse to one line and expand to show more
 
 A workspace card is now a single line: the name, its Git counts, the queue, any loop and the agent tally. Agents that

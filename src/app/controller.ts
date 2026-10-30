@@ -475,11 +475,11 @@ export class Controller {
       case "prompt_library":
         return this.set({ library: !this.state.library, palette: false });
       case "add_to_queue":
-        return this.set({ queue: !this.state.queue, queueAuto: false, changes: false, files: false });
+        return this.togglePanel("queue");
       case "review_changes":
-        return this.set({ changes: !this.state.changes, files: false, queue: false, queueAuto: false });
+        return this.togglePanel("changes");
       case "browse_files":
-        return this.set({ files: !this.state.files, changes: false, queue: false, queueAuto: false });
+        return this.togglePanel("files");
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
@@ -515,20 +515,16 @@ export class Controller {
   /// Set by the terminal view, so closing an overlay hands typing back to it.
   focusTerminal: () => void = () => {};
 
-  closeChanges(): void {
-    this.set({ changes: false });
-  }
-
-  closeFiles(): void {
-    this.set({ files: false });
+  /// Opens `panel` in the drawer, or closes it if open: the focus was in the
+  /// panel or on its toggle, so closing hands typing back to the terminal.
+  private togglePanel(panel: "changes" | "files" | "queue"): void {
+    const open = !this.state[panel];
+    this.set({ changes: false, files: false, queue: false, queueAuto: false, [panel]: open });
+    if (!open) this.focusTerminal();
   }
 
   openQueue(): void {
     this.set({ queue: true, queueAuto: false, changes: false, files: false });
-  }
-
-  closeQueue(): void {
-    this.set({ queue: false, queueAuto: false });
   }
 
   /// Follows the focused workspace: its queue holding prompts opens the panel

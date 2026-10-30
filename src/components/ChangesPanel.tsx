@@ -50,7 +50,6 @@ export function ChangesPanel({
   commitFiles,
   onOpen,
   onToggleCommit,
-  onClose,
 }: {
   store: ChangesStore;
   selected: DiffPick | null;
@@ -58,7 +57,6 @@ export function ChangesPanel({
   commitFiles: CommitFilesState | null;
   onOpen: (pick: DiffPick) => void;
   onToggleCommit: (commit: RecentCommit) => void;
-  onClose: () => void;
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
@@ -68,9 +66,6 @@ export function ChangesPanel({
     <aside className="changes" aria-label="Changes">
       <header className="changes-head">
         <span>Changes</span>
-        <button className="icon-button" aria-label="Close changes" title="Close" onClick={onClose}>
-          ×
-        </button>
       </header>
       {state.phase === "idle" && <p className="empty">Focus a pane to see its checkout.</p>}
       {state.phase === "loading" && <p className="empty">Reading the checkout…</p>}

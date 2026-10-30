@@ -28,7 +28,6 @@ export function QueuePanel({
   access,
   actions,
   focusComposer,
-  onClose,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -40,14 +39,10 @@ export function QueuePanel({
   actions: QueueActions | null;
   /// Put the cursor in the prompt box: when opened by hand, not when it opened on its own.
   focusComposer: boolean;
-  onClose: () => void;
 }) {
   const head = (
     <header className="changes-head queue-head">
       <span>Queue</span>
-      <button className="icon-button" aria-label="Close queue" title="Close (⌘⇧A)" onClick={onClose}>
-        ×
-      </button>
     </header>
   );
   // Without the queue file there is nothing to show and nowhere to add to, so
@@ -89,7 +84,6 @@ export function QueuePanel({
       separate={access.separate}
       actions={actions}
       focusComposer={focusComposer}
-      onClose={onClose}
     />
   );
 }
@@ -103,7 +97,6 @@ function QueueBody({
   separate,
   actions,
   focusComposer,
-  onClose,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -114,7 +107,6 @@ function QueueBody({
   separate: boolean;
   actions: QueueActions;
   focusComposer: boolean;
-  onClose: () => void;
 }) {
   const home = useHome();
   const [draft, setDraft] = useState("");
@@ -166,9 +158,6 @@ function QueueBody({
           onClick={() => actions.pause(folder, queue.paused === null)}
         >
           {queue.paused ? <PlayIcon /> : <PauseIcon />}
-        </button>
-        <button className="icon-button" aria-label="Close queue" title="Close (⌘⇧A)" onClick={onClose}>
-          ×
         </button>
       </header>
 

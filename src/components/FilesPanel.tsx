@@ -15,7 +15,6 @@ export function FilesPanel({
   selected,
   onOpen,
   onLeave,
-  onClose,
 }: {
   state: ListingState;
   /// Changed paths and their `git status --short` letter.
@@ -24,7 +23,6 @@ export function FilesPanel({
   onOpen: (path: string) => void;
   /// Escape in an empty filter: typing goes back to the terminal.
   onLeave: () => void;
-  onClose: () => void;
 }) {
   const listing = state.phase === "ready" ? state.listing : null;
   const root = listing?.root ?? null;
@@ -59,9 +57,6 @@ export function FilesPanel({
     <aside className="changes files" aria-label="Files">
       <header className="changes-head">
         <span title={root ?? undefined}>{name}</span>
-        <button className="icon-button" aria-label="Close files" title="Close" onClick={onClose}>
-          ×
-        </button>
       </header>
       <div className="files-filter">
         <input
