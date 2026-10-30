@@ -1,15 +1,15 @@
 import { type CSSProperties, useState } from "react";
 import type { Controller } from "../app/controller";
 import { hueColor } from "../app/hue";
-import { type Member, STATE_WORDS, startTeam, TEAM_FILE, type TeamState, teamRows } from "../app/team";
+import { STATE_WORDS, startTeam, TEAM_FILE, type TeamState, teamRows } from "../app/team";
 import type { Snapshot, Workspace } from "../protocol";
 import { TeamDialog } from "./TeamDialog";
 
 /// The focused workspace's team, under the workspace list: each role with a
 /// letter in its hue and what it is doing. A started role's row focuses its
-/// tab; one not started yet starts it, and Start starts every missing one.
-/// Nothing shows for a folder without a team file. The header opens the team
-/// in full, with what each role's agent file says.
+/// tab; one not started yet starts it. Nothing shows for a folder without a
+/// team file. The header opens the team in full, with what each role's agent
+/// file says.
 export function TeamSection({
   controller,
   snapshot,
@@ -51,23 +51,9 @@ export function TeamSection({
     );
   }
   const rows = teamRows(team.members, workspace.workspace_id, snapshot);
-  const missing = rows.filter((row) => row.state === "absent").map((row) => row.member);
-  const start = (members: Member[]) =>
-    controller.act(startTeam(workspace.workspace_id, directory, members));
   return (
     <section className="team" aria-label="Team">
-      <header className="sidebar-head">
-        {title(rows.length)}
-        {missing.length > 0 && (
-          <button
-            className="team-start"
-            title={`Open a tab for ${missing.map((m) => m.role).join(", ")} and run claude --agent in each`}
-            onClick={() => start(missing)}
-          >
-            Start {missing.length === rows.length ? "all" : missing.length}
-          </button>
-        )}
-      </header>
+      <header className="sidebar-head">{title(rows.length)}</header>
       <ul className="team-list">
         {rows.map(({ member, state, tabId }) => (
           <li key={member.role}>
@@ -80,7 +66,9 @@ export function TeamSection({
                   : `Start ${member.role}: claude --agent ${member.agent}, from ${TEAM_FILE}`
               }
               onClick={() =>
-                tabId ? controller.request("tab.focus", { tab_id: tabId }) : start([member])
+                tabId
+                  ? controller.request("tab.focus", { tab_id: tabId })
+                  : controller.act(startTeam(workspace.workspace_id, directory, [member]))
               }
             >
               <span className="team-avatar" aria-hidden="true">

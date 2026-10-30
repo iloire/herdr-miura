@@ -2,8 +2,8 @@
 
 A workspace can name a team: a handful of roles, each one a Claude Code session in a tab of its own,
 running as a different agent with its own prompt, tools, and model. The sidebar lists the focused
-workspace's team under the workspace list, with each role's state in words, and **Start** opens every
-role that is not running yet.
+workspace's team under the workspace list, with each role's state in words. Clicking a role that is not
+running starts it.
 
 You still route the work between them. Nothing here passes messages from one agent to another.
 
@@ -79,12 +79,11 @@ You review; you never write features. ...
 This is where the roles differ: the prompt, the tools they can use, and the model. `claude agents` lists
 the agents Claude Code can see from a folder.
 
-## What Start does
+## Starting a role
 
-For each role that has no tab yet, `team.rs` runs the `herdr` CLI, as `tab_move.rs` does:
-`herdr tab create --workspace <id> --cwd <folder> --label <role> --no-focus`, and then
-`herdr pane run <its pane> claude --agent <agent>`. Clicking a role that isn't running starts only that
-role; clicking a running one focuses its tab.
+Click a role's row in the sidebar. A role that has no tab yet starts: `team.rs` runs the `herdr` CLI, as
+`tab_move.rs` does, with `herdr tab create --workspace <id> --cwd <folder> --label <role> --no-focus` and
+then `herdr pane run <its pane> claude --agent <agent>`. Clicking a role that is running focuses its tab.
 
 ## States
 

@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 10:25 — No Start button in the Team section
+
+The Team header's **Start all** / **Start N** button is gone, so the header is only its title, which
+still opens the team dialog. To start a role, click its row: one that is not running starts, and one
+that is running focuses its tab.
+
 ## 2026-10-30 10:04 — The workspace card no longer shows its folder
 
 The name and the path under it said the same thing on nearly every card, so the path is gone and

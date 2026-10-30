@@ -2017,22 +2017,6 @@ kbd {
   letter-spacing: 0;
 }
 
-.team-start {
-  background: none;
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  color: var(--text);
-  cursor: pointer;
-  font-size: calc(11px * var(--ui-scale));
-  letter-spacing: 0;
-  padding: 1px 8px;
-  text-transform: none;
-}
-
-.team-start:hover {
-  border-color: var(--muted);
-}
-
 .team-list {
   list-style: none;
   margin: 0;
