@@ -32,7 +32,7 @@ import { RenameField } from "./RenameField";
 import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
-import { createTeam, STATE_WORDS, teamRows, type TeamState, useTeams } from "../app/team";
+import { createTeam, type TeamState, useTeams } from "../app/team";
 
 /// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
 function folderMenu(controller: Controller, path: string): MenuItem[] {
@@ -241,7 +241,6 @@ export function Sidebar({
                     name keeps its width however much is going on. Beside the
                     card's button, not in it: a port is a button of its own. */}
                 <div className="workspace-tray" onClick={focus}>
-                  {snapshot && <TeamMark team={teamOf(workspace)} workspaceId={workspace.workspace_id} snapshot={snapshot} />}
                   <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
@@ -402,33 +401,6 @@ function WorkspaceGit({
         </span>
       )}
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
-    </span>
-  );
-}
-
-/// The team mark: a workspace with a team file shows the team icon and how
-/// many of its roles are running out of how many it has; hovering names each
-/// role and what it is doing. A file with a mistake in it shows the icon in
-/// the error color.
-function TeamMark({ team, workspaceId, snapshot }: { team: TeamState; workspaceId: string; snapshot: Snapshot }) {
-  if (team.phase === "none") return null;
-  if (team.phase === "invalid") {
-    return (
-      <span className="team-mark invalid" title={team.error} aria-label={team.error}>
-        <TeamIcon />
-      </span>
-    );
-  }
-  const rows = teamRows(team.members, workspaceId, snapshot);
-  const running = rows.filter((row) => row.state !== "absent").length;
-  const title = [
-    `Team: ${running} of ${rows.length} running`,
-    ...rows.map((row) => `${row.member.role}: ${STATE_WORDS[row.state]}`),
-  ].join("\n");
-  return (
-    <span className={`team-mark${running > 0 ? " running" : ""}`} title={title} aria-label={title}>
-      <TeamIcon />
-      {running > 0 ? `${running}/${rows.length}` : rows.length}
     </span>
   );
 }

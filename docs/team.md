@@ -7,9 +7,6 @@ role that is not running yet.
 
 You still route the work between them. Nothing here passes messages from one agent to another.
 
-Every workspace card with a team shows a violet team mark: the number of roles, or `2/3` once some of
-them are running. Hover over it to see each role's state.
-
 ## The Team dialog
 
 Click the Team section's header (**TEAM 3**) to see the team in full. There is one card per role: its

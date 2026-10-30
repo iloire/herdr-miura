@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 09:51 — No team mark on the workspace card
+
+The card showed a violet team icon and count beside its other chips. It added little: the Team section
+under the workspace list already shows the focused workspace's roles and their state, so the mark is
+gone. A team file with a mistake in it now shows only there too.
+
 ## 2026-10-30 09:35 — The + has a plain-terminal click and a shortcut
 
 With `new_tab.command` set, the mouse could only open a tab running it, and the keyboard only a plain
