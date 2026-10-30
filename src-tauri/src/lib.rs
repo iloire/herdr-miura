@@ -66,6 +66,7 @@ pub fn run() {
             commands::move_tab,
             commands::open_file,
             commands::open_folder,
+            commands::prompt_create,
             commands::prompt_library,
             commands::prompt_send,
             commands::queue_commits,

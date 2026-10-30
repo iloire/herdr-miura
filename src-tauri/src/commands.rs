@@ -491,6 +491,16 @@ pub async fn prompt_library(connection: State<'_, Connection>, directory: Option
     Ok(run.await.map_err(changes::Error::Worker)?)
 }
 
+/// Writes a new prompt `<name>.md` into `directory`'s `.claude/commands/`, or
+/// the global folder without one. Never over a file. This Mac only.
+#[tauri::command]
+pub async fn prompt_create(connection: State<'_, Connection>, directory: Option<String>, name: String, text: String) -> Result<()> {
+    connection.ensure_local()?;
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    let run = tauri::async_runtime::spawn_blocking(move || prompts::create(home.as_deref(), directory.as_deref(), &name, &text));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
 /// Submits a prompt from the library to the agent in the pane `pane`.
 #[tauri::command]
 pub async fn prompt_send(connection: State<'_, Connection>, pane: String, text: String) -> Result<()> {

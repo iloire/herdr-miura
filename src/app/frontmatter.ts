@@ -19,7 +19,7 @@ const KEY = /^([A-Za-z][\w.-]*):(?:\s+(.*))?$/;
 export function scalar(raw: string): string {
   const text = raw.trim();
   const quoted = /^(["'])(.*)\1$/.exec(text);
-  if (quoted) return quoted[2];
+  if (quoted) return quoted[1] === '"' ? quoted[2].replace(/\\(["\\])/g, "$1") : quoted[2];
   return text.replace(/\s+#.*$/, "");
 }
 

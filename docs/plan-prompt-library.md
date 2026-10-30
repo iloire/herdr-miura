@@ -68,6 +68,13 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   - **Queue** (⌘3): `actions.add(folder, text, false)`, exactly as typed in the Queue panel.
 
   Enter runs the entry's default action; ⌘↵ does the same from the preview box.
+- **New prompt** (⌘N, the button under the list, or Enter on a search that matches nothing, whose words
+  become the name) swaps the preview for a form: name, this project or global, an optional description, the
+  text. It writes one new file and never over an existing one, a name its own scope already has is refused
+  before saving, and so is a global name a project prompt would hide; a project prompt may take a global
+  name, as overriding is what that is for. When `~/.claude/commands` holds links, the new global file goes
+  beside what they point at (`~/dotfiles/claude/commands`) and is linked in too, so dotfiles carry it like
+  the others. Saving does not commit it there.
 - **`$ARGUMENTS` is left alone.** Herdr substitutes nothing in this slice. The preview shows the text
   as it is, so you replace `$ARGUMENTS` yourself before sending, or leave it for a prompt that is meant to
   run as a slash command.
@@ -86,20 +93,22 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
    <pane id>` reached a Claude named `p1` and it answered. Still to try by hand in the window itself: a
    new tab that opens on an untrusted folder fails with the reason and leaves its tab, and does not wait
    for the agent as a queued item does.
-3. **Pin and hide per project.** Kept by the window, keyed by workspace folder as the queue is
+3. ~~**New prompt from the palette.**~~ ✅ `prompts::create` (`prompt_create`), `components/NewPrompt.tsx`,
+   and `promptName`, `nameTaken` and `promptFile` in `app/promptLibrary.ts`.
+4. **Pin and hide per project.** Kept by the window, keyed by workspace folder as the queue is
    (`local:<folder>`), in the app's data folder beside the queue rather than in the repo: what you pin is
    your view, not the project's. Pinned prompts sort first; hidden global ones drop out of the list, with a
    "show hidden" toggle to bring one back. **Copy to project** writes `<folder>/.claude/commands/<name>.md`
    from the global file, refusing when that file exists (never an overwrite), so it can then be edited
    for this repo.
-4. **Variables Herdr fills in.** `{{branch}}`, `{{changed_files}}`, `{{selection}}` (the terminal
+5. **Variables Herdr fills in.** `{{branch}}`, `{{changed_files}}`, `{{selection}}` (the terminal
    selection) and `{{workspace}}`, replaced in the preview when an entry is selected, so you see what will
    be sent. Plain substitution: an unknown `{{name}}` stays as written, and nothing else is a template.
-5. **Save as prompt…** on a queue item's right-click menu (and the done list's rows): asks for a name and
+6. **Save as prompt…** on a queue item's right-click menu (and the done list's rows): asks for a name and
    writes the item's prompt to the project's `.claude/commands/`, never over an existing file.
-6. **A Library panel** in the right-hand drawer beside Changes, Files and Queue: the same entries,
+7. **A Library panel** in the right-hand drawer beside Changes, Files and Queue: the same entries,
    with the file's path, Open in VS Code (`open_file`), and the pin and hide controls.
-7. **Suggest prompts you send often.** Look through finished queue items and past transcripts
+8. **Suggest prompts you send often.** Look through finished queue items and past transcripts
    (`~/.claude/projects/*/*.jsonl`, already read by `session_usage.rs`) for prompts sent more than a few
    times in similar words, and offer each as a new file. Only offered, never written on its own.
 

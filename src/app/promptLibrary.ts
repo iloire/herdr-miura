@@ -167,6 +167,37 @@ export function blocked(prompt: Prompt, action: Action, can: { agent: boolean; f
   return null;
 }
 
+/// What the name box keeps of what is typed: the `/name` a file can have.
+export const promptName = (typed: string) =>
+  typed
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .replace(/^[-_]+/, "");
+
+/// Why a new prompt called `name` cannot go in `scope`, or null when it can.
+/// A project prompt may take a global one's name, as hiding it is what that
+/// is for, but a global one would only be hidden itself.
+export function nameTaken(prompts: readonly Prompt[], name: string, scope: Scope): string | null {
+  const taken = prompts.find((prompt) => prompt.name === name);
+  if (!taken) return null;
+  if (taken.scope === scope) return `/${name} is already ${taken.path}.`;
+  return scope === "global" ? `This project's /${name} would hide it.` : null;
+}
+
+/// A new prompt's file. The description goes in frontmatter, quoted when YAML
+/// would read it as anything but a plain string.
+export function promptFile(description: string, text: string): string {
+  const summary = description.trim();
+  const body = `${text.trim()}\n`;
+  if (!summary) return body;
+  const plain = /^[A-Za-z0-9][^:#"'\\]*$/.test(summary);
+  return `---\ndescription: ${plain ? summary : JSON.stringify(summary)}\n---\n\n${body}`;
+}
+
+export const createPrompt = (directory: string | null, name: string, text: string) =>
+  invoke<void>("prompt_create", { directory, name, text });
+
 export const readLibrary = (directory: string | null) =>
   invoke<RawLibrary>("prompt_library", { directory }).then(buildLibrary);
 

@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 22:21 — Add a prompt from the prompt library
+
+The library could only send what was already a file, so a new prompt meant leaving for an editor. New prompt (⌘N, the
+button under the list, or Enter on a search that matches nothing) now asks for a name, this project or global, an
+optional description and the text, writes the `.md` file and selects it. It never writes over a file. A global prompt
+follows the links in `~/.claude/commands` into dotfiles, where it still has to be committed.
+
 ## 2026-10-30 22:06 — The New tab button is solid yellow
 
 It was a muted outline that faded into the tab row. It now sits on a solid lantern chip with the icon in the background

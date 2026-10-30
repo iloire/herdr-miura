@@ -3,12 +3,12 @@
 //! Each file comes back with its text or why it cannot be used, never left
 //! out, so the palette can show a broken one. What the text means (its
 //! frontmatter, which file wins a name) is the webview's `promptLibrary.ts`.
-//! Nothing here writes.
+//! `create` adds a new file and never touches one that exists.
 
 use serde::Serialize;
 use std::{
     fs,
-    io::Read,
+    io::{self, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -41,6 +41,22 @@ pub struct Folder {
 pub struct Library {
     pub global: Option<Folder>,
     pub project: Option<Folder>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CreateError {
+    #[error("“{0}” is not a prompt name: use letters, digits, - and _")]
+    Name(String),
+    #[error("the prompt is over {} KiB", MAX_BYTES >> 10)]
+    TooLarge,
+    #[error("could not find the folder to put the prompt in")]
+    NoFolder,
+    #[error("the workspace's .claude/commands is a link out of its folder")]
+    Outside,
+    #[error("{0} already exists")]
+    Exists(String),
+    #[error("could not write {0}: {1}")]
+    Write(String, #[source] io::Error),
 }
 
 /// The global folder under `home`, and the project folder under `directory`
@@ -118,6 +134,82 @@ fn walk(dir: &Path, depth: usize, found: &mut Vec<PathBuf>) {
             found.push(path);
         }
     }
+}
+
+/// Writes a new prompt `<name>.md`: into `directory`'s `.claude/commands/`,
+/// or the global folder when there is no `directory`. A file of that name is
+/// left alone and refused. Blocking.
+pub fn create(home: Option<&Path>, directory: Option<&str>, name: &str, text: &str) -> Result<(), CreateError> {
+    let mut chars = name.chars();
+    let first = chars.next().is_some_and(|c| c.is_ascii_alphanumeric());
+    if !first || !chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return Err(CreateError::Name(name.to_owned()));
+    }
+    if text.len() as u64 > MAX_BYTES {
+        return Err(CreateError::TooLarge);
+    }
+    let file = format!("{name}.md");
+    let Some(directory) = directory else {
+        let dir = home.ok_or(CreateError::NoFolder)?.join(".claude/commands");
+        return create_global(&dir, &file, text);
+    };
+    let root = Path::new(directory);
+    if !root.is_absolute() {
+        return Err(CreateError::NoFolder);
+    }
+    let root = fs::canonicalize(root).map_err(|_| CreateError::NoFolder)?;
+    let dir = root.join(".claude/commands");
+    fs::create_dir_all(&dir).map_err(|error| failed(&dir, error))?;
+    if !fs::canonicalize(&dir).is_ok_and(|real| real.starts_with(&root)) {
+        return Err(CreateError::Outside);
+    }
+    write_new(&dir.join(file), text)
+}
+
+/// A global folder whose files are links into dotfiles stays that way: the
+/// new file goes beside what they point at and is linked here too, so it is
+/// not the one loose file a reprovision loses.
+fn create_global(dir: &Path, file: &str, text: &str) -> Result<(), CreateError> {
+    let link = dir.join(file);
+    if link.symlink_metadata().is_ok() {
+        return Err(CreateError::Exists(link.display().to_string()));
+    }
+    let Some(linked) = linked_folder(dir) else {
+        fs::create_dir_all(dir).map_err(|error| failed(dir, error))?;
+        return write_new(&link, text);
+    };
+    let real = linked.join(file);
+    write_new(&real, text)?;
+    std::os::unix::fs::symlink(&real, &link).map_err(|error| {
+        let _ = fs::remove_file(&real);
+        failed(&link, error)
+    })
+}
+
+/// The folder the first link among `dir`'s prompts points into.
+fn linked_folder(dir: &Path) -> Option<PathBuf> {
+    let mut entries: Vec<_> = fs::read_dir(dir).ok()?.flatten().map(|entry| entry.path()).collect();
+    entries.sort();
+    entries.into_iter().find_map(|path| {
+        let link = path.symlink_metadata().ok()?.is_symlink() && path.extension().is_some_and(|e| e == "md");
+        link.then(|| fs::canonicalize(&path).ok()?.parent().map(Path::to_path_buf)).flatten()
+    })
+}
+
+/// Writes a file that must not exist yet.
+fn write_new(path: &Path, text: &str) -> Result<(), CreateError> {
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(path).map_err(|error| {
+        if error.kind() == io::ErrorKind::AlreadyExists {
+            CreateError::Exists(path.display().to_string())
+        } else {
+            failed(path, error)
+        }
+    })?;
+    file.write_all(text.as_bytes()).map_err(|error| failed(path, error))
+}
+
+fn failed(path: &Path, error: io::Error) -> CreateError {
+    CreateError::Write(path.display().to_string(), error)
 }
 
 /// A file's text, or why it cannot be a prompt.
@@ -202,6 +294,66 @@ mod tests {
         assert!(project[0].problem.as_deref().unwrap().contains("leaves the workspace folder"));
         assert_eq!(project[1].path, "gone.md");
         assert!(project[1].problem.is_some());
+    }
+
+    #[test]
+    fn creates_in_the_project_making_the_folder_and_never_overwrites() {
+        let repo = tempfile::tempdir().unwrap();
+        let directory = repo.path().to_str();
+        create(None, directory, "land-it", "Land it\n").unwrap();
+        let path = repo.path().join(".claude/commands/land-it.md");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "Land it\n");
+
+        assert!(matches!(create(None, directory, "land-it", "Other"), Err(CreateError::Exists(_))));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "Land it\n");
+    }
+
+    #[test]
+    fn a_name_cannot_leave_the_commands_folder() {
+        let repo = tempfile::tempdir().unwrap();
+        for name in ["../up", "a/b", "", "-x", "a.b", "a b"] {
+            assert!(matches!(create(None, repo.path().to_str(), name, "x"), Err(CreateError::Name(_))), "{name}");
+        }
+        assert!(matches!(create(None, Some("relative"), "ok", "x"), Err(CreateError::NoFolder)));
+    }
+
+    #[test]
+    fn creates_globally_in_a_plain_folder() {
+        let home = tempfile::tempdir().unwrap();
+        create(Some(home.path()), None, "plain", "Plain").unwrap();
+        let path = home.path().join(".claude/commands/plain.md");
+        assert!(!path.symlink_metadata().unwrap().is_symlink());
+        assert_eq!(fs::read_to_string(path).unwrap(), "Plain");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_global_prompt_follows_the_links_into_dotfiles() {
+        let home = tempfile::tempdir().unwrap();
+        let dotfiles = tempfile::tempdir().unwrap();
+        let global = home.path().join(".claude/commands");
+        fs::create_dir_all(&global).unwrap();
+        fs::write(dotfiles.path().join("old.md"), "Old").unwrap();
+        std::os::unix::fs::symlink(dotfiles.path().join("old.md"), global.join("old.md")).unwrap();
+
+        create(Some(home.path()), None, "new", "New").unwrap();
+        assert_eq!(fs::read_to_string(dotfiles.path().join("new.md")).unwrap(), "New");
+        assert!(global.join("new.md").symlink_metadata().unwrap().is_symlink());
+        assert_eq!(fs::read_to_string(global.join("new.md")).unwrap(), "New");
+
+        assert!(matches!(create(Some(home.path()), None, "new", "Again"), Err(CreateError::Exists(_))));
+        assert_eq!(fs::read_to_string(dotfiles.path().join("new.md")).unwrap(), "New");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_project_commands_link_out_of_the_folder_is_refused() {
+        let repo = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        fs::create_dir_all(repo.path().join(".claude")).unwrap();
+        std::os::unix::fs::symlink(elsewhere.path(), repo.path().join(".claude/commands")).unwrap();
+        assert!(matches!(create(None, repo.path().to_str(), "out", "x"), Err(CreateError::Outside)));
+        assert!(!elsewhere.path().join("out.md").exists());
     }
 
     #[test]

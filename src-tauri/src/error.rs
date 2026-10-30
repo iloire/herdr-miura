@@ -11,6 +11,8 @@ pub enum Error {
     #[error(transparent)]
     TabMove(#[from] crate::tab_move::Error),
     #[error(transparent)]
+    PromptCreate(#[from] crate::prompts::CreateError),
+    #[error(transparent)]
     Queue(#[from] crate::queue::StoreError),
     #[error(transparent)]
     TeamCreate(#[from] crate::team::CreateError),

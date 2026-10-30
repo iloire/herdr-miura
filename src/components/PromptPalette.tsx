@@ -7,13 +7,16 @@ import {
   defaultAction,
   type Library,
   type Prompt,
+  promptName,
   readLibrary,
+  type Scope,
   searchPrompts,
   sendPrompt,
   startInNewTab,
 } from "../app/promptLibrary";
 import type { QueueActions } from "../app/useQueue";
 import type { Snapshot } from "../protocol";
+import { NewPrompt } from "./NewPrompt";
 
 const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New tab", queue: "Queue" };
 const KEYS: Record<Action, string> = { here: "⌘1", "new-tab": "⌘2", queue: "⌘3" };
@@ -21,7 +24,8 @@ const KEYS: Record<Action, string> = { here: "⌘1", "new-tab": "⌘2", queue: "
 /// The prompt library (⌘⇧L): Claude Code's commands from `~/.claude/commands`
 /// and the focused workspace's `.claude/commands`, searched on the left, the
 /// selected one's text on the right, editable before it is sent. What is sent
-/// is what the box holds; the file is never changed.
+/// is what the box holds; the file is never changed. New prompt (⌘N) writes a
+/// new file.
 export function PromptPalette({
   controller,
   snapshot,
@@ -40,7 +44,10 @@ export function PromptPalette({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const [draft, setDraft] = useState<{ key: string; text: string } | null>(null);
+  /// The name the new prompt form opened with; null when it is not open.
+  const [creating, setCreating] = useState<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const search = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let live = true;
@@ -60,6 +67,10 @@ export function PromptPalette({
     list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
+  useEffect(() => {
+    if (creating === null) search.current?.focus();
+  }, [creating]);
+
   const pane = snapshot?.focused_pane_id ?? null;
   const agent = snapshot?.agents.find((a) => a.pane_id === pane && a.agent) ?? null;
   const workspaceId = snapshot?.focused_workspace_id ?? null;
@@ -72,7 +83,7 @@ export function PromptPalette({
   };
 
   const run = (action: Action) => {
-    if (!prompt || blocked(prompt, action, can) || !text.trim()) return;
+    if (creating !== null || !prompt || blocked(prompt, action, can) || !text.trim()) return;
     const body = text.trim();
     if (action === "here" && pane) controller.act(sendPrompt(pane, body));
     else if (action === "new-tab" && folder && workspaceId) controller.act(startInNewTab(workspaceId, folder, prompt, body));
@@ -83,11 +94,29 @@ export function PromptPalette({
     close();
   };
 
+  const startNew = () => setCreating(promptName(query));
+
+  const created = async (scope: Scope, name: string) => {
+    const read = await readLibrary(folder);
+    setLibrary(read);
+    setQuery("");
+    setSelected(Math.max(0, read.prompts.findIndex((entry) => entry.scope === scope && entry.name === name)));
+    setCreating(null);
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
     const command = event.metaKey || event.ctrlKey;
+    if (creating !== null) {
+      if (event.key !== "Escape") return;
+      setCreating(null);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const index = command ? ["1", "2", "3"].indexOf(event.key) : -1;
     if (event.key === "Escape") close();
     else if (index >= 0) run(ACTIONS[index]);
+    else if (event.key === "n" && command) startNew();
     else if (event.key === "Enter" && command) run(fallback);
     else return;
     event.preventDefault();
@@ -105,6 +134,8 @@ export function PromptPalette({
       >
         <input
           autoFocus
+          ref={search}
+          disabled={creating !== null}
           className="palette-input"
           placeholder={folder ? "Search prompts: this project's, then global" : "Search global prompts"}
           value={query}
@@ -115,84 +146,104 @@ export function PromptPalette({
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") setSelected((s) => Math.min(matches.length - 1, s + 1));
             else if (event.key === "ArrowUp") setSelected((s) => Math.max(0, s - 1));
-            else if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) run(fallback);
-            else return;
+            else if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+              if (library && matches.length === 0) startNew();
+              else run(fallback);
+            } else return;
             event.preventDefault();
           }}
         />
-        <div className="prompt-body">
-          <ul className="palette-list prompt-list" role="listbox" ref={list}>
-            {matches.map((entry, index) => (
-              <li
-                key={entry.key}
-                role="option"
-                aria-selected={index === selected}
-                className={entry.broken ? "broken" : undefined}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setSelected(index)}
-                onDoubleClick={() => run(defaultAction(entry, can.agent))}
-              >
-                <span className="prompt-name">
-                  {entry.broken && <span className="prompt-broken-mark">!</span>}/{entry.name}
-                  {entry.group && <span className="prompt-group">{entry.group}</span>}
-                </span>
-                <span className={`prompt-scope ${entry.scope}`}>{entry.scope}</span>
-              </li>
-            ))}
-            {library && matches.length === 0 && (
-              <li className="empty">
-                {library.prompts.length === 0
-                  ? "No prompts yet: add .md files to ~/.claude/commands or this repo's .claude/commands."
-                  : `No prompt matches “${query}”.`}
-              </li>
-            )}
-            {!library && !failed && <li className="empty">Reading prompts…</li>}
-            {failed && <li className="empty">{failed}</li>}
-          </ul>
-          <div className="prompt-preview">
-            {prompt ? (
-              <>
-                <div className="prompt-head">
-                  <strong>/{prompt.name}</strong>
-                  {prompt.argumentHint && <code>{prompt.argumentHint}</code>}
-                  {prompt.overrides && <span className="prompt-note">overrides global</span>}
-                </div>
-                {prompt.description && <p className="prompt-description">{prompt.description}</p>}
-                <p className="prompt-path" title={`${prompt.dir}/${prompt.path}`}>
-                  {prompt.scope === "project" ? ".claude/commands/" : "~/.claude/commands/"}
-                  {prompt.path}
-                </p>
-                {prompt.broken && <p className="prompt-problem">Can’t be sent: {prompt.broken}.</p>}
-                <textarea
-                  className="prompt-text"
-                  value={text}
-                  spellCheck={false}
-                  disabled={!!prompt.broken && !prompt.body}
-                  onChange={(event) => setDraft({ key: prompt.key, text: event.target.value })}
-                />
-                <div className="prompt-actions">
-                  {ACTIONS.map((action) => {
-                    const why = blocked(prompt, action, can);
-                    return (
-                      <button
-                        key={action}
-                        type="button"
-                        className={action === fallback ? "primary" : undefined}
-                        disabled={!!why || !text.trim()}
-                        title={why ?? (action === fallback ? `${LABELS[action]} (↵ in the search, ⌘↵ anywhere)` : undefined)}
-                        onClick={() => run(action)}
-                      >
-                        {LABELS[action]}
-                        <kbd>{KEYS[action]}</kbd>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <p className="prompt-description">Nothing selected.</p>
-            )}
+        <div className={creating === null ? "prompt-body" : "prompt-body creating"}>
+          <div className="prompt-side">
+            <ul className="palette-list prompt-list" role="listbox" ref={list}>
+              {matches.map((entry, index) => (
+                <li
+                  key={entry.key}
+                  role="option"
+                  aria-selected={index === selected}
+                  className={entry.broken ? "broken" : undefined}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setSelected(index)}
+                  onDoubleClick={() => run(defaultAction(entry, can.agent))}
+                >
+                  <span className="prompt-name">
+                    {entry.broken && <span className="prompt-broken-mark">!</span>}/{entry.name}
+                    {entry.group && <span className="prompt-group">{entry.group}</span>}
+                  </span>
+                  <span className={`prompt-scope ${entry.scope}`}>{entry.scope}</span>
+                </li>
+              ))}
+              {library && matches.length === 0 && (
+                <li className="empty">
+                  {library.prompts.length === 0
+                    ? "No prompts yet: add .md files to ~/.claude/commands or this repo's .claude/commands."
+                    : `No prompt matches “${query}”.`}
+                </li>
+              )}
+              {!library && !failed && <li className="empty">Reading prompts…</li>}
+              {failed && <li className="empty">{failed}</li>}
+            </ul>
+            <div className="prompt-actions prompt-new">
+              <button type="button" disabled={creating !== null} onClick={startNew}>
+                New prompt
+                <kbd>⌘N</kbd>
+              </button>
+            </div>
           </div>
+          {creating !== null ? (
+            <NewPrompt
+              name={creating}
+              folder={folder}
+              prompts={library?.prompts ?? []}
+              onCancel={() => setCreating(null)}
+              onCreated={created}
+            />
+          ) : (
+            <div className="prompt-preview">
+              {prompt ? (
+                <>
+                  <div className="prompt-head">
+                    <strong>/{prompt.name}</strong>
+                    {prompt.argumentHint && <code>{prompt.argumentHint}</code>}
+                    {prompt.overrides && <span className="prompt-note">overrides global</span>}
+                  </div>
+                  {prompt.description && <p className="prompt-description">{prompt.description}</p>}
+                  <p className="prompt-path" title={`${prompt.dir}/${prompt.path}`}>
+                    {prompt.scope === "project" ? ".claude/commands/" : "~/.claude/commands/"}
+                    {prompt.path}
+                  </p>
+                  {prompt.broken && <p className="prompt-problem">Can’t be sent: {prompt.broken}.</p>}
+                  <textarea
+                    className="prompt-text"
+                    value={text}
+                    spellCheck={false}
+                    disabled={!!prompt.broken && !prompt.body}
+                    onChange={(event) => setDraft({ key: prompt.key, text: event.target.value })}
+                  />
+                  <div className="prompt-actions">
+                    {ACTIONS.map((action) => {
+                      const why = blocked(prompt, action, can);
+                      return (
+                        <button
+                          key={action}
+                          type="button"
+                          className={action === fallback ? "primary" : undefined}
+                          disabled={!!why || !text.trim()}
+                          title={why ?? (action === fallback ? `${LABELS[action]} (↵ in the search, ⌘↵ anywhere)` : undefined)}
+                          onClick={() => run(action)}
+                        >
+                          {LABELS[action]}
+                          <kbd>{KEYS[action]}</kbd>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="prompt-description">Nothing selected.</p>
+              )}
+            </div>
+          )}
         </div>
         {library?.notes.map((note) => (
           <p key={note} className="prompt-footnote">

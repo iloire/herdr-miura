@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { blocked, buildLibrary, defaultAction, type RawFile, type RawFolder, searchPrompts } from "../promptLibrary";
+import {
+  blocked,
+  buildLibrary,
+  defaultAction,
+  nameTaken,
+  promptFile,
+  promptName,
+  type RawFile,
+  type RawFolder,
+  searchPrompts,
+} from "../promptLibrary";
 
 const text = (path: string, body: string): RawFile => ({ path, text: body, problem: null });
 const folder = (dir: string, files: RawFile[], truncated = false): RawFolder => ({ dir, files, truncated });
@@ -106,5 +116,39 @@ describe("actions", () => {
     expect(blocked(prompt, "new-tab", { ...can, folder: false })).toBe("This workspace has no folder on this Mac.");
     expect(blocked(prompt, "queue", { ...can, queue: false })).toBe("Another window has the queue.");
     expect(blocked({ ...prompt, broken: "bad" }, "queue", can)).toBe("bad");
+  });
+});
+
+describe("a new prompt", () => {
+  it("keeps only what a file name can hold", () => {
+    expect(promptName("Review the Diff!")).toBe("review-the-diff");
+    expect(promptName("  ../up/x.md")).toBe("upxmd");
+    expect(promptName("--_a_b-")).toBe("a_b-");
+  });
+
+  it("is refused a name its own scope has, and a global one a project prompt would hide", () => {
+    const { prompts } = buildLibrary({
+      global: folder("/g", [text("sub/ship.md", "Ship")]),
+      project: folder("/p", [text("land.md", "Land")]),
+    });
+    expect(nameTaken(prompts, "land", "project")).toContain("land.md");
+    expect(nameTaken(prompts, "ship", "global")).toContain("sub/ship.md");
+    expect(nameTaken(prompts, "land", "global")).toContain("hide");
+    expect(nameTaken(prompts, "ship", "project")).toBeNull();
+    expect(nameTaken(prompts, "new", "project")).toBeNull();
+  });
+
+  it("reads back as what was typed", () => {
+    for (const description of ["Review the diff", 'Fix: the "main" bug #1', "it's C:\\temp", "- a list? no"]) {
+      const { prompts } = buildLibrary({
+        global: null,
+        project: folder("/p", [text("new.md", promptFile(`  ${description}  `, "\nDo $ARGUMENTS\n\n"))]),
+      });
+      expect([prompts[0].description, prompts[0].body, prompts[0].broken]).toEqual([description, "Do $ARGUMENTS", null]);
+    }
+  });
+
+  it("has no frontmatter without a description", () => {
+    expect(promptFile(" ", "Just do it")).toBe("Just do it\n");
   });
 });

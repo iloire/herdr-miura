@@ -4244,9 +4244,22 @@ kbd {
   height: min(480px, 62vh);
 }
 
-.prompt-list {
-  max-height: none;
+.prompt-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--rule);
+}
+
+.prompt-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.prompt-body.creating .prompt-list {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .prompt-list li {
@@ -4386,6 +4399,41 @@ kbd {
   background: var(--rule);
   border-color: var(--rule-strong);
   outline: none;
+}
+
+.prompt-new {
+  padding: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.prompt-new button {
+  flex: 1;
+  justify-content: space-between;
+}
+
+.prompt-new-fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 12px;
+}
+
+.prompt-where {
+  display: flex;
+  gap: 4px;
+}
+
+.prompt-where button {
+  padding: 5px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--muted);
+  font: calc(13px * var(--ui-scale)) var(--sans);
+}
+
+.prompt-where button[aria-pressed="true"] {
+  border-color: var(--rule-strong);
+  background: var(--rule);
+  color: var(--text);
 }
 
 .prompt-actions button.primary {
