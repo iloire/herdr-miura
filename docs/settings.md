@@ -26,6 +26,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `terminal.font_size` | number, 8 to 32 | `13` | The terminal's size in points. ⌘+ / ⌘- / ⌘0 write it, so the size survives a relaunch; ⌘0 removes the key. |
 | `terminal.line_height` | number, 1 to 2 | `1.4` | Row height as a multiple of the size. |
 | `ui.font_size` | number, 10 to 18 | `13` | The chrome's text size (sidebar, tabs, panels, dialogs). Every font size in the stylesheet scales by `size / 13`. |
+| `ui.sidebar_agents` | boolean | `false` | List every running agent in a section at the bottom of the sidebar, above the Team section, grouped by workspace. A row shows the agent's tab and status mark, and clicking it focuses that tab. The section shows only while an agent runs. |
 | `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell. |
 
 ```toml

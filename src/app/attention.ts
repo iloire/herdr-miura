@@ -1,7 +1,7 @@
 // What needs you, read only from the daemon snapshot's agent statuses, never
 // guessed from terminal output. Ordering and counting follow herdr-gpui.
 
-import type { Agent, AgentStatus, Snapshot } from "../protocol";
+import type { Agent, AgentStatus, Snapshot, Tab } from "../protocol";
 
 /// Attention first, then the most recent change (herdr-gpui's `status_priority`).
 export const PRIORITY: Record<AgentStatus, number> = {
@@ -32,6 +32,16 @@ export function agentCountsByTab(snapshot: Snapshot): Map<string, number> {
   const counts = new Map<string, number>();
   for (const agent of snapshot.agents) counts.set(agent.tab_id, (counts.get(agent.tab_id) ?? 0) + 1);
   return counts;
+}
+
+/// What the sidebar's Agents section calls an agent: its tab, as the tab strip
+/// has it, since `agent` reads "claude" on nearly every row. Agents sharing a
+/// tab add their own name, so their rows differ.
+export function agentRowName(agent: Agent, tabs: readonly Tab[], counts: ReadonlyMap<string, number>): string {
+  const own = agent.name ?? agent.display_agent ?? agent.agent ?? "agent";
+  const tab = tabs.find((candidate) => candidate.tab_id === agent.tab_id);
+  if (!tab) return own;
+  return (counts.get(agent.tab_id) ?? 0) > 1 ? `${tab.label} · ${own}` : tab.label;
 }
 
 /// A workspace card's marks: one per live status among its agents, so a

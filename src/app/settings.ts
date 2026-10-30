@@ -16,7 +16,11 @@ export interface Settings {
     /// Row height as a multiple of the font size.
     lineHeight: number;
   };
-  ui: { fontSize: number };
+  ui: {
+    fontSize: number;
+    /// Whether the sidebar lists every running agent under the workspaces.
+    sidebarAgents: boolean;
+  };
   confirmCloseTab: boolean;
   /// What a new tab runs; `null` is the shell.
   newTabCommand: string | null;
@@ -25,7 +29,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_NAME,
   terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
-  ui: { fontSize: 13 },
+  ui: { fontSize: 13, sidebarAgents: false },
   confirmCloseTab: false,
   newTabCommand: null,
 };
@@ -94,6 +98,7 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   settings.terminal.fontSize = number("terminal.font_size", settings.terminal.fontSize);
   settings.terminal.lineHeight = number("terminal.line_height", settings.terminal.lineHeight);
   settings.ui.fontSize = number("ui.font_size", settings.ui.fontSize);
+  settings.ui.sidebarAgents = flag("ui.sidebar_agents", settings.ui.sidebarAgents);
   settings.confirmCloseTab = flag("confirm_close_tab", settings.confirmCloseTab);
   const command = text("new_tab.command", "", true);
   // One line, typed into a shell: a control character would run or edit more than it.

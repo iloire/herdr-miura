@@ -19,7 +19,7 @@ describe("parseSettings", () => {
     const { settings, warnings } = parseSettings({
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { font_family: "Menlo", font_size: 15, line_height: 1.2 },
-      ui: { font_size: 14 },
+      ui: { font_size: 14, sidebar_agents: true },
       confirm_close_tab: true,
       new_tab: { command: " claude " },
     });
@@ -27,7 +27,7 @@ describe("parseSettings", () => {
     expect(settings).toEqual({
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { fontFamily: "Menlo", fontSize: 15, lineHeight: 1.2 },
-      ui: { fontSize: 14 },
+      ui: { fontSize: 14, sidebarAgents: true },
       confirmCloseTab: true,
       newTabCommand: "claude",
     });
@@ -37,16 +37,27 @@ describe("parseSettings", () => {
     const { settings, warnings } = parseSettings({
       theme: "light:Nord",
       terminal: { font_size: 64, line_height: "tall", font_family: "" },
-      ui: { font_size: 9 },
+      ui: { font_size: 9, sidebar_agents: "yes" },
       confirm_close_tab: "yes",
       new_tab: { command: "claude\nrm -rf ~" },
     });
     expect(settings).toEqual(DEFAULT_SETTINGS);
-    expect(warnings).toHaveLength(7);
-    for (const key of ["theme", "terminal.font_size", "terminal.line_height", "terminal.font_family", "ui.font_size", "confirm_close_tab", "new_tab.command"]) {
+    expect(warnings).toHaveLength(8);
+    for (const key of ["theme", "terminal.font_size", "terminal.line_height", "terminal.font_family", "ui.font_size", "ui.sidebar_agents", "confirm_close_tab", "new_tab.command"]) {
       expect(warnings.some((warning) => warning.startsWith(`\`${key}\``)), key).toBe(true);
     }
     expect(warnings.find((w) => w.startsWith("`terminal.font_size`"))).toContain("from 8 to 32; using 13");
+  });
+
+  it("leaves the sidebar's Agents section off unless it is turned on", () => {
+    expect(DEFAULT_SETTINGS.ui.sidebarAgents).toBe(false);
+    expect(parseSettings({ ui: { font_size: 14 } }).settings.ui.sidebarAgents).toBe(false);
+    expect(parseSettings({ ui: { sidebar_agents: true } }).settings.ui.sidebarAgents).toBe(true);
+    expect(parseSettings({ ui: { sidebar_agents: false } })).toEqual({ settings: DEFAULT_SETTINGS, warnings: [] });
+
+    const { settings, warnings } = parseSettings({ ui: { sidebar_agents: "yes" } });
+    expect(settings.ui.sidebarAgents).toBe(false);
+    expect(warnings).toEqual(["`ui.sidebar_agents` should be true or false; using false."]);
   });
 
   it("warns about keys that are not settings and still reads the rest", () => {

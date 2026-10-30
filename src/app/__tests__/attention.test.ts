@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Agent, AgentStatus, Snapshot } from "../../protocol";
-import { agentCountsByTab, agentsByWorkspace, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
+import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -114,5 +114,37 @@ describe("loopTag", () => {
     ];
     expect(loopTags(agents)).toEqual(["↻ loop 09:05", "↻ loop"]);
     expect(loopTags([agent("2", "a", "working")])).toEqual([]);
+  });
+});
+
+describe("agentRowName", () => {
+  const tab = (tab_id: string, label: string): Tab => ({
+    tab_id,
+    workspace_id: "a",
+    number: 1,
+    label,
+    custom_label: false,
+    zoomed: false,
+    focused: false,
+    agent_status: "idle",
+  });
+  const tabs = [tab("t1", "Fix the build"), tab("t2", "Review")];
+  const counts = new Map([
+    ["t1", 1],
+    ["t2", 2],
+  ]);
+
+  it("is the agent's tab, as the tab strip names it", () => {
+    expect(agentRowName(agent("1", "a", "idle", { tab_id: "t1", name: "q46" }), tabs, counts)).toBe("Fix the build");
+  });
+
+  it("tells apart agents that share a tab", () => {
+    expect(agentRowName(agent("1", "a", "idle", { tab_id: "t2", name: "reviewer" }), tabs, counts)).toBe("Review · reviewer");
+    expect(agentRowName(agent("2", "a", "idle", { tab_id: "t2" }), tabs, counts)).toBe("Review · claude");
+  });
+
+  it("falls back to the agent's own name without a tab", () => {
+    expect(agentRowName(agent("1", "a", "idle", { tab_id: "gone", display_agent: "Claude" }), tabs, counts)).toBe("Claude");
+    expect(agentRowName(agent("1", "a", "idle", { tab_id: "gone", agent: null }), tabs, counts)).toBe("agent");
   });
 });

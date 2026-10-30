@@ -12,6 +12,7 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
+import { type AgentGroup, AgentsSection } from "./AgentsSection";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { LoopMark } from "./LoopMark";
 import {
@@ -60,6 +61,7 @@ export function Sidebar({
   onOpenQueue,
   pins,
   ports,
+  showAgents,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -80,6 +82,8 @@ export function Sidebar({
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
   ports: Map<string, ListeningPort[]>;
+  /// Lists every running agent under the workspaces (`ui.sidebar_agents`).
+  showAgents: boolean;
 }) {
   const [sort, setSort] = useState(loadSort);
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
@@ -107,6 +111,16 @@ export function Sidebar({
     saveSort(next);
   };
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
+  const agentGroups: AgentGroup[] = showAgents
+    ? rows
+        .map(({ workspace, parent }) => ({
+          workspaceId: workspace.workspace_id,
+          label: workspace.label,
+          railLabel: (parent ?? workspace).label,
+          agents: agents.get(workspace.workspace_id) ?? [],
+        }))
+        .filter((group) => group.agents.length > 0)
+    : [];
   const pinned = pinnedByWorkspace(snapshot?.tabs ?? [], (tab) => pins.has(pinKey(snapshot?.boot_id ?? "", tab.tab_id)));
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -127,7 +141,7 @@ export function Sidebar({
   const focused = workspaces.find((workspace) => workspace.focused);
   const focusedFolder = focused && folderOf(focused);
   return (
-    <nav className="sidebar" aria-label="Workspaces">
+    <nav className={agentGroups.length > 0 ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
         <span data-tauri-drag-region>{title}</span>
       </div>
@@ -254,6 +268,7 @@ export function Sidebar({
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} />}
       {snapshot && focused && focusedFolder && (
         <TeamSection
           controller={controller}

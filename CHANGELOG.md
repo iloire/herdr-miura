@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 11:55 — An optional Agents section in the sidebar
+
+A new setting, `ui.sidebar_agents` (off by default, and in Settings under Appearance), lists every running
+agent at the bottom of the sidebar, above the Team section, grouped by workspace on the same rail colors as
+the cards. A row shows the agent's tab and its status mark, and a click focuses that tab. While the section
+shows, the workspaces, agents and team each scroll in their own space, so a long list cannot push the team
+off screen. With the setting off the sidebar is as it was. Herdr's agent age is left out: the snapshot
+carries no time for an agent, only sequence numbers.
+
 ## 2026-10-30 11:46 — The new tab button has its own icon
 
 The tab bar's + sat beside the tabs' × and was easy to mistake for it, so it is now a small tab with a plus
