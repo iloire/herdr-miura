@@ -152,6 +152,7 @@ const DEFINITIONS: Definition[] = [
     action: ({ workspace }) =>
       workspace ? { method: "tab.create", params: { workspace_id: workspace.workspace_id, focus: true } } : null,
   },
+  { name: "new_command_tab", label: "New Tab with Command", mac: ["cmd-shift-t"], other: ["ctrl-alt-shift-t"], action: "window" },
   { name: "split_right", label: "Split Right", mac: ["cmd-d"], other: ["ctrl-shift-d"], action: split("right") },
   { name: "split_down", label: "Split Down", mac: ["cmd-shift-d"], other: ["ctrl-alt-shift-d"], action: split("down") },
   { name: "next_tab", label: "Next Tab", mac: ["cmd-shift-]"], other: ["ctrl-pagedown"], action: stepTab(1) },

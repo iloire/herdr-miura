@@ -26,7 +26,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `terminal.font_size` | number, 8 to 32 | `13` | The terminal's size in points. ⌘+ / ⌘- / ⌘0 write it, so the size survives a relaunch; ⌘0 removes the key. |
 | `terminal.line_height` | number, 1 to 2 | `1.4` | Row height as a multiple of the size. |
 | `ui.font_size` | number, 10 to 18 | `13` | The chrome's text size (sidebar, tabs, panels, dialogs). Every font size in the stylesheet scales by `size / 13`. |
-| `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + types into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌘T always opens a plain shell. |
+| `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell. |
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"

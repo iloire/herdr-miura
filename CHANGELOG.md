@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 09:35 — The + has a plain-terminal click and a shortcut
+
+With `new_tab.command` set, the mouse could only open a tab running it, and the keyboard only a plain
+one. ⌥-click on + now opens a plain terminal, and ⌘⇧T does what + does (the palette's New Tab with
+Command). ⌘T stays a plain terminal.
+
 ## 2026-10-29 23:50 — Markdown files open as a page
 
 A Markdown file opened from the Files panel was shown as its source with line numbers, hard to read

@@ -466,6 +466,8 @@ export class Controller {
 
   run(name: string): void {
     switch (name) {
+      case "new_command_tab":
+        return this.newTab();
       case "open_settings":
         return this.set({ settingsOpen: !this.state.settingsOpen, palette: false });
       case "command_palette":

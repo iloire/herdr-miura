@@ -91,7 +91,7 @@ export function SettingsDialog({
                 placeholder="the shell"
                 value={settings.newTabCommand ?? ""}
                 fallback=""
-                hint="Typed into the tab the strip's + opens, e.g. claude. ⌘T always opens a plain tab."
+                hint="Typed into the tab the strip's + or ⌘⇧T opens, e.g. claude. ⌥-click on + or ⌘T opens a plain tab."
                 onCommit={(value) => save("new_tab.command", value || null)}
               />
             </div>
