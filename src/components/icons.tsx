@@ -109,6 +109,13 @@ export const FileIcon = () => (
   </Icon>
 );
 
+/// A tab with a plus in it, so it can't pass for the × that closes a tab.
+export const NewTabIcon = () => (
+  <Icon>
+    <path d="M1.5 13.25h13M3.25 13.25V4.25a1.5 1.5 0 0 1 1.5-1.5h6.5a1.5 1.5 0 0 1 1.5 1.5v9M8 5.75v4.5M5.75 8h4.5" {...LINE} />
+  </Icon>
+);
+
 /// A session `/loop` will run again.
 export const LoopIcon = () => (
   <Icon>

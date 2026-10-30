@@ -6,7 +6,7 @@ import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { PinIcon } from "./icons";
+import { NewTabIcon, PinIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
@@ -148,7 +148,7 @@ export function TabBar({
             controller.focusTerminal();
           }}
         >
-          +
+          <NewTabIcon />
         </button>
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}

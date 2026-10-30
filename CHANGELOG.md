@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 11:46 — The new tab button has its own icon
+
+The tab bar's + sat beside the tabs' × and was easy to mistake for it, so it is now a small tab with a plus
+inside.
+
 ## 2026-10-30 11:41 — New icons for Changes, Files and Queue
 
 Changes is now a path from one commit to the next instead of a page with a plus and a minus, and Files is a
