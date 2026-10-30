@@ -78,7 +78,8 @@ CI runs the same checks and then `tauri build` on every push to `main` and on ev
 npm run tauri build     # release bundle in src-tauri/target/release/bundle/
 ```
 
-Nothing deploys yet. Builds are local and unsigned.
+Nothing deploys yet. Builds are local and unsigned. On this Mac two builds run side by side: a pinned
+Stable, and an Edge that rebuilds and restarts after every commit on `main` ([channels](docs/channels.md)).
 
 ## Status
 

@@ -20,8 +20,9 @@ function branch(): string {
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Only `vite` serving (`tauri dev`) off `main` gets a branch: a built app never shows the dev bar.
-  define: { __DEV_BRANCH__: JSON.stringify(command === "serve" ? branch() : "") },
+  // `vite` serving (`tauri dev`) off `main` gets its branch. A built app shows no dev bar, unless
+  // it is the Edge channel, which herdr-channels labels with its commit (docs/channels.md).
+  define: { __DEV_BRANCH__: JSON.stringify(process.env.HERDR_BUILD_LABEL || (command === "serve" ? branch() : "")) },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

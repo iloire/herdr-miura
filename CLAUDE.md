@@ -3,8 +3,9 @@
 ## New work goes in its own worktree
 
 Start every new feature or piece of work in a separate git worktree on its own branch, never in the
-main checkout. The main checkout stays on `main`, running the app Ivan uses every day, and each feature
-in progress runs as its own dev instance next to it. That way each one can be debugged and tested on
+main checkout. The main checkout stays on `main`, and each feature in progress runs as its own dev instance. The
+app Ivan uses every day is not built from this checkout: Stable and Edge run from their own clone
+([docs/channels.md](docs/channels.md)), and Edge rebuilds itself when a commit lands on `main`. That way each one can be debugged and tested on
 its own.
 
 - Create it under `.claude/worktrees/<name>` on a branch named `feat/<name>` (or `fix/…`), cut from
@@ -17,7 +18,7 @@ its own.
   npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'
   ```
 
-  A dev window on a feature branch never runs the daily prompt queue: only `main`'s window does. To try the queue in a worktree, give it its own folder: add `"identifier":"com.herdr.tauri.dev"`
+  A dev window on a feature branch never runs the daily prompt queue: only Stable does. To try the queue in a worktree, give it its own folder: add `"identifier":"com.herdr.tauri.dev"`
   to that `--config`.
 
   The dev window's `DEV · <branch>` strip (absent on `main`) tells the instances apart.

@@ -42,7 +42,7 @@ const LOAD_RETRY_MS = 5000;
 /// The app id of the window in daily use. A dev build started with another
 /// one (`com.herdr.tauri.dev`, see CLAUDE.md) keeps a queue of its own; one
 /// on a feature branch with this id has no queue at all, so the daily queue
-/// is only ever run by `main`'s code.
+/// is only ever run by `main`'s code (Stable, in daily use).
 const DAILY_ID = "com.herdr.tauri";
 
 /// Whether this window has the queue, and which one it is.
