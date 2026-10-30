@@ -48,4 +48,21 @@ describe("the panel commands", () => {
     expect(controller.getState()).toMatchObject({ queue: false, queueAuto: false });
     expect(focusTerminal).toHaveBeenCalledOnce();
   });
+
+  it.each(["tab.focus", "workspace.focus", "pane.focus"])("%s closes the view over the terminal and hands it the focus", (method) => {
+    const closeViews = vi.fn<() => void>();
+    controller.closeViews = closeViews;
+
+    controller.request(method, {});
+    expect(closeViews).toHaveBeenCalledOnce();
+    expect(focusTerminal).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the view open for a request that does not move", () => {
+    const closeViews = vi.fn<() => void>();
+    controller.closeViews = closeViews;
+
+    controller.request("workspace.rename", {});
+    expect(closeViews).not.toHaveBeenCalled();
+  });
 });

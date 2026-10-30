@@ -395,8 +395,12 @@ export class Controller {
     }
     void this.send(method, params);
     // However the move was asked for (a key, the palette, a card, the strip),
-    // typing goes to the tab, workspace or pane moved to.
-    if (MOVES.has(method)) this.focusTerminal();
+    // the view over the terminal closes and typing goes to the tab, workspace
+    // or pane moved to.
+    if (MOVES.has(method)) {
+      this.closeViews();
+      this.focusTerminal();
+    }
   }
 
   /// The request's ID once queued, or null if it was not.
@@ -514,6 +518,9 @@ export class Controller {
 
   /// Set by the terminal view, so closing an overlay hands typing back to it.
   focusTerminal: () => void = () => {};
+
+  /// Set by `App`, which keeps the diff or file open over the terminal.
+  closeViews: () => void = () => {};
 
   /// Opens `panel` in the drawer, or closes it if open: the focus was in the
   /// panel or on its toggle, so closing hands typing back to the terminal.

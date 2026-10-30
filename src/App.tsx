@@ -407,6 +407,13 @@ export default function App() {
     setFilePick(null);
     controller.focusTerminal();
   };
+  // Going to a tab shows it, even the one already focused under the diff.
+  useEffect(() => {
+    controller.closeViews = () => {
+      setDiffPick(null);
+      setFilePick(null);
+    };
+  }, [controller]);
 
   // The dialog closes on its own once the workspace is gone or its last
   // worktree is removed.

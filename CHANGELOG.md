@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:03 — Going to a tab leaves the diff
+
+A diff or file open over the terminal stayed there when an agent row or a workspace card was clicked, so the click
+seemed to do nothing, and typing went to the hidden terminal. Any move to a tab, workspace or pane now closes that view,
+even a move to the tab already focused. That covers the sidebar, the team list, the queue, the palette and the
+shortcuts. The drawer stays as it was, with its commit still open.
+
 ## 2026-10-30 18:45 — Eight built-in themes
 
 The Settings list had 34 themes, most of them variations on each other. It now has eight: Herdr Night, Catppuccin
