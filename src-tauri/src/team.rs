@@ -54,7 +54,7 @@ pub fn start(workspace: &str, directory: &str, members: &[Member]) -> Result<(),
         name(&member.agent)?;
     }
     if !Path::new(directory).is_absolute() || !Path::new(directory).is_dir() {
-        return Err(Error::InvalidId(directory.into()));
+        return Err(Error::NoFolder(directory.into()));
     }
     let cli = herdr()?;
     for member in members {

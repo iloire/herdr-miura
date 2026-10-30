@@ -10,12 +10,13 @@ import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
-import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
+import { isActive, itemOfTab, type Queue, queueKey } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { fontStack } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
-import { loadRoots, nextRoots, saveRoots, strayPath } from "./app/workspaceRoot";
+import { useRoots } from "./app/useRoots";
+import { strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
@@ -198,19 +199,20 @@ export default function App() {
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const local = state.status.phase === "connected" && state.host === null;
-  // Each workspace folder's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local);
+  const { roots, queueFolderOf } = useRoots(state.snapshot, local);
+  // Each main checkout's prompt queue, run one prompt at a time on this Mac.
+  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;
     if (!snapshot || !local) return byWorkspace;
     for (const workspace of snapshot.workspaces) {
-      const folder = workspaceFolder(workspace, snapshot);
+      const folder = queueFolderOf(workspace);
       const queue = folder ? queueFile?.queues[queueKey(folder)] : undefined;
       if (queue) byWorkspace.set(workspace.workspace_id, queue);
     }
     return byWorkspace;
-  }, [state.snapshot, local, queueFile]);
+  }, [state.snapshot, local, queueFile, queueFolderOf]);
   const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
   useEffect(() => {
     if (!local) {
@@ -308,14 +310,6 @@ export default function App() {
   }, [changesPoll, directory, changesStore]);
   const git = local ? tabGit(changes, directory) : null;
   const home = useHome();
-  const [roots, setRoots] = useState(loadRoots);
-  useEffect(() => {
-    if (!local || !state.snapshot) return;
-    const next = nextRoots(roots, state.snapshot);
-    if (next === roots) return;
-    setRoots(next);
-    saveRoots(next);
-  }, [local, state.snapshot, roots]);
   const stray = local ? strayPath(changes, directory, roots.folders[focusedWorkspace?.workspace_id ?? ""] ?? null, home) : null;
 
   // The panels go by the read they last saw. The tab header's reads with both
@@ -404,7 +398,7 @@ export default function App() {
 
   // The Queue panel shows the focused workspace's queue, and opens on its own
   // when that workspace has prompts queued or running.
-  const queueFolder = state.snapshot && focusedWorkspace ? workspaceFolder(focusedWorkspace, state.snapshot) : null;
+  const queueFolder = focusedWorkspace ? queueFolderOf(focusedWorkspace) : null;
   const focusedQueue = queues.get(focusedWorkspace?.workspace_id ?? "") ?? null;
   const queueBusy = Boolean(focusedQueue?.items.some((item) => item.state === "queued" || isActive(item)));
   useEffect(() => controller.followQueue(queueBusy), [controller, queueBusy, focusedWorkspace?.workspace_id]);

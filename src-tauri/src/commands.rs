@@ -414,6 +414,16 @@ pub async fn prompt_send(connection: State<'_, Connection>, pane: String, text: 
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 
+/// The folder a queue for each directory is kept on: see `queue::home`.
+#[tauri::command]
+pub async fn queue_homes(connection: State<'_, Connection>, directories: Vec<String>) -> Result<Vec<Option<String>>> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        directories.iter().map(|directory| queue::home(directory)).collect()
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
 /// How many commits a queued prompt left in its checkout since `since`.
 #[tauri::command]
 pub async fn queue_commits(connection: State<'_, Connection>, directory: String, since: String) -> Result<u32> {

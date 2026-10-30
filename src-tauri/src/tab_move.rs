@@ -16,6 +16,8 @@ use std::{
 pub enum Error {
     #[error("`{0}` is not a pane, tab, or workspace id")]
     InvalidId(String),
+    #[error("the folder `{0}` no longer exists")]
+    NoFolder(String),
     #[error("the tab has no panes")]
     Empty,
     #[error("could not find the `herdr` command")]

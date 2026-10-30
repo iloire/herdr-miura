@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 14:34 — A queue lives on the main checkout, never on a worktree
+
+A workspace's queue followed its active tab, so with the tab in `.claude/worktrees/agent-age` two prompts
+were filed under that worktree, and removing it stranded them: the first failed and the queue paused. Queues
+are now kept on the workspace's fixed root mapped to its main checkout, from any worktree wherever it lives.
+Git answers once while the worktree exists and the answer is saved, so it survives the removal; a root that
+was already gone uses the folder most of the tabs are in. `herdr-queue` does the same for `--folder` and for
+the checkout it falls back to. A worktree's workspace now shares its main checkout's queue, so a prompt meant
+for a branch has to name it. A folder that really is gone now says so instead of "not a pane, tab, or
+workspace id", in the queue and in the team dialog. The item still fails and the queue still pauses then.
+
 ## 2026-10-30 14:13 — The tab strip shows how long an agent has been working or blocked
 
 Each agent in the strip over the terminal now shows `working 40m` or `blocked 12m` right after its name, the

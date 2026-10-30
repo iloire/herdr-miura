@@ -194,7 +194,7 @@ describe("viewOf", () => {
       agents: [agent("a", "idle", { workspace_id: "w2" }), agent("b", "working", { workspace_id: "w3" })],
       panes: [{ pane_id: "a" }],
     } as unknown as Snapshot;
-    const seen = viewOf(emptyQueue(FOLDER), snapshot, 5);
+    const seen = viewOf(emptyQueue(FOLDER), snapshot, 5, (w) => workspaceFolder(w, snapshot));
     expect(seen.workspaces.map((w) => w.workspace_id)).toEqual(["w1", "w2"]);
     expect(seen.agents.map((a) => a.pane_id)).toEqual(["a"]);
   });
@@ -312,6 +312,7 @@ describe("text", () => {
 
 describe("the inbox", () => {
   const snapshot = { workspaces: [{ ...workspace, workspace_id: "w4H" }], panes: [], agents: [] } as unknown as Snapshot;
+  const folderOf = (w: Workspace) => workspaceFolder(w, snapshot);
   const entry = (name: string, over: Partial<InboxEntry> = {}): InboxEntry => ({
     name,
     workspace_id: "w4H",
@@ -324,7 +325,7 @@ describe("the inbox", () => {
   });
 
   it("adds prompts to their workspace's folder, in the order sent, marked as from an agent", () => {
-    const { file, added, rejected } = takeInbox(EMPTY_FILE, [entry("1.json"), entry("2.json", { source: null })], snapshot, 5);
+    const { file, added, rejected } = takeInbox(EMPTY_FILE, [entry("1.json"), entry("2.json", { source: null })], snapshot, 5, folderOf);
     const items = file.queues[queueKey(FOLDER)].items;
     expect(items.map((i) => [i.prompt, i.source, i.n])).toEqual([
       ["prompt 1.json", "tab 3", 1],
@@ -336,7 +337,7 @@ describe("the inbox", () => {
 
   it("puts a front prompt ahead of what waits", () => {
     let file = addItem(EMPTY_FILE, FOLDER, "typed", false, 0);
-    file = takeInbox(file, [entry("1.json", { front: true })], snapshot, 5).file;
+    file = takeInbox(file, [entry("1.json", { front: true })], snapshot, 5, folderOf).file;
     expect(file.queues[queueKey(FOLDER)].items.map((i) => i.prompt)).toEqual(["prompt 1.json", "typed"]);
   });
 
@@ -346,7 +347,7 @@ describe("the inbox", () => {
       entry("2.json", { workspace_id: "gone" }),
       entry("3.json", { workspace_id: "gone", age_ms: INBOX_MAX_AGE_MS + 1 }),
     ];
-    const { file, added, rejected } = takeInbox(EMPTY_FILE, entries, snapshot, 5);
+    const { file, added, rejected } = takeInbox(EMPTY_FILE, entries, snapshot, 5, folderOf);
     expect(Object.keys(file.queues)).toEqual([queueKey("/other")]);
     expect(added).toEqual(["1.json"]);
     expect(rejected).toEqual([{ name: "3.json", reason: "Workspace gone was not open within 24 hours." }]);

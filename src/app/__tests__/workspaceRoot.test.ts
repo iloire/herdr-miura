@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CheckoutChanges, ChangesState } from "../../changes/store";
-import type { Snapshot } from "../../protocol";
-import { loadRoots, nextRoots, type Roots, saveRoots, strayPath } from "../workspaceRoot";
+import type { Snapshot, Workspace } from "../../protocol";
+import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes } from "../workspaceRoot";
 
 const HOME = "/Users/me";
 const ROOT = "/Users/me/code/app";
@@ -86,11 +86,11 @@ function snapshot(boot_id: string, tabs: Record<string, string[]>): Snapshot {
 }
 
 describe("nextRoots", () => {
-  const none: Roots = { bootId: "", folders: {} };
+  const none: Roots = { bootId: "", folders: {}, homes: {} };
 
   it("starts a workspace on the folder most of its tabs are in, not the focus", () => {
     const roots = nextRoots(none, snapshot("boot", { w1: ["/app", "/elsewhere", "/app"] }));
-    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" } });
+    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {} });
   });
 
   it("keeps a workspace's root when its only pane moves", () => {
@@ -106,7 +106,7 @@ describe("nextRoots", () => {
 
   it("starts over on a new boot, whose ids mean other workspaces", () => {
     const first = nextRoots(none, snapshot("old", { w1: ["/a"] }));
-    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" } });
+    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" }, homes: {} });
   });
 
   it("waits for a workspace's panes before fixing its root", () => {
@@ -120,14 +120,90 @@ describe("roots storage", () => {
 
   it("round-trips", () => {
     let saved: string | null = null;
-    const roots = { bootId: "boot", folders: { w1: "/a" } };
+    const roots = { bootId: "boot", folders: { w1: "/a" }, homes: { "/a": "/a" } };
     saveRoots(roots, { setItem: (_, value) => (saved = value) });
     expect(loadRoots(store(saved))).toEqual(roots);
+  });
+
+  it("reads roots saved before homes existed", () => {
+    expect(loadRoots(store('{"bootId":"boot","folders":{"w1":"/a"}}')).homes).toEqual({});
   });
 
   it("starts empty on nothing saved or a damaged value", () => {
     expect(loadRoots(store(null)).folders).toEqual({});
     expect(loadRoots(store("{nope")).folders).toEqual({});
     expect(loadRoots(store("[]")).folders).toEqual({});
+  });
+});
+
+const MAIN = "/code/app";
+const TREE = "/code/app/.claude/worktrees/agent-age";
+
+// A workspace with one tab in each folder, the first tab's pane first.
+function shot(...folders: string[]): { snapshot: Snapshot; workspace: Workspace } {
+  const workspace = { workspace_id: "w1", new_workspace_cwd: "", active_tab_id: "t0" } as Workspace;
+  const snapshot = {
+    boot_id: "boot",
+    workspaces: [workspace],
+    tabs: folders.map((_, number) => ({ tab_id: `t${number}`, workspace_id: "w1", number })),
+    panes: folders.map((cwd, i) => ({ pane_id: `p${i}`, tab_id: `t${i}`, cwd })),
+    agents: [],
+  } as unknown as Snapshot;
+  return { snapshot, workspace };
+}
+
+const rootedOn = (folder: string, homes: Record<string, string> = {}): Roots => ({
+  bootId: "boot",
+  folders: { w1: folder },
+  homes,
+});
+
+describe("queueFolder", () => {
+  it("keeps a worktree's queue on its main checkout", () => {
+    const { snapshot, workspace } = shot(TREE);
+    expect(queueFolder(rootedOn(TREE, { [TREE]: MAIN }), workspace, snapshot)).toBe(MAIN);
+  });
+
+  it("does not follow the tabs away from the root", () => {
+    const { snapshot, workspace } = shot("/other", "/other");
+    expect(queueFolder(rootedOn(MAIN, { [MAIN]: MAIN, "/other": "/other" }), workspace, snapshot)).toBe(MAIN);
+  });
+
+  it("stays on the main checkout once the worktree is gone", () => {
+    const { snapshot, workspace } = shot(MAIN);
+    const before = rootedOn(TREE, { [TREE]: MAIN, [MAIN]: MAIN });
+    expect(queueFolder(nextRoots(before, snapshot), workspace, snapshot)).toBe(MAIN);
+  });
+
+  it("uses the tabs when the root was gone before it could be asked", () => {
+    const { snapshot, workspace } = shot(MAIN);
+    expect(queueFolder(rootedOn(TREE, { [MAIN]: MAIN }), workspace, snapshot)).toBe(MAIN);
+  });
+
+  it("is unknown until Git has answered, never the worktree itself", () => {
+    const { snapshot, workspace } = shot(TREE);
+    expect(queueFolder(rootedOn(TREE), workspace, snapshot)).toBeNull();
+  });
+});
+
+describe("homes", () => {
+  it("asks for the root and the tabs' folder, once each", () => {
+    const { snapshot } = shot(MAIN);
+    expect(homelessFolders(rootedOn(TREE), snapshot)).toEqual([TREE, MAIN]);
+    expect(homelessFolders(rootedOn(MAIN), snapshot)).toEqual([MAIN]);
+    expect(homelessFolders(rootedOn(MAIN, { [MAIN]: MAIN }), snapshot)).toEqual([]);
+  });
+
+  it("forgets folders no workspace uses", () => {
+    const { snapshot } = shot(MAIN);
+    const next = nextRoots(rootedOn(MAIN, { [MAIN]: MAIN, "/old": "/old" }), snapshot);
+    expect(next.homes).toEqual({ [MAIN]: MAIN });
+  });
+
+  it("leaves the same object when nothing changed", () => {
+    const { snapshot } = shot(MAIN);
+    const same = rootedOn(MAIN, { [MAIN]: MAIN });
+    expect(nextRoots(same, snapshot)).toBe(same);
+    expect(withHomes(same, new Map([[MAIN, MAIN]]))).toBe(same);
   });
 });

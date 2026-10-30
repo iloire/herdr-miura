@@ -88,11 +88,12 @@ export const isActive = (item: Item) => ACTIVE.has(item.state);
 /// Queues are this Mac's: the CLI that starts agents runs here.
 export const queueKey = (folder: string) => `local:${folder}`;
 
-/// The folder a workspace was opened on, where its queue's agents start. The
-/// queue is kept by this folder, so it must not follow the focused tab: when
-/// herdr names no folder, it is the one most of the workspace's tabs are in,
-/// a tie going to the lowest tab number, so one agent in another checkout or a
-/// restart that focuses another tab never shows a different, empty queue.
+/// The folder a workspace's queue is kept on; null until it is known.
+export type FolderOf = (workspace: Workspace) => string | null;
+
+/// A workspace's folder on its card: herdr's, which follows the active tab,
+/// else the one most of its tabs are in. Queues do not use it: see
+/// `queueFolder` in `workspaceRoot.ts`.
 export function workspaceFolder(workspace: Workspace, snapshot: Snapshot): string | null {
   if (workspace.new_workspace_cwd) return workspace.new_workspace_cwd;
   return tabsFolder(workspace, snapshot) ?? workspaceDirectory(workspace, snapshot);
@@ -158,8 +159,8 @@ export interface View {
   byPane: ReadonlyMap<string, Agent>;
 }
 
-export function viewOf(queue: Queue, snapshot: Snapshot, now: number): View {
-  const workspaces = snapshot.workspaces.filter((w) => workspaceFolder(w, snapshot) === queue.folder);
+export function viewOf(queue: Queue, snapshot: Snapshot, now: number, folderOf: FolderOf): View {
+  const workspaces = snapshot.workspaces.filter((w) => folderOf(w) === queue.folder);
   const ids = new Set(workspaces.map((w) => w.workspace_id));
   return {
     now,
@@ -315,9 +316,9 @@ export interface InboxEntry {
 
 /// The folder whose queue an inbox prompt joins: its workspace's while the
 /// snapshot shows that workspace, else the folder it names, if any.
-export function inboxFolder(entry: InboxEntry, snapshot: Snapshot): string | null {
+export function inboxFolder(entry: InboxEntry, snapshot: Snapshot, folderOf: FolderOf): string | null {
   const workspace = snapshot.workspaces.find((w) => w.workspace_id === entry.workspace_id);
-  return (workspace && workspaceFolder(workspace, snapshot)) || entry.folder;
+  return (workspace && folderOf(workspace)) || entry.folder;
 }
 
 /// Adds the inbox's prompts to their queues, in the order given. Returns the
@@ -329,11 +330,12 @@ export function takeInbox(
   entries: InboxEntry[],
   snapshot: Snapshot,
   now: number,
+  folderOf: FolderOf,
 ): { file: QueueFile; added: string[]; rejected: { name: string; reason: string }[] } {
   const added: string[] = [];
   const rejected: { name: string; reason: string }[] = [];
   for (const entry of entries) {
-    const folder = inboxFolder(entry, snapshot);
+    const folder = inboxFolder(entry, snapshot, folderOf);
     if (folder) {
       file = addItem(file, folder, entry.prompt, entry.front, now, entry.source ?? "");
       added.push(entry.name);
@@ -425,6 +427,10 @@ export const openItem = (workspaceId: string, item: Item, folder: string) =>
 
 export const promptItem = (item: Item, queue: Queue) =>
   invoke<void>("queue_prompt", { name: item.id, text: promptText(item, queue) });
+
+/// The folder a queue for each directory is kept on: the main checkout of a
+/// linked worktree, else the directory itself. Null for one that is gone.
+export const readHomes = (directories: string[]) => invoke<(string | null)[]>("queue_homes", { directories });
 
 export const countCommits = (folder: string, since: string) =>
   invoke<number>("queue_commits", { directory: folder, since });

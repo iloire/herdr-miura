@@ -16,6 +16,7 @@ import {
   type Effect,
   emptyQueue,
   end,
+  type FolderOf,
   holdBack,
   type Item,
   loadQueue,
@@ -73,12 +74,13 @@ export function useQueue(
   controller: Controller,
   snapshot: Snapshot | null,
   local: boolean,
+  folderOf: FolderOf,
 ): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
-  const latest = useRef({ snapshot, local });
-  latest.current = { snapshot, local };
+  const latest = useRef({ snapshot, local, folderOf });
+  latest.current = { snapshot, local, folderOf };
 
   /// Inbox files added but not yet deleted, so a slow save never adds one twice.
   const taken = useRef(new Set<string>());
@@ -202,13 +204,13 @@ export function useQueue(
 
   const tick = useCallback(() => {
     const file = current.current;
-    const { snapshot, local } = latest.current;
+    const { snapshot, local, folderOf } = latest.current;
     if (!file || !snapshot || !local) return;
     const now = Date.now();
     const queues = { ...file.queues };
     const effects: [string, Effect][] = [];
     for (const [key, queue] of Object.entries(file.queues)) {
-      const result = step(queue, viewOf(queue, snapshot, now));
+      const result = step(queue, viewOf(queue, snapshot, now, folderOf));
       queues[key] = result.queue;
       if (result.effect) effects.push([queue.folder, result.effect]);
     }
@@ -223,10 +225,10 @@ export function useQueue(
     draining.current = true;
     try {
       const entries = (await readInbox()).filter((entry) => !taken.current.has(entry.name));
-      const { snapshot, local } = latest.current;
+      const { snapshot, local, folderOf } = latest.current;
       const file = current.current;
       if (!entries.length || !snapshot || !local) return;
-      const result = takeInbox(file, entries, snapshot, Date.now());
+      const result = takeInbox(file, entries, snapshot, Date.now(), folderOf);
       for (const { name, reason } of result.rejected) await settleInbox(name, reason);
       if (!result.added.length) return;
       for (const name of result.added) taken.current.add(name);

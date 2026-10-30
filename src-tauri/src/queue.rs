@@ -28,6 +28,8 @@ const MAX_PROMPT: usize = 100_000;
 const MAX_ARGS: usize = 16;
 const MAX_SOURCE: usize = 200;
 const MAX_FOLDER: usize = 4096;
+/// How long Git may take to say where one folder's main checkout is.
+const HOME_DEADLINE: Duration = Duration::from_secs(5);
 /// In bytes: `tabLabel`'s 200 UTF-16 units take up to 600, plus its `⧗ n · `.
 const MAX_TAB_LABEL: usize = 640;
 /// A copy of the queue file is kept at most this often, and this many are kept.
@@ -321,6 +323,34 @@ struct CreatedPane {
     tab_id: String,
 }
 
+/// The folder a queue for `directory` is kept on: the main checkout of a linked
+/// worktree, at the same place inside it, else `directory` itself. A worktree
+/// can be removed at any moment, taking its queue with it. `None` when
+/// `directory` is gone, since Git can then no longer say whose it was.
+pub fn home(directory: &str) -> Option<String> {
+    if !Path::new(directory).is_dir() {
+        return None;
+    }
+    let deadline = Instant::now() + HOME_DEADLINE;
+    let asked = crate::git::text(directory, HOME_ARGS, "find the main checkout", deadline);
+    Some(asked.ok().and_then(|text| main_checkout(&text)).unwrap_or_else(|| directory.to_owned()))
+}
+
+const HOME_ARGS: &[&str] = &["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir", "--show-prefix"];
+
+/// The folder `HOME_ARGS` points at, when they describe a linked worktree of a
+/// checkout with a working tree. A bare repository has none to go to.
+fn main_checkout(text: &str) -> Option<String> {
+    let mut lines = text.lines();
+    let (common, git_dir) = (lines.next()?, lines.next()?);
+    if common == git_dir {
+        return None;
+    }
+    let root = common.strip_suffix("/.git")?;
+    let inside = lines.next().unwrap_or_default().trim_end_matches('/');
+    Some(if inside.is_empty() { root.to_owned() } else { format!("{root}/{inside}") })
+}
+
 /// An agent's name: `q` and a queued item's number, or `p` and a number for
 /// one the prompt library started, never read as an option.
 fn agent_name(name: &str) -> Result<&str, Error> {
@@ -369,7 +399,7 @@ pub fn open(
         plain(arg, 200, false)?;
     }
     if !Path::new(directory).is_absolute() || !Path::new(directory).is_dir() {
-        return Err(Error::InvalidId(directory.into()));
+        return Err(Error::NoFolder(directory.into()));
     }
     let cli = herdr()?;
     let created = run(
@@ -506,6 +536,55 @@ pub fn commits(directory: &str, since: &str) -> Result<u32, crate::git::Error> {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    fn git(dir: &Path, args: &[&str]) {
+        let done = std::process::Command::new("git")
+            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .unwrap();
+        assert!(done.status.success(), "{args:?}: {}", String::from_utf8_lossy(&done.stderr));
+    }
+
+    #[test]
+    fn a_queue_goes_home_to_the_main_checkout_of_a_worktree() {
+        let dir = temp("home");
+        let dir = dir.canonicalize().unwrap();
+        let repo = dir.join("repo");
+        let tree = dir.join("elsewhere/feature");
+        std::fs::create_dir_all(repo.join("code")).unwrap();
+        std::fs::write(repo.join("code/a"), "a").unwrap();
+        git(&repo, &["init", "-q"]);
+        git(&repo, &["add", "."]);
+        git(&repo, &["commit", "-qm", "a"]);
+        git(&repo, &["worktree", "add", "-q", tree.to_str().unwrap()]);
+        let path = |p: &Path| p.to_str().unwrap().to_owned();
+        let home = |p: &Path| super::home(&path(p));
+
+        assert_eq!(home(&repo), Some(path(&repo)));
+        assert_eq!(home(&repo.join("code")), Some(path(&repo.join("code"))));
+        assert_eq!(home(&tree), Some(path(&repo)));
+        assert_eq!(home(&tree.join("code")), Some(path(&repo.join("code"))));
+        assert_eq!(home(&dir), Some(path(&dir)), "outside Git");
+
+        git(&repo, &["worktree", "remove", tree.to_str().unwrap()]);
+        assert_eq!(home(&tree), None);
+    }
+
+    #[test]
+    fn a_worktree_of_a_bare_repository_stays_where_it_is() {
+        assert_eq!(main_checkout("/r/repo.git\n/r/repo.git/worktrees/a\n"), None);
+        assert_eq!(main_checkout("/r/.git\n/r/.git\n"), None);
+    }
+
+    #[test]
+    fn a_folder_that_is_gone_says_so() {
+        let args: [String; 0] = [];
+        let gone = "/nonexistent/worktrees/agent-age";
+        let error = open("w1", gone, "label", "q1", "claude", &args).unwrap_err();
+        assert_eq!(error.to_string(), format!("the folder `{gone}` no longer exists"));
+    }
 
     fn temp(tag: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("herdr-queue-{tag}-{}", std::process::id()));
