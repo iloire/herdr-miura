@@ -1,3 +1,12 @@
+/// A span of whole minutes as `12m`, `4h 30m`, `4d 11h`.
+export function formatMinutes(minutes: number): string {
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
 /// A Unix time as `5m ago`, `3h ago`, `2d ago`.
 export function relativeTime(seconds: number): string {
   const minutes = Math.round((Date.now() / 1000 - seconds) / 60);

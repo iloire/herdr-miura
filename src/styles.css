@@ -2294,7 +2294,9 @@ kbd {
 }
 
 .tab-fact.ctx-over,
-.tab-fact.ctx-over b {
+.tab-fact.ctx-over b,
+.tab-fact.age-blocked,
+.tab-fact.age-blocked b {
   color: var(--blocked);
 }
 

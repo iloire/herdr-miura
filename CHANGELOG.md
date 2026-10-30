@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 14:13 — The tab strip shows how long an agent has been working or blocked
+
+Each agent in the strip over the terminal now shows `working 40m` or `blocked 12m` right after its name, the
+blocked one in the blocked colour, to help decide which tab needs you first. Only working and blocked show, and
+only from one minute up.
+
+The snapshot carries no time for an agent, so the app keeps one for every agent, background tabs included. The
+time counts from when the app first saw the status, so it restarts with the app, and the tooltip says so.
+
 ## 2026-10-30 13:24 — The right panels lose their × and the switch hands focus back
 
 Changes, Files and Queue no longer have a × in their header: it sat next to the panel switch, whose lit toggle already

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { formatMinutes } from "./time";
 
 /// One limit window as `claude_usage` reports it. `resets_at` is Anthropic's
 /// own: an ISO time, or epoch seconds.
@@ -33,12 +34,7 @@ export function resetTime(window: UsageWindow): number | null {
 export function resetsIn(window: UsageWindow, now: number): string | null {
   const at = resetTime(window);
   if (at === null || at <= now) return null;
-  const minutes = Math.ceil((at - now) / 60_000);
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  return `${minutes}m`;
+  return formatMinutes(Math.ceil((at - now) / 60_000));
 }
 
 /// Whole percent, clamped to the bar.
