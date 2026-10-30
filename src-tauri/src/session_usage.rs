@@ -10,14 +10,21 @@
 
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::UNIX_EPOCH;
 
 /// Minutes of history returned: the plan's 5-hour window and some slack.
 const HISTORY_MINUTES: i64 = 6 * 60;
+/// How far back [`Cache::history`] reaches: the dialog's seven calendar days
+/// begin up to eight days ago.
+const WEEK_SECONDS: i64 = 8 * 86_400;
+/// The grain of [`Cache::history`]: fine enough for the 5-hour chart, coarse
+/// enough to send a week of it every poll.
+const BUCKET_SECONDS: i64 = 5 * 60;
 
 /// Tokens by kind, as the API's `usage` reports them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -72,6 +79,13 @@ pub struct SessionUsage {
     pub minutes: Vec<Minute>,
 }
 
+/// A project's use over the last week, in five-minute buckets.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProjectUsage {
+    pub name: String,
+    pub minutes: Vec<Minute>,
+}
+
 /// What has been read of one file.
 #[derive(Debug, Default)]
 struct FileState {
@@ -82,6 +96,8 @@ struct FileState {
     minutes: BTreeMap<i64, Tokens>,
     model: Option<String>,
     context: u64,
+    /// Where it started: the session may `cd` into a subfolder later.
+    cwd: Option<String>,
 }
 
 impl FileState {
@@ -121,6 +137,9 @@ impl FileState {
         let Some(response) = Response::read(&value) else {
             return;
         };
+        if self.cwd.is_none() {
+            self.cwd = value.get("cwd").and_then(Value::as_str).map(str::to_owned);
+        }
         if let Some((minute, tokens)) = self
             .responses
             .insert(response.id, (response.minute, response.tokens))
@@ -247,6 +266,88 @@ impl Cache {
             })
             .collect()
     }
+
+    /// Every project's use over the last week, closed sessions included, from
+    /// the transcripts changed in that time. A resumed session repeats
+    /// responses in a new file, so each message id counts once across files.
+    pub fn history(&self, projects: &Path, now: i64) -> Vec<ProjectUsage> {
+        let Ok(mut state) = self.0.lock() else {
+            return Vec::new();
+        };
+        let since = now - WEEK_SECONDS;
+        let paths = recent_transcripts(projects, since);
+        for path in &paths {
+            // One unreadable file should not cost the chart the others.
+            let _ = state.files.entry(path.clone()).or_default().update(path);
+        }
+        let mut seen = HashSet::new();
+        let mut buckets = BTreeMap::<&str, BTreeMap<i64, Tokens>>::new();
+        for file in paths.iter().filter_map(|path| state.files.get(path)) {
+            let name = project_name(file.cwd.as_deref().unwrap_or("unknown"));
+            for (id, (minute, tokens)) in &file.responses {
+                if *minute >= since && seen.insert(id.as_str()) {
+                    buckets
+                        .entry(name)
+                        .or_default()
+                        .entry(minute / BUCKET_SECONDS * BUCKET_SECONDS)
+                        .or_default()
+                        .add(*tokens);
+                }
+            }
+        }
+        buckets
+            .into_iter()
+            .map(|(name, minutes)| ProjectUsage {
+                name: name.to_owned(),
+                minutes: minutes
+                    .into_iter()
+                    .map(|(at, tokens)| Minute { at, tokens })
+                    .collect(),
+            })
+            .collect()
+    }
+}
+
+/// The transcripts under `projects`, subagents' included, last written from
+/// `since` on, in a fixed order so a repeated response always counts for the
+/// same file.
+fn recent_transcripts(projects: &Path, since: i64) -> Vec<PathBuf> {
+    let children = |folder: &Path| {
+        std::fs::read_dir(folder)
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .collect::<Vec<_>>()
+    };
+    let written_since = |path: &PathBuf| {
+        std::fs::metadata(path)
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+            .is_some_and(|age| age.as_secs() as i64 >= since)
+    };
+    let mut paths: Vec<_> = children(projects)
+        .iter()
+        .flat_map(|project| children(project))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "jsonl")
+        })
+        .flat_map(|transcript| {
+            let mut paths = subagents(&transcript);
+            paths.push(transcript);
+            paths
+        })
+        .filter(written_since)
+        .collect();
+    paths.sort();
+    paths
+}
+
+/// The folder a project goes by: a worktree counts as its main checkout.
+fn project_name(cwd: &str) -> &str {
+    let root = cwd.split("/.claude/worktrees/").next().unwrap_or(cwd);
+    root.rsplit('/').next().unwrap_or(root)
 }
 
 impl State {

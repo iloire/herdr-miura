@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 00:25 — Claude usage opens into a dialog with charts
+
+Clicking the Claude usage in the status bar opens everything known about it. Each limit gets a meter whose tick marks how
+much of the window has gone by, its reset time, and where the rate so far lands: the 5-hour and weekly windows, and now any
+model's own weekly limit, this week's split between Claude Code and chats, and extra usage. Below them are charts of spend
+across the 5-hour window and the last seven days, each split by kind of token, then spend by project and by open session.
+The charts cover every session on this Mac from the last week, not just the ones in a pane; the first opening reads a week
+of transcripts, a few seconds, and later ones are immediate.
+
 ## 2026-10-30 23:15 — Readable text in every theme
 
 Secondary text, status colors and workspace colors were too faint in most themes: muted text was 2.5:1 in Catppuccin Latte

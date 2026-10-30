@@ -30,6 +30,9 @@ export interface SessionUsage {
   minutes: Minute[];
 }
 
+/// Anything that keeps its tokens over time.
+export type Timeline = Pick<SessionUsage, "minutes">;
+
 /// What each kind of token costs next to a fresh input token, as Anthropic
 /// prices them: raw counts would rank a session by the cache reads every turn
 /// repeats, which cost a tenth of fresh input.
@@ -55,7 +58,7 @@ export function weighted(tokens: Tokens): number {
 }
 
 /// The tokens of some sessions from `since` (Unix seconds) on.
-export function tokensSince(usages: readonly SessionUsage[], since: number): Tokens {
+export function tokensSince(usages: readonly Timeline[], since: number): Tokens {
   const total: Tokens = { input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0 };
   for (const usage of usages) {
     for (const minute of usage.minutes) {
@@ -77,7 +80,7 @@ export function windowStart(plan: ClaudeUsage | null, now: number): number {
 
 /// Weighted spend of some sessions in `count` buckets of `minutes` each,
 /// oldest first, ending at `now` (Unix seconds): the header's burn chart.
-export function burn(usages: readonly SessionUsage[], now: number, count = 5, minutes = 3): number[] {
+export function burn(usages: readonly Timeline[], now: number, count = 5, minutes = 3): number[] {
   const bars = new Array<number>(count).fill(0);
   const span = minutes * 60;
   const start = now - count * span;

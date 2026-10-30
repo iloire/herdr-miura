@@ -28,16 +28,18 @@ describe("tokensSince", () => {
   });
 });
 
+const EMPTY: ClaudeUsage = { plan: null, session: null, weekly: null, models: [], surfaces: [], extra: null, read_at: 0 };
+
 describe("windowStart", () => {
   const now = Date.UTC(2026, 9, 29, 10, 0);
   it("starts five hours before the plan window resets", () => {
-    const plan: ClaudeUsage = { plan: null, session: { percent: 6, resets_at: "2026-10-29T13:00:00Z" }, weekly: null };
+    const plan: ClaudeUsage = { ...EMPTY, session: { percent: 6, resets_at: "2026-10-29T13:00:00Z" } };
     expect(windowStart(plan, now)).toBe(Date.UTC(2026, 9, 29, 8, 0) / 1000);
   });
 
   it("falls back to the last five hours without a reset to go by", () => {
     expect(windowStart(null, now)).toBe(Date.UTC(2026, 9, 29, 5, 0) / 1000);
-    const passed: ClaudeUsage = { plan: null, session: { percent: 6, resets_at: "2026-10-29T09:00:00Z" }, weekly: null };
+    const passed: ClaudeUsage = { ...EMPTY, session: { percent: 6, resets_at: "2026-10-29T09:00:00Z" } };
     expect(windowStart(passed, now)).toBe(Date.UTC(2026, 9, 29, 5, 0) / 1000);
   });
 });

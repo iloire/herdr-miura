@@ -23,6 +23,7 @@ export function StatusBar({
   ports,
   usage,
   now,
+  onOpenUsage,
 }: {
   controller: Controller;
   state: State;
@@ -40,6 +41,7 @@ export function StatusBar({
   /// app-wide half of the bar rather than the focused workspace's.
   usage: Usage | null;
   now: number;
+  onOpenUsage: () => void;
 }) {
   const { status, notice } = state;
   const palette = state.commands.find((command) => command.name === "command_palette")?.parsed[0];
@@ -56,7 +58,7 @@ export function StatusBar({
           Reconnect
         </button>
       )}
-      <ClaudeUsage usage={usage} now={now} />
+      <ClaudeUsage usage={usage} now={now} onOpen={onOpenUsage} />
       {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}

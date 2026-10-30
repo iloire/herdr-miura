@@ -9,7 +9,7 @@ use crate::{
     files::{self, Contents, Listing},
     folder::{self, Opener},
     land, listening_ports, prompts, queue,
-    session_usage::{self, SessionUsage},
+    session_usage::{self, ProjectUsage, SessionUsage},
     settings,
     ssh_hosts,
     sync,
@@ -304,16 +304,36 @@ pub async fn session_usage(
 ) -> Result<Vec<Option<SessionUsage>>> {
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || {
-        let Some(home) = std::env::var_os("HOME") else {
+        let Some(projects) = claude_projects() else {
             return vec![None; sessions.len()];
         };
-        let projects = std::path::Path::new(&home).join(".claude/projects");
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs() as i64);
-        app.state::<session_usage::Cache>().read(&projects, &sessions, now)
+        app.state::<session_usage::Cache>().read(&projects, &sessions, unix_now())
     });
     Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Every project's Claude token use over the last week, read from this Mac's
+/// transcripts. Whichever host the window is connected to: the account is the
+/// user's. The first read goes through a week of transcripts.
+#[tauri::command]
+pub async fn usage_history(app: AppHandle) -> Result<Vec<ProjectUsage>> {
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let Some(projects) = claude_projects() else {
+            return Vec::new();
+        };
+        app.state::<session_usage::Cache>().history(&projects, unix_now())
+    });
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+fn claude_projects() -> Option<std::path::PathBuf> {
+    Some(std::path::Path::new(&std::env::var_os("HOME")?).join(".claude/projects"))
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
 /// Every file of the checkout `directory` sits in, or `None` outside Git.

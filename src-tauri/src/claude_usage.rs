@@ -14,7 +14,7 @@ use serde_json::Value;
 use std::{
     path::PathBuf,
     sync::Mutex,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const URL: &str = "https://api.anthropic.com/api/oauth/usage";
@@ -52,12 +52,42 @@ pub struct Window {
     pub resets_at: Option<Value>,
 }
 
+/// A weekly limit of its own on one model, such as Fable.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ModelWindow {
+    pub name: String,
+    #[serde(flatten)]
+    pub window: Window,
+}
+
+/// One surface's part of this week's use, such as Claude Code or Chats.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Share {
+    pub name: String,
+    pub percent: f64,
+}
+
+/// Paid use past the plan's limits, this month.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Extra {
+    pub enabled: bool,
+    /// `12.34 EUR`.
+    pub used: Option<String>,
+    pub limit: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Usage {
     /// `Max 20x`, `Pro`.
     pub plan: Option<String>,
     pub session: Option<Window>,
     pub weekly: Option<Window>,
+    pub models: Vec<ModelWindow>,
+    pub surfaces: Vec<Share>,
+    pub extra: Option<Extra>,
+    /// When Anthropic answered, in Unix seconds: a failed refresh keeps the
+    /// last good reading, which can be old.
+    pub read_at: i64,
 }
 
 /// The last reading, kept until it is due again. A failed refresh keeps the
@@ -126,6 +156,9 @@ fn fetch() -> Result<Usage, Error> {
         oauth["subscriptionType"].as_str(),
         oauth["rateLimitTier"].as_str(),
     );
+    usage.read_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64);
     Ok(usage)
 }
 
@@ -183,10 +216,47 @@ fn parse(body: &str) -> Result<Usage, Error> {
             })
         })
     };
+    let models = raw
+        .limits
+        .iter()
+        .flatten()
+        .filter(|limit| limit.kind == "weekly_scoped")
+        .filter_map(|limit| {
+            let name = limit.scope.as_ref()?.model.as_ref()?.display_name.as_ref()?;
+            Some(ModelWindow {
+                name: name.trim().to_owned(),
+                window: Window {
+                    percent: limit.percent?,
+                    resets_at: limit.resets_at.clone(),
+                },
+            })
+        })
+        .filter(|model| !model.name.is_empty())
+        .collect();
+    let surfaces = raw
+        .seven_day_breakdown
+        .map(|breakdown| breakdown.rows)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|row| {
+            Some(Share {
+                name: row.display_name?,
+                percent: row.percent.filter(|percent| *percent > 0.)?,
+            })
+        })
+        .collect();
     Ok(Usage {
         plan: None,
         session: limit("session").or_else(|| fixed(&raw.five_hour)),
         weekly: limit("weekly_all").or_else(|| fixed(&raw.seven_day)),
+        models,
+        surfaces,
+        extra: raw.spend.map(|spend| Extra {
+            enabled: spend.enabled.unwrap_or(false),
+            used: spend.used.as_ref().and_then(Money::text),
+            limit: spend.limit.as_ref().and_then(Money::text),
+        }),
+        read_at: 0,
     })
 }
 
@@ -211,6 +281,8 @@ struct Raw {
     limits: Option<Vec<Limit>>,
     five_hour: Option<Fixed>,
     seven_day: Option<Fixed>,
+    seven_day_breakdown: Option<Breakdown>,
+    spend: Option<Spend>,
 }
 
 #[derive(Deserialize)]
@@ -218,12 +290,69 @@ struct Limit {
     kind: String,
     percent: Option<f64>,
     resets_at: Option<Value>,
+    scope: Option<Scope>,
+}
+
+#[derive(Deserialize)]
+struct Scope {
+    model: Option<Model>,
+}
+
+#[derive(Deserialize)]
+struct Model {
+    display_name: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct Fixed {
     utilization: Option<f64>,
     resets_at: Option<Value>,
+}
+
+#[derive(Deserialize)]
+struct Breakdown {
+    rows: Vec<BreakdownRow>,
+}
+
+#[derive(Deserialize)]
+struct BreakdownRow {
+    display_name: Option<String>,
+    percent: Option<f64>,
+}
+
+#[derive(Deserialize)]
+struct Spend {
+    enabled: Option<bool>,
+    used: Option<Money>,
+    limit: Option<Money>,
+}
+
+#[derive(Deserialize)]
+struct Money {
+    amount_minor: i64,
+    currency: String,
+    exponent: u32,
+}
+
+impl Money {
+    /// `12.34 EUR`, in the currency's own minor units.
+    fn text(&self) -> Option<String> {
+        let exponent = self.exponent.min(6);
+        let scale = 10_u64.checked_pow(exponent)?;
+        let sign = if self.amount_minor < 0 { "-" } else { "" };
+        let amount = self.amount_minor.unsigned_abs();
+        let currency = self.currency.trim();
+        Some(if exponent == 0 {
+            format!("{sign}{amount} {currency}")
+        } else {
+            format!(
+                "{sign}{}.{:0width$} {currency}",
+                amount / scale,
+                amount % scale,
+                width = exponent as usize
+            )
+        })
+    }
 }
 
 #[cfg(test)]
@@ -255,6 +384,48 @@ mod tests {
         let usage = parse(r#"{"five_hour":{"utilization":12,"resets_at":null},"seven_day":null}"#)?;
         assert_eq!(usage.session.map(|w| w.percent), Some(12.));
         assert_eq!(usage.weekly, None);
+        Ok(())
+    }
+
+    #[test]
+    fn reads_the_details_behind_the_two_windows() -> Result<(), Error> {
+        let usage = parse(
+            r#"{"limits":[
+                {"kind":"weekly_scoped","percent":7,"resets_at":"2026-09-29T17:00:00Z",
+                 "scope":{"model":{"display_name":"Fable"}}},
+                {"kind":"weekly_scoped","percent":50,"scope":{"model":{"display_name":" "}}},
+                {"kind":"weekly_scoped","percent":50,"scope":null}],
+              "spend":{"enabled":true,"used":{"amount_minor":1234,"currency":"EUR","exponent":2},
+                "limit":{"amount_minor":5000,"currency":"JPY","exponent":0}},
+              "seven_day_breakdown":{"rows":[
+                {"display_name":"Claude Code","percent":90},
+                {"display_name":"Other","percent":0}]}}"#,
+        )?;
+        assert_eq!(
+            usage.models,
+            vec![ModelWindow {
+                name: "Fable".into(),
+                window: Window {
+                    percent: 7.,
+                    resets_at: Some(Value::from("2026-09-29T17:00:00Z"))
+                }
+            }]
+        );
+        assert_eq!(
+            usage.surfaces,
+            vec![Share {
+                name: "Claude Code".into(),
+                percent: 90.
+            }]
+        );
+        assert_eq!(
+            usage.extra,
+            Some(Extra {
+                enabled: true,
+                used: Some("12.34 EUR".into()),
+                limit: Some("5000 JPY".into())
+            })
+        );
         Ok(())
     }
 

@@ -1297,6 +1297,10 @@ body.reordering * {
   color: var(--text);
 }
 
+.claude-usage:hover {
+  color: var(--bright);
+}
+
 .claude-usage svg {
   flex: none;
   width: 12px;
@@ -1338,6 +1342,349 @@ body.reordering * {
 
 .usage-window.high .usage-meter > span {
   background: var(--blocked);
+}
+
+/* Claude usage in full, in the worktrees dialog's frame, on the lantern. Bars
+   are --working, the color of agents at work, and amber and red stay the
+   limits' warnings as they are in the status bar. Doubled so it outranks
+   `.palette`'s width. */
+.palette.usage-dialog {
+  --hue: var(--lantern);
+  width: min(880px, calc(100vw - 32px));
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  font: calc(13px * var(--ui-scale))/1.45 var(--sans);
+}
+
+.usage-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 28px 20px;
+}
+
+.usage-limits {
+  display: grid;
+  gap: 12px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.usage-limit {
+  display: grid;
+  grid-template-columns: 112px minmax(120px, 1fr) 44px minmax(0, 1.15fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.usage-limit-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The tick stands for the clock against the fill, so it may overhang the track
+   and is ringed in the dialog's own color to read over either. */
+.usage-gauge {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--rule);
+}
+
+.usage-gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--working);
+}
+
+.usage-limit.warm .usage-gauge-fill {
+  background: var(--lantern);
+}
+
+.usage-limit.high .usage-gauge-fill {
+  background: var(--blocked);
+}
+
+.usage-gauge-time {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--bright);
+  box-shadow: 0 0 0 2px var(--peat);
+}
+
+.usage-limit-percent {
+  color: var(--bright);
+  font: 600 calc(15px * var(--ui-scale)) var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.usage-limit.high .usage-limit-percent {
+  color: var(--blocked);
+}
+
+.usage-limit-reset {
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.usage-limit-note {
+  display: block;
+}
+
+.usage-limit.warm .usage-limit-note,
+.usage-limit.high .usage-limit-note {
+  color: var(--text);
+}
+
+.usage-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 24px;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.usage-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.usage-section {
+  min-width: 0;
+}
+
+.usage-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 10px;
+  color: var(--bright);
+  font: 600 calc(13px * var(--ui-scale)) var(--sans);
+}
+
+.usage-readout {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: calc(12px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.usage-readout b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Each column is the whole height so a bar is easy to hover, however short. */
+.usage-chart {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  height: 96px;
+  padding-left: 38px;
+  border-top: 1px dashed var(--rule);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.usage-chart-top {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  color: var(--muted);
+  font-size: calc(10px * var(--ui-scale));
+  pointer-events: none;
+}
+
+.usage-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 1px;
+}
+
+.usage-column.hovered {
+  background: var(--hover);
+}
+
+.usage-column.ahead {
+  background: color-mix(in srgb, var(--rule) 45%, transparent);
+}
+
+.usage-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: var(--working);
+}
+
+.usage-axis {
+  display: flex;
+  margin: 4px 0 12px;
+  padding-left: 38px;
+  color: var(--muted);
+  font-size: calc(10px * var(--ui-scale));
+}
+
+.usage-axis > span {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.usage-mix {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+}
+
+.usage-mix > span {
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.mix-output {
+  background: var(--working);
+}
+
+.mix-cache-write {
+  background: var(--lantern);
+}
+
+.mix-input {
+  background: var(--team);
+}
+
+.mix-cache-read {
+  background: var(--done);
+}
+
+.usage-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.usage-key li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.usage-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.usage-key-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-rows {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.usage-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.usage-rows.usage-sessions li {
+  grid-template-columns: minmax(0, 1fr) auto auto 44px;
+}
+
+.usage-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-row-track > span {
+  display: block;
+  height: 6px;
+  min-width: 2px;
+  border-radius: 0 3px 3px 0;
+  background: var(--working);
+}
+
+.usage-row-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.usage-row-model,
+.usage-row-context {
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+  white-space: nowrap;
+}
+
+.usage-row-context.ctx-high {
+  color: var(--lantern);
+}
+
+.usage-row-context.ctx-over {
+  color: var(--blocked);
+}
+
+.usage-none {
+  margin: 0;
+  color: var(--muted);
+}
+
+.usage-empty {
+  margin: 0;
+  padding: 28px 0;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  text-align: center;
+}
+
+.usage-foot {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+@media (max-width: 700px) {
+  .usage-pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .usage-limit {
+    grid-template-columns: 96px minmax(0, 1fr) 44px;
+  }
+
+  .usage-limit-reset {
+    grid-column: 1 / -1;
+  }
 }
 
 .notice {

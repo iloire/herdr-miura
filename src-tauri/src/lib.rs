@@ -85,6 +85,7 @@ pub fn run() {
             commands::send_input,
             commands::send_popup_input,
             commands::session_usage,
+            commands::usage_history,
             commands::settings_load,
             commands::settings_set,
             commands::scan_host_key,

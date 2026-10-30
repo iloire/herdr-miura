@@ -42,6 +42,7 @@ import { TabBar } from "./components/TabBar";
 import { PaneResizer } from "./components/PaneResizer";
 import { PanelSwitch } from "./components/PanelSwitch";
 import { TabHeader } from "./components/TabHeader";
+import { UsageDialog } from "./components/UsageDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { useListing } from "./files/listing";
@@ -83,6 +84,7 @@ export default function App() {
   const [filePick, setFilePick] = useState<string | null>(null);
   // The workspace whose worktrees the details dialog shows.
   const [worktreesOf, setWorktreesOf] = useState<string | null>(null);
+  const [usageOpen, setUsageOpen] = useState(false);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
   // The files picked in the drawer when the window last closed, reopened once
@@ -516,7 +518,7 @@ export default function App() {
               )}
               {shownTreeFile && <FileView root={listingRoot} path={filePick} onOpen={setFilePick} onClose={closeFile} />}
             </div>
-            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
+            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} />
           </main>
           {drawerOpen && (
             <PaneResizer pane={DRAWER} width={drawerWidth} clamp={fitDrawer} onChange={setWantedDrawer} onCommit={commitDrawerWidth} />
@@ -574,6 +576,18 @@ export default function App() {
             workspace={shownWorktrees.workspace.label}
             worktrees={shownWorktrees.list}
             onClose={closeWorktrees}
+          />
+        )}
+        {usageOpen && (
+          <UsageDialog
+            usage={usage.usage}
+            now={usage.now}
+            snapshot={state.snapshot}
+            sessions={sessionUsages}
+            onClose={() => {
+              setUsageOpen(false);
+              controller.focusTerminal();
+            }}
           />
         )}
         {state.settingsOpen && (

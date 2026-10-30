@@ -197,3 +197,80 @@ fn finds_a_session_in_any_project_and_takes_only_uuids() {
         vec![None, None, None, None]
     );
 }
+
+/// One response line carrying the folder its session ran in.
+fn response_in(cwd: &str, id: &str, at: &str, output: u64) -> String {
+    format!(
+        r#"{{"type":"assistant","cwd":"{cwd}","timestamp":"{at}","message":{{"id":"{id}","usage":{{"output_tokens":{output}}}}}}}"#
+    ) + "\n"
+}
+
+/// A transcript in its own project folder.
+fn project_file(projects: &Path, folder: &str, id: &str, text: &str) -> PathBuf {
+    let path = projects.join(folder).join(format!("{id}.jsonl"));
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    append(&path, text);
+    path
+}
+
+const TIME: &str = "2026-10-29T09:33:17.000Z";
+
+fn outputs(usage: &ProjectUsage) -> u64 {
+    usage.minutes.iter().map(|minute| minute.tokens.output).sum()
+}
+
+#[test]
+fn history_sums_a_project_and_folds_its_worktrees() {
+    let fixture = fixture();
+    let text = response_in("/code/app", "a", TIME, 10);
+    project_file(&fixture.projects, "-a", "main", &text);
+    let text = response_in("/code/app/.claude/worktrees/x/src", "b", TIME, 5);
+    project_file(&fixture.projects, "-b", "tree", &text);
+    let text = response_in("/code/other", "c", TIME, 1);
+    project_file(&fixture.projects, "-c", "other", &text);
+
+    let history = Cache::default().history(&fixture.projects, NOW);
+    let totals: Vec<_> = history.iter().map(|p| (p.name.as_str(), outputs(p))).collect();
+    assert_eq!(totals, [("app", 15), ("other", 1)]);
+    assert_eq!(history[0].minutes[0].at % BUCKET_SECONDS, 0);
+}
+
+#[test]
+fn history_counts_a_resumed_sessions_repeats_once() {
+    let fixture = fixture();
+    let text = response_in("/code/app", "a", TIME, 10);
+    project_file(&fixture.projects, "-a", "first", &text);
+    project_file(&fixture.projects, "-a", "resumed", &text);
+
+    let history = Cache::default().history(&fixture.projects, NOW);
+    assert_eq!(outputs(&history[0]), 10);
+}
+
+#[test]
+fn history_names_a_session_after_where_it_started() {
+    let fixture = fixture();
+    let text = response_in("/code/app", "a", TIME, 1) + &response_in("/code/app/src", "b", TIME, 1);
+    project_file(&fixture.projects, "-a", "main", &text);
+
+    let history = Cache::default().history(&fixture.projects, NOW);
+    assert_eq!(history[0].name, "app");
+}
+
+#[test]
+fn history_includes_subagents_and_leaves_out_the_old() {
+    let fixture = fixture();
+    let main = project_file(&fixture.projects, "-a", "main", &response_in("/code/app", "a", TIME, 1));
+    let subagents = main.with_extension("").join("subagents");
+    std::fs::create_dir_all(&subagents).unwrap();
+    append(&subagents.join("agent.jsonl"), &response_in("/code/app", "b", TIME, 2));
+    // Before the week, in a file written today.
+    let old = response_in("/code/app", "c", "2026-10-01T09:33:17.000Z", 4);
+    project_file(&fixture.projects, "-a", "older", &old);
+    // Inside the week, in a file last written before it.
+    let stale = project_file(&fixture.projects, "-a", "stale", &response_in("/code/app", "d", TIME, 8));
+    let long_ago = UNIX_EPOCH + std::time::Duration::from_secs((NOW - WEEK_SECONDS - 60) as u64);
+    File::options().write(true).open(&stale).unwrap().set_modified(long_ago).unwrap();
+
+    let history = Cache::default().history(&fixture.projects, NOW);
+    assert_eq!(outputs(&history[0]), 3);
+}
