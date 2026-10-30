@@ -25,9 +25,9 @@ function AgentRow({ controller, snapshot, agent }: { controller: Controller; sna
   );
 }
 
-/// What a collapsed card still shows: the agents waiting on you, a few at most
-/// so a bad moment cannot push the list down, then a way to the rest. Gone
-/// when no agent wants you.
+/// What a collapsed card still shows: the blocked agents, a few at most so a
+/// bad moment cannot push the list down, then a way to the rest. Gone when none
+/// is blocked: finished agents are only a count here, and rows once expanded.
 export function AttentionRows({
   controller,
   snapshot,

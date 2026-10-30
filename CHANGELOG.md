@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 15:07 — A collapsed card lists only the agents that need you
+
+A collapsed workspace card had a row for every agent that finished, so three of them and a `+2 more` turned a
+one-line card back into a tall one. It now has rows only for blocked agents, with the same limit of three and
+`+N more`. Finished agents are still counted in the card's tally, and each one has a row in the Agents section
+when the card is expanded.
+
 ## 2026-10-30 14:53 — Workspace cards stay on their own folder
 
 A workspace card took its Git data from whichever folder its active tab was in. A notes workspace with a tab

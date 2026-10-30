@@ -186,21 +186,26 @@ describe("agentRowName", () => {
 describe("attentionRows", () => {
   const ids = (agents: Agent[]) => agents.map((a) => a.pane_id);
 
-  it("names only the agents that finished or wait on you, in order", () => {
+  it("names only the blocked agents, in order", () => {
     const { rows, more } = attentionRows([
       agent("1", "a", "blocked"),
       agent("2", "a", "done"),
       agent("3", "a", "working"),
       agent("4", "a", "idle"),
       agent("5", "a", "unknown"),
+      agent("6", "a", "blocked"),
     ]);
-    expect(ids(rows)).toEqual(["1", "2"]);
+    expect(ids(rows)).toEqual(["1", "6"]);
     expect(more).toBe(0);
   });
 
-  it("shows nothing when no agent wants you", () => {
+  it("shows nothing when no agent is blocked", () => {
     expect(attentionRows([agent("1", "a", "working")])).toEqual({ rows: [], more: 0 });
     expect(attentionRows([])).toEqual({ rows: [], more: 0 });
+  });
+
+  it("gives done agents no rows, however many there are", () => {
+    expect(attentionRows(["1", "2", "3", "4"].map((id) => agent(id, "a", "done")))).toEqual({ rows: [], more: 0 });
   });
 
   it("names three and counts the rest", () => {
@@ -209,8 +214,9 @@ describe("attentionRows", () => {
     expect(more).toBe(2);
   });
 
-  it("does not count agents that want nothing among the rest", () => {
+  it("does not count agents that are not blocked among the rest", () => {
     const blocked = ["1", "2", "3"].map((id) => agent(id, "a", "blocked"));
     expect(attentionRows([...blocked, agent("4", "a", "working")]).more).toBe(0);
+    expect(attentionRows([...blocked, agent("4", "a", "done"), agent("5", "a", "done")]).more).toBe(0);
   });
 });

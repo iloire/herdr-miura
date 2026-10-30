@@ -105,9 +105,10 @@ export function attentionCount(snapshot: Snapshot | null): number {
 const ATTENTION_ROWS = 3;
 
 /// The agents a collapsed workspace card names, keeping their order, and how
-/// many it leaves out.
+/// many it leaves out: only the blocked ones. A finished agent is already
+/// counted in the card's tally, and gets a row once the card is expanded.
 export function attentionRows(agents: readonly Agent[]): { rows: Agent[]; more: number } {
-  const waiting = agents.filter(wantsYou);
-  return { rows: waiting.slice(0, ATTENTION_ROWS), more: Math.max(0, waiting.length - ATTENTION_ROWS) };
+  const blocked = agents.filter((agent) => agent.agent_status === "blocked");
+  return { rows: blocked.slice(0, ATTENTION_ROWS), more: Math.max(0, blocked.length - ATTENTION_ROWS) };
 }
 
