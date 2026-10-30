@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 12:07 — The ports globe is gray and sits on the name line
+
+A workspace whose only extra was its ports gave a whole row to one green chip. The globe is now a plain gray
+mark beside the agent tally, so it takes no row and no longer reads as a status.
+
 ## 2026-10-30 11:55 — An optional Agents section in the sidebar
 
 A new setting, `ui.sidebar_agents` (off by default, and in Settings under Appearance), lists every running

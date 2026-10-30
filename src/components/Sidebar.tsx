@@ -233,6 +233,7 @@ export function Sidebar({
                             controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
                         }}
                       />
+                      <PortsMark ports={listening} />
                       <AgentTally agents={own} marks={marks} />
                     </span>
                     {gitLine}
@@ -248,6 +249,7 @@ export function Sidebar({
                       <span className="workspace-label" title={path || undefined}>
                         {workspace.label}
                       </span>
+                      <PortsMark ports={listening} />
                       <AgentTally agents={own} marks={marks} />
                     </span>
                     {gitLine}
@@ -260,7 +262,6 @@ export function Sidebar({
                   <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
-                  <PortsMark ports={listening} />
                 </div>
               </div>
             </li>
