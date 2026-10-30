@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 11:31 — No title bar: the tab row is the top of the window
+
+The 30 px title strip is gone, so the terminal gets that height back. The traffic lights and the app's name
+now sit at the top of the sidebar, in a row that stays put while the list scrolls, and tabs take the row
+beside them; the tab bar's empty space drags the window. The window's full title is the name's tooltip. The
+Changes, Files and Queue switch is pinned to the window's top right corner, over the tab row and over the
+open drawer, whose header is now as tall as the tab row: a diff covers the tabs, so the switch could not
+live in the tab bar.
+
 ## 2026-10-30 11:26 — A quieter chrome and pill tabs
 
 The sidebar and bars now sit barely off the terminal's background (2% toward the text, was 5%) with softer

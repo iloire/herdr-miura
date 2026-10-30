@@ -50,6 +50,8 @@ function folderMenu(controller: Controller, path: string): MenuItem[] {
 
 export function Sidebar({
   controller,
+  title,
+  fullTitle,
   snapshot,
   changedFiles,
   worktrees,
@@ -60,6 +62,9 @@ export function Sidebar({
   ports,
 }: {
   controller: Controller;
+  /// The app's name, over the list, and the window's title on hover.
+  title: string;
+  fullTitle: string;
   snapshot: Snapshot | null;
   /// Files changed in each workspace's checkout, by workspace id; absent when none.
   changedFiles: Map<string, number>;
@@ -123,6 +128,9 @@ export function Sidebar({
   const focusedFolder = focused && folderOf(focused);
   return (
     <nav className="sidebar" aria-label="Workspaces">
+      <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
+        <span data-tauri-drag-region>{title}</span>
+      </div>
       <header className="sidebar-head">
         <span>Workspaces</span>
         <button

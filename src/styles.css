@@ -26,6 +26,11 @@
   --shadow: #000000;
   /* The chrome's text size against the default 13 px (ui.font_size). */
   --ui-scale: 1;
+  /* The tab row, with its border, which the sidebar and drawer tops match. */
+  --top-row: 39px;
+  /* Room for the window's traffic lights, and for the panel switch. */
+  --traffic-lights: 84px;
+  --panel-switch: 100px;
   --mono: "JetBrains Mono", "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -42,8 +47,7 @@ body,
   margin: 0;
 }
 
-/* The title bar sits over the app and the dev bar under it; the app takes
-   the rest of the window. */
+/* The dev bar sits under the app; the app takes the rest of the window. */
 #root {
   display: flex;
   flex-direction: column;
@@ -143,11 +147,32 @@ body.resizing .app > :not(.sidebar-resizer) {
   overflow-y: auto;
 }
 
+/* The top of the sidebar is the window's title row: the traffic lights sit
+   over its left end, so it stays put while the list scrolls under it. */
+.sidebar-brand {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--top-row);
+  padding: 0 12px 0 var(--traffic-lights);
+  background: var(--peat);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sidebar-brand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .sidebar-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 10px 8px 16px;
+  padding: 6px 10px 8px 16px;
   color: var(--muted);
   font-size: calc(11px * var(--ui-scale));
   letter-spacing: 0.08em;
@@ -765,6 +790,7 @@ body.reordering * {
 /* Main column */
 
 .workarea {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
@@ -793,9 +819,20 @@ body.reordering * {
 .tabbar {
   display: flex;
   align-items: flex-start;
-  padding: 5px 6px;
+  /* Clear of the panel switch, which the open drawer takes over from. */
+  padding: 5px var(--panel-switch) 5px 6px;
   background: var(--peat);
   border-bottom: 1px solid var(--rule);
+}
+
+.workarea:has(.drawer.open) .tabbar {
+  padding-right: 6px;
+}
+
+/* With no sidebar the traffic lights sit over the tabs, or over a diff. */
+.app.no-sidebar .tabbar,
+.app.no-sidebar .diff-head {
+  padding-left: var(--traffic-lights);
 }
 
 /* Tabs that do not fit wrap onto another row, so every tab stays readable and nothing scrolls. */
@@ -1172,8 +1209,8 @@ body.reordering * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px 6px 16px;
-  height: 34px;
+  padding: 6px var(--panel-switch) 6px 16px;
+  height: var(--top-row);
   border-bottom: 1px solid var(--rule);
   color: var(--muted);
   font-size: calc(11px * var(--ui-scale));
@@ -2435,37 +2472,13 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* The window's top strip, in place of macOS's titlebar (its traffic lights
-   sit over the left end): it drags the window, its title centred, and holds
-   the side panel's switch at the right, so the tabs keep the full width. */
-.titlebar {
-  --hue: var(--text);
-  flex: none;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  height: 30px;
-  padding: 0 8px 0 78px;
-  background: var(--peat);
-  border-bottom: 1px solid var(--rule);
-}
-
-.titlebar-title {
-  position: absolute;
-  left: 50%;
-  max-width: 50%;
-  overflow: hidden;
-  transform: translateX(-50%);
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Changes, Files and Queue as one recessed track whose open panel stands
    raised in the workspace's hue. */
 .panel-switch {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 4;
   display: flex;
   gap: 1px;
   padding: 2px;

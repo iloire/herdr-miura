@@ -72,8 +72,8 @@ export function TabBar({
   };
 
   return (
-    <div className="tabbar">
-      <div className="tab-rows" role="tablist" aria-label="Tabs">
+    <div className="tabbar" data-tauri-drag-region>
+      <div className="tab-rows" role="tablist" aria-label="Tabs" data-tauri-drag-region>
         {tabs.map((tab) => {
           const pinned = isPinned(tab);
           const agents = agentCounts.get(tab.tab_id) ?? 0;

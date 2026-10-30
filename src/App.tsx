@@ -34,7 +34,7 @@ import { Sidebar } from "./components/Sidebar";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
-import { TitleBar } from "./components/TitleBar";
+import { PanelSwitch } from "./components/PanelSwitch";
 import { TabHeader } from "./components/TabHeader";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
@@ -392,27 +392,26 @@ export default function App() {
 
   return (
     <>
-      <TitleBar
-        controller={controller}
-        title={windowTitle}
-        hue={focusedWorkspace ? hueColor(focusedWorkspace.label) : null}
-        changes={state.changes}
-        files={state.files}
-        queue={state.queue}
-        queued={{
-          waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
-          running: Boolean(focusedQueue?.items.some(isActive)),
-        }}
-      />
       <div
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
         {state.sidebar && (
           <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
         )}
         <div className="workarea">
+          <PanelSwitch
+            controller={controller}
+            hue={focusedWorkspace ? hueColor(focusedWorkspace.label) : null}
+            changes={state.changes}
+            files={state.files}
+            queue={state.queue}
+            queued={{
+              waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
+              running: Boolean(focusedQueue?.items.some(isActive)),
+            }}
+          />
           {/* The focused workspace's hue marks the selected tab and the status
               bar, so the main column reads as the card picked in the sidebar. */}
           <main
