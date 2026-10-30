@@ -27,6 +27,11 @@ export function isPending(worktree: Worktree): boolean {
   return (worktree.unmerged ?? 0) > 0 || (worktree.changed ?? 0) > 0;
 }
 
+/// Worktrees holding work first: they are the ones to land or drop.
+export function pendingFirst(worktrees: readonly Worktree[]): Worktree[] {
+  return [...worktrees].sort((a, b) => Number(isPending(b)) - Number(isPending(a)));
+}
+
 /// Its branch, or its folder's name when detached.
 export function worktreeName(worktree: Worktree): string {
   return worktree.branch ?? `${worktree.path.split("/").pop()} (detached)`;

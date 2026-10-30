@@ -18,6 +18,20 @@ export function inside(folder: string, path: string): boolean {
   return folder === path || folder.startsWith(path.endsWith("/") ? path : `${path}/`);
 }
 
+/// The workspace open on `worktree`, if any.
+export function workspaceOn(
+  worktree: Worktree,
+  workspaces: readonly Workspace[],
+  folderOf: (workspace: Workspace) => string | null,
+): Workspace | null {
+  return (
+    workspaces.find((workspace) => {
+      const folder = folderOf(workspace);
+      return folder !== null && inside(folder, worktree.path);
+    }) ?? null
+  );
+}
+
 /// `workspaces` in their order, each one on a linked worktree moved to just
 /// after the workspace of its main checkout, keeping their own order there.
 /// A worktree whose main checkout has no workspace stays where it was.

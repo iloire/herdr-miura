@@ -2,6 +2,18 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 13:14 — Workspace cards collapse to one line and expand to show more
+
+A workspace card is now a single line: the name, its Git counts, the queue, any loop and the agent tally. Agents that
+finished or wait on you still get a row under it, three at most and then `+N more`, and a click goes to their tab. The
+chevron opens the card to show the branch, chips and three lists: worktrees with what is pending in each, every agent,
+and every port with its process. Each row goes where it names, and a card stays open until you close it. A card with
+nothing more to show has no chevron.
+
+The Agents section at the bottom of the sidebar and its `ui.sidebar_agents` setting are gone, because the cards now
+hold those agents next to their workspace. A settings file that still sets the key gets the usual warning that it does
+nothing.
+
 ## 2026-10-30 13:08 — A queued tab's tooltip shows its whole title
 
 A queued prompt's tab label was cut to 40 characters when the tab opened, so its tooltip ended in `…` too. The label

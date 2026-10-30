@@ -35,7 +35,7 @@ export function agentCountsByTab(snapshot: Snapshot): Map<string, number> {
   return counts;
 }
 
-/// What the sidebar's Agents section calls an agent: its tab, as the tab strip
+/// What a workspace card calls an agent: its tab, as the tab strip
 /// has it, since `agent` reads "claude" on nearly every row. Agents sharing a
 /// tab add their own name, so their rows differ.
 export function agentRowName(agent: Agent, tabs: readonly Tab[], counts: ReadonlyMap<string, number>): string {
@@ -90,9 +90,24 @@ export function loopTags(agents: readonly Agent[]): string[] {
   return agents.map(loopTag).filter((tag) => tag !== null);
 }
 
-/// The Dock badge: agents that finished or are waiting for input. Done ones
+/// Whether an agent wants you: it finished or is waiting for input. Done ones
 /// clear when the daemon marks them seen, blocked ones when their status moves.
+export function wantsYou(agent: Agent): boolean {
+  return agent.agent_status === "blocked" || agent.agent_status === "done";
+}
+
+/// The Dock badge.
 export function attentionCount(snapshot: Snapshot | null): number {
-  return snapshot?.agents.filter((a) => a.agent_status === "blocked" || a.agent_status === "done").length ?? 0;
+  return snapshot?.agents.filter(wantsYou).length ?? 0;
+}
+
+/// How many agents a collapsed workspace card names before it says how many more.
+const ATTENTION_ROWS = 3;
+
+/// The agents a collapsed workspace card names, keeping their order, and how
+/// many it leaves out.
+export function attentionRows(agents: readonly Agent[]): { rows: Agent[]; more: number } {
+  const waiting = agents.filter(wantsYou);
+  return { rows: waiting.slice(0, ATTENTION_ROWS), more: Math.max(0, waiting.length - ATTENTION_ROWS) };
 }
 

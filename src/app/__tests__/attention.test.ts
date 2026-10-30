@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, loopTag, loopTags, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -180,5 +180,37 @@ describe("agentRowName", () => {
   it("falls back to the agent's own name without a tab", () => {
     expect(agentRowName(agent("1", "a", "idle", { tab_id: "gone", display_agent: "Claude" }), tabs, counts)).toBe("Claude");
     expect(agentRowName(agent("1", "a", "idle", { tab_id: "gone", agent: null }), tabs, counts)).toBe("agent");
+  });
+});
+
+describe("attentionRows", () => {
+  const ids = (agents: Agent[]) => agents.map((a) => a.pane_id);
+
+  it("names only the agents that finished or wait on you, in order", () => {
+    const { rows, more } = attentionRows([
+      agent("1", "a", "blocked"),
+      agent("2", "a", "done"),
+      agent("3", "a", "working"),
+      agent("4", "a", "idle"),
+      agent("5", "a", "unknown"),
+    ]);
+    expect(ids(rows)).toEqual(["1", "2"]);
+    expect(more).toBe(0);
+  });
+
+  it("shows nothing when no agent wants you", () => {
+    expect(attentionRows([agent("1", "a", "working")])).toEqual({ rows: [], more: 0 });
+    expect(attentionRows([])).toEqual({ rows: [], more: 0 });
+  });
+
+  it("names three and counts the rest", () => {
+    const { rows, more } = attentionRows(["1", "2", "3", "4", "5"].map((id) => agent(id, "a", "blocked")));
+    expect(ids(rows)).toEqual(["1", "2", "3"]);
+    expect(more).toBe(2);
+  });
+
+  it("does not count agents that want nothing among the rest", () => {
+    const blocked = ["1", "2", "3"].map((id) => agent(id, "a", "blocked"));
+    expect(attentionRows([...blocked, agent("4", "a", "working")]).more).toBe(0);
   });
 });

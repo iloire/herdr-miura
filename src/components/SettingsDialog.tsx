@@ -71,17 +71,6 @@ export function SettingsDialog({
               <NumberField label="Line height" limits={LIMITS["terminal.line_height"]} step={0.05} value={settings.terminal.lineHeight} fallback={1.4} onCommit={(value) => save("terminal.line_height", value)} />
               <NumberField label="Interface text size" limits={LIMITS["ui.font_size"]} step={1} value={settings.ui.fontSize} fallback={13} onCommit={(value) => save("ui.font_size", value)} />
             </div>
-            <label className="settings-check">
-              <input
-                type="checkbox"
-                checked={settings.ui.sidebarAgents}
-                onChange={(event) => save("ui.sidebar_agents", event.target.checked || null)}
-              />
-              <span>
-                List every running agent in the sidebar
-                <small>A section under the workspaces, grouped by workspace. A row goes to the agent's tab.</small>
-              </span>
-            </label>
           </section>
           <section>
             <h3>Behavior</h3>

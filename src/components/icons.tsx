@@ -16,6 +16,13 @@ function Icon({ children }: { children: React.ReactNode }) {
   );
 }
 
+/// Points right; a card turns it down while its details show.
+export const ChevronIcon = () => (
+  <Icon>
+    <path d="m6 4 4 4-4 4" {...LINE} />
+  </Icon>
+);
+
 export const CodeIcon = () => (
   <Icon>
     <path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" {...LINE} />

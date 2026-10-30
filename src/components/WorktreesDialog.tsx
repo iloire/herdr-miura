@@ -4,7 +4,7 @@ import { copyPath, openFolder, tildePath } from "../app/folder";
 import { hueColor } from "../app/hue";
 import { relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
-import { isPending, type Worktree, worktreeName } from "../changes/worktrees";
+import { isPending, pendingFirst, type Worktree, worktreeName } from "../changes/worktrees";
 import { CodeIcon, CopyIcon, FolderIcon, OpenIcon, TerminalIcon } from "./icons";
 
 /// A workspace's linked worktrees in full: each one's branch, what is still
@@ -25,7 +25,7 @@ export function WorktreesDialog({
   onClose: () => void;
 }) {
   const home = useHome();
-  const sorted = [...worktrees].sort((a, b) => Number(isPending(b)) - Number(isPending(a)));
+  const sorted = pendingFirst(worktrees);
   const newTab = (path: string) => {
     controller.request("tab.create", { workspace_id: workspaceId, cwd: path, focus: true });
     onClose();

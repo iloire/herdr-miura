@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPending, type Worktree, worktreeTitle } from "../worktrees";
+import { isPending, pendingFirst, type Worktree, worktreeTitle } from "../worktrees";
 
 const worktree = (overrides: Partial<Worktree>): Worktree => ({
   path: "/r/.claude/worktrees/venice",
@@ -36,5 +36,15 @@ describe("worktrees", () => {
 
   it("says when everything is merged", () => {
     expect(worktreeTitle([worktree({})]).split("\n")[0]).toBe("1 worktree, all merged");
+  });
+});
+
+describe("pendingFirst", () => {
+  it("puts worktrees holding work first and keeps each group's order", () => {
+    const a = worktree({ path: "/a" });
+    const b = worktree({ path: "/b", unmerged: 1 });
+    const c = worktree({ path: "/c" });
+    const d = worktree({ path: "/d", changed: 2 });
+    expect(pendingFirst([a, b, c, d]).map((w) => w.path)).toEqual(["/b", "/d", "/a", "/c"]);
   });
 });

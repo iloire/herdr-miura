@@ -7,18 +7,20 @@ import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
-import { groupWorktrees } from "../app/worktreeGroups";
+import { loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
+import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
-import { type AgentGroup, AgentsSection } from "./AgentsSection";
+import { AttentionRows, CardDetails } from "./CardDetails";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
   BranchIcon,
+  ChevronIcon,
   CodeIcon,
   CopyIcon,
   HandOrderIcon,
@@ -62,7 +64,6 @@ export function Sidebar({
   onOpenQueue,
   pins,
   ports,
-  showAgents,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -83,8 +84,6 @@ export function Sidebar({
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
   ports: Map<string, ListeningPort[]>;
-  /// Lists every running agent under the workspaces (`ui.sidebar_agents`).
-  showAgents: boolean;
 }) {
   const [sort, setSort] = useState(loadSort);
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
@@ -112,16 +111,12 @@ export function Sidebar({
     saveSort(next);
   };
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
-  const agentGroups: AgentGroup[] = showAgents
-    ? rows
-        .map(({ workspace, parent }) => ({
-          workspaceId: workspace.workspace_id,
-          label: workspace.label,
-          railLabel: (parent ?? workspace).label,
-          agents: agents.get(workspace.workspace_id) ?? [],
-        }))
-        .filter((group) => group.agents.length > 0)
-    : [];
+  const [openCards, setOpenCards] = useState(loadOpenCards);
+  const toggleOpen = (workspaceId: string) => {
+    const next = toggleCard(openCards, workspaceId, workspaces.map((workspace) => workspace.workspace_id));
+    setOpenCards(next);
+    saveOpenCards(next);
+  };
   const pinned = pinnedByWorkspace(snapshot?.tabs ?? [], (tab) => pins.has(pinKey(snapshot?.boot_id ?? "", tab.tab_id)));
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -142,7 +137,7 @@ export function Sidebar({
   const focused = workspaces.find((workspace) => workspace.focused);
   const focusedFolder = focused && folderOf(focused);
   return (
-    <nav className={agentGroups.length > 0 ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
+    <nav className="sidebar" aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
         <span data-tauri-drag-region>{title}</span>
       </div>
@@ -174,18 +169,42 @@ export function Sidebar({
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
           const listening = ports.get(workspace.workspace_id) ?? [];
+          const trees = worktrees.get(workspace.workspace_id) ?? [];
+          const pinnedTabs = pinned.get(workspace.workspace_id) ?? [];
+          const queue = queues.get(workspace.workspace_id) ?? null;
+          const openQueue = () => onOpenQueue(workspace.workspace_id);
+          // A card with nothing more to show has nothing to open.
+          const expandable = own.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
+          const open = expandable && openCards.has(workspace.workspace_id);
           const focus = () => {
             if (drag.consumeClick()) return;
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
           };
+          const openWorktrees = () => onOpenWorktrees(workspace.workspace_id);
           const gitLine = (
             <WorkspaceGit
-              branch={workspace.branch}
+              // A collapsed card is one line, so its branch waits in the name's tooltip.
+              branch={open ? workspace.branch : null}
               aheadBehind={workspace.git_ahead_behind}
               changed={changedFiles.get(workspace.workspace_id) ?? 0}
-              worktrees={worktrees.get(workspace.workspace_id) ?? []}
-              onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
+              worktrees={trees}
+              onOpenWorktrees={openWorktrees}
             />
+          );
+          // The name line's end: everything that fits beside the name while collapsed.
+          const headEnd = (
+            <>
+              {open ? (
+                <PortsMark ports={listening} />
+              ) : (
+                <>
+                  {gitLine}
+                  <QueueChip queue={queue} onOpen={openQueue} />
+                  <LoopMark tags={loopTags(own)} />
+                </>
+              )}
+              <AgentTally agents={own} marks={marks} />
+            </>
           );
           return (
             <li
@@ -234,10 +253,9 @@ export function Sidebar({
                             controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
                         }}
                       />
-                      <PortsMark ports={listening} />
-                      <AgentTally agents={own} marks={marks} />
+                      {headEnd}
                     </span>
-                    {gitLine}
+                    {open && gitLine}
                   </div>
                 ) : (
                   <button
@@ -247,30 +265,59 @@ export function Sidebar({
                     onDoubleClick={() => setRenaming(workspace.workspace_id)}
                   >
                     <span className="workspace-head">
-                      <span className="workspace-label" title={path || undefined}>
+                      <span className="workspace-label" title={[path, shownBranch(workspace.branch)].filter(Boolean).join("\n") || undefined}>
                         {workspace.label}
                       </span>
-                      <PortsMark ports={listening} />
-                      <AgentTally agents={own} marks={marks} />
+                      {headEnd}
                     </span>
-                    {gitLine}
+                    {open && gitLine}
                   </button>
                 )}
-                {/* What else lives here, a chip each on the card's last line, so the
-                    name keeps its width however much is going on. Beside the
-                    card's button, not in it: a chip can be a button of its own. */}
-                <div className="workspace-tray" onClick={focus}>
-                  <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
-                  <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
-                  <LoopMark tags={loopTags(own)} />
-                </div>
+                {/* Beside the card's button, not in it, as is everything below:
+                    a row can be a button of its own. */}
+                {expandable && (
+                  <button
+                    className="workspace-chevron"
+                    title={open ? "Hide details" : "Show details"}
+                    aria-label={`${open ? "Hide" : "Show"} details of ${workspace.label}`}
+                    aria-expanded={open}
+                    onClick={() => toggleOpen(workspace.workspace_id)}
+                  >
+                    <ChevronIcon />
+                  </button>
+                )}
+                {snapshot &&
+                  (open ? (
+                    <>
+                      <div className="workspace-tray" onClick={focus}>
+                        <QueueChip queue={queue} onOpen={openQueue} />
+                        <PinnedTabs tabs={pinnedTabs} />
+                        <LoopMark tags={loopTags(own)} />
+                      </div>
+                      <CardDetails
+                        controller={controller}
+                        snapshot={snapshot}
+                        agents={own}
+                        worktrees={trees}
+                        ports={listening}
+                        openOn={(worktree) => workspaceOn(worktree, workspaces, folderOf)}
+                        onOpenWorktrees={openWorktrees}
+                      />
+                    </>
+                  ) : (
+                    <AttentionRows
+                      controller={controller}
+                      snapshot={snapshot}
+                      agents={own}
+                      onExpand={() => toggleOpen(workspace.workspace_id)}
+                    />
+                  ))}
               </div>
             </li>
           );
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
-      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} />}
       {snapshot && focused && focusedFolder && (
         <TeamSection
           controller={controller}
@@ -391,10 +438,10 @@ function PinnedTabs({ tabs }: { tabs: Tab[] }) {
   );
 }
 
-/// The branch line, as herdr-gpui's folder card has it: the branch unless it is
+/// The Git facts, as herdr-gpui's folder card has them: the branch unless it is
 /// `main` or `master`, commits to push and pull, how many files are changed, and
 /// how many linked worktrees the checkout has. Only what is non-zero shows, and
-/// the line is gone when that leaves nothing.
+/// they are gone when that leaves nothing. A `null` branch leaves the name out.
 function WorkspaceGit({
   branch,
   aheadBehind,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Workspace } from "../../protocol";
 import type { Worktree } from "../../changes/worktrees";
-import { groupWorktrees } from "../worktreeGroups";
+import { groupWorktrees, workspaceOn } from "../worktreeGroups";
 
 function workspace(label: string, folder: string): Workspace {
   return {
@@ -66,5 +66,26 @@ describe("groupWorktrees", () => {
       ["app", null],
       ["fixed", null],
     ]);
+  });
+});
+
+describe("workspaceOn", () => {
+  const folderOf = (w: Workspace) => w.new_workspace_cwd;
+
+  it("finds the workspace open on a worktree, or in a folder inside it", () => {
+    const fix = workspace("fix", FIX);
+    const deep = workspace("deep", `${UI}/src`);
+    const all = [workspace("app", APP), fix, deep];
+    expect(workspaceOn(worktree(FIX), all, folderOf)).toBe(fix);
+    expect(workspaceOn(worktree(UI), all, folderOf)).toBe(deep);
+  });
+
+  it("does not take the main checkout for a worktree inside it, or a neighbor for it", () => {
+    expect(workspaceOn(worktree(FIX), [workspace("app", APP)], folderOf)).toBeNull();
+    expect(workspaceOn(worktree(FIX), [workspace("other", `${FIX}-other`)], folderOf)).toBeNull();
+  });
+
+  it("skips a workspace with no folder", () => {
+    expect(workspaceOn(worktree(FIX), [workspace("app", APP)], () => null)).toBeNull();
   });
 });
