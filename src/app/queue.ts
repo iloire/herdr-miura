@@ -104,9 +104,9 @@ export const queueKey = (folder: string) => `local:${folder}`;
 /// The folder a workspace's queue is kept on; null until it is known.
 export type FolderOf = (workspace: Workspace) => string | null;
 
-/// A workspace's folder on its card: herdr's, which follows the active tab,
-/// else the one most of its tabs are in. Queues do not use it: see
-/// `queueFolder` in `workspaceRoot.ts`.
+/// A workspace's folder on its card until it has a fixed root, which a remote
+/// host's never does: herdr's, which follows the active tab, else the one most
+/// of its tabs are in. Queues do not use it: see `queueFolder` in `workspaceRoot.ts`.
 export function workspaceFolder(workspace: Workspace, snapshot: Snapshot): string | null {
   if (workspace.new_workspace_cwd) return workspace.new_workspace_cwd;
   return tabsFolder(workspace, snapshot) ?? workspaceDirectory(workspace, snapshot);

@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 14:53 — Workspace cards stay on their own folder
+
+A workspace card took its Git data from whichever folder its active tab was in. A notes workspace with a tab
+in another repo listed that repo's worktrees, and a workspace on one of them nested under notes as if notes
+were its main checkout. A card's changed-file count, worktree list and nesting, team file, tooltip and folder
+menu now read the folder the workspace was fixed on, whichever tab is active. A workspace the window has not
+seen yet, and any on a remote host, still use the active tab's folder. The tab strip's Git state and the
+stray-path warning still follow the focused pane.
+
 ## 2026-10-30 14:47 — Run a queued prompt now, in a worktree of its own
 
 Right-clicking a waiting prompt in the Queue panel now offers Run in a Worktree Now, for the quick job stuck

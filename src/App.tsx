@@ -145,12 +145,15 @@ export default function App() {
       .catch(() => {});
   }, [attention]);
 
+  const local = state.status.phase === "connected" && state.host === null;
+  const { roots, rootOf, queueFolderOf } = useRoots(state.snapshot, local);
   // Every workspace's changed-file count, one `git status` per folder, and
-  // its checkout's linked worktrees, never two rounds at once. Reread on a
+  // its checkout's linked worktrees, never two rounds at once. A workspace
+  // with a fixed root reads that, not its active tab's folder. Reread on a
   // timer and when the window comes back.
   const counted = useMemo(
-    () => (state.snapshot ? countedDirectories(state.snapshot) : { byWorkspace: new Map<string, string>(), directories: [] }),
-    [state.snapshot],
+    () => (state.snapshot ? countedDirectories(state.snapshot, rootOf) : { byWorkspace: new Map<string, string>(), directories: [] }),
+    [state.snapshot, rootOf],
   );
   const directoriesKey = counted.directories.join("\0");
   const [counts, setCounts] = useState<Map<string, number | null>>(new Map());
@@ -196,10 +199,6 @@ export default function App() {
     return byWorkspace;
   }, [counted, worktreeLists]);
 
-  // Every workspace's listening ports, scanned on this Mac only: a remote
-  // host's servers are not reachable at its localhost from here.
-  const local = state.status.phase === "connected" && state.host === null;
-  const { roots, queueFolderOf, rootOf } = useRoots(state.snapshot, local);
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf);
   const queues = useMemo(() => {
@@ -213,6 +212,8 @@ export default function App() {
     }
     return byWorkspace;
   }, [state.snapshot, local, queueFile, queueFolderOf]);
+  // Every workspace's listening ports, scanned on this Mac only: a remote
+  // host's servers are not reachable at its localhost from here.
   const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
   useEffect(() => {
     if (!local) {
@@ -423,7 +424,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}

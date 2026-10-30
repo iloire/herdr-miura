@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CheckoutChanges, ChangesState } from "../../changes/store";
 import type { Snapshot, Workspace } from "../../protocol";
-import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes } from "../workspaceRoot";
+import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, workspaceRoot } from "../workspaceRoot";
 
 const HOME = "/Users/me";
 const ROOT = "/Users/me/code/app";
@@ -156,6 +156,19 @@ const rootedOn = (folder: string, homes: Record<string, string> = {}): Roots => 
   bootId: "boot",
   folders: { w1: folder },
   homes,
+});
+
+describe("workspaceRoot", () => {
+  it("is the fixed root wherever the tabs are, and nothing before one is fixed", () => {
+    const { snapshot, workspace } = shot("/elsewhere");
+    expect(workspaceRoot(rootedOn(MAIN), workspace, snapshot)).toBe(MAIN);
+    expect(workspaceRoot({ bootId: "boot", folders: {}, homes: {} }, workspace, snapshot)).toBeNull();
+  });
+
+  it("ignores roots saved under another boot, whose ids name other workspaces", () => {
+    const { snapshot, workspace } = shot(MAIN);
+    expect(workspaceRoot({ ...rootedOn("/old"), bootId: "earlier" }, workspace, snapshot)).toBeNull();
+  });
 });
 
 describe("queueFolder", () => {

@@ -64,6 +64,7 @@ export function Sidebar({
   onOpenQueue,
   pins,
   ports,
+  rootOf,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -84,10 +85,12 @@ export function Sidebar({
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
   ports: Map<string, ListeningPort[]>;
+  /// A workspace's fixed root; null when it has none yet or on a remote host.
+  rootOf: (workspace: Workspace) => string | null;
 }) {
   const [sort, setSort] = useState(loadSort);
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
-  const folderOf = (workspace: Workspace) => (snapshot && workspaceFolder(workspace, snapshot)) || null;
+  const folderOf = (workspace: Workspace) => (snapshot && (rootOf(workspace) ?? workspaceFolder(workspace, snapshot))) || null;
   const rows = groupWorktrees(
     sortWorkspaces(snapshot?.workspaces ?? [], sort),
     folderOf,
@@ -165,7 +168,7 @@ export function Sidebar({
       <ol className="workspace-list" ref={drag.list}>
         {rows.map(({ workspace, parent }, index) => {
           const own = agents.get(workspace.workspace_id) ?? [];
-          const path = snapshot && workspaceDirectory(workspace, snapshot);
+          const path = snapshot && (rootOf(workspace) ?? workspaceDirectory(workspace, snapshot));
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
           const listening = ports.get(workspace.workspace_id) ?? [];
@@ -220,7 +223,7 @@ export function Sidebar({
                 {...drag.handlers(index)}
                 onContextMenu={(event) => {
                   event.preventDefault();
-                  const folder = workspace.new_workspace_cwd || path;
+                  const folder = folderOf(workspace);
                   const rename: MenuItem = {
                     label: "Rename…",
                     icon: <RenameIcon />,

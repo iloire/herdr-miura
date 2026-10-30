@@ -87,6 +87,12 @@ export function withHomes(roots: Roots, found: Map<string, string>): Roots {
   return added.length ? { ...roots, homes: { ...roots.homes, ...Object.fromEntries(added) } } : roots;
 }
 
+/// The folder a workspace's card reads, wherever its tabs go; null until the
+/// window has fixed one. Roots of another boot name other workspaces.
+export function workspaceRoot(roots: Roots, workspace: Workspace, snapshot: Snapshot): string | null {
+  return roots.bootId === snapshot.boot_id ? (roots.folders[workspace.workspace_id] ?? null) : null;
+}
+
 /// The folder a workspace's queue is kept on: its root's main checkout, wherever
 /// its tabs go. A root deleted before its home was asked has none, so the
 /// folder most of its tabs are in stands in. Null until `homes` answers.

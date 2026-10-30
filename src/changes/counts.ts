@@ -8,11 +8,15 @@ export function workspaceDirectory(workspace: Workspace, snapshot: Snapshot): st
   return pane?.foreground_cwd || pane?.cwd || workspace.new_workspace_cwd || null;
 }
 
-/// Each workspace's directory, with workspaces in the same folder asking once.
-export function countedDirectories(snapshot: Snapshot): { byWorkspace: Map<string, string>; directories: string[] } {
+/// Each workspace's directory, its fixed root when it has one, with workspaces
+/// in the same folder asking once.
+export function countedDirectories(
+  snapshot: Snapshot,
+  rootOf: (workspace: Workspace) => string | null,
+): { byWorkspace: Map<string, string>; directories: string[] } {
   const byWorkspace = new Map<string, string>();
   for (const workspace of snapshot.workspaces) {
-    const directory = workspaceDirectory(workspace, snapshot);
+    const directory = rootOf(workspace) ?? workspaceDirectory(workspace, snapshot);
     if (directory) byWorkspace.set(workspace.workspace_id, directory);
   }
   return { byWorkspace, directories: [...new Set(byWorkspace.values())] };

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Workspace } from "../../protocol";
+import type { Snapshot, Workspace } from "../../protocol";
+import { countedDirectories } from "../../changes/counts";
 import type { Worktree } from "../../changes/worktrees";
+import { workspaceFolder } from "../queue";
+import { type Roots, workspaceRoot } from "../workspaceRoot";
 import { groupWorktrees, workspaceOn } from "../worktreeGroups";
 
 function workspace(label: string, folder: string): Workspace {
@@ -65,6 +68,61 @@ describe("groupWorktrees", () => {
     expect(rows).toEqual([
       ["app", null],
       ["fixed", null],
+    ]);
+  });
+});
+
+describe("groupWorktrees on the card's lookups", () => {
+  const NOTES = "/notes";
+  const lists: Record<string, string[]> = { [APP]: [FIX], [FIX]: [FIX] };
+
+  /// `folders` are the active tabs' folders, by label. The rows the sidebar
+  /// draws: Git's lists read for `countedDirectories`, as App.tsx does, and
+  /// the same folder lookup as Sidebar.tsx.
+  function cards(folders: Record<string, string>, rooted: Record<string, string>) {
+    const workspaces = Object.entries(folders).map(([label, folder]) => workspace(label, folder));
+    const snapshot = {
+      boot_id: "boot",
+      workspaces,
+      tabs: workspaces.map((w) => ({ tab_id: w.active_tab_id, workspace_id: w.workspace_id, number: 1 })),
+      panes: workspaces.map((w) => ({ pane_id: `${w.label}:p`, tab_id: w.active_tab_id, cwd: w.new_workspace_cwd })),
+    } as unknown as Snapshot;
+    const roots: Roots = { bootId: "boot", folders: rooted, homes: {} };
+    const rootOf = (w: Workspace) => workspaceRoot(roots, w, snapshot);
+    const { byWorkspace } = countedDirectories(snapshot, rootOf);
+    return groupWorktrees(
+      workspaces,
+      (w) => rootOf(w) ?? workspaceFolder(w, snapshot),
+      (w) => (lists[byWorkspace.get(w.workspace_id) ?? ""] ?? []).map(worktree),
+    ).map((row) => [row.workspace.label, row.parent?.label ?? null]);
+  }
+
+  it("does not take a non-repo workspace for a main checkout because its active tab is in one", () => {
+    expect(cards({ notes: APP, fix: FIX }, { notes: NOTES, fix: FIX })).toEqual([
+      ["notes", null],
+      ["fix", null],
+    ]);
+  });
+
+  it("does not nest a main checkout under another because its active tab is in a worktree", () => {
+    expect(cards({ app: FIX, notes: APP }, { app: APP, notes: NOTES })).toEqual([
+      ["app", null],
+      ["notes", null],
+    ]);
+  });
+
+  it("still nests a real main checkout and its worktree", () => {
+    expect(cards({ fix: FIX, notes: NOTES, app: APP }, { fix: FIX, notes: NOTES, app: APP })).toEqual([
+      ["notes", null],
+      ["app", null],
+      ["fix", "app"],
+    ]);
+  });
+
+  it("falls back to the active tab's folder for a workspace with no root yet", () => {
+    expect(cards({ fix: FIX, app: APP }, {})).toEqual([
+      ["app", null],
+      ["fix", "app"],
     ]);
   });
 });

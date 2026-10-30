@@ -5,12 +5,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot, Workspace } from "../protocol";
 import { readHomes } from "./queue";
-import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes } from "./workspaceRoot";
+import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, workspaceRoot } from "./workspaceRoot";
 
 export function useRoots(
   snapshot: Snapshot | null,
   local: boolean,
-): { roots: Roots; queueFolderOf: (workspace: Workspace) => string | null; rootOf: (workspace: Workspace) => string | null } {
+): {
+  roots: Roots;
+  /// A workspace's fixed root; null before it has one, and on a remote host,
+  /// whose workspaces are never given one.
+  rootOf: (workspace: Workspace) => string | null;
+  queueFolderOf: (workspace: Workspace) => string | null;
+} {
   const [roots, setRoots] = useState(loadRoots);
   const asked = useRef(new Set<string>());
 
@@ -43,10 +49,13 @@ export function useRoots(
       });
   }, [local, snapshot, roots]);
 
+  const rootOf = useCallback(
+    (workspace: Workspace) => (local && snapshot ? workspaceRoot(roots, workspace, snapshot) : null),
+    [local, roots, snapshot],
+  );
   const queueFolderOf = useCallback(
     (workspace: Workspace) => (snapshot ? queueFolder(roots, workspace, snapshot) : null),
     [roots, snapshot],
   );
-  const rootOf = useCallback((workspace: Workspace) => roots.folders[workspace.workspace_id] ?? null, [roots]);
-  return { roots, queueFolderOf, rootOf };
+  return { roots, rootOf, queueFolderOf };
 }
