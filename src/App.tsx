@@ -199,9 +199,9 @@ export default function App() {
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const local = state.status.phase === "connected" && state.host === null;
-  const { roots, queueFolderOf } = useRoots(state.snapshot, local);
+  const { roots, queueFolderOf, rootOf } = useRoots(state.snapshot, local);
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf);
+  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;

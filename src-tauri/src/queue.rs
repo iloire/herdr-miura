@@ -387,6 +387,99 @@ pub fn open(
     args: &[String],
 ) -> Result<Opened, Error> {
     checked(workspace)?;
+    check_start(directory, label, name, kind, args)?;
+    let cli = herdr()?;
+    let created = run(
+        &cli,
+        &[
+            "tab", "create", "--workspace", workspace, "--cwd", directory, "--label", label, "--no-focus",
+        ],
+    )?;
+    let pane = serde_json::from_value::<Created>(created)
+        .map_err(Error::Decode)?
+        .root_pane;
+    start_agent(&cli, &pane, directory, name, kind, args)
+}
+
+/// Makes the worktree `path` of `directory` on a new branch `feat/` plus its
+/// folder's name, as `worktreeBranch` shows it, in a workspace of its own labelled `label`, and starts the agent in its first
+/// tab. Its Git state stays with the worktree: removing that closes the
+/// workspace and keeps the branch. Blocking: run off the main thread.
+pub fn worktree(
+    directory: &str,
+    path: &str,
+    label: &str,
+    name: &str,
+    kind: &str,
+    args: &[String],
+) -> Result<Opened, Error> {
+    check_start(directory, label, name, kind, args)?;
+    let folder = Path::new(path).file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    let branch = format!("feat/{folder}");
+    if !worktree_inside(directory, path) || !branch_name(&branch) {
+        return Err(Error::InvalidId(path.into()));
+    }
+    exclude_worktrees(directory);
+    let cli = herdr()?;
+    let created = run(
+        &cli,
+        &[
+            "worktree", "create", "--cwd", directory, "--branch", &branch, "--path", path, "--label", label, "--no-focus",
+        ],
+    )?;
+    let pane = serde_json::from_value::<Created>(created)
+        .map_err(Error::Decode)?
+        .root_pane;
+    // The worktree exists now, so a slow shell is no reason to report that
+    // nothing happened: a second try would find its branch taken. The item
+    // fails as an agent that never started, with this note as the reason.
+    start_agent(&cli, &pane, path, name, kind, args).or_else(|error| {
+        Ok(Opened {
+            tab_id: pane.tab_id,
+            pane_id: pane.pane_id,
+            ready: false,
+            note: Some(error.to_string()),
+            head: head(path),
+        })
+    })
+}
+
+/// A worktree may only go in `.claude/worktrees/` of the checkout it is for.
+fn worktree_inside(directory: &str, path: &str) -> bool {
+    Path::new(path).parent() == Some(&Path::new(directory).join(".claude/worktrees"))
+        && !path.ends_with("/..")
+        && !path.ends_with("/.")
+}
+
+fn branch_name(branch: &str) -> bool {
+    branch.strip_prefix("feat/").is_some_and(|rest| {
+        !rest.is_empty() && !rest.starts_with('-') && rest.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    })
+}
+
+/// A worktree in the checkout must not read as a change in it, or "wait for a
+/// clean tree" would pause the queue, so `.git/info/exclude` gains a line if it
+/// lacks one. Failing costs only that pause, whose reason says what to do.
+fn exclude_worktrees(directory: &str) {
+    const LINE: &str = "**/.claude/worktrees/";
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let args = ["rev-parse", "--git-path", "info/exclude"];
+    let Ok(out) = crate::git::run(directory, &args, "find the exclude file", deadline, 4096) else {
+        return;
+    };
+    let file = Path::new(directory).join(String::from_utf8_lossy(&out).trim());
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    if text.lines().any(|line| line.trim() == LINE) {
+        return;
+    }
+    let gap = if text.is_empty() || text.ends_with('\n') { "" } else { "\n" };
+    if let Some(parent) = file.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&file, format!("{text}{gap}{LINE}\n"));
+}
+
+fn check_start(directory: &str, label: &str, name: &str, kind: &str, args: &[String]) -> Result<(), Error> {
     agent_name(name)?;
     plain(label, MAX_TAB_LABEL, false)?;
     if !KINDS.contains(&kind) {
@@ -401,16 +494,18 @@ pub fn open(
     if !Path::new(directory).is_absolute() || !Path::new(directory).is_dir() {
         return Err(Error::NoFolder(directory.into()));
     }
-    let cli = herdr()?;
-    let created = run(
-        &cli,
-        &[
-            "tab", "create", "--workspace", workspace, "--cwd", directory, "--label", label, "--no-focus",
-        ],
-    )?;
-    let pane = serde_json::from_value::<Created>(created)
-        .map_err(Error::Decode)?
-        .root_pane;
+    Ok(())
+}
+
+/// Starts the agent `kind` under `name` in `pane`, which sits in `directory`.
+fn start_agent(
+    cli: &Path,
+    pane: &CreatedPane,
+    directory: &str,
+    name: &str,
+    kind: &str,
+    args: &[String],
+) -> Result<Opened, Error> {
     let mut start = vec![
         "agent",
         "start",
@@ -428,13 +523,13 @@ pub fn open(
     }
     // A shell that never came up is not an agent asking a question; waiting
     // on it would wait forever, so the item fails with Herdr's reason.
-    let started = match while_busy(Instant::now() + SHELL_START, || run(&cli, &start), std::thread::sleep) {
+    let started = match while_busy(Instant::now() + SHELL_START, || run(cli, &start), std::thread::sleep) {
         Err(error) if busy(&error) => return Err(error),
         other => other,
     };
     Ok(Opened {
-        tab_id: pane.tab_id,
-        pane_id: pane.pane_id,
+        tab_id: pane.tab_id.clone(),
+        pane_id: pane.pane_id.clone(),
         ready: started.is_ok(),
         note: started.err().map(|error| error.to_string()),
         head: head(directory),
@@ -576,6 +671,40 @@ mod tests {
     fn a_worktree_of_a_bare_repository_stays_where_it_is() {
         assert_eq!(main_checkout("/r/repo.git\n/r/repo.git/worktrees/a\n"), None);
         assert_eq!(main_checkout("/r/.git\n/r/.git\n"), None);
+    }
+
+    #[test]
+    fn a_worktree_goes_only_in_its_checkouts_own_folder() {
+        assert!(worktree_inside("/r/app", "/r/app/.claude/worktrees/fix-q1"));
+        assert!(!worktree_inside("/r/app", "/r/app/.claude/worktrees/.."));
+        assert!(!worktree_inside("/r/app", "/r/app/.claude/worktrees/a/b"));
+        assert!(!worktree_inside("/r/app", "/r/other/.claude/worktrees/a"));
+        assert!(branch_name("feat/fix-the-login-q12"));
+        assert!(!branch_name("feat/"));
+        assert!(!branch_name("feat/-x"));
+        assert!(!branch_name("feat/a b"));
+        assert!(!branch_name("main"));
+    }
+
+    #[test]
+    fn a_worktree_never_makes_its_checkout_look_changed() {
+        let dir = temp("exclude").canonicalize().unwrap();
+        git(&dir, &["init", "-q"]);
+        std::fs::create_dir_all(dir.join(".claude/worktrees/a")).unwrap();
+        std::fs::write(dir.join(".claude/worktrees/a/f"), "f").unwrap();
+        let status = || {
+            let out = std::process::Command::new("git").args(["status", "--short"]).current_dir(&dir).output().unwrap();
+            String::from_utf8(out.stdout).unwrap()
+        };
+        assert!(!status().is_empty());
+        let file = dir.join(".git/info/exclude");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "*.log").unwrap();
+        exclude_worktrees(dir.to_str().unwrap());
+        exclude_worktrees(dir.to_str().unwrap());
+        assert_eq!(status(), "");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "*.log\n**/.claude/worktrees/\n");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

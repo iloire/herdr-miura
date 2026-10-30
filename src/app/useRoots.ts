@@ -10,7 +10,7 @@ import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoo
 export function useRoots(
   snapshot: Snapshot | null,
   local: boolean,
-): { roots: Roots; queueFolderOf: (workspace: Workspace) => string | null } {
+): { roots: Roots; queueFolderOf: (workspace: Workspace) => string | null; rootOf: (workspace: Workspace) => string | null } {
   const [roots, setRoots] = useState(loadRoots);
   const asked = useRef(new Set<string>());
 
@@ -47,5 +47,6 @@ export function useRoots(
     (workspace: Workspace) => (snapshot ? queueFolder(roots, workspace, snapshot) : null),
     [roots, snapshot],
   );
-  return { roots, queueFolderOf };
+  const rootOf = useCallback((workspace: Workspace) => roots.folders[workspace.workspace_id] ?? null, [roots]);
+  return { roots, queueFolderOf, rootOf };
 }

@@ -11,6 +11,7 @@ import type { Snapshot } from "../protocol";
 import type { Controller } from "./controller";
 import {
   addItem,
+  bringBack,
   countCommits,
   dropItem,
   type Effect,
@@ -21,7 +22,9 @@ import {
   type Item,
   loadQueue,
   moveItem,
+  type Opened,
   openItem,
+  openWorktree,
   patchItem,
   promptItem,
   type Queue,
@@ -32,10 +35,12 @@ import {
   removeItem,
   restoreItem,
   saveQueue,
+  sendAway,
   settleInbox,
   step,
   takeInbox,
   viewOf,
+  worktreePath,
 } from "./queue";
 
 const TICK_MS = 1000;
@@ -59,6 +64,8 @@ export interface QueueActions {
   edit(folder: string, id: string, prompt: string): void;
   /// Removes a waiting item and returns a function that puts it back.
   remove(folder: string, id: string): () => void;
+  /// Runs a waiting item now in a worktree of its own, beside the queue.
+  runInWorktree(folder: string, id: string): void;
   /// Takes the item in progress off the queue without pausing it; its tab and
   /// agent are left alone.
   drop(folder: string, id: string): void;
@@ -75,12 +82,13 @@ export function useQueue(
   snapshot: Snapshot | null,
   local: boolean,
   folderOf: FolderOf,
+  rootOf: FolderOf,
 ): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
-  const latest = useRef({ snapshot, local, folderOf });
-  latest.current = { snapshot, local, folderOf };
+  const latest = useRef({ snapshot, local, folderOf, rootOf });
+  latest.current = { snapshot, local, folderOf, rootOf };
 
   /// Inbox files added but not yet deleted, so a slow save never adds one twice.
   const taken = useRef(new Set<string>());
@@ -147,18 +155,41 @@ export function useQueue(
     };
   }, [commit, controller]);
 
+  const prompt = useCallback(
+    async (folder: string, item: Item) => {
+      const queue = current.current?.queues[queueKey(folder)] ?? emptyQueue(folder);
+      try {
+        await promptItem(item, queue);
+        update(folder, (q) => patchItem(q, item.id, { state: "running", reason: undefined }));
+      } catch (error) {
+        update(folder, (q) => end(q, item.id, "failed", Date.now(), `did not take its prompt: ${error}`));
+      }
+    },
+    [update],
+  );
+
+  /// Notes the tab and agent an item got, and prompts it if it is ready.
+  const started = useCallback(
+    async (folder: string, item: Item, opened: Opened) => {
+      const ready = { state: opened.ready ? "prompting" : "waiting", opened: Date.now() } as const;
+      update(folder, (q) =>
+        patchItem(q, item.id, {
+          ...ready,
+          tabId: opened.tab_id,
+          paneId: opened.pane_id,
+          head: opened.head ?? undefined,
+          reason: opened.note ?? undefined,
+        }),
+      );
+      if (opened.ready) await prompt(folder, { ...item, ...ready });
+    },
+    [prompt, update],
+  );
+
   const carryOut = useCallback(
     async (folder: string, effect: Effect) => {
       const { item } = effect;
       const queue = () => current.current?.queues[queueKey(folder)] ?? emptyQueue(folder);
-      const prompt = async (item: Item) => {
-        try {
-          await promptItem(item, queue());
-          update(folder, (q) => patchItem(q, item.id, { state: "running", reason: undefined }));
-        } catch (error) {
-          update(folder, (q) => end(q, item.id, "failed", Date.now(), `did not take its prompt: ${error}`));
-        }
-      };
       switch (effect.kind) {
         case "open": {
           if (queue().requireClean) {
@@ -170,28 +201,18 @@ export function useQueue(
             }
           }
           try {
-            const opened = await openItem(effect.workspaceId, item, folder);
-            const ready = { state: opened.ready ? "prompting" : "waiting", opened: Date.now() } as const;
-            update(folder, (q) =>
-              patchItem(q, item.id, {
-                ...ready,
-                tabId: opened.tab_id,
-                paneId: opened.pane_id,
-                head: opened.head ?? undefined,
-                reason: opened.note ?? undefined,
-              }),
-            );
-            if (opened.ready) await prompt({ ...item, ...ready });
+            await started(folder, item, await openItem(effect.workspaceId, item, folder));
           } catch (error) {
             update(folder, (q) => end(q, item.id, "failed", Date.now(), `could not start: ${error}`));
           }
           return;
         }
         case "prompt":
-          return prompt(item);
+          return prompt(folder, item);
         case "finished": {
           if (!item.head) return;
-          const commits = await countCommits(folder, item.head).catch(() => undefined);
+          // A worktree already removed has nothing left to count.
+          const commits = await countCommits(item.worktree ?? folder, item.head).catch(() => undefined);
           update(folder, (q) => ({
             ...q,
             history: q.history.map((i) => (i.id === item.id ? { ...i, commits } : i)),
@@ -199,18 +220,18 @@ export function useQueue(
         }
       }
     },
-    [update],
+    [prompt, started, update],
   );
 
   const tick = useCallback(() => {
     const file = current.current;
-    const { snapshot, local, folderOf } = latest.current;
+    const { snapshot, local, folderOf, rootOf } = latest.current;
     if (!file || !snapshot || !local) return;
     const now = Date.now();
     const queues = { ...file.queues };
     const effects: [string, Effect][] = [];
     for (const [key, queue] of Object.entries(file.queues)) {
-      const result = step(queue, viewOf(queue, snapshot, now, folderOf));
+      const result = step(queue, viewOf(queue, snapshot, now, folderOf, rootOf));
       queues[key] = result.queue;
       if (result.effect) effects.push([queue.folder, result.effect]);
     }
@@ -276,6 +297,19 @@ export function useQueue(
         });
         return undo;
       },
+      runInWorktree(folder, id) {
+        const queue = current.current?.queues[queueKey(folder)];
+        const item = queue?.items.find((i) => i.id === id && i.state === "queued");
+        if (!item) return;
+        const path = worktreePath(folder, item);
+        update(folder, (q) => sendAway(q, id, Date.now(), path));
+        openWorktree(item, folder, path)
+          .then((opened) => started(folder, { ...item, state: "starting", worktree: path }, opened))
+          .catch((error) => {
+            update(folder, (q) => bringBack(q, id));
+            controller.act(Promise.reject(error));
+          });
+      },
       drop(folder, id) {
         update(folder, (q) => dropItem(q, id, Date.now()));
         tick();
@@ -291,7 +325,7 @@ export function useQueue(
         update(folder, (q) => ({ ...q, ...patch }));
       },
     }),
-    [commit, tick, update],
+    [commit, controller, started, tick, update],
   );
 
   return { file, access, actions };

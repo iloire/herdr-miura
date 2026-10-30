@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Workspace } from "../../protocol";
 import {
   addItem,
+  bringBack,
   dropItem,
   EMPTY_FILE,
   emptyQueue,
@@ -17,13 +18,18 @@ import {
   recover,
   removeItem,
   restoreItem,
+  sendAway,
   step,
+  summary,
   takeInbox,
   tabLabel,
   title,
   type View,
   viewOf,
   workspaceFolder,
+  WORKTREE_NOTE,
+  worktreeBranch,
+  worktreePath,
 } from "../queue";
 
 const FOLDER = "/code/app";
@@ -194,7 +200,7 @@ describe("viewOf", () => {
       agents: [agent("a", "idle", { workspace_id: "w2" }), agent("b", "working", { workspace_id: "w3" })],
       panes: [{ pane_id: "a" }],
     } as unknown as Snapshot;
-    const seen = viewOf(emptyQueue(FOLDER), snapshot, 5, (w) => workspaceFolder(w, snapshot));
+    const seen = viewOf(emptyQueue(FOLDER), snapshot, 5, (w) => workspaceFolder(w, snapshot), () => null);
     expect(seen.workspaces.map((w) => w.workspace_id)).toEqual(["w1", "w2"]);
     expect(seen.agents.map((a) => a.pane_id)).toEqual(["a"]);
   });
@@ -355,5 +361,139 @@ describe("the inbox", () => {
 
   it("leaves a typed prompt without a source", () => {
     expect(addItem(EMPTY_FILE, FOLDER, "typed", false, 0).queues[queueKey(FOLDER)].items[0]).not.toHaveProperty("source");
+  });
+});
+
+describe("a prompt run in a worktree", () => {
+  const PATH = `${FOLDER}/.claude/worktrees/fix-it-q2`;
+
+  /// `prompts` waiting, the last one taken out of line and running in pane `w1`.
+  function sent(...prompts: string[]): Queue {
+    const queue = queued(...prompts);
+    const id = queue.items[queue.items.length - 1].id;
+    const away = sendAway(queue, id, 1000, PATH);
+    return { ...away, items: away.items.map((i) => (i.id === id ? { ...i, state: "running", paneId: "w1", tabId: "tw", opened: 1000 } : i)) };
+  }
+
+  it("is named after its prompt and its id", () => {
+    const item = { ...queued("Fix: the login, again!\nmore").items[0], id: "q7" };
+    expect(worktreePath(FOLDER, item)).toBe(`${FOLDER}/.claude/worktrees/fix-the-login-again-q7`);
+    expect(worktreeBranch(worktreePath(FOLDER, item))).toBe("feat/fix-the-login-again-q7");
+    expect(worktreePath(FOLDER, { ...item, prompt: "修复" })).toBe(`${FOLDER}/.claude/worktrees/q7`);
+  });
+
+  it("starts ahead of those waiting, and stays in the main checkout's queue", () => {
+    const queue = queued("a", "b");
+    const away = sendAway(queue, queue.items[1].id, 1000, PATH);
+    expect(away.folder).toBe(FOLDER);
+    expect(away.items.map((i) => [i.prompt, i.state])).toEqual([["b", "starting"], ["a", "queued"]]);
+  });
+
+  it("leaves a running item alone", () => {
+    const queue = running(queued("a"));
+    expect(sendAway(queue, queue.items[0].id, 1000, PATH)).toBe(queue);
+  });
+
+  it("goes back to the front of those waiting when no worktree could be made", () => {
+    const queue = queued("a", "b");
+    const back = bringBack(sendAway(queue, queue.items[1].id, 1000, PATH), queue.items[1].id);
+    expect(back.items.map((i) => [i.prompt, i.state, i.worktree])).toEqual([["b", "queued", undefined], ["a", "queued", undefined]]);
+  });
+
+  it("does not hold back the queue, whose next prompt starts beside it", () => {
+    const result = step(sent("next", "fix it"), view([agent("w1", "working")], 2000));
+    expect(result.effect?.kind).toBe("open");
+    expect(result.effect?.item.prompt).toBe("next");
+  });
+
+  it("does not stop another agent holding the queue back", () => {
+    const result = step(sent("next", "fix it"), view([agent("w1", "working"), agent("p9", "working")], 2000));
+    expect(result.effect).toBeNull();
+  });
+
+  it("runs beside the item in line, which it does not end", () => {
+    const line = running(queued("first", "fix it"));
+    const id = line.items[1].id;
+    const away = sendAway(line, id, 1000, PATH);
+    const both = { ...away, items: away.items.map((i) => (i.id === id ? { ...i, state: "running" as const, paneId: "w1", opened: 1000 } : i)) };
+    const agents = [agent("p1", "working"), agent("w1", "working")];
+    expect(step(both, view(agents, 2000))).toEqual({ queue: both, effect: null });
+  });
+
+  it("is prompted once its agent is ready, while the queue is paused", () => {
+    const queue = sent("fix it");
+    const waiting = {
+      ...queue,
+      paused: { reason: "by you" },
+      items: queue.items.map((i) => ({ ...i, state: "waiting" as const })),
+    };
+    expect(step(waiting, view([agent("w1", "idle")], 2000)).effect?.kind).toBe("prompt");
+  });
+
+  it("finishes without using up the queue's Pause after", () => {
+    let queue = { ...sent("fix it"), stopAfter: true };
+    queue = step(queue, view([agent("w1", "idle")], 2000)).queue;
+    const result = step(queue, view([agent("w1", "idle")], 2000 + FINISH_DEBOUNCE_MS));
+    expect(result.effect?.kind).toBe("finished");
+    expect(result.effect?.item.worktree).toBe(PATH);
+    expect(result.queue.items).toEqual([]);
+    expect(result.queue.stopAfter).toBe(true);
+    expect(result.queue.paused).toBeNull();
+  });
+
+  it("removing its worktree closes its tab: it stops, keeps its prompt, and the queue carries on", () => {
+    const queue = sent("next", "fix it");
+    const ended = step(queue, view([], 1000 + 16_000)).queue;
+    expect(ended.paused).toBeNull();
+    expect(ended.history[0]).toMatchObject({ prompt: "fix it", state: "stopped", reason: "its tab was closed", worktree: PATH });
+    expect(ended.items.map((i) => [i.prompt, i.state])).toEqual([["next", "queued"]]);
+    expect(step(ended, view([], 1000 + 17_000)).effect?.kind).toBe("open");
+  });
+
+  it("an agent that never starts does not pause the queue either", () => {
+    const queue = sent("fix it");
+    const stuck = { ...queue, items: queue.items.map((i) => ({ ...i, state: "waiting" as const, paneId: "w1", reason: "no shell" })) };
+    const ended = step(stuck, view([], 1000 + 16_000, ["w1"])).queue;
+    expect(ended.history[0]).toMatchObject({ state: "failed", reason: "its agent never started: no shell" });
+    expect(ended.paused).toBeNull();
+  });
+
+  it("a launch that finds it starting drops it to the history without pausing", () => {
+    const queue = queued("fix it");
+    const away = sendAway(queue, queue.items[0].id, 1000, PATH);
+    const file = recover({ ...EMPTY_FILE, queues: { [queueKey(FOLDER)]: away } }, 2000);
+    expect(file.queues[queueKey(FOLDER)]).toMatchObject({ paused: null, items: [] });
+    expect(file.queues[queueKey(FOLDER)].history[0].prompt).toBe("fix it");
+  });
+
+  it("tells the agent where it is, before the commit request", () => {
+    const queue = sent("fix it");
+    expect(promptText(queue.items[0], { ...queue, commitSuffix: false })).toBe(`fix it\n\n${WORKTREE_NOTE}`);
+    expect(promptText(queue.items[0], queue)).toContain(`${WORKTREE_NOTE}\n\nWhen you are done`);
+  });
+
+  it("is told apart in the queue's summary and its tab has no place in line", () => {
+    const queue = sent("next", "fix it");
+    expect(summary(queue)).toBe("1 in a worktree · 1 waiting");
+    expect(itemOfTab({ ...EMPTY_FILE, queues: { [queueKey(FOLDER)]: queue } }, "tw")).toBeNull();
+  });
+});
+
+describe("removing a worktree does not reach the queue", () => {
+  const main = { workspace_id: "wm" } as Workspace;
+  const tree = { workspace_id: "wt" } as Workspace;
+  const snapshot = { workspaces: [tree, main], agents: [], panes: [], tabs: [] } as unknown as Snapshot;
+  const queue = queued("a");
+
+  it("opens queued prompts in the main checkout's workspace, whichever comes first", () => {
+    const rootOf = (w: Workspace) => (w === main ? FOLDER : `${FOLDER}/.claude/worktrees/x`);
+    const seen = viewOf(queue, snapshot, 5, () => FOLDER, rootOf);
+    expect(seen.workspaces.map((w) => w.workspace_id)).toEqual(["wm", "wt"]);
+    expect(step(queue, seen).effect).toMatchObject({ kind: "open", workspaceId: "wm" });
+  });
+
+  it("still uses a worktree's workspace when it is the only one open", () => {
+    const seen = viewOf(queue, { ...snapshot, workspaces: [tree] }, 5, () => FOLDER, () => "/elsewhere");
+    expect(step(queue, seen).effect).toMatchObject({ kind: "open", workspaceId: "wt" });
   });
 });

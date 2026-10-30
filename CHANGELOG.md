@@ -2,6 +2,25 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 14:47 — Run a queued prompt now, in a worktree of its own
+
+Right-clicking a waiting prompt in the Queue panel now offers Run in a Worktree Now, for the quick job stuck
+behind a long one or a dirty checkout. It makes `.claude/worktrees/<title>-<id>` on `feat/<title>-<id>` from the
+checkout's current commit, in a workspace of its own, and starts the prompt there straight away, even while the
+queue is paused. If the worktree cannot be made, the prompt goes back to the front of those waiting.
+
+The prompt stays in the main checkout's queue, shown as a running card with its branch, so removing the worktree
+strands nothing. Its agent does not hold the queue back, and whatever ends it, the worktree being removed included,
+never pauses the queue: it goes to the finished list with its prompt, and the next prompt carries on. It does not
+use up Pause after. Claude asks to trust each new folder, so the card waits there until that is answered in its tab.
+The agent is told to commit on the branch and stop; landing it stays with you, and the `⑂` mark shows it pending.
+
+Queued prompts now open in the main checkout's workspace when one is open. `herdr worktree remove` closes the
+worktree's whole workspace, so a prompt that had started in a worktree's workspace, as could happen when that
+workspace came first, was closed with it. With only a worktree's workspace open, it is still used. The worktrees
+folder is added to the repo's `.git/info/exclude` when missing, or it would read as a change in the checkout and
+pause any queue set to wait for a clean tree.
+
 ## 2026-10-30 14:34 — A queue lives on the main checkout, never on a worktree
 
 A workspace's queue followed its active tab, so with the tab in `.claude/worktrees/agent-age` two prompts

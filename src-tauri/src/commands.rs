@@ -388,6 +388,24 @@ pub async fn queue_open(
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 
+/// Runs a queued prompt's agent in a new worktree, in a workspace of its own.
+#[tauri::command]
+pub async fn queue_worktree(
+    connection: State<'_, Connection>,
+    directory: String,
+    path: String,
+    label: String,
+    name: String,
+    kind: String,
+    args: Vec<String>,
+) -> Result<queue::Opened> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        queue::worktree(&directory, &path, &label, &name, &kind, &args)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
 /// Submits a queued prompt to the agent `queue_open` started.
 #[tauri::command]
 pub async fn queue_prompt(connection: State<'_, Connection>, name: String, text: String) -> Result<()> {

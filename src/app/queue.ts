@@ -17,6 +17,9 @@ export const AGENT_ARGS: string[] = [];
 /// Appended to every prompt while "commit when done" is ticked, so each item
 /// leaves a clean tree and the next starts from its commit.
 export const COMMIT_SUFFIX = "When you are done, commit your work: stage only the files you changed.";
+/// Told to an agent started in a worktree of its own, which a person lands later.
+export const WORKTREE_NOTE =
+  "You are in a new Git worktree on a branch of its own, so install what the project needs first. Leave your commits on this branch: do not merge it or remove the worktree.";
 /// How long an agent must stay done or idle before its item counts as finished,
 /// so a pause between tool calls does not end it.
 export const FINISH_DEBOUNCE_MS = 5000;
@@ -57,6 +60,10 @@ export interface Item {
   /// Set when it came through the inbox (an agent's `herdr-queue add`), not
   /// the panel: who sent it, in their words, or "" when they did not say.
   source?: string;
+  /// Set once it is taken out of line to run now: the worktree made for it.
+  /// The item stays in this queue, which is on the main checkout, since the
+  /// worktree can be removed at any moment.
+  worktree?: string;
 }
 
 export interface Queue {
@@ -84,6 +91,12 @@ export const EMPTY_FILE: QueueFile = { version: 1, seq: 0, queues: {} };
 const ACTIVE: ReadonlySet<ItemState> = new Set(["starting", "waiting", "prompting", "running"]);
 
 export const isActive = (item: Item) => ACTIVE.has(item.state);
+
+/// Taken out of line: it runs beside the queue, not as its turn in it.
+export const isAway = (item: Item) => item.worktree !== undefined;
+
+/// The one item the queue itself is running, of which there is at most one.
+export const isInLine = (item: Item) => isActive(item) && !isAway(item);
 
 /// Queues are this Mac's: the CLI that starts agents runs here.
 export const queueKey = (folder: string) => `local:${folder}`;
@@ -141,13 +154,15 @@ export const tabLabel = (item: Item) => `⧗ ${item.n} · ${title(item.prompt, 2
 
 /// What the agent is sent: the prompt, then the commit request when asked for.
 export function promptText(item: Item, queue: Queue): string {
-  return queue.commitSuffix ? `${item.prompt.trim()}\n\n${COMMIT_SUFFIX}` : item.prompt.trim();
+  const parts = [item.prompt.trim(), isAway(item) && WORKTREE_NOTE, queue.commitSuffix && COMMIT_SUFFIX];
+  return parts.filter(Boolean).join("\n\n");
 }
 
 /// What `step` sees of the daemon for one queue.
 export interface View {
   now: number;
-  /// The workspaces opened on the queue's folder, in the daemon's order.
+  /// The workspaces on the queue's folder, the main checkout's first: removing
+  /// a worktree closes its workspace, with whatever tabs are in it.
   workspaces: Workspace[];
   /// Every agent in those workspaces.
   agents: Agent[];
@@ -159,8 +174,12 @@ export interface View {
   byPane: ReadonlyMap<string, Agent>;
 }
 
-export function viewOf(queue: Queue, snapshot: Snapshot, now: number, folderOf: FolderOf): View {
-  const workspaces = snapshot.workspaces.filter((w) => folderOf(w) === queue.folder);
+export function viewOf(queue: Queue, snapshot: Snapshot, now: number, folderOf: FolderOf, rootOf: FolderOf): View {
+  const onFolder = snapshot.workspaces.filter((w) => folderOf(w) === queue.folder);
+  const workspaces = [
+    ...onFolder.filter((w) => rootOf(w) === queue.folder),
+    ...onFolder.filter((w) => rootOf(w) !== queue.folder),
+  ];
   const ids = new Set(workspaces.map((w) => w.workspace_id));
   return {
     now,
@@ -182,49 +201,60 @@ const busy = (agent: Agent) =>
   agent.agent_status === "working" || agent.agent_status === "blocked" || loopTag(agent) !== null;
 
 /// What one queue does next. Returns the same queue object when nothing
-/// changes, and at most one effect: never two items at once.
+/// changes, and at most one effect: never two items in line at once.
 export function step(queue: Queue, view: View): { queue: Queue; effect: Effect | null } {
-  const same = { queue, effect: null };
-  const { now } = view;
-  const active = queue.items.find(isActive);
-  if (active) {
-    // `queue_open` or `queue_prompt` is in flight; its answer moves the item on.
-    if (active.state === "starting" || active.state === "prompting") return same;
-    if (!active.paneId || !view.panes.has(active.paneId)) {
-      if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
-      return { queue: end(queue, active.id, "stopped", now, "its tab was closed"), effect: null };
-    }
-    const agent = view.byPane.get(active.paneId);
-    if (active.state === "waiting") {
-      // Herdr refused to start it, so no agent will ever become ready there.
-      if (!agent) {
-        if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
-        const reason = active.reason ? `its agent never started: ${active.reason}` : "its agent never started";
-        return { queue: end(queue, active.id, "failed", now, reason), effect: null };
-      }
-      if (agent.agent_status !== "idle" && agent.agent_status !== "done") return same;
-      const item = { ...active, state: "prompting" as const, reason: undefined };
-      return { queue: replace(queue, item), effect: { kind: "prompt", item } };
-    }
-    // Running. A missing agent counts as quiet, so one that exited ends it too.
-    const quiet = !agent || !busy(agent);
-    if (!quiet) return active.quietSince === undefined ? same : { queue: replace(queue, { ...active, quietSince: undefined }), effect: null };
-    if (active.quietSince === undefined) return { queue: replace(queue, { ...active, quietSince: now }), effect: null };
-    if (now - active.quietSince < FINISH_DEBOUNCE_MS) return same;
-    if (!agent) return { queue: end(queue, active.id, "stopped", now, "its agent exited"), effect: null };
-    const ended = end(queue, active.id, "done", now);
-    const finished = ended.history[0];
-    const next = queue.stopAfter
-      ? { ...ended, stopAfter: false, paused: { reason: `Stopped after #${active.n}, as asked.` } }
-      : ended;
-    return { queue: next, effect: { kind: "finished", item: finished } };
+  for (const item of queue.items.filter(isAway)) {
+    const moved = advance(queue, item, view);
+    if (moved.queue !== queue) return moved;
   }
-  if (queue.paused) return same;
+  const active = queue.items.find(isInLine);
+  if (active) return advance(queue, active, view);
+  if (queue.paused) return { queue, effect: null };
   const next = queue.items.find((item) => item.state === "queued");
   const workspace = view.workspaces[0];
-  if (!next || !workspace || view.agents.some(busy)) return same;
-  const item = { ...next, state: "starting" as const, started: now };
+  // An agent taken out of line is meant to run beside the queue, though a
+  // worktree's workspace counts as the queue's.
+  const away = new Set(queue.items.filter(isAway).map((item) => item.paneId));
+  const held = view.agents.some((agent) => busy(agent) && !away.has(agent.pane_id));
+  if (!next || !workspace || held) return { queue, effect: null };
+  const item = { ...next, state: "starting" as const, started: view.now };
   return { queue: replace(queue, item), effect: { kind: "open", item, workspaceId: workspace.workspace_id } };
+}
+
+/// Moves on an item that has been started.
+function advance(queue: Queue, active: Item, view: View): { queue: Queue; effect: Effect | null } {
+  const same = { queue, effect: null };
+  const { now } = view;
+  // `queue_open` or `queue_prompt` is in flight; its answer moves the item on.
+  if (active.state === "starting" || active.state === "prompting") return same;
+  if (!active.paneId || !view.panes.has(active.paneId)) {
+    if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
+    return { queue: end(queue, active.id, "stopped", now, "its tab was closed"), effect: null };
+  }
+  const agent = view.byPane.get(active.paneId);
+  if (active.state === "waiting") {
+    // Herdr refused to start it, so no agent will ever become ready there.
+    if (!agent) {
+      if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
+      const reason = active.reason ? `its agent never started: ${active.reason}` : "its agent never started";
+      return { queue: end(queue, active.id, "failed", now, reason), effect: null };
+    }
+    if (agent.agent_status !== "idle" && agent.agent_status !== "done") return same;
+    const item = { ...active, state: "prompting" as const, reason: undefined };
+    return { queue: replace(queue, item), effect: { kind: "prompt", item } };
+  }
+  // Running. A missing agent counts as quiet, so one that exited ends it too.
+  const quiet = !agent || !busy(agent);
+  if (!quiet) return active.quietSince === undefined ? same : { queue: replace(queue, { ...active, quietSince: undefined }), effect: null };
+  if (active.quietSince === undefined) return { queue: replace(queue, { ...active, quietSince: now }), effect: null };
+  if (now - active.quietSince < FINISH_DEBOUNCE_MS) return same;
+  if (!agent) return { queue: end(queue, active.id, "stopped", now, "its agent exited"), effect: null };
+  const ended = end(queue, active.id, "done", now);
+  const finished = ended.history[0];
+  const next = queue.stopAfter && !isAway(active)
+    ? { ...ended, stopAfter: false, paused: { reason: `Stopped after #${active.n}, as asked.` } }
+    : ended;
+  return { queue: next, effect: { kind: "finished", item: finished } };
 }
 
 /// The queue with `item` in place of the one with its id.
@@ -239,6 +269,8 @@ export function patchItem(queue: Queue, id: string, patch: Partial<Item>): Queue
 
 /// Moves an item into the history. Anything but `done` pauses the queue with
 /// the reason, since what went wrong is for you to look at, not to guess past.
+/// Not for an item out of line: the prompts waiting do not depend on it, and
+/// removing its worktree closes its tab.
 export function end(queue: Queue, id: string, state: "done" | "failed" | "stopped", now: number, reason?: string): Queue {
   const item = queue.items.find((i) => i.id === id);
   if (!item) return queue;
@@ -247,7 +279,7 @@ export function end(queue: Queue, id: string, state: "done" | "failed" | "stoppe
     ...queue,
     items: queue.items.filter((i) => i.id !== id),
     history: [ended, ...queue.history].slice(0, HISTORY),
-    paused: state === "done" ? queue.paused : { reason: `#${item.n} ${reason ?? state}.` },
+    paused: state === "done" || isAway(item) ? queue.paused : { reason: `#${item.n} ${reason ?? state}.` },
   };
 }
 
@@ -265,6 +297,33 @@ export function dropItem(queue: Queue, id: string, now: number): Queue {
 /// before anything was made, such as on a dirty checkout.
 export function holdBack(queue: Queue, id: string, reason: string): Queue {
   return { ...patchItem(queue, id, { state: "queued", started: undefined }), paused: { reason } };
+}
+
+/// The worktree a prompt runs in when taken out of line: a name from its title,
+/// unique by its id, in `.claude/worktrees/` as CLAUDE.md asks.
+export function worktreePath(folder: string, item: Item): string {
+  const words = title(item.prompt, 40).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `${folder}/.claude/worktrees/${[words, item.id].filter(Boolean).join("-")}`;
+}
+
+export const worktreeBranch = (path: string) => `feat/${path.slice(path.lastIndexOf("/") + 1)}`;
+
+/// Takes a waiting item out of line to run at once in the worktree `path`,
+/// ahead of those waiting, where `addItem` and `moveItem` expect what is active.
+export function sendAway(queue: Queue, id: string, now: number, path: string): Queue {
+  const item = queue.items.find((i) => i.id === id && i.state === "queued");
+  if (!item) return queue;
+  const started: Item = { ...item, state: "starting", started: now, worktree: path };
+  return { ...queue, items: [started, ...queue.items.filter((i) => i.id !== id)] };
+}
+
+/// Puts back an item whose worktree could not be made, first of those waiting.
+export function bringBack(queue: Queue, id: string): Queue {
+  const item = queue.items.find((i) => i.id === id);
+  if (!item) return queue;
+  const back: Item = { ...item, state: "queued", started: undefined, worktree: undefined };
+  const others = queue.items.filter((i) => i.id !== id);
+  return { ...queue, items: [...others.filter(isActive), back, ...others.filter((i) => !isActive(i))] };
 }
 
 /// A file read at launch: an item that was being started when the window
@@ -377,7 +436,7 @@ export function itemOfTab(
   tabId: string,
 ): { item: Item; position: number; total: number; next: Item | null } | null {
   for (const queue of Object.values(file?.queues ?? {})) {
-    const index = queue.items.findIndex((i) => i.tabId === tabId);
+    const index = queue.items.findIndex((i) => i.tabId === tabId && !isAway(i));
     if (index >= 0) {
       const done = queue.history.filter((i) => i.state === "done").length;
       const next = queue.items.find((i) => i.state === "queued") ?? null;
@@ -390,9 +449,11 @@ export function itemOfTab(
 /// A queue's one-line state, as the card and status bar's hover say it.
 export function summary(queue: Queue): string {
   const waiting = queue.items.filter((i) => i.state === "queued").length;
-  const active = queue.items.find(isActive);
+  const active = queue.items.find(isInLine);
+  const away = queue.items.filter(isAway).length;
   const parts = [
     active && `#${active.n} ${active.state === "waiting" ? "waiting for its agent" : "running"}`,
+    away > 0 && `${away} in a worktree`,
     `${waiting} waiting`,
     queue.paused && `paused: ${queue.paused.reason}`,
   ];
@@ -420,6 +481,16 @@ export const openItem = (workspaceId: string, item: Item, folder: string) =>
     workspaceId,
     directory: folder,
     label: tabLabel(item),
+    name: item.id,
+    kind: AGENT_KIND,
+    args: AGENT_ARGS,
+  });
+
+export const openWorktree = (item: Item, folder: string, path: string) =>
+  invoke<Opened>("queue_worktree", {
+    directory: folder,
+    path,
+    label: title(item.prompt, 40),
     name: item.id,
     kind: AGENT_KIND,
     args: AGENT_ARGS,

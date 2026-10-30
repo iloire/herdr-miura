@@ -4,9 +4,10 @@ import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import { hueColor } from "../app/hue";
 import { useHome } from "../app/useHome";
-import { emptyQueue, isActive, type Item, type Queue, title } from "../app/queue";
+import { emptyQueue, isAway, isInLine, type Item, type Queue, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
+import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { CheckIcon, CopyIcon, PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 
 /// How long a removed prompt can be brought back.
@@ -123,7 +124,8 @@ function QueueBody({
     if (focusComposer) composer.current?.focus();
   }, [focusComposer, workspace.workspace_id]);
 
-  const active = queue.items.find(isActive);
+  const active = queue.items.find(isInLine);
+  const away = queue.items.filter(isAway);
   const waiting = queue.items.filter((item) => item.state === "queued");
   const add = (front: boolean) => {
     if (!draft.trim()) return;
@@ -193,6 +195,15 @@ function QueueBody({
             onDrop={() => actions.drop(folder, active.id)}
           />
         )}
+        {away.map((item) => (
+          <Running
+            key={item.id}
+            item={item}
+            snapshot={snapshot}
+            onGo={() => goTo(item)}
+            onDrop={() => actions.drop(folder, item.id)}
+          />
+        ))}
         {waiting.map((item, index) => (
           <Waiting
             key={item.id}
@@ -201,6 +212,7 @@ function QueueBody({
             first={index === 0}
             last={index === waiting.length - 1}
             onMove={(delta) => actions.move(folder, item.id, delta)}
+            onWorktree={() => actions.runInWorktree(folder, item.id)}
             onEdit={(prompt) => actions.edit(folder, item.id, prompt)}
             onRemove={() => setRemoved({ title: title(item.prompt, 40), undo: actions.remove(folder, item.id) })}
           />
@@ -320,9 +332,10 @@ function Running({
 }: {
   item: Item;
   snapshot: Snapshot;
-  stopAfter: boolean;
+  /// Absent for an item out of line, which the queue's pause does not reach.
+  stopAfter?: boolean;
   onGo: () => void;
-  onStopAfter: () => void;
+  onStopAfter?: () => void;
   onDrop: () => void;
 }) {
   const agent = snapshot.agents.find((a) => a.pane_id === item.paneId);
@@ -353,6 +366,11 @@ function Running({
           {title(item.prompt, 120)}
         </p>
         <FromAgent item={item} />
+        {item.worktree && (
+          <span className="queue-from" title={item.worktree}>
+            ⑂ {worktreeBranch(item.worktree)}
+          </span>
+        )}
         {item.state === "waiting" && item.reason && (
           <p className="queue-note" title={item.reason}>Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
         )}
@@ -361,10 +379,12 @@ function Running({
             <TerminalIcon />
             Open tab
           </button>
-          <button aria-pressed={stopAfter} onClick={onStopAfter} title="Pause the queue once this prompt finishes">
-            <PauseIcon />
-            {stopAfter ? "Pausing after" : "Pause after"}
-          </button>
+          {onStopAfter && (
+            <button aria-pressed={stopAfter} onClick={onStopAfter} title="Pause the queue once this prompt finishes">
+              <PauseIcon />
+              {stopAfter ? "Pausing after" : "Pause after"}
+            </button>
+          )}
           {item.state !== "starting" && item.state !== "prompting" && (
             <button
               className="danger"
@@ -387,6 +407,7 @@ function Waiting({
   first,
   last,
   onMove,
+  onWorktree,
   onEdit,
   onRemove,
 }: {
@@ -396,11 +417,13 @@ function Waiting({
   first: boolean;
   last: boolean;
   onMove: (delta: number) => void;
+  onWorktree: () => void;
   onEdit: (prompt: string) => void;
   onRemove: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState<MenuAt | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const isEditing = editing !== null;
   useEffect(() => {
@@ -442,7 +465,14 @@ function Waiting({
           </div>
         </div>
       ) : (
-        <div className="queue-row">
+        <div
+          className="queue-row"
+          onContextMenu={(event) => {
+            event.preventDefault();
+            const items = [{ label: "Run in a Worktree Now", icon: "⑂", onSelect: onWorktree }];
+            setMenu({ x: event.clientX, y: event.clientY, items });
+          }}
+        >
           <button
             className="queue-row-text"
             aria-expanded={lines.length > 1 ? open : undefined}
@@ -472,6 +502,7 @@ function Waiting({
               ×
             </button>
           </span>
+          {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
         </div>
       )}
     </li>
