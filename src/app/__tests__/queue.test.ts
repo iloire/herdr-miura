@@ -10,6 +10,7 @@ import {
   type InboxEntry,
   type Item,
   INBOX_MAX_AGE_MS,
+  inItsTab,
   itemOfTab,
   moveItem,
   promptText,
@@ -18,6 +19,7 @@ import {
   recover,
   removeItem,
   restoreItem,
+  runningState,
   sendAway,
   step,
   summary,
@@ -313,6 +315,30 @@ describe("text", () => {
     const found = itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t1");
     expect(found).toMatchObject({ item: { n: 1 }, position: 1, total: 2, next: { n: 2 } });
     expect(itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t9")).toBeNull();
+  });
+
+  it("spins a running card only while something moves", () => {
+    const item = (state: Item["state"]) => ({ state }) as Item;
+    expect(runningState(item("starting"), undefined)).toEqual({ words: "Starting Claude…", mark: "working" });
+    expect(runningState(item("prompting"), "idle")).toEqual({ words: "Sending the prompt…", mark: "working" });
+    expect(runningState(item("running"), "working")).toEqual({ words: "Working", mark: "working" });
+    expect(runningState(item("running"), "idle")).toEqual({ words: "Finishing", mark: null });
+    expect(runningState(item("running"), "done").mark).toBeNull();
+    expect(runningState(item("running"), undefined).mark).toBeNull();
+  });
+
+  it("marks a running card that waits on you", () => {
+    const item = (state: Item["state"]) => ({ state }) as Item;
+    expect(runningState(item("running"), "blocked")).toEqual({ words: "Waiting on you", mark: "blocked" });
+    expect(runningState(item("waiting"), "working")).toEqual({ words: "Waiting for Claude to be ready", mark: "blocked" });
+  });
+
+  it("knows when the tab in front runs the item", () => {
+    const item = { tabId: "t1" } as Item;
+    expect(inItsTab(item, "t1")).toBe(true);
+    expect(inItsTab(item, "t2")).toBe(false);
+    expect(inItsTab(item, null)).toBe(false);
+    expect(inItsTab({} as Item, null)).toBe(false);
   });
 });
 

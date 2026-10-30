@@ -7,7 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { workspaceDirectory } from "../changes/counts";
 import type { RecentCommit } from "../changes/store";
-import type { Agent, Snapshot, Workspace } from "../protocol";
+import type { Agent, AgentStatus, Snapshot, Workspace } from "../protocol";
 import { loopTag } from "./attention";
 
 // These become `queue.*` settings once `config-tauri.toml` exists (docs/plan-settings.md).
@@ -446,6 +446,21 @@ export function itemOfTab(
   }
   return null;
 }
+
+/// What a running card says and the mark on its track node: the spinner only
+/// while something is moving, the "needs you" disc while it waits on you, and
+/// neither once its agent has stopped.
+export function runningState(item: Item, status: AgentStatus | undefined): { words: string; mark: "working" | "blocked" | null } {
+  if (item.state === "starting") return { words: "Starting Claude…", mark: "working" };
+  if (item.state === "waiting") return { words: "Waiting for Claude to be ready", mark: "blocked" };
+  if (item.state === "prompting") return { words: "Sending the prompt…", mark: "working" };
+  if (status === "blocked") return { words: "Waiting on you", mark: "blocked" };
+  if (status === "working") return { words: "Working", mark: "working" };
+  return { words: "Finishing", mark: null };
+}
+
+/// Whether the tab in front is the one running `item`.
+export const inItsTab = (item: Item, focusedTab: string | null) => !!item.tabId && item.tabId === focusedTab;
 
 /// A queue's one-line state, as the card and status bar's hover say it.
 export function summary(queue: Queue): string {

@@ -3163,7 +3163,15 @@ kbd {
   --lit: var(--working);
   border-color: var(--lit);
   background: radial-gradient(circle, var(--lit) 0 3px, var(--peat) 3.5px);
-  animation: queue-beat 2s ease-out infinite;
+}
+
+/* The spinner or the "needs you" disc takes the node's place, on the panel's
+   color so the line doesn't show through it. */
+.queue-stop.running .queue-node.marked {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: var(--peat);
 }
 
 .queue-stop.running.needs-you .queue-node {
@@ -3180,22 +3188,6 @@ kbd {
   border: 1.5px dashed color-mix(in srgb, var(--hue) 75%, transparent);
   color: var(--hue);
   font: 600 calc(13px * var(--ui-scale))/1 var(--sans);
-}
-
-@keyframes queue-beat {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--lit) 45%, transparent);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .queue-stop.running .queue-node {
-    animation: none;
-  }
 }
 
 /* What runs now: a card in the working blue's wash. */
@@ -3284,10 +3276,31 @@ kbd {
   color: var(--blocked);
 }
 
-.queue-card-actions button svg {
+.queue-card-actions button svg,
+.queue-here svg {
   width: 13px;
   height: 13px;
   color: var(--muted);
+}
+
+/* Where Open tab sits when that tab is the one in front: the same box, so the
+   buttons beside it stay put, but a statement rather than an action. */
+.queue-here {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font: calc(12px * var(--ui-scale)) var(--sans);
+  white-space: nowrap;
+}
+
+/* Wide enough for either, so Pause after doesn't shift as tabs change. */
+.queue-card-actions button.primary,
+.queue-here {
+  justify-content: center;
+  min-width: calc(90px * var(--ui-scale));
 }
 
 .queue-card-actions button.primary {

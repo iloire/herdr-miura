@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:08 — The running queue card shows what it is doing
+
+The card's track node was the same ring whatever the prompt was doing, with a faint pulse. It now carries the spinner
+the agents use elsewhere while Claude is starting, being prompted or working, the amber "needs you" mark while it waits
+on you, and a still dot while it finishes, so a stalled prompt no longer looks busy. When the tab in front is the one
+running the prompt, Open tab gives way to a plain "In this tab" of the same width, so Pause after stays where it is.
+
 ## 2026-10-30 21:03 — Going to a tab leaves the diff
 
 A diff or file open over the terminal stayed there when an agent row or a workspace card was clicked, so the click

@@ -5,12 +5,13 @@ import { hueColor } from "../app/hue";
 import { formatSpan } from "../app/time";
 import { useCopied } from "../app/useCopied";
 import { useHome } from "../app/useHome";
-import { emptyQueue, isAway, isInLine, type Item, type Queue, title, worktreeBranch } from "../app/queue";
+import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { CheckIcon, CopyIcon, PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 import { QueueItemDialog } from "./QueueItemDialog";
+import { StatusMark } from "./StatusMark";
 
 /// How long a removed prompt can be brought back.
 const UNDO_MS = 6000;
@@ -359,22 +360,12 @@ function Running({
   onDrop: () => void;
 }) {
   const agent = snapshot.agents.find((a) => a.pane_id === item.paneId);
-  const blocked = agent?.agent_status === "blocked";
-  const words =
-    item.state === "starting"
-      ? "Starting Claude…"
-      : item.state === "waiting"
-        ? "Waiting for Claude to be ready"
-        : item.state === "prompting"
-          ? "Sending the prompt…"
-          : blocked
-            ? "Waiting on you"
-            : agent?.agent_status === "working"
-              ? "Working"
-              : "Finishing";
+  const { words, mark } = runningState(item, agent?.agent_status);
   return (
-    <li className={`queue-stop running ${blocked || item.state === "waiting" ? "needs-you" : ""}`}>
-      <span className="queue-node" aria-hidden="true" />
+    <li className={`queue-stop running ${mark === "blocked" ? "needs-you" : ""}`}>
+      <span className={`queue-node ${mark ? "marked" : ""}`} aria-hidden="true">
+        {mark && <StatusMark status={mark} />}
+      </span>
       <div className="queue-card">
         <div className="queue-card-meta">
           <span className="queue-state">{words}</span>
@@ -395,10 +386,17 @@ function Running({
           <p className="queue-note" title={item.reason}>Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
         )}
         <div className="queue-card-actions">
-          <button className="primary" disabled={!item.tabId} onClick={onGo}>
-            <TerminalIcon />
-            Open tab
-          </button>
+          {inItsTab(item, snapshot.focused_tab_id) ? (
+            <span className="queue-here" title="The tab in front is running this prompt">
+              <TerminalIcon />
+              In this tab
+            </span>
+          ) : (
+            <button className="primary" disabled={!item.tabId} onClick={onGo}>
+              <TerminalIcon />
+              Open tab
+            </button>
+          )}
           {onStopAfter && (
             <button aria-pressed={stopAfter} onClick={onStopAfter} title="Pause the queue once this prompt finishes">
               <PauseIcon />
