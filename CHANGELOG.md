@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:21 — Workspace cards stop listing idle agents
+
+An expanded card listed every agent, so a dozen idle sessions buried the ones that were working or waiting on you. Its
+Agents section now leaves the idle ones out, and the count beside the card's name still includes them when nothing else
+is going on. A card with only idle agents and nothing else to show has no chevron.
+
 ## 2026-10-30 21:17 — One row of tabs scrolls, and stays in the window
 
 With `tabs.wrap` off and more tabs than fit, the main column grew to the width of all the tabs instead of the row

@@ -4,7 +4,7 @@ import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
-import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
+import { agentsByWorkspace, cardAgents, loopTags, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
@@ -179,6 +179,7 @@ export function Sidebar({
       <ol className="workspace-list" ref={drag.list}>
         {rows.map(({ workspace, parent }, index) => {
           const own = agents.get(workspace.workspace_id) ?? [];
+          const listed = cardAgents(own);
           const path = snapshot && (rootOf(workspace) ?? workspaceDirectory(workspace, snapshot));
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
@@ -188,7 +189,7 @@ export function Sidebar({
           const queue = queues.get(workspace.workspace_id) ?? null;
           const openQueue = () => onOpenQueue(workspace.workspace_id);
           // A card with nothing more to show has nothing to open.
-          const expandable = own.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
+          const expandable = listed.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
           const open = expandable && openCards.has(workspace.workspace_id);
           const focus = () => {
             if (drag.consumeClick()) return;
@@ -320,7 +321,7 @@ export function Sidebar({
                       <CardDetails
                         controller={controller}
                         snapshot={snapshot}
-                        agents={own}
+                        agents={listed}
                         worktrees={trees}
                         ports={listening}
                         openOn={(worktree) => workspaceOn(worktree, workspaces, folderOf)}

@@ -101,6 +101,12 @@ export function attentionCount(snapshot: Snapshot | null): number {
   return snapshot?.agents.filter(wantsYou).length ?? 0;
 }
 
+/// The agents an expanded workspace card lists: all but the idle ones, which
+/// want nothing and only pushed the rest down. The tally still counts them.
+export function cardAgents(agents: readonly Agent[]): Agent[] {
+  return agents.filter((agent) => agent.agent_status !== "idle");
+}
+
 /// How many agents a collapsed workspace card names before it says how many more.
 const ATTENTION_ROWS = 3;
 

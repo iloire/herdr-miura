@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, loopTag, loopTags, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, loopTag, loopTags, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -82,6 +82,23 @@ describe("agentsByWorkspace", () => {
     );
     expect(grouped.get("a")?.map((a) => a.pane_id)).toEqual(["4", "5", "2", "6", "1"]);
     expect(grouped.get("b")?.map((a) => a.pane_id)).toEqual(["3"]);
+  });
+});
+
+describe("cardAgents", () => {
+  it("leaves out the idle agents and keeps the rest in order", () => {
+    const listed = cardAgents([
+      agent("1", "a", "blocked"),
+      agent("2", "a", "done"),
+      agent("3", "a", "working"),
+      agent("4", "a", "idle"),
+      agent("5", "a", "unknown"),
+    ]);
+    expect(listed.map((a) => a.pane_id)).toEqual(["1", "2", "3", "5"]);
+  });
+
+  it("is empty when every agent is idle, so the card has nothing to list", () => {
+    expect(cardAgents([agent("1", "a", "idle"), agent("2", "a", "idle")])).toEqual([]);
   });
 });
 
