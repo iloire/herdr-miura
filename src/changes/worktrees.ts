@@ -14,6 +14,12 @@ export interface Worktree {
   unmerged: number | null;
   /// Files changed in it; `null` when unread.
   changed: number | null;
+  /// The main checkout's folder: what every worktree of a repo shares.
+  repo: string;
+  /// The local branch work lands on, as `main`; `null` when there is none.
+  main: string | null;
+  /// Commits `main` lacks; `null` when unknown.
+  ahead: number | null;
 }
 
 /// Each directory's linked worktrees, the main checkout left out; `null` outside Git.

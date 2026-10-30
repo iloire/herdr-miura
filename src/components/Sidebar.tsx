@@ -1,7 +1,8 @@
-import { type CSSProperties, type PointerEvent, useCallback, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
+import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
@@ -13,9 +14,10 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
-import { AttentionRows, CardDetails } from "./CardDetails";
+import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
+import { LandDialog, LandNote } from "./Land";
 import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
@@ -52,6 +54,10 @@ function folderMenu(controller: Controller, path: string): MenuItem[] {
   ];
 }
 
+const NO_LANDS: ReadonlyMap<string, Land> = new Map();
+const noLands = () => NO_LANDS;
+const noSubscription = () => () => {};
+
 export function Sidebar({
   controller,
   title,
@@ -65,6 +71,7 @@ export function Sidebar({
   pins,
   ports,
   rootOf,
+  lands,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -87,7 +94,10 @@ export function Sidebar({
   ports: Map<string, ListeningPort[]>;
   /// A workspace's fixed root; null when it has none yet or on a remote host.
   rootOf: (workspace: Workspace) => string | null;
+  /// Landing worktrees; `null` on a remote host, whose worktrees are not on this Mac.
+  lands: LandStore | null;
 }) {
+  const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
   const folderOf = (workspace: Workspace) => (snapshot && (rootOf(workspace) ?? workspaceFolder(workspace, snapshot))) || null;
@@ -139,6 +149,7 @@ export function Sidebar({
   const teamOf = (workspace: Workspace): TeamState => teams.get(folderOf(workspace) ?? "") ?? { phase: "none" };
   const focused = workspaces.find((workspace) => workspace.focused);
   const focusedFolder = focused && folderOf(focused);
+  const asking = [...landsByRepo].find(([, land]) => land.phase === "asking");
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
@@ -184,6 +195,15 @@ export function Sidebar({
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
           };
           const openWorktrees = () => onOpenWorktrees(workspace.workspace_id);
+          const land: LandAction | null = lands && {
+            busy: (worktree) => landing(landsByRepo.get(worktree.repo)),
+            // Read when asked, not from this render: it is asked again after a long check.
+            start: (worktree) =>
+              void lands.ask(workspace.workspace_id, worktree, () =>
+                agentRefusal(worktree.path, controller.getState().snapshot),
+              ),
+          };
+          const landed = [...landsByRepo].find(([, land]) => land.card === workspace.workspace_id);
           const gitLine = (
             <WorkspaceGit
               // A collapsed card is one line, so its branch waits in the name's tooltip.
@@ -305,6 +325,7 @@ export function Sidebar({
                         ports={listening}
                         openOn={(worktree) => workspaceOn(worktree, workspaces, folderOf)}
                         onOpenWorktrees={openWorktrees}
+                        land={land}
                       />
                     </>
                   ) : (
@@ -315,6 +336,7 @@ export function Sidebar({
                       onExpand={() => toggleOpen(workspace.workspace_id)}
                     />
                   ))}
+                {landed && <LandNote land={landed[1]} onDismiss={() => lands?.dismiss(landed[0])} />}
               </div>
             </li>
           );
@@ -331,6 +353,15 @@ export function Sidebar({
         />
       )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
+      {asking?.[1].phase === "asking" && (
+        <LandDialog
+          plan={asking[1].plan}
+          path={asking[1].worktree.path}
+          openIn={workspaceOn(asking[1].worktree, workspaces, folderOf)?.label ?? null}
+          onCancel={() => lands?.cancel(asking[0])}
+          onConfirm={() => void lands?.confirm(asking[0])}
+        />
+      )}
     </nav>
   );
 }

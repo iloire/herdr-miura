@@ -60,3 +60,16 @@ fn a_last_commit_reads_as_its_time_and_subject() {
     assert_eq!(parse_commit("no separator"), None);
     assert_eq!(parse_commit("soon\x1fsubject"), None);
 }
+
+#[test]
+fn a_locked_worktree_says_so_and_the_main_checkout_is_named() {
+    let text = format!(
+        "worktree /r/main\0HEAD {SHA}\0branch refs/heads/main\0\0\
+         worktree /r/held\0HEAD {SHA}\0branch refs/heads/held\0locked why not\0\0\
+         worktree /r/free\0HEAD {SHA}\0branch refs/heads/free\0\0"
+    );
+    let entries = parse(&text);
+    assert!(entries[0].locked);
+    assert!(!entries[1].locked);
+    assert_eq!(main_checkout(&text), Some("/r/main"));
+}

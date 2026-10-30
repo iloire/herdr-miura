@@ -12,6 +12,7 @@ mod folder;
 mod frame;
 mod git;
 mod herdr;
+mod land;
 mod listening_ports;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -56,6 +57,9 @@ pub fn run() {
             commands::commit_files,
             commands::moving_commits,
             commands::sync_checkout,
+            commands::land_plan,
+            commands::land_check,
+            commands::land_finish,
             commands::file_diff,
             commands::listening_ports,
             commands::list_files,

@@ -2,6 +2,20 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 18:35 — Land a worktree from its card
+
+Every piece of work ends the same way: rebase onto main, fast-forward main, remove the worktree, delete the branch.
+That was done by hand, and finished work sat in worktrees assumed to be merged. A worktree's row on a card now has
+**Land** when its branch has commits local main lacks. It asks first, naming the branch, the commits, the check and
+the removal, then runs the repo's check, rebases, fast-forwards main with `--ff-only`, removes the worktree and deletes
+the branch, showing the current step on the card and then the result, which stays after the row is gone. It stops at
+the first failure and says which step stopped and what state things were left in. A dirty worktree, an agent at work
+in it, or a main checkout that is not on main refuses. A conflict aborts the rebase and leaves the branch as it was.
+Uncommitted work in the main checkout is never stashed or touched. A published branch is kept, since `git branch -d`
+compares it with its upstream. Nothing is forced or pushed, one land runs per repo across every window, and it is
+hidden and refused on a remote host. The check comes from `.herdr/land.json`, a `check` script in `package.json` or a
+`check:` make target. A workspace open on the worktree stays open, and the confirmation says so.
+
 ## 2026-10-30 17:56 — The Changes panel fetches, pushes and pulls
 
 The panel's ↑ and ↓ only knew the last fetch that ran in the checkout. While it is open it now fetches by itself,

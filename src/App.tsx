@@ -21,6 +21,7 @@ import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
 import { ChangesStore, type CheckoutChanges, type RecentCommit } from "./changes/store";
+import { LandStore } from "./changes/land";
 import { SyncStore } from "./changes/sync";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
@@ -162,6 +163,9 @@ export default function App() {
   const directoriesKey = counted.directories.join("\0");
   const [counts, setCounts] = useState<Map<string, number | null>>(new Map());
   const [worktreeLists, setWorktreeLists] = useState<Map<string, Worktree[] | null>>(new Map());
+  // A land just ended, so the worktrees and counts are stale now, not in 10 s.
+  const [landsEnded, setLandsEnded] = useState(0);
+  const landStore = useMemo(() => new LandStore(() => setLandsEnded((ended) => ended + 1)), []);
   useEffect(() => {
     const directories = directoriesKey ? directoriesKey.split("\0") : [];
     if (directories.length === 0) return;
@@ -185,7 +189,7 @@ export default function App() {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [directoriesKey]);
+  }, [directoriesKey, landsEnded]);
   const changedFiles = useMemo(() => {
     const byWorkspace = new Map<string, number>();
     for (const [workspace, directory] of counted.byWorkspace) {
@@ -442,7 +446,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}

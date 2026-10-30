@@ -411,6 +411,41 @@ body.reordering * {
   color: var(--muted);
 }
 
+/* A row with a button of its own beside it. */
+.card-row-with-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.card-row-with-action .sync-action {
+  flex: none;
+}
+
+/* A land on its card: the step it is on, or how it ended. */
+.land-note {
+  padding: 0 8px 6px;
+}
+
+.land-note .sync-result {
+  margin-top: 0;
+  font-size: calc(11.5px * var(--ui-scale));
+}
+
+.land-left {
+  color: var(--muted);
+}
+
+.land-steps {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.land-warning {
+  color: var(--lantern) !important;
+}
+
 /* A worktree's dot, in a mark's width: filled while it holds work. */
 .card-dot {
   flex: none;

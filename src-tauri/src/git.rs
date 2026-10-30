@@ -1,10 +1,12 @@
 //! Running Git: no prompts, no optional locks, no file monitor, under a
 //! deadline and a cap on what it may print. A child that overruns either is
-//! stopped rather than waited on. [`run`] is for reads; [`network`] is for
-//! commands that spawn helpers and print their reason last.
+//! stopped rather than waited on. [`run`] is for reads; [`supervised`] is for
+//! commands that spawn helpers or write, and print their reason last;
+//! [`shell`] runs a repo's own check the same way.
 
 use crate::process;
 use std::{
+    env,
     io::{self, Read},
     process::{Child, Command, ExitStatus, Stdio},
     sync::{Arc, Mutex, PoisonError},
@@ -17,14 +19,16 @@ pub const OUTPUT: usize = 2 * 1024 * 1024;
 /// Stderr kept as a failure's details; the rest is noise.
 const DETAILS: usize = 4096;
 const POLL: Duration = Duration::from_millis(5);
-/// What a network command keeps of each stream: the end of it, where Git
+/// What a supervised command keeps of each stream: the end of it, where Git
 /// puts its reason, after whatever a hook or the remote printed.
-const NETWORK_OUTPUT: usize = 64 * 1024;
-/// How long a stopped network command has to clean up its lock files.
+const TAIL_OUTPUT: usize = 64 * 1024;
+/// How long a stopped command has to clean up its lock files.
 const STOP_GRACE: Duration = Duration::from_secs(2);
 /// How long to wait for the pipes once Git is done. A hook's background job
 /// can hold them open for as long as it likes.
 const PIPE_GRACE: Duration = Duration::from_millis(500);
+/// What [`shell`] prints once the user's startup files are done.
+const STARTED: &str = "herdr-script-starts";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -48,7 +52,7 @@ pub enum Error {
     },
 }
 
-/// How a network command ended. Both streams are text with their lines kept,
+/// How a supervised command ended. Both streams are text with their lines kept,
 /// since Git's reason is often several of them.
 #[derive(Debug)]
 pub struct Finished {
@@ -134,15 +138,15 @@ pub fn text(
         .to_owned())
 }
 
-/// Runs a command that talks to a remote. It differs from [`run`] in three
-/// ways those commands need. Git and everything it starts (`ssh`, a transport
-/// helper, the `fetch` inside a `pull`, hooks) share a process group, so an
-/// overrun stops them all, and gently, so no lock file stays behind for
-/// whoever else works in the checkout. Each stream keeps its end, not its
-/// start. And a failure is returned, not an error, since a caller has to
-/// read stdout as well to say why. Messages are in English so they can be
+/// Runs a command that talks to a remote or writes. It differs from [`run`]
+/// in three ways those commands need. Git and everything it starts (`ssh`, a
+/// transport helper, the `fetch` inside a `pull`, hooks) share a process
+/// group, so an overrun stops them all, and gently, so no lock file stays
+/// behind for whoever else works in the checkout. Each stream keeps its end,
+/// not its start. And a failure is returned, not an error, since a caller has
+/// to read stdout as well to say why. Messages are in English so they can be
 /// recognized. `Err` means Git did not finish.
-pub fn network(
+pub fn supervised(
     directory: &str,
     args: &[&str],
     operation: &'static str,
@@ -150,6 +154,52 @@ pub fn network(
 ) -> Result<Finished, Error> {
     let mut command = git(directory, args);
     command.env("LC_ALL", "C");
+    group(command, operation, deadline)
+}
+
+/// Runs `script` in `directory` under the user's shell, as [`supervised`]
+/// runs Git. Interactive and login, since an app started from the Dock has
+/// neither `npm` nor `cargo` on its `PATH` until the shell's startup files
+/// put them there. What those files print is dropped, so a failure's output
+/// is the script's own.
+pub fn shell(
+    directory: &str,
+    script: &str,
+    operation: &'static str,
+    deadline: Instant,
+) -> Result<Finished, Error> {
+    let shell = env::var_os("SHELL")
+        .filter(|shell| !shell.is_empty())
+        .unwrap_or_else(|| "/bin/sh".into());
+    let mut command = process::command(shell);
+    command
+        .args(["-ilc", &format!("printf '%s\\n' {STARTED}; printf '%s\\n' {STARTED} >&2; {script}")])
+        .current_dir(directory)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let done = group(command, operation, deadline)?;
+    Ok(Finished {
+        success: done.success,
+        stdout: after_start(done.stdout),
+        stderr: after_start(done.stderr),
+    })
+}
+
+/// `text` after [`STARTED`], or all of it if the start was cut off.
+fn after_start(text: String) -> String {
+    match text.split_once(STARTED) {
+        Some((_, rest)) => rest.trim().to_owned(),
+        None => text,
+    }
+}
+
+fn group(
+    mut command: Command,
+    operation: &'static str,
+    deadline: Instant,
+) -> Result<Finished, Error> {
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut command, 0);
     let mut child = command
@@ -200,7 +250,7 @@ impl Tail {
     fn text(&self) -> String {
         let kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
         let text = String::from_utf8_lossy(&kept);
-        let text = if kept.len() >= NETWORK_OUTPUT {
+        let text = if kept.len() >= TAIL_OUTPUT {
             text.split_once('\n').map_or(&*text, |(_, rest)| rest)
         } else {
             &*text
@@ -214,7 +264,7 @@ fn keep_tail(mut pipe: impl Read, kept: &Mutex<Vec<u8>>) {
     while let Ok(read @ 1..) = pipe.read(&mut chunk) {
         let mut kept = kept.lock().unwrap_or_else(PoisonError::into_inner);
         kept.extend_from_slice(&chunk[..read]);
-        let excess = kept.len().saturating_sub(NETWORK_OUTPUT);
+        let excess = kept.len().saturating_sub(TAIL_OUTPUT);
         kept.drain(..excess);
     }
 }

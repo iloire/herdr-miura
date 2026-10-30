@@ -24,7 +24,7 @@ function workspace(label: string, folder: string): Workspace {
 }
 
 function worktree(path: string): Worktree {
-  return { path, branch: null, subject: null, time: null, base: null, unmerged: null, changed: null };
+  return { path, branch: null, subject: null, time: null, base: null, unmerged: null, changed: null, repo: "/r", main: null, ahead: null };
 }
 
 const APP = "/code/app";

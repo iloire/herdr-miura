@@ -71,7 +71,7 @@ fn a_passed_deadline_stops_git() {
 /// Git in `dir` running `script` as a shell alias, under `deadline`.
 fn alias(dir: &tempfile::TempDir, script: &str, deadline: Instant) -> Result<Finished, Error> {
     let alias = format!("alias.probe=!{script}");
-    network(
+    supervised(
         &dir.path().to_string_lossy(),
         &["-c", &alias, "probe"],
         "probe",
@@ -80,7 +80,7 @@ fn alias(dir: &tempfile::TempDir, script: &str, deadline: Instant) -> Result<Fin
 }
 
 #[test]
-fn network_returns_a_failure_with_both_streams() {
+fn supervised_returns_a_failure_with_both_streams() {
     let dir = tempfile::tempdir().unwrap();
     let done = alias(&dir, "echo out; echo first >&2; echo second >&2; exit 3", soon()).unwrap();
     assert!(!done.success);
@@ -89,17 +89,17 @@ fn network_returns_a_failure_with_both_streams() {
 }
 
 #[test]
-fn network_keeps_the_end_of_a_long_stderr() {
+fn supervised_keeps_the_end_of_a_long_stderr() {
     let dir = tempfile::tempdir().unwrap();
     let script = "yes 'hook noise' | head -c 300000 >&2; echo 'the reason' >&2; exit 1";
     let done = alias(&dir, script, soon()).unwrap();
     assert!(done.stderr.ends_with("the reason"), "{}", &done.stderr[..40]);
-    assert!(done.stderr.len() <= NETWORK_OUTPUT);
+    assert!(done.stderr.len() <= TAIL_OUTPUT);
     assert!(done.stderr.starts_with("hook noise"), "cut line kept");
 }
 
 #[test]
-fn network_messages_are_in_english_whatever_the_locale() {
+fn supervised_messages_are_in_english_whatever_the_locale() {
     let dir = tempfile::tempdir().unwrap();
     let done = alias(&dir, "echo $LC_ALL", soon()).unwrap();
     assert_eq!(done.stdout, "C");
@@ -136,4 +136,21 @@ fn a_background_job_holding_the_pipes_does_not_block_a_finished_git() {
     assert!(done.success);
     assert_eq!(done.stdout, "said");
     assert!(start.elapsed() < Duration::from_secs(2), "{:?}", start.elapsed());
+}
+
+#[test]
+fn shell_keeps_the_script_output_and_its_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    let far = Instant::now() + Duration::from_secs(30);
+    let done = shell(dir.path().to_str().unwrap(), "echo out; echo err >&2; exit 3", "test", far).unwrap();
+    assert!(!done.success);
+    assert_eq!(done.stdout, "out");
+    assert_eq!(done.stderr, "err");
+}
+
+#[test]
+fn what_startup_files_print_is_dropped() {
+    let printed = format!("welcome banner\n{STARTED}\nthe reason\n");
+    assert_eq!(after_start(printed), "the reason");
+    assert_eq!(after_start("no marker".to_owned()), "no marker");
 }

@@ -3,7 +3,8 @@
 //! made under `.claude/worktrees/` count although no pane sits in them. Each
 //! is read for its branch, its last commit, the commits the remote's default
 //! branch lacks and its uncommitted files: together, what the work is and
-//! whether it is still pending.
+//! whether it is still pending. The commits local main lacks are read too,
+//! since that is what Land would move and `main` can be ahead of its remote.
 
 use crate::{changes, git};
 use serde::Serialize;
@@ -30,6 +31,12 @@ pub struct Worktree {
     pub unmerged: Option<u32>,
     /// Files changed in it, untracked ones included; `None` when unread.
     pub changed: Option<usize>,
+    /// The main checkout's folder: what every worktree of a repo shares.
+    pub repo: String,
+    /// The local branch work lands on, as `main`; `None` when there is none.
+    pub main: Option<String>,
+    /// Commits `main` lacks; `None` when there is no such branch or the count failed.
+    pub ahead: Option<u32>,
 }
 
 /// The linked worktrees of each directory's checkout, the main one left
@@ -56,6 +63,8 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
         return Some(Vec::new());
     }
     let base = changes::default_branch(directory, deadline);
+    let main = main_branch(directory, deadline);
+    let repo = main_checkout(&listing).unwrap_or_default();
     Some(
         linked
             .into_iter()
@@ -66,8 +75,13 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
                     unmerged: base
                         .as_deref()
                         .and_then(|base| unmerged(directory, base, &entry.head, deadline)),
+                    ahead: main.as_deref().and_then(|main| {
+                        unmerged(directory, &format!("refs/heads/{main}"), &entry.head, deadline)
+                    }),
                     changed: changes::count_in(&entry.path, deadline),
                     base: base.clone(),
+                    repo: repo.to_owned(),
+                    main: main.clone(),
                     subject,
                     time,
                     path: entry.path,
@@ -76,6 +90,26 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
             })
             .collect(),
     )
+}
+
+/// The local branch of the remote's default branch, else `main` or `master`,
+/// for a repo with no remote.
+pub fn main_branch(directory: &str, deadline: Instant) -> Option<String> {
+    let remote = changes::default_branch(directory, deadline)
+        .and_then(|base| base.split_once('/').map(|(_, branch)| branch.to_owned()));
+    remote
+        .into_iter()
+        .chain(["main".to_owned(), "master".to_owned()])
+        .find(|branch| {
+            let reference = format!("refs/heads/{branch}");
+            git::text(
+                directory,
+                &["rev-parse", "--verify", "--quiet", &reference],
+                "find the main branch",
+                deadline,
+            )
+            .is_ok()
+        })
 }
 
 fn last_commit(directory: &str, head: &str, deadline: Instant) -> Option<(i64, String)> {
@@ -109,17 +143,23 @@ fn unmerged(directory: &str, base: &str, head: &str, deadline: Instant) -> Optio
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-struct Entry {
-    path: String,
-    head: String,
-    branch: Option<String>,
+pub struct Entry {
+    pub path: String,
+    pub head: String,
+    pub branch: Option<String>,
+    pub locked: bool,
+}
+
+/// The first worktree `git worktree list --porcelain -z` names: the main one.
+pub fn main_checkout(text: &str) -> Option<&str> {
+    text.split('\0').next()?.strip_prefix("worktree ")
 }
 
 /// `git worktree list --porcelain -z`: one NUL-ended line per attribute, an
 /// empty one ending each worktree. The first is the main worktree and is
 /// skipped, as are bare ones, ones whose folder is gone (`prunable`), and
 /// ones with no commit to count from.
-fn parse(text: &str) -> Vec<Entry> {
+pub fn parse(text: &str) -> Vec<Entry> {
     let mut entries = Vec::new();
     let mut entry = Entry::default();
     let mut skip = false;
@@ -150,6 +190,7 @@ fn parse(text: &str) -> Vec<Entry> {
                 );
             }
             "bare" | "prunable" => skip = true,
+            "locked" => entry.locked = true,
             _ => {}
         }
     }

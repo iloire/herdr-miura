@@ -198,7 +198,7 @@ export type Effect =
   | { kind: "prompt"; item: Item }
   | { kind: "finished"; item: Item };
 
-const busy = (agent: Agent) =>
+export const busy = (agent: Agent) =>
   agent.agent_status === "working" || agent.agent_status === "blocked" || loopTag(agent) !== null;
 
 /// What one queue does next. Returns the same queue object when nothing

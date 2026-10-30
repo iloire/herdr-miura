@@ -1,6 +1,7 @@
 import { agentCountsByTab, agentRowName, attentionRows, wantsYou } from "../app/attention";
 import type { Controller } from "../app/controller";
 import type { ListeningPort } from "../app/ports";
+import { canLand } from "../changes/land";
 import { isPending, pendingFirst, type Worktree, worktreeName } from "../changes/worktrees";
 import type { Agent, Snapshot, Workspace } from "../protocol";
 import { GitChanged } from "./GitCounts";
@@ -57,20 +58,42 @@ export function AttentionRows({
 
 /// A worktree on its checkout's card: what is pending in it, or that it landed.
 /// A click goes to its workspace when one is open on it, else to the details.
-function WorktreeRow({ worktree, onOpen }: { worktree: Worktree; onOpen: () => void }) {
+/// Land sits beside the row, not in it: a button cannot hold a button.
+function WorktreeRow({ worktree, onOpen, land }: { worktree: Worktree; onOpen: () => void; land: LandAction | null }) {
   const pending = isPending(worktree);
   const unmerged = worktree.unmerged ?? 0;
+  const name = worktreeName(worktree);
   return (
-    <button className="card-row" title={worktree.subject ?? undefined} onClick={onOpen}>
-      <span className={`card-dot ${pending ? "pending" : ""}`} aria-hidden="true" />
-      <span className="card-row-name card-row-branch">{worktreeName(worktree)}</span>
-      <span className="card-row-note">
-        {unmerged > 0 && <span className="git-ahead" title={`${unmerged} unmerged`}>↑{unmerged}</span>}
-        <GitChanged count={worktree.changed ?? 0} />
-        {!pending && worktree.unmerged === 0 && "merged"}
-      </span>
-    </button>
+    <div className="card-row-with-action">
+      <button className="card-row" title={worktree.subject ?? undefined} onClick={onOpen}>
+        <span className={`card-dot ${pending ? "pending" : ""}`} aria-hidden="true" />
+        <span className="card-row-name card-row-branch">{name}</span>
+        <span className="card-row-note">
+          {unmerged > 0 && <span className="git-ahead" title={`${unmerged} unmerged`}>↑{unmerged}</span>}
+          <GitChanged count={worktree.changed ?? 0} />
+          {!pending && worktree.unmerged === 0 && "merged"}
+        </span>
+      </button>
+      {land && canLand(worktree) && (
+        <button
+          className="sync-action"
+          disabled={land.busy(worktree)}
+          aria-label={`Land ${name}`}
+          title={`Check, rebase onto ${worktree.main}, fast-forward it, then remove the worktree and branch`}
+          onClick={() => land.start(worktree)}
+        >
+          Land
+        </button>
+      )}
+    </div>
   );
+}
+
+/// What a card may do to land one of its worktrees; `null` on a remote host.
+export interface LandAction {
+  /// A land is under way in that worktree's repo.
+  busy: (worktree: Worktree) => boolean;
+  start: (worktree: Worktree) => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -92,6 +115,7 @@ export function CardDetails({
   ports,
   openOn,
   onOpenWorktrees,
+  land,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -101,6 +125,7 @@ export function CardDetails({
   /// The workspace open on a worktree, when there is one.
   openOn: (worktree: Worktree) => Workspace | null;
   onOpenWorktrees: () => void;
+  land: LandAction | null;
 }) {
   if (worktrees.length + agents.length + ports.length === 0) return null;
   const goTo = (worktree: Worktree) => {
@@ -113,7 +138,7 @@ export function CardDetails({
       {worktrees.length > 0 && (
         <Section title="Worktrees">
           {pendingFirst(worktrees).map((worktree) => (
-            <WorktreeRow key={worktree.path} worktree={worktree} onOpen={() => goTo(worktree)} />
+            <WorktreeRow key={worktree.path} worktree={worktree} onOpen={() => goTo(worktree)} land={land} />
           ))}
         </Section>
       )}

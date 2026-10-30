@@ -76,7 +76,7 @@ Fetch comes first for that reason, and everything else leans on it.
   `checkout_changes` is refused ([ssh.md](ssh.md)). `sync_checkout` and `moving_commits` are refused the same
   way, and the panel gets no sync store, so a checkout read before switching hosts offers nothing either.
 
-`git.rs`'s `network` differs from the runner the reads use: `ssh`, transport helpers, the `fetch` inside a
+`git.rs`'s `supervised` differs from the runner the reads use: `ssh`, transport helpers, the `fetch` inside a
 `pull` and hooks share Git's process group, so an overrun stops them all with SIGTERM first, which lets Git
 remove its lock files, and SIGKILL after 2 s. It keeps the end of each stream, since Git prints its reason
 last, after whatever a hook said, and keeps the lines. A hook's background job holding a pipe cannot

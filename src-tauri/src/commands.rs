@@ -8,7 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, Listing},
     folder::{self, Opener},
-    listening_ports, prompts, queue,
+    land, listening_ports, prompts, queue,
     session_usage::{self, SessionUsage},
     settings,
     ssh_hosts,
@@ -208,6 +208,42 @@ pub async fn sync_checkout(
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || {
         sync::run(&app.state::<sync::Running>(), &checkout, op, branch.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// What landing a worktree would do, or why it cannot, for the confirmation.
+/// Refused on a remote host, as the worktree is a folder over there.
+#[tauri::command]
+pub async fn land_plan(connection: State<'_, Connection>, worktree: String) -> Result<land::Plan> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || land::plan(&worktree));
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Runs the repo's check in a confirmed worktree. The webview looks at the
+/// worktree's agents again before it calls [`land_finish`]: a check can take
+/// minutes, and only the webview has the snapshot.
+#[tauri::command]
+pub async fn land_check(connection: State<'_, Connection>, target: land::Target) -> Result<land::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || land::check(&target));
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Rebases, fast-forwards main and removes the worktree and branch, reporting
+/// each step on `steps` as it starts.
+#[tauri::command]
+pub async fn land_finish(
+    connection: State<'_, Connection>,
+    target: land::Target,
+    steps: Channel<land::Step>,
+) -> Result<land::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        land::finish(&target, |step| {
+            let _ = steps.send(step);
+        })
     });
     Ok(run.await.map_err(changes::Error::Worker)?)
 }

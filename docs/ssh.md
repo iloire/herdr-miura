@@ -39,6 +39,8 @@ runs its `herdr` (the Changes panel, changed-file counts, opening a folder, movi
 workspace) is refused, since the paths name folders on the other machine. Copy path still works.
 The Changes panel's fetch, push and pull are refused with it and stay hidden, as Git would have to run
 over there; nothing reaches this Mac's checkouts or credentials on the remote's behalf.
+Land on a worktree's card is hidden and refused the same way: the worktree is a folder over there, and
+its rebase, check and removal would have to run there too. Land it from a Herdr window on that machine.
 
 ## Testing against a real host
 

@@ -15,6 +15,10 @@ session in its own tab, with what it is doing, and starts the ones not running (
 Each workspace also has a prompt queue, a panel beside Changes and Files (⌘⇧A): prompts you hand it run one at a time, each in a new tab
 and a fresh Claude session, the next only once nothing else there is at work and the tree is clean
 ([docs/plan-agent-queue.md](docs/plan-agent-queue.md)).
+A worktree with commits main lacks has **Land** on its sidebar row: after a confirmation it runs the repo's check,
+rebases onto main, fast-forwards main, then removes the worktree and branch, stopping at the first failure and saying
+what it left. It never forces, stashes or pushes. The check is `.herdr/land.json` (`{ "check": "<shell command>" }`), a
+`check` script in `package.json`, or a `check:` make target; a repo with none is told so in the confirmation.
 Prompts you send often are Claude Code's own command files (`~/.claude/commands/*.md` and a repo's
 `.claude/commands/*.md`): ⌘⇧L opens them in a palette, project ones first, where you can edit the text and
 send it to the focused agent, to a fresh Claude in a new tab, or to the queue

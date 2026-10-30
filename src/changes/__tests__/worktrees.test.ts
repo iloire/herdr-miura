@@ -8,6 +8,9 @@ const worktree = (overrides: Partial<Worktree>): Worktree => ({
   time: null,
   base: "origin/main",
   unmerged: 0,
+  repo: "/r",
+  main: "main",
+  ahead: 0,
   changed: 0,
   ...overrides,
 });

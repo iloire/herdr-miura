@@ -204,7 +204,7 @@ fn forces_pushes(config: &str) -> bool {
 /// leaves repacking to Git's own runs: this happens behind everyone's back.
 fn fetch(root: &str, deadline: Instant) -> Outcome {
     let args = ["fetch", "--no-write-fetch-head", "--no-auto-maintenance"];
-    match git::network(root, &args, "fetch", deadline) {
+    match git::supervised(root, &args, "fetch", deadline) {
         Ok(done) if done.success => Outcome::Done,
         Ok(done) => Outcome::failed(Reason::Other, "Fetch failed.", done.stderr),
         Err(error) => timed_out(error),
@@ -212,7 +212,7 @@ fn fetch(root: &str, deadline: Instant) -> Outcome {
 }
 
 fn push(root: &str, deadline: Instant) -> Outcome {
-    match git::network(root, &["push", "--porcelain"], "push", deadline) {
+    match git::supervised(root, &["push", "--porcelain"], "push", deadline) {
         Ok(done) => pushed(&done),
         Err(error) => timed_out(error),
     }
@@ -220,7 +220,7 @@ fn push(root: &str, deadline: Instant) -> Outcome {
 
 fn publish(root: &str, branch: &str, deadline: Instant) -> Outcome {
     let args = ["push", "--porcelain", "-u", "origin", "--", branch];
-    match git::network(root, &args, "publish the branch", deadline) {
+    match git::supervised(root, &args, "publish the branch", deadline) {
         Ok(done) => pushed(&done),
         Err(error) => timed_out(error),
     }
@@ -254,7 +254,7 @@ fn rejection(porcelain: &str) -> Option<&str> {
 /// bare `--ff-only` can stash uncommitted work that may be another agent's.
 fn pull(root: &str, deadline: Instant) -> Outcome {
     let args = ["pull", "--ff-only", "--no-rebase", "--no-autostash"];
-    match git::network(root, &args, "pull", deadline) {
+    match git::supervised(root, &args, "pull", deadline) {
         Ok(done) if done.success => Outcome::Done,
         Ok(done) => pull_failure(done.stderr),
         Err(error) => timed_out(error),
