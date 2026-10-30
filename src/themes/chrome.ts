@@ -58,7 +58,9 @@ export function chromeTokens(theme: Theme): Chrome {
   const { background: bg, foreground: fg, palette } = theme;
   const dark = isDark(bg);
   const blend = (percent: number) => mix(bg, fg, percent);
-  const surface = blend(5);
+  // The bars sit barely off the terminal: a hover or a selection separates
+  // things, not a change of surface.
+  const surface = blend(2);
   const active = blend(12);
   // A status mark sits on the background, the sidebar and a selected row.
   const mark = (color: number) => css(ink(color, [bg, surface, active], MARK_RATIO));
@@ -70,7 +72,7 @@ export function chromeTokens(theme: Theme): Chrome {
     tokens: {
       ink: css(bg),
       peat: css(surface),
-      rule: css(blend(10)),
+      rule: css(blend(7)),
       text: css(fg),
       muted: css(blend(55)),
       lantern: mark(lantern),

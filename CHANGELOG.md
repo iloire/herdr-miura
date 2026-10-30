@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 11:26 — A quieter chrome and pill tabs
+
+The sidebar and bars now sit barely off the terminal's background (2% toward the text, was 5%) with softer
+rules (7%, was 10%), so a hover or a selection does the separating. Herdr Night's hand-drawn values moved to
+match. The open tab is a raised pill edged in the workspace's hue instead of an underline, the tab bar loses
+its hue tint, and a tab's status mark moves after its name.
+
 ## 2026-10-30 10:25 — No Start button in the Team section
 
 The Team header's **Start all** / **Start N** button is gone, so the header is only its title, which

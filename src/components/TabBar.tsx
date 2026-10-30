@@ -116,11 +116,11 @@ export function TabBar({
                       <PinIcon />
                     </span>
                   )}
-                  <StatusMark status={tab.agent_status} />
                   <span className="tab-text">{tab.label}</span>
                   <LoopMark tags={loopTags(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])} />
                   {agents > 1 && <AgentCount count={agents} />}
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
+                  <StatusMark status={tab.agent_status} />
                 </button>
               )}
               <button

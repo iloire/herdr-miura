@@ -88,7 +88,7 @@ describe("chromeTokens", () => {
     expect(scheme).toBe("dark");
     expect(tokens.ink).toBe("#2e3440");
     expect(tokens.text).toBe("#d8dee9");
-    expect(hex(tokens.peat)).toBe(mix(0x2e3440, 0xd8dee9, 5));
+    expect(hex(tokens.peat)).toBe(mix(0x2e3440, 0xd8dee9, 2));
     expect(hex(tokens.muted)).toBe(mix(0x2e3440, 0xd8dee9, 55));
     // Nord's blue already reads on its chrome, so it is left as drawn; its
     // red falls below 3:1 on a selected row and is lifted, keeping its hue.

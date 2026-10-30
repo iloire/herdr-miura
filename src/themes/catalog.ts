@@ -23,8 +23,8 @@ export const HERDR_NIGHT: NamedTheme = {
     scheme: "dark",
     tokens: {
       ink: "#101419",
-      peat: "#151a20",
-      rule: "#232b34",
+      peat: "#14181d",
+      rule: "#1c2229",
       text: "#d8dee9",
       muted: "#7d8896",
       lantern: "#f5d491",
