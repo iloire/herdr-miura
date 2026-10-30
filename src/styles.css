@@ -1874,9 +1874,12 @@ body.reordering * {
 
 /* Command palette */
 
+/* Above everything the app layers over itself, the pane resizers among them,
+   and below the right-click menus. */
 .palette-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 40;
   background: var(--scrim);
   display: flex;
   justify-content: center;

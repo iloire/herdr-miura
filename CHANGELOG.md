@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:56 — Dialogs sit above the pane resizers
+
+The resizers and the panel switch have a z-index and the dialogs' backdrop had none, so they painted over any open
+dialog and took its clicks: the drawer's resizer could land on the Settings dialog's close button.
+
 ## 2026-10-30 21:52 — The Settings dialog loses its Open settings file button
 
 The dialog edits every key, so its foot now only shows the file's path. The `settings_open` command went with the
