@@ -173,3 +173,23 @@ fn refuses_anything_but_a_full_commit_name() {
         );
     }
 }
+
+#[test]
+fn commits_after_stop_at_the_count_and_ignore_what_came_later() {
+    let dir = repo();
+    let since = git(&dir, &["rev-parse", "HEAD"]);
+    for subject in ["mine one", "mine two", "someone else's"] {
+        git(&dir, &["commit", "-q", "--allow-empty", "-m", subject]);
+    }
+    let path = dir.path().to_str().unwrap();
+    let subjects = |count| -> Vec<String> {
+        read_commits_after(path, since.trim(), count)
+            .unwrap()
+            .into_iter()
+            .map(|commit| commit.subject)
+            .collect()
+    };
+    assert_eq!(subjects(2), ["mine two", "mine one"]);
+    assert_eq!(subjects(9).len(), 3);
+    assert!(read_commits_after(path, "HEAD", 1).is_err());
+}

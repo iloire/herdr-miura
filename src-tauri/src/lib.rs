@@ -61,6 +61,7 @@ pub fn run() {
             commands::prompt_library,
             commands::prompt_send,
             commands::queue_commits,
+            commands::queue_log,
             commands::queue_homes,
             commands::queue_inbox_list,
             commands::queue_inbox_settle,

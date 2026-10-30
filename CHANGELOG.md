@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 15:13 — Open a finished prompt to read it
+
+Clicking a prompt in the Queue panel's finished list now opens a dialog with its whole text, when it was added,
+started and finished, how long it waited and ran, what queued it, the folder and branch it ran in, and the commits
+it left, each with its short hash and subject. A stopped prompt says why at the top. The dialog can copy the prompt
+and go to its tab while that is open. Commits are read from Git when it opens, so one whose worktree was removed
+says it cannot read them. The row's copy and open-tab buttons stay, and its time now reads `1h 5m` past the hour,
+and `<1m` under a minute.
+
 ## 2026-10-30 15:07 — A collapsed card lists only the agents that need you
 
 A collapsed workspace card had a row for every agent that finished, so three of them and a `+2 more` turned a
@@ -9,6 +18,7 @@ one-line card back into a tall one. It now has rows only for blocked agents, wit
 `+N more`. Finished agents are still counted in the card's tally, and each one has a row in the Agents section
 when the card is expanded.
 
+||||||| parent of 3e758ab (feat: a finished prompt opens to show how it ran - a finished row only had a clipped title, a tooltip and two numbers, so clicking it now opens a dialog with the whole prompt, a timeline of when it was added, started and ended with the wait and the run between them, what queued it, where it ran and the commits it left. The commits are not stored: queue_log takes the count oldest after the item's head, so what landed later stays out and items already in history work too. A stopped prompt says why, and a removed worktree says its commits cannot be read. Times now share formatSpan, so a row reads 1h 5m past the hour. Checked with the real queue_log over IPC in a dev window on a separate Herdr session, and the real panel in a browser with a stubbed backend, since an uncovered WKWebView window does not paint)
 ## 2026-10-30 14:53 — Workspace cards stay on their own folder
 
 A workspace card took its Git data from whichever folder its active tab was in. A notes workspace with a tab

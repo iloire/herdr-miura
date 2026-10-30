@@ -245,6 +245,22 @@ pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> 
     })
 }
 
+/// The first `count` commits after `since`, newest first, as far as HEAD: what
+/// one queued prompt committed, however many came after it.
+pub fn read_commits_after(checkout: &str, since: &str, count: usize) -> Result<Vec<CommitView>, Error> {
+    let since = commit_name(since)?;
+    let range = format!("{since}..HEAD");
+    let log = git::text(
+        checkout,
+        &["log", "-z", "--format=%H%x1f%ct%x1f%an%x1f%s", &range],
+        "read the commits",
+        Instant::now() + DEADLINE,
+    )?;
+    let commits = parse::log(&log);
+    let later = commits.len().saturating_sub(count);
+    Ok(commits.into_iter().skip(later).map(CommitView::from).collect())
+}
+
 /// The remote's default branch as last fetched: what `origin/HEAD` names,
 /// else `origin/main` or `origin/master`, whichever exists.
 pub fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {

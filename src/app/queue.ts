@@ -6,6 +6,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { workspaceDirectory } from "../changes/counts";
+import type { RecentCommit } from "../changes/store";
 import type { Agent, Snapshot, Workspace } from "../protocol";
 import { loopTag } from "./attention";
 
@@ -505,3 +506,7 @@ export const readHomes = (directories: string[]) => invoke<(string | null)[]>("q
 
 export const countCommits = (folder: string, since: string) =>
   invoke<number>("queue_commits", { directory: folder, since });
+
+/// The `count` commits after `since`, which `countCommits` counted.
+export const readItemCommits = (directory: string, since: string, count: number) =>
+  invoke<RecentCommit[]>("queue_log", { directory, since, count });

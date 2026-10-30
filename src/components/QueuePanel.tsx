@@ -1,19 +1,19 @@
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import { hueColor } from "../app/hue";
+import { formatSpan } from "../app/time";
+import { useCopied } from "../app/useCopied";
 import { useHome } from "../app/useHome";
 import { emptyQueue, isAway, isInLine, type Item, type Queue, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { CheckIcon, CopyIcon, PauseIcon, PlayIcon, TerminalIcon } from "./icons";
+import { QueueItemDialog } from "./QueueItemDialog";
 
 /// How long a removed prompt can be brought back.
 const UNDO_MS = 6000;
-/// How long a copy button shows that it copied.
-const COPIED_MS = 1500;
 
 /// The focused workspace's prompt queue in the right-hand drawer, beside
 /// Changes and Files. A track runs down it: the prompt running now is its lit
@@ -113,6 +113,7 @@ function QueueBody({
   const [draft, setDraft] = useState("");
   const [removed, setRemoved] = useState<{ title: string; undo: () => void } | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!removed) return;
@@ -142,6 +143,9 @@ function QueueBody({
     }
   };
   const goTo = (item: Item) => item.tabId && controller.request("tab.focus", { tab_id: item.tabId });
+  const hasTab = (item: Item) => snapshot.tabs.some((tab) => tab.tab_id === item.tabId);
+  // By id, so it follows the file: gone with another workspace or an old item.
+  const opened = queue.history.find((item) => item.id === openId);
 
   return (
     <aside className="changes queue-panel" aria-label="Queue" style={{ "--hue": hueColor(workspace.label) } as CSSProperties}>
@@ -299,12 +303,30 @@ function QueueBody({
                 <Finished
                   key={item.id}
                   item={item}
-                  onGo={item.tabId && snapshot.tabs.some((t) => t.tab_id === item.tabId) ? () => goTo(item) : null}
+                  onOpen={() => setOpenId(item.id)}
+                  onGo={hasTab(item) ? () => goTo(item) : null}
                 />
               ))}
             </ul>
           )}
         </section>
+      )}
+
+      {opened && (
+        <QueueItemDialog
+          item={opened}
+          folder={folder}
+          workspace={workspace.label}
+          onGo={
+            hasTab(opened)
+              ? () => {
+                  setOpenId(null);
+                  goTo(opened);
+                }
+              : null
+          }
+          onClose={() => setOpenId(null)}
+        />
       )}
     </aside>
   );
@@ -317,9 +339,7 @@ function doneSummary(history: Item[]): string {
 }
 
 function elapsed(since: number | undefined): string {
-  if (!since) return "";
-  const m = Math.floor((Date.now() - since) / 60_000);
-  return m < 1 ? "<1m" : m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+  return since ? formatSpan(Date.now() - since) : "";
 }
 
 function Running({
@@ -519,21 +539,21 @@ function FromAgent({ item }: { item: Item }) {
   );
 }
 
-function Finished({ item, onGo }: { item: Item; onGo: (() => void) | null }) {
+function Finished({ item, onOpen, onGo }: { item: Item; onOpen: () => void; onGo: (() => void) | null }) {
   const ok = item.state === "done";
-  const took = item.started && item.finished ? Math.max(1, Math.round((item.finished - item.started) / 60_000)) : null;
+  const took = item.started && item.finished ? formatSpan(item.finished - item.started) : null;
   const facts = ok
-    ? [item.commits !== undefined && `${item.commits} ${item.commits === 1 ? "commit" : "commits"}`, took && `${took}m`]
+    ? [item.commits !== undefined && `${item.commits} ${item.commits === 1 ? "commit" : "commits"}`, took]
     : [item.reason];
   return (
     <li className={`queue-finished ${ok ? "ok" : "bad"}`} title={item.prompt}>
       <span className="queue-finished-mark" aria-label={ok ? "done" : item.state}>
         {ok ? "✓" : "!"}
       </span>
-      <span className="queue-finished-text">
+      <button className="queue-finished-text" onClick={onOpen}>
         <span className="queue-row-title">{title(item.prompt, 80)}</span>
         <span className="queue-finished-facts">{facts.filter(Boolean).join(" · ")}</span>
-      </span>
+      </button>
       <CopyPrompt item={item} />
       {onGo && (
         <button className="queue-finished-go" title="Open its tab" aria-label={`Open the tab of #${item.n}`} onClick={onGo}>
@@ -546,18 +566,7 @@ function Finished({ item, onGo }: { item: Item; onGo: (() => void) | null }) {
 
 /// Copies a finished item's whole prompt, so a stopped one can be queued again.
 function CopyPrompt({ item }: { item: Item }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-  const copy = () => {
-    writeText(item.prompt).then(
-      () => setCopied(true),
-      (error) => console.error("could not copy the prompt", error),
-    );
-  };
+  const { copied, copy } = useCopied(item.prompt);
   return (
     <button
       className={`queue-finished-go${copied ? " copied" : ""}`}

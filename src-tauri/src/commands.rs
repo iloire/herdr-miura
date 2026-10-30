@@ -3,7 +3,7 @@
 
 use crate::{
     Error, Result,
-    changes::{self, CheckoutView, CommitFilesView, FileDiff},
+    changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff},
     claude_usage,
     connection::Connection,
     files::{self, Contents, Listing},
@@ -448,6 +448,19 @@ pub async fn queue_commits(connection: State<'_, Connection>, directory: String,
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || queue::commits(&directory, &since));
     Ok(run.await.map_err(changes::Error::Worker)?.map_err(changes::Error::Git)?)
+}
+
+/// The `count` commits a queued prompt left in its checkout after `since`.
+#[tauri::command]
+pub async fn queue_log(
+    connection: State<'_, Connection>,
+    directory: String,
+    since: String,
+    count: usize,
+) -> Result<Vec<CommitView>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_commits_after(&directory, &since, count));
+    Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
 /// Opens a workspace's folder in the file manager or one of a few known apps.

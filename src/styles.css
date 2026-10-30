@@ -3428,6 +3428,12 @@ kbd {
   flex-direction: column;
   min-width: 0;
   color: var(--text);
+  text-align: left;
+}
+
+.queue-finished-text:focus-visible {
+  outline: 1px solid var(--hue);
+  outline-offset: 2px;
 }
 
 .queue-finished-text .queue-row-title {
@@ -3467,6 +3473,191 @@ kbd {
 .queue-finished-go:hover {
   background: var(--rule);
   color: var(--text);
+}
+
+/* A finished prompt in full. Its timeline is the queue's track laid again:
+   a stop for each moment, the last in the colour it ended in. */
+.palette.queue-item-dialog {
+  width: min(860px, calc(100vw - 32px));
+}
+
+.queue-item-dialog:focus {
+  outline: none;
+}
+
+.queue-item-dialog .worktrees-head h2 {
+  font-size: calc(18px * var(--ui-scale));
+}
+
+.worktrees-summary.queue-item-bad {
+  color: var(--blocked);
+}
+
+.queue-item-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 216px;
+  gap: 24px;
+  min-height: 0;
+  padding: 6px 28px 20px;
+  overflow-y: auto;
+}
+
+.queue-item-prompt {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--text);
+  font: calc(13px * var(--ui-scale))/1.6 var(--sans);
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.queue-item-commits h3 {
+  margin: 18px 0 6px;
+  color: var(--muted);
+  font: 600 calc(11px * var(--ui-scale)) var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.queue-item-commits ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-item-commits li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: calc(12px * var(--ui-scale));
+  user-select: text;
+}
+
+.queue-item-commits .empty {
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.queue-item-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-item-when {
+  flex: none;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.queue-item-run {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-item-run li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 14px 24px;
+  color: var(--text);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.45;
+}
+
+.queue-item-run li:last-child {
+  padding-bottom: 0;
+}
+
+/* The line down to the next stop. */
+.queue-item-run li:not(:last-child)::before {
+  position: absolute;
+  top: 14px;
+  bottom: -3px;
+  left: 5px;
+  width: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  content: "";
+}
+
+.queue-item-run li::after {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 70%, transparent);
+  border-radius: 50%;
+  background: var(--peat);
+  content: "";
+}
+
+.queue-item-run li.ok::after {
+  border-color: var(--done);
+  background: var(--done);
+}
+
+.queue-item-run li.bad::after {
+  border-color: var(--blocked);
+  background: var(--blocked);
+}
+
+.queue-item-moment {
+  color: var(--bright);
+  font-weight: 600;
+}
+
+.queue-item-run time {
+  color: var(--muted);
+}
+
+.queue-item-span {
+  margin-top: 6px;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.queue-item-facts {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.queue-item-facts dt {
+  color: var(--muted);
+}
+
+.queue-item-facts dd {
+  margin: 0 0 10px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.queue-item-facts dd:last-child {
+  margin-bottom: 0;
+}
+
+.queue-item-actions {
+  margin: 0;
+  padding: 12px 28px 16px;
+}
+
+@media (max-width: 620px) {
+  .queue-item-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* What the settings file got wrong: over the terminal's foot, dismissible. */

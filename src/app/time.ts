@@ -7,6 +7,17 @@ export function formatMinutes(minutes: number): string {
   return `${minutes}m`;
 }
 
+/// A span of milliseconds as `<1m`, or in `formatMinutes`' terms.
+export function formatSpan(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  return minutes < 1 ? "<1m" : formatMinutes(minutes);
+}
+
+/// A moment in milliseconds as `Oct 30, 2:47 PM`, in the Mac's own format.
+export function formatMoment(ms: number): string {
+  return new Date(ms).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 /// A Unix time as `5m ago`, `3h ago`, `2d ago`.
 export function relativeTime(seconds: number): string {
   const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
