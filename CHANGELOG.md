@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 09:57 — The running prompt's buttons stay on one line
+
+In the queue panel, Open tab, Pause after and Remove squeezed into a row too narrow for them, so
+their labels broke onto two lines. Remove is now the × the waiting prompts use, pushed to the right
+edge with its full meaning on hover, and a label never wraps: a narrower panel moves a button to the
+next row instead.
+
 ## 2026-10-30 09:56 — The card drops the branch name on main and master
 
 The Git line said `main ±8` on the default branch, where the name tells you nothing. A card on `main` or

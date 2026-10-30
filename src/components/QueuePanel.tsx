@@ -377,8 +377,13 @@ function Running({
             {stopAfter ? "Pausing after" : "Pause after"}
           </button>
           {item.state !== "starting" && item.state !== "prompting" && (
-            <button onClick={onDrop} title="Take it off the queue; its tab and agent stay as they are">
-              Remove
+            <button
+              className="danger"
+              aria-label={`Remove #${item.n}`}
+              onClick={onDrop}
+              title="Remove: take it off the queue; its tab and agent stay as they are"
+            >
+              ×
             </button>
           )}
         </div>

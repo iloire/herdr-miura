@@ -2799,8 +2799,10 @@ kbd {
   line-height: 1.45;
 }
 
+/* A narrow panel wraps the row, never a label. */
 .queue-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 10px;
 }
@@ -2809,11 +2811,21 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
+  padding: 4px 7px;
   border: 1px solid var(--rule);
   border-radius: 6px;
   color: var(--text);
   font: calc(12px * var(--ui-scale)) var(--sans);
+  white-space: nowrap;
+}
+
+.queue-card-actions button.danger {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.queue-card-actions button.danger:hover {
+  color: var(--blocked);
 }
 
 .queue-card-actions button svg {
