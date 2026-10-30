@@ -16,9 +16,10 @@ import {
 } from "../app/sessionUsage";
 import { type Item, title } from "../app/queue";
 import type { Controller } from "../app/controller";
+import type { StrayPath } from "../app/workspaceRoot";
 import type { Agent, Snapshot } from "../protocol";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
-import { BranchIcon, LibraryIcon } from "./icons";
+import { BranchIcon, FolderIcon, LibraryIcon } from "./icons";
 import { StatusMark } from "./StatusMark";
 
 /// Weighted tokens per bar below which the burn chart does not scale up, so
@@ -28,19 +29,24 @@ const BURN_FLOOR = 50_000;
 /// Characters of a branch name kept however tight the strip gets.
 const BRANCH_FLOOR = 12;
 
-/// A strip over the focused tab's terminal. At its left the Git state of the
-/// focused pane's checkout, which the sidebar cannot give: tabs of a workspace
-/// can sit in different worktrees. Then what matters about each of its agents
-/// at all times: status, model, context, spend this plan window, the last
-/// fifteen minutes' burn, and a loop's next tick. At its right end the prompt
-/// library, whose prompts go to this tab's agent; for a tab with nothing else
-/// to say the library is all it holds.
+/// Characters of a path kept however tight the strip gets.
+const STRAY_FLOOR = 16;
+
+/// A strip over the focused tab's terminal. At its left where the focused pane
+/// is, when that is not the workspace's root, to catch an agent working in the
+/// wrong place. Then the Git state of its checkout, which the sidebar cannot
+/// give: tabs of a workspace can sit in different worktrees. Then what matters
+/// about each of its agents at all times: status, model, context, spend this
+/// plan window, the last fifteen minutes' burn, and a loop's next tick. At its
+/// right end the prompt library, whose prompts go to this tab's agent; for a
+/// tab with nothing else to say the library is all it holds.
 export function TabHeader({
   controller,
   snapshot,
   usages,
   plan,
   git,
+  stray,
   queued,
   library,
 }: {
@@ -50,6 +56,8 @@ export function TabHeader({
   plan: ClaudeUsage | null;
   /// The focused pane's checkout, null with nothing to say.
   git: TabGit | null;
+  /// Where the focused pane is, when that is not the workspace's root.
+  stray: StrayPath | null;
   /// The queued prompt this tab runs, where it stands in its queue, and what follows it.
   queued: { item: Item; position: number; total: number; next: Item | null } | null;
   /// The prompt library's palette is open.
@@ -61,6 +69,7 @@ export function TabHeader({
   const since = windowStart(plan, now);
   return (
     <div className="tab-header" aria-label="This tab's checkout and agents">
+      {stray && <StrayFacts stray={stray} />}
       {git && <GitFacts git={git} />}
       {agents.map((agent) => (
         <AgentFacts
@@ -87,6 +96,19 @@ export function TabHeader({
         <LibraryIcon />
       </button>
     </div>
+  );
+}
+
+function StrayFacts({ stray }: { stray: StrayPath }) {
+  return (
+    <span
+      className="tab-stray"
+      title={stray.full}
+      style={{ minWidth: `calc(16px + ${Math.min(stray.short.length, STRAY_FLOOR)}ch)` }}
+    >
+      <FolderIcon />
+      <span className="tab-stray-path">{stray.short}</span>
+    </span>
   );
 }
 

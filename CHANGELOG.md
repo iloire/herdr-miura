@@ -2,6 +2,19 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 12:47 — The tab strip shows a pane in an unexpected place
+
+To catch an agent working in the wrong place, the strip now starts with a short amber path when the focused pane's
+checkout is not its workspace's root: `.claude/worktrees/foo` for a worktree inside the root, `~/code/other-repo`
+for anywhere else. The full path is in its tooltip and a long path truncates. Outside Git the pane's directory
+stands in for the checkout. It stays quiet on the root, in a subdirectory of the same checkout, and for a workspace
+opened on a repo's subfolder.
+
+Herdr keeps no fixed folder for a workspace: `new_workspace_cwd` follows the focused pane, so the window now
+fixes a root itself the first time it sees a workspace, the folder most of its tabs are in, and remembers it for
+as long as the daemon runs. Workspaces open when this first runs, and all of them after a daemon restart, get
+that estimate rather than the folder they were opened on.
+
 ## 2026-10-30 12:30 — The tab strip shows the tab's Git state
 
 The strip over the terminal now starts with the Git state of the focused pane's checkout, because tabs of one

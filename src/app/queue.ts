@@ -95,6 +95,12 @@ export const queueKey = (folder: string) => `local:${folder}`;
 /// restart that focuses another tab never shows a different, empty queue.
 export function workspaceFolder(workspace: Workspace, snapshot: Snapshot): string | null {
   if (workspace.new_workspace_cwd) return workspace.new_workspace_cwd;
+  return tabsFolder(workspace, snapshot) ?? workspaceDirectory(workspace, snapshot);
+}
+
+/// The folder most of a workspace's tabs are in, a tie going to the lowest tab
+/// number; null before it has panes.
+export function tabsFolder(workspace: Workspace, snapshot: Snapshot): string | null {
   const tabs = snapshot.tabs
     .filter((tab) => tab.workspace_id === workspace.workspace_id)
     .sort((a, b) => a.number - b.number);
@@ -106,7 +112,7 @@ export function workspaceFolder(workspace: Workspace, snapshot: Snapshot): strin
   }
   let best: string | null = null;
   for (const [folder, n] of count) if (best === null || n > (count.get(best) ?? 0)) best = folder;
-  return best ?? workspaceDirectory(workspace, snapshot);
+  return best;
 }
 
 export function emptyQueue(folder: string): Queue {

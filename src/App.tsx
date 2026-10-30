@@ -13,7 +13,9 @@ import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from
 import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { fontStack } from "./app/settings";
+import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
+import { loadRoots, nextRoots, saveRoots, strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
@@ -305,6 +307,16 @@ export default function App() {
     };
   }, [changesPoll, directory, changesStore]);
   const git = local ? tabGit(changes, directory) : null;
+  const home = useHome();
+  const [roots, setRoots] = useState(loadRoots);
+  useEffect(() => {
+    if (!local || !state.snapshot) return;
+    const next = nextRoots(roots, state.snapshot);
+    if (next === roots) return;
+    setRoots(next);
+    saveRoots(next);
+  }, [local, state.snapshot, roots]);
+  const stray = local ? strayPath(changes, directory, roots.folders[focusedWorkspace?.workspace_id ?? ""] ?? null, home) : null;
 
   // The panels go by the read they last saw. The tab header's reads with both
   // closed must not close the open commit, spend the diff waiting to reopen on
@@ -452,7 +464,7 @@ export default function App() {
                 pins={pins}
                 onPinsChange={setPins}
               />
-              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} stray={stray} queued={queuedTab} />
               <div className="stage">
                 <Terminal
                   controller={controller}

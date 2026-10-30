@@ -14,7 +14,7 @@ export interface Row {
 }
 
 /// `folder` is `path` or a folder inside it.
-function inside(folder: string, path: string): boolean {
+export function inside(folder: string, path: string): boolean {
   return folder === path || folder.startsWith(path.endsWith("/") ? path : `${path}/`);
 }
 

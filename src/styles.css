@@ -2026,12 +2026,33 @@ kbd {
   white-space: nowrap;
 }
 
-/* What gives way on a tight strip, in order: the branch name down to its
-   floor, the queue line, then each agent's rightmost facts. The counts and
-   the library always stay. The branch can only shrink as an item of the strip
+/* What gives way on a tight strip, in order: the stray path and the branch
+   name down to their floors, the queue line, then each agent's rightmost
+   facts. The counts and the library always stay. The branch can only shrink as an item of the strip
    itself: a wrapper's minimum would be its text's full width. */
 .tab-git {
   display: contents;
+}
+
+.tab-stray {
+  display: inline-flex;
+  flex: 0 10000 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--lantern);
+}
+
+.tab-stray svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.tab-stray-path {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The strip's 20 px gap, closed to 8 px inside the group. */
