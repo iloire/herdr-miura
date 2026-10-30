@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:48 — Finished queue rows give their width to the title
+
+A finished prompt's row kept room for two buttons that only showed on hover, so its title stopped well short of the
+panel's edge. The copy button is gone, since clicking the row opens the dialog that has Copy prompt, and the button for
+the prompt's tab takes up room only while the row is hovered or focused.
+
 ## 2026-10-30 21:35 — A mark for work finished for sure
 
 Herdr's done only says a turn ended, so a tab looked the same whether the agent finished, left something or never

@@ -3648,9 +3648,9 @@ kbd {
   flex: none;
   width: 22px;
   height: 22px;
+  display: none;
   border-radius: 5px;
   color: var(--muted);
-  opacity: 0;
 }
 
 .queue-finished-go svg {
@@ -3658,14 +3658,11 @@ kbd {
   height: 13px;
 }
 
+/* Hidden, not just see-through, so the title has the whole width until then. */
 .queue-finished:hover .queue-finished-go,
-.queue-finished-go:focus-visible,
-.queue-finished-go.copied {
-  opacity: 1;
-}
-
-.queue-finished-go.copied {
-  color: var(--done);
+.queue-finished:focus-within .queue-finished-go {
+  display: grid;
+  place-items: center;
 }
 
 .queue-finished-go:hover {

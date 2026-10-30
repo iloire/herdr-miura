@@ -3,13 +3,12 @@ import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import { hueColor } from "../app/hue";
 import { formatSpan } from "../app/time";
-import { useCopied } from "../app/useCopied";
 import { useHome } from "../app/useHome";
 import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
-import { CheckIcon, CopyIcon, PauseIcon, PlayIcon, TerminalIcon } from "./icons";
+import { PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 import { QueueItemDialog } from "./QueueItemDialog";
 import { StatusMark } from "./StatusMark";
 
@@ -552,27 +551,11 @@ function Finished({ item, onOpen, onGo }: { item: Item; onOpen: () => void; onGo
         <span className="queue-row-title">{title(item.prompt, 80)}</span>
         <span className="queue-finished-facts">{facts.filter(Boolean).join(" · ")}</span>
       </button>
-      <CopyPrompt item={item} />
       {onGo && (
         <button className="queue-finished-go" title="Open its tab" aria-label={`Open the tab of #${item.n}`} onClick={onGo}>
           <TerminalIcon />
         </button>
       )}
     </li>
-  );
-}
-
-/// Copies a finished item's whole prompt, so a stopped one can be queued again.
-function CopyPrompt({ item }: { item: Item }) {
-  const { copied, copy } = useCopied(item.prompt);
-  return (
-    <button
-      className={`queue-finished-go${copied ? " copied" : ""}`}
-      title={copied ? "Copied" : "Copy the prompt"}
-      aria-label={copied ? `Copied the prompt of #${item.n}` : `Copy the prompt of #${item.n}`}
-      onClick={copy}
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </button>
   );
 }
