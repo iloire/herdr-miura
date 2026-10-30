@@ -28,6 +28,8 @@ const MAX_PROMPT: usize = 100_000;
 const MAX_ARGS: usize = 16;
 const MAX_SOURCE: usize = 200;
 const MAX_FOLDER: usize = 4096;
+/// In bytes: `tabLabel`'s 200 UTF-16 units take up to 600, plus its `⧗ n · `.
+const MAX_TAB_LABEL: usize = 640;
 /// A copy of the queue file is kept at most this often, and this many are kept.
 const BACKUP_EVERY: Duration = Duration::from_secs(60 * 60);
 const BACKUPS_KEPT: usize = 48;
@@ -356,7 +358,7 @@ pub fn open(
 ) -> Result<Opened, Error> {
     checked(workspace)?;
     agent_name(name)?;
-    plain(label, 120, false)?;
+    plain(label, MAX_TAB_LABEL, false)?;
     if !KINDS.contains(&kind) {
         return Err(Error::InvalidId(kind.into()));
     }
@@ -568,6 +570,12 @@ mod tests {
     fn a_prompt_is_never_read_as_an_option() {
         assert_eq!(positional("--wait now"), " --wait now");
         assert_eq!(positional("fix -x"), "fix -x");
+    }
+
+    #[test]
+    fn a_tab_label_fits_the_longest_title_in_any_script() {
+        let label = format!("⧗ 999999999 · {}…", "語".repeat(199));
+        assert!(plain(&label, MAX_TAB_LABEL, false).is_ok());
     }
 
     #[test]

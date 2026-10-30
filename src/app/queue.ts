@@ -134,7 +134,9 @@ export function title(prompt: string, max = 60): string {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
-export const tabLabel = (item: Item) => `⧗ ${item.n} · ${title(item.prompt, 40)}`;
+/// The tab's label, which is also its tooltip: the pill cuts it short by width,
+/// so only a runaway first line is cut here, within `queue.rs`'s MAX_TAB_LABEL.
+export const tabLabel = (item: Item) => `⧗ ${item.n} · ${title(item.prompt, 200)}`;
 
 /// What the agent is sent: the prompt, then the commit request when asked for.
 export function promptText(item: Item, queue: Queue): string {

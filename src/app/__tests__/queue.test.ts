@@ -7,6 +7,7 @@ import {
   emptyQueue,
   FINISH_DEBOUNCE_MS,
   type InboxEntry,
+  type Item,
   INBOX_MAX_AGE_MS,
   itemOfTab,
   moveItem,
@@ -18,6 +19,7 @@ import {
   restoreItem,
   step,
   takeInbox,
+  tabLabel,
   title,
   type View,
   viewOf,
@@ -287,6 +289,11 @@ describe("text", () => {
   it("titles a prompt by its first line with text", () => {
     expect(title("\n  Fix the tab bar\nthen more")).toBe("Fix the tab bar");
     expect(title("x".repeat(80), 10)).toBe(`${"x".repeat(9)}…`);
+  });
+
+  it("keeps a whole title in the tab's label, for its tooltip", () => {
+    const heading = "Tab strip: show how long an agent has been working on its current prompt";
+    expect(tabLabel({ n: 30, prompt: `${heading}\nthen more` } as Item)).toBe(`⧗ 30 · ${heading}`);
   });
 
   it("asks for a commit only while that is ticked", () => {
