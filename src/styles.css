@@ -365,17 +365,10 @@ body.reordering * {
 }
 
 .workspace-label,
-.workspace-path,
 .workspace-branch {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.workspace-path {
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-  line-height: 1.35;
 }
 
 .workspace-branch {

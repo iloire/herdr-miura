@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 10:04 — The workspace card no longer shows its folder
+
+The name and the path under it said the same thing on nearly every card, so the path is gone and
+each card is a line shorter. Hovering the name shows the full folder, and the right-click menu still
+copies or opens it.
+
 ## 2026-10-30 09:57 — The running prompt's buttons stay on one line
 
 In the queue panel, Open tab, Pause after and Remove squeezed into a row too narrow for them, so

@@ -1,7 +1,6 @@
 import { type CSSProperties, type PointerEvent, useCallback, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
-import { copyPath, openFolder, tildePath } from "../app/folder";
-import { useHome } from "../app/useHome";
+import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
@@ -107,7 +106,6 @@ export function Sidebar({
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const [renaming, setRenaming] = useState<string | null>(null);
-  const home = useHome();
   const [teamVersion, setTeamVersion] = useState(0);
   // New team writes the starter team, then shows it: the workspace takes focus and its file is read again.
   const newTeam = (workspaceId: string, folder: string): MenuItem => ({
@@ -157,21 +155,14 @@ export function Sidebar({
             if (drag.consumeClick()) return;
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
           };
-          const details = (
-            <>
-              {path && (
-                <span className="workspace-path" title={path}>
-                  {tildePath(path, home)}
-                </span>
-              )}
-              <WorkspaceGit
-                branch={workspace.branch}
-                aheadBehind={workspace.git_ahead_behind}
-                changed={changedFiles.get(workspace.workspace_id) ?? 0}
-                worktrees={worktrees.get(workspace.workspace_id) ?? []}
-                onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
-              />
-            </>
+          const gitLine = (
+            <WorkspaceGit
+              branch={workspace.branch}
+              aheadBehind={workspace.git_ahead_behind}
+              changed={changedFiles.get(workspace.workspace_id) ?? 0}
+              worktrees={worktrees.get(workspace.workspace_id) ?? []}
+              onOpenWorktrees={() => onOpenWorktrees(workspace.workspace_id)}
+            />
           );
           return (
             <li
@@ -222,7 +213,7 @@ export function Sidebar({
                       />
                       <AgentTally agents={own} marks={marks} />
                     </span>
-                    {details}
+                    {gitLine}
                   </div>
                 ) : (
                   <button
@@ -232,10 +223,12 @@ export function Sidebar({
                     onDoubleClick={() => setRenaming(workspace.workspace_id)}
                   >
                     <span className="workspace-head">
-                      <span className="workspace-label">{workspace.label}</span>
+                      <span className="workspace-label" title={path || undefined}>
+                        {workspace.label}
+                      </span>
                       <AgentTally agents={own} marks={marks} />
                     </span>
-                    {details}
+                    {gitLine}
                   </button>
                 )}
                 {/* What else lives here, a chip each on the card's last line, so the
