@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 22:06 — The New tab button is solid yellow
+
+It was a muted outline that faded into the tab row. It now sits on a solid lantern chip with the icon in the background
+color, and follows the theme like every other lantern mark.
+
 ## 2026-10-30 21:56 — Dialogs sit above the pane resizers
 
 The resizers and the panel switch have a z-index and the dialogs' backdrop had none, so they painted over any open

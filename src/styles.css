@@ -1186,6 +1186,17 @@ body.reordering * {
   cursor: default;
 }
 
+/* The row's main action, solid in the lantern so it is found at a glance. */
+.tab-rows .icon-button.new-tab {
+  background: var(--lantern);
+  color: var(--ink);
+}
+
+.tab-rows .icon-button.new-tab:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lantern) 82%, var(--bright));
+  color: var(--ink);
+}
+
 .stage {
   grid-row: 3;
   position: relative;

@@ -158,7 +158,7 @@ export function TabBar({
           );
         })}
         <button
-          className="icon-button"
+          className="icon-button new-tab"
           title="New tab (⌥-click for a plain terminal)"
           aria-label="New tab"
           disabled={!snapshot?.focused_workspace_id}
