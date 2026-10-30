@@ -522,13 +522,13 @@ body.reordering * {
 }
 
 .workspace:hover {
-  background: color-mix(in srgb, var(--rail) 6%, var(--hover));
+  background: var(--hover);
 }
 
-/* The picked card takes a wash of its own hue and a thicker rail, the same
-   hue the tab bar's selected tab carries. */
+/* The picked card takes a thicker rail in its own hue, the same hue the tab
+   bar's selected tab carries, over a gray wash whatever that hue is. */
 .workspace.current {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 16%, var(--active)), var(--active));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bright) 8%, var(--active)), var(--active));
   box-shadow: inset 4px 0 0 var(--rail);
 }
 
@@ -3969,7 +3969,7 @@ kbd {
   display: flex;
   flex-direction: column;
   padding: 7px 10px 8px 12px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 16%, var(--active)), var(--active));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bright) 8%, var(--active)), var(--active));
   border-left: 3px solid var(--rail);
   border-radius: 4px;
 }

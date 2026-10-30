@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 17:18 — The picked workspace card's background is gray in every hue
+
+The card's rail keeps the workspace's color, but the wash behind it no longer takes that color, so a purple or
+red workspace reads as clearly as a teal one. The hover on any card goes gray too, and so does the card in the
+Settings preview. A card with an agent waiting on you keeps its amber.
+
 ## 2026-10-30 15:13 — Open a finished prompt to read it
 
 Clicking a prompt in the Queue panel's finished list now opens a dialog with its whole text, when it was added,
