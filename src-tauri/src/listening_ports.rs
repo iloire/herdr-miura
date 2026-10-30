@@ -10,6 +10,12 @@
 //! Listeners with no such ancestor (system services, containers, anything
 //! started outside Herdr) belong to no workspace and are dropped. Only this
 //! machine is scanned; a remote host's ports are refused like its folders.
+//!
+//! The same ancestor's `HERDR_PANE_ID` says which pane started the server, for
+//! the tab strip: unlike `HERDR_TAB_ID` it holds when the pane moves to another
+//! tab. Moved to another workspace, the pane takes a new id and the old one is
+//! never given out again, so its servers match no pane, and the workspace they
+//! count under stays the old one.
 
 use crate::{git, herdr, process};
 use serde::Serialize;
@@ -30,8 +36,8 @@ const OUTPUT: usize = 256 * 1024;
 const MAX_PORTS: usize = 32;
 /// Process names are display text only.
 const MAX_PROCESS: usize = 32;
-/// Workspace ids are short daemon tokens such as `w7V`.
-const MAX_WORKSPACE_ID: usize = 64;
+/// Workspace and pane ids are short daemon tokens such as `w7V` and `w7V:p2Z`.
+const MAX_ID: usize = 64;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -46,10 +52,11 @@ pub enum Error {
 }
 
 /// Prints `L <pid> <address:port> <process>` per listening socket, then
-/// `E <pid> <workspace> <api socket>` for each listener started inside a
-/// Herdr pane, the socket naming which daemon's pane that was, or `N` when
-/// the machine has neither `ss` nor `lsof`. Linux prefers `ss`, which is
-/// quicker; macOS has only `lsof`. Both list only this user's processes.
+/// `E <pid> <workspace> <pane> <api socket>` for each listener started inside
+/// a Herdr pane, the socket naming which daemon's pane that was and last
+/// because a path can hold spaces, or `N` when the machine has neither `ss`
+/// nor `lsof`. Linux prefers `ss`, which is quicker; macOS has only `lsof`.
+/// Both list only this user's processes.
 /// Ported from herdr-gpui's `listening_ports/scan.rs`.
 const COMMAND: &str = r#"PATH="$PATH:/usr/sbin:/sbin"
 if command -v ss >/dev/null 2>&1; then
@@ -75,6 +82,7 @@ for herdr_pid in $(printf '%s\n' "$herdr_ports" | awk '$1 == "L" { print $2 }' |
     herdr_env_pid=$herdr_pid
     herdr_depth=0
     herdr_workspace=
+    herdr_pane=
     herdr_socket=
     while [ -z "$herdr_workspace" ] && [ "$herdr_depth" -lt 5 ] && [ "${herdr_env_pid:-0}" -gt 1 ]; do
         if [ -r "/proc/$herdr_env_pid/environ" ]; then
@@ -83,12 +91,13 @@ for herdr_pid in $(printf '%s\n' "$herdr_ports" | awk '$1 == "L" { print $2 }' |
             herdr_env=$(ps -E -ww -o command= -p "$herdr_env_pid" 2>/dev/null | tr ' ' '\n')
         fi
         herdr_workspace=$(printf '%s\n' "$herdr_env" | sed -n 's/^HERDR_WORKSPACE_ID=//p' | head -n 1)
+        herdr_pane=$(printf '%s\n' "$herdr_env" | sed -n 's/^HERDR_PANE_ID=//p' | head -n 1)
         herdr_socket=$(printf '%s\n' "$herdr_env" | sed -n 's/^HERDR_SOCKET_PATH=//p' | head -n 1)
         herdr_env_pid=$(ps -o ppid= -p "$herdr_env_pid" 2>/dev/null | tr -d ' ')
         herdr_depth=$((herdr_depth + 1))
     done
     if [ -n "$herdr_workspace" ]; then
-        printf 'E %s %s %s\n' "$herdr_pid" "$herdr_workspace" "$herdr_socket"
+        printf 'E %s %s %s %s\n' "$herdr_pid" "$herdr_workspace" "$herdr_pane" "$herdr_socket"
     fi
 done
 true"#;
@@ -103,6 +112,8 @@ pub struct Port {
     pub process: String,
     /// Where a browser on this machine reaches it.
     pub url: String,
+    /// The pane that started it; `None` for a pane from an older Herdr.
+    pub pane: Option<String>,
     /// How widely it listens, to keep the wider of two sockets on one port.
     #[serde(skip)]
     reach: u8,
@@ -142,7 +153,7 @@ fn run() -> Result<Vec<u8>, Error> {
 /// `owns` names by its API socket, so two daemons never claim each other's.
 fn parse(text: &str, owns: impl Fn(&str) -> bool) -> Result<HashMap<String, Vec<Port>>, Error> {
     let mut listeners: Vec<(u32, Port)> = Vec::new();
-    let mut owners: HashMap<u32, String> = HashMap::new();
+    let mut owners: HashMap<u32, (String, Option<String>)> = HashMap::new();
     for line in text.lines() {
         let mut words = line.splitn(4, ' ');
         match words.next() {
@@ -159,22 +170,26 @@ fn parse(text: &str, owns: impl Fn(&str) -> bool) -> Result<HashMap<String, Vec<
                 let (Some(pid), Some(workspace)) = (words.next(), words.next()) else {
                     continue;
                 };
-                let plain = !workspace.is_empty()
-                    && workspace.len() <= MAX_WORKSPACE_ID
-                    && workspace.chars().all(|c| c.is_ascii_graphic() && c != '=');
-                let socket = words.next().unwrap_or_default().trim_end();
-                if let (Ok(pid), true, true) = (pid.parse(), plain, owns(socket)) {
-                    owners.insert(pid, workspace.to_owned());
+                // Split here, not by `splitn`: that would cut a process name,
+                // and the socket after the pane can hold spaces too.
+                let rest = words.next().unwrap_or_default();
+                let (pane, socket) = rest.split_once(' ').unwrap_or((rest, ""));
+                let pane = plain_id(pane).then(|| pane.to_owned());
+                if let (Ok(pid), true, true) =
+                    (pid.parse(), plain_id(workspace), owns(socket.trim_end()))
+                {
+                    owners.insert(pid, (workspace.to_owned(), pane));
                 }
             }
             _ => {}
         }
     }
     let mut ports: HashMap<String, Vec<Port>> = HashMap::new();
-    for (pid, port) in listeners {
-        let Some(workspace) = owners.get(&pid) else {
+    for (pid, mut port) in listeners {
+        let Some((workspace, pane)) = owners.get(&pid) else {
             continue;
         };
+        port.pane.clone_from(pane);
         let list = ports.entry(workspace.clone()).or_default();
         match list.iter_mut().find(|known| known.port == port.port) {
             // IPv4 and IPv6 sockets of one server share its number.
@@ -191,6 +206,10 @@ fn parse(text: &str, owns: impl Fn(&str) -> bool) -> Result<HashMap<String, Vec<
         list.truncate(MAX_PORTS);
     }
     Ok(ports)
+}
+
+fn plain_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= MAX_ID && id.chars().all(|c| c.is_ascii_graphic() && c != '=')
 }
 
 /// `127.0.0.1:3000`, `[::1]:3000`, `*:3000`, `0.0.0.0:3000`, `[fe80::1%en0]:3000`.
@@ -230,6 +249,7 @@ fn listener(address: &str, process: Option<&str>) -> Option<Port> {
             .trim()
             .to_owned(),
         url: format!("http://{url_host}:{port}/"),
+        pane: None,
         reach,
     })
 }

@@ -2028,10 +2028,10 @@ kbd {
 
 /* What gives way on a tight strip, in order: the agents' titles, the stray
    path and the branch name down to their floors, the queue line, then each
-   agent's rightmost facts. The counts and the library always stay. The titles
-   and the branch can only shrink as items of the strip itself: a wrapper's
-   minimum would be its text's full width, and a shrinking agent group would
-   clip its facts first. */
+   agent's rightmost facts. The counts, the ports and the library always stay.
+   The titles and the branch can only shrink as items of the strip itself: a
+   wrapper's minimum would be its text's full width, and a shrinking agent group
+   would clip its facts first. */
 .tab-git {
   display: contents;
 }
@@ -2089,6 +2089,15 @@ kbd {
 
 .tab-git-unmerged {
   color: var(--done);
+}
+
+/* The status bar's ports, at the strip's line height so they add none. They do
+   not shrink, as a number cut short is no use, but a tab with very many stops at
+   half the strip, the rest in the status bar, so the library stays. */
+.tab-header .ports {
+  flex: none;
+  max-width: 50%;
+  font: inherit;
 }
 
 .tab-agent {

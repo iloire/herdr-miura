@@ -2,6 +2,18 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 13:05 — The tab strip shows this tab's listening ports
+
+The strip over the terminal now shows the ports of the servers started in this tab, after the Git state, each number
+opening its page, so a dev server in a feature worktree is one click away. A tab with no servers shows nothing, and
+the status bar's ports and the card's globe stay as they were, per workspace.
+
+The scan reads each listener's `HERDR_PANE_ID` and the strip matches it against the snapshot's panes, so a server
+follows its pane to another tab of the workspace. Moved to another workspace, a pane takes a new id, so its servers
+leave the strip and keep counting under the old workspace; Herdr never gives the old id out again, so they cannot show
+in the wrong tab. A listener from an older Herdr, with no pane id, stays out of the strip. The ports do not shrink on a
+tight strip, and a tab with very many stops at half of it, the rest in the status bar.
+
 ## 2026-10-30 12:50 — The tab strip shows the agent's title
 
 Each agent's group over the terminal now ends in the agent's title, in full when there is room, with the whole

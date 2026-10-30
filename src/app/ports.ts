@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Pane } from "../protocol";
 
 /// A TCP port a workspace's process listens on, as `listening_ports` reports it.
 export interface ListeningPort {
@@ -7,6 +8,8 @@ export interface ListeningPort {
   address: string;
   process: string;
   url: string;
+  /// The pane that started it; null for a pane from an older Herdr.
+  pane: string | null;
 }
 
 /// Each workspace's listening ports, lowest first; a workspace with none is absent.
@@ -21,7 +24,17 @@ export function samePorts(a: Map<string, ListeningPort[]>, b: Map<string, Listen
   for (const [workspace, ports] of a) {
     const other = b.get(workspace);
     if (!other || other.length !== ports.length) return false;
-    if (ports.some((port, i) => port.url !== other[i].url || port.process !== other[i].process)) return false;
+    const differs = (port: ListeningPort, i: number) =>
+      port.url !== other[i].url || port.process !== other[i].process || port.pane !== other[i].pane;
+    if (ports.some(differs)) return false;
   }
   return true;
+}
+
+/// Those of `ports` that a pane of `tab` started. A pane knows its tab only from
+/// the snapshot: the listener's own `HERDR_TAB_ID` goes stale when a pane moves.
+/// A listener whose pane is unknown belongs to no tab.
+export function tabPorts(ports: ListeningPort[], panes: Pane[], tab: string): ListeningPort[] {
+  const here = new Set(panes.filter((pane) => pane.tab_id === tab).map((pane) => pane.pane_id));
+  return ports.filter((port) => port.pane !== null && here.has(port.pane));
 }

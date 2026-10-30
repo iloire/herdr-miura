@@ -464,7 +464,7 @@ export default function App() {
                 pins={pins}
                 onPinsChange={setPins}
               />
-              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} stray={stray} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">
                 <Terminal
                   controller={controller}

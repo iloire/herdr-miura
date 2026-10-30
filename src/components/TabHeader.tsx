@@ -1,6 +1,7 @@
 import { agentTitle, loopTag } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
 import type { TabGit } from "../app/gitLine";
+import { type ListeningPort, tabPorts } from "../app/ports";
 import {
   burn,
   contextLevel,
@@ -20,6 +21,7 @@ import type { StrayPath } from "../app/workspaceRoot";
 import type { Agent, Snapshot } from "../protocol";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { BranchIcon, FolderIcon, LibraryIcon } from "./icons";
+import { Ports } from "./Ports";
 import { StatusMark } from "./StatusMark";
 
 /// Weighted tokens per bar below which the burn chart does not scale up, so
@@ -35,7 +37,8 @@ const STRAY_FLOOR = 16;
 /// A strip over the focused tab's terminal. At its left where the focused pane
 /// is, when that is not the workspace's root, to catch an agent working in the
 /// wrong place. Then the Git state of its checkout, which the sidebar cannot
-/// give: tabs of a workspace can sit in different worktrees. Then what matters
+/// give: tabs of a workspace can sit in different worktrees. Then the ports of
+/// the servers started in this tab, each opening its page. Then what matters
 /// about each of its agents at all times: status, model, context, spend this
 /// plan window, the last fifteen minutes' burn, a loop's next tick, and its
 /// title. At its right end the prompt library, whose prompts go to this tab's
@@ -47,6 +50,7 @@ export function TabHeader({
   plan,
   git,
   stray,
+  ports,
   queued,
   library,
 }: {
@@ -58,6 +62,8 @@ export function TabHeader({
   git: TabGit | null;
   /// Where the focused pane is, when that is not the workspace's root.
   stray: StrayPath | null;
+  /// The focused workspace's listening ports.
+  ports: ListeningPort[];
   /// The queued prompt this tab runs, where it stands in its queue, and what follows it.
   queued: { item: Item; position: number; total: number; next: Item | null } | null;
   /// The prompt library's palette is open.
@@ -68,9 +74,10 @@ export function TabHeader({
   const now = Date.now();
   const since = windowStart(plan, now);
   return (
-    <div className="tab-header" aria-label="This tab's checkout and agents">
+    <div className="tab-header" aria-label="This tab's checkout, servers and agents">
       {stray && <StrayFacts stray={stray} />}
       {git && <GitFacts git={git} />}
+      <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
       {agents.map((agent) => (
         <AgentFacts
           key={agent.pane_id}
