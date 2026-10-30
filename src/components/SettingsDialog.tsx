@@ -5,7 +5,7 @@ import { LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "..
 import type { SettingsView } from "../app/useSettings";
 import { css } from "../terminal/theme";
 import { BUILTIN_NAMES, type NamedTheme, builtinTheme, parseThemeName } from "../themes/catalog";
-import { TOKENS } from "../themes/chrome";
+import { TOKENS, legible } from "../themes/chrome";
 
 const BUILTIN = new Set(BUILTIN_NAMES);
 const LIGHT = "(prefers-color-scheme: light)";
@@ -245,7 +245,7 @@ function ThemePreview({ theme }: { theme: NamedTheme }) {
   const fg = (slot: number) => ({ color: css(palette[slot]) });
   return (
     <div className="theme-preview" style={{ ...style, colorScheme: theme.chrome.scheme }} aria-label={`Preview of ${theme.name}`}>
-      <div className="preview-card" style={{ "--rail": css(palette[hue("herdr-tauri")]) } as CSSProperties}>
+      <div className="preview-card" style={{ "--rail": css(legible(palette[hue("herdr-tauri")], theme.chrome.tokens)) } as CSSProperties}>
         <span className="preview-card-name">herdr-tauri</span>
         <span className="preview-card-path">~/code/herdr-tauri</span>
         <span className="preview-card-marks">

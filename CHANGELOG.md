@@ -2,6 +2,18 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 23:15 — Readable text in every theme
+
+Secondary text, status colors and workspace colors were too faint in most themes: muted text was 2.5:1 in Catppuccin Latte
+and below 4.5:1 in six of the eight built-in themes, status colors were only held to 3:1 although the chrome also writes
+words in them, and workspace colors used the raw palette with no check at all. All of them now reach 4.5:1 on the
+background, the sidebar and a selected row, in any theme, including a Ghostty theme of your own. Line numbers reach 3:1. Where a color has
+to move it keeps its hue as far as it can, so Catppuccin Latte's gold is a deeper rust than before, and the terminal's own colors never change.
+Herdr Night's muted text and line numbers are slightly lighter too, the paths in the prompt library and the labels in the theme
+list use the muted color, and the queue box's placeholder and a tab's × are less dimmed. With the gold now
+dark enough, words on it are back in the background color, so the `--on-lantern` color from the previous entry is gone and the
+New tab button again shares its colors with the other gold buttons. The Settings preview draws its rail the same way.
+
 ## 2026-10-30 23:09 — One solid gold main action in the side panels
 
 The Queue and Changes panels now mark their main action the way the New tab button does: solid in the theme's lantern, so it

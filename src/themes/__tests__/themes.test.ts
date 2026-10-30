@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { DEFAULT_THEME } from "../../terminal/theme";
 import { BUILTIN_NAMES, DEFAULT_THEME_NAME, builtinTheme, parseThemeName } from "../catalog";
-import { TOKENS, chromeTokens, mix } from "../chrome";
+import { TOKENS, chromeTokens, legible, mix } from "../chrome";
 import { ink, ratio } from "../contrast";
 import { FALLBACK_THEME, ThemeParseError, parseGhostty } from "../ghostty";
 
@@ -88,10 +88,26 @@ describe("builtin themes", () => {
     expect(root).toContain("color-scheme: dark");
   });
 
-  it("keeps words readable on a solid lantern", () => {
+  it("keeps everything written in the chrome readable in every theme", () => {
     for (const name of BUILTIN_NAMES) {
-      const { tokens } = builtinTheme(name)!.chrome;
-      expect(ratio(hex(tokens["on-lantern"]), hex(tokens.lantern)), name).toBeGreaterThanOrEqual(4.5);
+      const { terminal, chrome } = builtinTheme(name)!;
+      const { tokens } = chrome;
+      const words = ["text", "muted", "bright", "lantern", "working", "blocked", "done", "team"] as const;
+      const hues = [1, 2, 3, 4, 5, 6].map((slot) => legible(terminal.palette[slot], tokens));
+      for (const under of ["ink", "peat", "active"] as const) {
+        const surface = hex(tokens[under]);
+        for (const word of words) {
+          expect(ratio(hex(tokens[word]), surface), `${name}: ${word} on ${under}`).toBeGreaterThanOrEqual(4.5);
+        }
+        for (const color of hues) {
+          expect(ratio(color, surface), `${name}: a hue on ${under}`).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(ratio(hex(tokens.faint), surface), `${name}: faint on ${under}`).toBeGreaterThanOrEqual(3);
+      }
+      // A solid button: the background's color on the fill.
+      for (const fill of [...hues, hex(tokens.lantern), hex(tokens.blocked)]) {
+        expect(ratio(hex(tokens.ink), fill), `${name}: words on a fill`).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 });
@@ -104,12 +120,12 @@ describe("chromeTokens", () => {
     expect(tokens.ink).toBe("#2e3440");
     expect(tokens.text).toBe("#d8dee9");
     expect(hex(tokens.peat)).toBe(mix(0x2e3440, 0xd8dee9, 2));
-    expect(hex(tokens.muted)).toBe(mix(0x2e3440, 0xd8dee9, 55));
-    // Nord's blue already reads on its chrome, so it is left as drawn; its
-    // red falls below 3:1 on a selected row and is lifted, keeping its hue.
-    expect(tokens.working).toBe("#81a1c1");
-    expect(ratio(0xbf616a, hex(tokens.active))).toBeLessThan(3);
-    expect(ratio(hex(tokens.blocked), hex(tokens.active))).toBeGreaterThanOrEqual(3);
+    expect(hex(tokens.gutter)).toBe(mix(0x2e3440, 0xd8dee9, 3));
+    // Nord's green already reads on its chrome, so it is left as drawn; its
+    // red falls below 4.5:1 on a selected row and is lifted, keeping its hue.
+    expect(tokens.done).toBe("#a3be8c");
+    expect(ratio(0xbf616a, hex(tokens.active))).toBeLessThan(4.5);
+    expect(ratio(hex(tokens.blocked), hex(tokens.active))).toBeGreaterThanOrEqual(4.5);
   });
 
   it("derives a light theme's chrome and nudges pastels until they read", () => {
@@ -118,7 +134,7 @@ describe("chromeTokens", () => {
     expect(scheme).toBe("light");
     expect(tokens.ink).toBe("#eff1f5");
     // The cursor repeats the text, so the lantern is the palette's yellow,
-    // which falls below 3:1 on the surface and is darkened until it passes.
+    // which falls below 3:1 on the surface and is darkened until it reads.
     expect(ratio(0xdf8e1d, hex(tokens.peat))).toBeLessThan(3);
     expect(tokens.lantern).not.toBe("#df8e1d");
     for (const token of ["lantern", "working", "blocked", "done", "team"] as const) {
@@ -126,9 +142,6 @@ describe("chromeTokens", () => {
         expect(ratio(hex(tokens[token]), hex(tokens[under])), `${token} on ${under}`).toBeGreaterThanOrEqual(3);
       }
     }
-    // The background is too pale for words on the lantern, so they darken.
-    expect(ratio(hex(tokens.ink), hex(tokens.lantern))).toBeLessThan(4.5);
-    expect(tokens["on-lantern"]).not.toBe(tokens.ink);
     // The palette itself, which terminal cells draw from, is untouched.
     expect(latte.palette[3]).toBe(0xdf8e1d);
   });

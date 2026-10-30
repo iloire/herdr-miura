@@ -6,9 +6,8 @@
   --peat: #14181d; /* sidebar and bars */
   --rule: #1c2229;
   --text: #d8dee9;
-  --muted: #7d8896;
+  --muted: #828e9d;
   --lantern: #f5d491;
-  --on-lantern: #101419; /* words on a solid lantern */
   --working: #82c4ff;
   --blocked: #f28b94;
   --done: #98c379;
@@ -20,7 +19,7 @@
   --rule-strong: #33404d; /* a focused button's border */
   --elbow: #3b4653; /* the line joining a worktree to its checkout */
   --gutter: #141a21; /* a diff's line-number column */
-  --faint: #4b5562; /* line numbers */
+  --faint: #637182; /* line numbers */
   --bright: #ffffff; /* the current workspace's name, dialog titles */
   --team: #b9a3ff;
   --scrim: rgb(5 8 11 / 0.45);
@@ -1139,7 +1138,7 @@ body.reordering * {
 
 .tab:hover .tab-close,
 .tab[aria-selected="true"] .tab-close {
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .tab-pin {
@@ -1188,11 +1187,6 @@ body.reordering * {
   cursor: default;
 }
 
-/* Its plus is a large mark, not words, so it stays in the background's color. */
-.tab-rows .icon-button.new-tab {
-  --on-lantern: var(--ink);
-}
-
 /* The main action of a row or a panel, solid in the lantern so it is found at a
    glance. Gold in the sidebar means an agent waits on you, so a disabled one
    keeps its own look, and a panel has one: of the queue's boxes, the first that
@@ -1202,14 +1196,14 @@ body.reordering * {
 .sync-action.sync-main:not(:disabled) {
   border-color: transparent;
   background: var(--lantern);
-  color: var(--on-lantern);
+  color: var(--ink);
 }
 
 .tab-rows .icon-button.new-tab:hover:not(:disabled),
 .queue-add:hover:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
 .sync-action.sync-main:hover:not(:disabled) {
   background: color-mix(in srgb, var(--lantern) 82%, var(--bright));
-  color: var(--on-lantern);
+  color: var(--ink);
 }
 
 /* The focus ring is the lantern too, so on these it stands clear of the button. */
@@ -3479,7 +3473,7 @@ kbd {
 }
 
 .queue-compose-box textarea::placeholder {
-  color: color-mix(in srgb, var(--muted) 75%, transparent);
+  color: var(--muted);
 }
 
 .queue-compose-box textarea:focus,
@@ -4150,7 +4144,7 @@ kbd {
 }
 
 .theme-origin {
-  color: var(--faint);
+  color: var(--muted);
   font: calc(10px * var(--ui-scale)) var(--mono);
 }
 
@@ -4382,7 +4376,7 @@ kbd {
   white-space: nowrap;
   font-family: var(--mono);
   font-size: calc(11px * var(--ui-scale));
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .prompt-problem {

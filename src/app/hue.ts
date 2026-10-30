@@ -1,7 +1,9 @@
 // The color that tells a workspace apart, ported from herdr-gpui's
 // `folders::model::hue`, so a name lands on the same slot in both apps.
 
+import { css } from "../terminal/theme";
 import { activeTheme } from "../themes/active";
+import { legible } from "../themes/chrome";
 
 /// The palette slot, red (1) to cyan (6), for `name`: the same on every launch.
 export function hue(name: string): number {
@@ -17,7 +19,9 @@ export function hue(name: string): number {
   return 1 + ((hash >>> 0) % 6);
 }
 
-/// `name`'s hue as a CSS color, from the active theme's palette.
+/// `name`'s hue as a CSS color, from the active theme's palette, moved as far
+/// as it takes to read: the chrome writes names in it.
 export function hueColor(name: string): string {
-  return `#${activeTheme().terminal.palette[hue(name)].toString(16).padStart(6, "0")}`;
+  const { terminal, chrome } = activeTheme();
+  return css(legible(terminal.palette[hue(name)], chrome.tokens));
 }

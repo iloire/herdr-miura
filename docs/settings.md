@@ -71,7 +71,7 @@ refuses the file.
 
 The chrome is derived from the theme (`src/themes/chrome.ts`, ported from herdr-gpui): surfaces are blends of the
 background toward the foreground, and the status colors (working blue, blocked red, done green, the lantern from the
-cursor or yellow, the team's magenta) come from the palette, each moved just far enough to read at 3:1 on the
-chrome when it would not. Words on a solid lantern button use `--on-lantern`, the background moved just far enough to
-read at 4.5:1. Terminal cells always keep the colors their program asked for. Herdr Night keeps its own
+cursor or yellow, the team's magenta) come from the palette. Those, the muted text and each workspace's hue are moved
+just far enough to read as words, 4.5:1, on the background, the sidebar and a selected row; line numbers get 3:1. A solid
+fill of any of them holds words in the background color at the same ratio. Terminal cells always keep the colors their program asked for. Herdr Night keeps its own
 hand-drawn chrome.

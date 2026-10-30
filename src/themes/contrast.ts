@@ -4,9 +4,9 @@
 // until it reaches a WCAG contrast ratio. Terminal cells never come here: a
 // program's colors reach the screen as it asked.
 
-/// Colored marks reach 3:1, the WCAG minimum for meaningful graphics.
+/// Marks reach 3:1, the WCAG minimum for meaningful graphics.
 export const MARK_RATIO = 3;
-/// Small text reaches 4.5:1, the WCAG minimum for body text.
+/// Anything that can be words reaches 4.5:1, the WCAG minimum for small text.
 export const TEXT_RATIO = 4.5;
 
 function channels(color: number): [number, number, number] {
