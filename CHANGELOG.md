@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:52 — The Settings dialog loses its Open settings file button
+
+The dialog edits every key, so its foot now only shows the file's path. The `settings_open` command went with the
+button.
+
 ## 2026-10-30 21:48 — Finished queue rows give their width to the title
 
 A finished prompt's row kept room for two buttons that only showed on hover, so its title stopped well short of the

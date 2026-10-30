@@ -320,18 +320,6 @@ fn write(path: &Path, text: &str) -> Result<(), Error> {
     })
 }
 
-/// The file at `path`, made with a pointer to its schema when there is none,
-/// so "Open settings file" always has something to open.
-pub fn ensure_file(path: &Path) -> Result<(), Error> {
-    if path.exists() || path.is_symlink() {
-        return Ok(());
-    }
-    write(
-        path,
-        "# Herdr Tauri settings. Every key is optional; see docs/settings.md for them all.\n",
-    )
-}
-
 /// Where Ghostty themes live, in herdr-gpui's order: Herdr's and Ghostty's
 /// config folders, Ghostty's resources, the app bundle, then XDG data folders.
 pub fn theme_directories() -> Vec<PathBuf> {
@@ -608,17 +596,6 @@ mod tests {
         set_in(&link, "theme", &json!("Nord")).unwrap_or_else(|error| panic!("{error}"));
         assert!(link.is_symlink());
         assert_eq!(read(&dotfiles), "# provisioned\ntheme = \"Nord\"\n");
-    }
-
-    #[test]
-    fn ensure_file_makes_a_missing_file_and_leaves_one_alone() {
-        let dir = temp();
-        let path = dir.path().join("herdr/config-tauri.toml");
-        ensure_file(&path).unwrap_or_else(|error| panic!("{error}"));
-        assert!(read(&path).starts_with("# Herdr Tauri settings."));
-        put(&path, "theme = \"Nord\"\n");
-        ensure_file(&path).unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(read(&path), "theme = \"Nord\"\n");
     }
 
     #[test]

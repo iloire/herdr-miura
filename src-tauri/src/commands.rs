@@ -610,14 +610,6 @@ pub fn settings_set(key: String, value: Value) -> Result<()> {
     Ok(settings::set_in(&settings::path()?, &key, &value)?)
 }
 
-/// Opens the settings file in VS Code, making it first when there is none.
-#[tauri::command]
-pub fn settings_open() -> Result<()> {
-    let path = settings::path()?;
-    settings::ensure_file(&path)?;
-    Ok(folder::open_in_editor(&path)?)
-}
-
 /// Every Ghostty theme installed on this Mac, by file name.
 #[tauri::command]
 pub async fn theme_list() -> Result<Vec<String>> {

@@ -46,7 +46,7 @@ export interface Loaded {
   settings: Settings;
   /// What the file got wrong, for the dismissible warning strip.
   warnings: string[];
-  /// The file, for "Open settings file".
+  /// The file, for the foot of the Settings dialog.
   path: string;
 }
 
@@ -129,11 +129,6 @@ export async function loadSettings(): Promise<Loaded> {
 /// Writes one key to the file, keeping its comments; `null` removes it.
 export function saveSetting(key: string, value: string | number | boolean | null): Promise<void> {
   return invoke("settings_set", { key, value });
-}
-
-/// Opens the settings file in VS Code, making it first when there is none.
-export function openSettingsFile(): Promise<void> {
-  return invoke("settings_open");
 }
 
 /// The terminal's font list: the chosen face, then the usual monospace fallbacks.

@@ -1,7 +1,7 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { hue } from "../app/hue";
-import { LIMITS, type Settings, openSettingsFile, resolveTheme, saveSetting, themeNames } from "../app/settings";
+import { LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
 import type { SettingsView } from "../app/useSettings";
 import { css } from "../terminal/theme";
 import { BUILTIN_NAMES, type NamedTheme, builtinTheme, parseThemeName } from "../themes/catalog";
@@ -117,7 +117,6 @@ export function SettingsDialog({
           <span className="settings-path" title={view.path ?? undefined}>
             {view.path}
           </span>
-          <button onClick={() => controller.act(openSettingsFile())}>Open settings file</button>
         </footer>
       </div>
     </div>

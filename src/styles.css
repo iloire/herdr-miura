@@ -4023,16 +4023,6 @@ kbd {
   user-select: text;
 }
 
-.settings-foot button {
-  padding: 5px 12px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 6px;
-}
-
-.settings-foot button:hover {
-  background: var(--hover);
-}
-
 .theme-picker-top {
   display: flex;
   flex-wrap: wrap;
