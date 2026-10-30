@@ -9,9 +9,9 @@ colors in both apps. `catalog.ts` bundles them with `import.meta.glob`. The
 collection is MIT-licensed; the copyright for each individual theme belongs to
 its author.
 
-The hand-written palettes in `catalog.ts` (`Default`, `Nord`, `Dracula`,
-`Catppuccin Mocha`, `Catppuccin Latte`) are herdr-gpui's built-ins, ported from
-its `src/config/theme.rs`, as are the Ghostty parser in `ghostty.ts`, the chrome
+The hand-written palettes in `catalog.ts` (`Nord`, `Dracula`, `Catppuccin Mocha`,
+`Catppuccin Latte`) are herdr-gpui's built-ins, ported from its
+`src/config/theme.rs`, as are the Ghostty parser in `ghostty.ts`, the chrome
 derivation in `chrome.ts` and the contrast nudge in `contrast.ts`.
 
 ```text

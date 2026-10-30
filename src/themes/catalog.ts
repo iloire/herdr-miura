@@ -1,6 +1,6 @@
-// The themes the app knows by name, and what a `theme` value asks for. Names
-// match herdr-gpui's built-ins, so one value works in both apps; `Herdr Night`
-// is this app's own and the default.
+// The themes the app ships, and what a `theme` value asks for. Names match
+// herdr-gpui's built-ins, so one value works in both apps; `Herdr Night` is
+// this app's own and the default.
 
 import { DEFAULT_THEME, type Theme } from "../terminal/theme";
 import { type Chrome, chromeTokens } from "./chrome";
@@ -82,7 +82,7 @@ const HAND: Record<string, [number, number, number[]]> = {
   ],
 };
 
-/// The Ghostty files herdr-gpui compiles in, by their upstream file names (see NOTICE.md).
+/// Ghostty files herdr-gpui also compiles in, by their upstream file names (see NOTICE.md).
 const BUNDLED = Object.fromEntries(
   Object.entries(
     import.meta.glob<string>("./ghostty/*", { query: "?raw", import: "default", eager: true }),
@@ -102,8 +102,7 @@ export function builtinTheme(name: string): NamedTheme | undefined {
   const cached = cache.get(name);
   if (cached) return cached;
   let terminal: Theme | undefined;
-  if (name === "Default") terminal = FALLBACK_THEME;
-  else if (HAND[name]) {
+  if (HAND[name]) {
     const [background, foreground, ansi] = HAND[name];
     const palette = [...FALLBACK_THEME.palette];
     palette.splice(0, 16, ...ansi);
@@ -118,7 +117,7 @@ export function builtinTheme(name: string): NamedTheme | undefined {
 /// Every built-in name, Herdr Night first, then as herdr-gpui sorts them.
 export const BUILTIN_NAMES: string[] = [
   DEFAULT_THEME_NAME,
-  ...["Default", ...Object.keys(HAND), ...Object.keys(BUNDLED)].sort((a, b) =>
+  ...[...Object.keys(HAND), ...Object.keys(BUNDLED)].sort((a, b) =>
     a.toLowerCase().localeCompare(b.toLowerCase()),
   ),
 ];

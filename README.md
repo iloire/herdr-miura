@@ -24,7 +24,7 @@ Prompts you send often are Claude Code's own command files (`~/.claude/commands/
 send it to the focused agent, to a fresh Claude in a new tab, or to the queue
 ([docs/plan-prompt-library.md](docs/plan-prompt-library.md)).
 Settings live in `~/.config/herdr/config-tauri.toml`, which the Settings dialog writes as you change
-things: the theme (herdr-gpui's theme names, any Ghostty theme, or a light and dark pair that follows macOS),
+things: the theme (eight built-ins, any Ghostty theme, or a light and dark pair that follows macOS),
 the terminal's font, size and line height, the interface text size, and what a new tab runs
 ([docs/settings.md](docs/settings.md)). Open the dialog from the Herdr menu → **Settings…** or with ⌘,
 (Ctrl+, on Linux and Windows, which have no app menu).

@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 18:45 — Eight built-in themes
+
+The Settings list had 34 themes, most of them variations on each other. It now has eight: Herdr Night, Catppuccin
+Latte, Catppuccin Mocha, Dracula, GitHub Light Default, Gruvbox Material Dark, Nord and TokyoNight. The other 26,
+`Default` included, are gone from the app. A `theme` value naming one of them shows Herdr Night with a warning, until
+its Ghostty file is in `~/.config/herdr/themes`. The search box only appears when installed themes join the list, and
+the dialog takes focus itself, so Esc still closes it without the box.
+
 ## 2026-10-30 18:35 — Land a worktree from its card
 
 Every piece of work ends the same way: rebase onto main, fast-forward main, remove the worktree, delete the branch.

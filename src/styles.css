@@ -4046,6 +4046,10 @@ kbd {
   font-weight: 600;
 }
 
+.settings-dialog:focus {
+  outline: none;
+}
+
 .theme-picker-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);

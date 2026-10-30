@@ -52,15 +52,18 @@ command = "claude"
 
 A `theme` value is resolved as herdr-gpui resolves its own, so one value works in both apps:
 
-1. **A built-in name**: `Herdr Night` (this app's, the default), herdr-gpui's hand-written `Default`, `Nord`,
-   `Dracula`, `Catppuccin Mocha` and `Catppuccin Latte`, and the 28 Ghostty files herdr-gpui bundles (`TokyoNight`,
-   `Gruvbox Dark`, `Rose Pine`, `GitHub Light Default`, …; see `src/themes/NOTICE.md`).
+1. **A built-in name**, one of eight: `Herdr Night` (this app's, the default), `Catppuccin Latte`,
+   `Catppuccin Mocha`, `Dracula`, `GitHub Light Default`, `Gruvbox Material Dark`, `Nord` and `TokyoNight`. All but
+   the first are herdr-gpui's too (see `src/themes/NOTICE.md`).
 2. **A Ghostty theme name**, the first file of that name in `~/.config/herdr/themes`, `~/.config/ghostty/themes`,
    `$GHOSTTY_RESOURCES_DIR/themes`, `/Applications/Ghostty.app/Contents/Resources/ghostty/themes`, then the XDG
    data folders' `ghostty/themes`.
 3. **A path**, absolute or starting `~/`, to a Ghostty theme file. Only the path the file names is read.
 4. **`light:NAME,dark:NAME`**, Ghostty's syntax, follows the macOS appearance and switches live with it. Each side
    is any of the above.
+
+herdr-gpui ships more themes than these. To use another of its names here, put its Ghostty file in
+`~/.config/herdr/themes`. Installed themes join the Settings list, which gains a search box when there are any.
 
 A theme that cannot be found or parsed shows Herdr Night, with a warning. The file format is Ghostty's: `background`,
 `foreground`, `cursor-color` and `palette = N=#rrggbb`; other keys are ignored, and a color that does not parse

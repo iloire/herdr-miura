@@ -62,9 +62,17 @@ describe("parseGhostty", () => {
 });
 
 describe("builtin themes", () => {
-  it("bundles herdr-gpui's 28 Ghostty files and its hand-written palettes", () => {
-    expect(BUILTIN_NAMES[0]).toBe(DEFAULT_THEME_NAME);
-    expect(BUILTIN_NAMES).toHaveLength(1 + 5 + 28);
+  it("ships a short list, Herdr Night first, each of which loads", () => {
+    expect(BUILTIN_NAMES).toEqual([
+      DEFAULT_THEME_NAME,
+      "Catppuccin Latte",
+      "Catppuccin Mocha",
+      "Dracula",
+      "GitHub Light Default",
+      "Gruvbox Material Dark",
+      "Nord",
+      "TokyoNight",
+    ]);
     for (const name of BUILTIN_NAMES) expect(builtinTheme(name)?.name).toBe(name);
     expect(builtinTheme("Nonexistent")).toBeUndefined();
   });

@@ -1,4 +1,4 @@
-import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { hue } from "../app/hue";
 import { LIMITS, type Settings, openSettingsFile, resolveTheme, saveSetting, themeNames } from "../app/settings";
@@ -31,9 +31,14 @@ export function SettingsDialog({
     event.stopPropagation();
     onClose();
   };
+  // Esc needs focus inside the dialog, and nothing in it always takes focus.
+  const dialog = useRef<HTMLDivElement>(null);
+  useEffect(() => dialog.current?.focus(), []);
   return (
     <div className="palette-backdrop" onMouseDown={onClose}>
       <div
+        ref={dialog}
+        tabIndex={-1}
         className="palette settings-dialog"
         role="dialog"
         aria-labelledby="settings-title"
@@ -119,8 +124,8 @@ export function SettingsDialog({
   );
 }
 
-/// One theme, or a light and a dark one following macOS, with a search over
-/// every built-in and installed theme and a preview of the one under the pointer.
+/// One theme, or a light and a dark one following macOS, with a preview of the
+/// one under the pointer. Installed themes can run to hundreds, so they bring a search.
 function ThemePicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const pair = parseThemeName(value) ?? { light: value, dark: value };
   const follows = /^\s*(light|dark):/.test(value);
@@ -184,14 +189,16 @@ function ThemePicker({ value, onChange }: { value: string; onChange: (value: str
       </div>
       <div className="theme-picker-main">
         <div className="theme-list-column">
-          <input
-            autoFocus
-            className="theme-search"
-            type="search"
-            placeholder={`Search ${names.length} themes`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+          {names.length > BUILTIN_NAMES.length && (
+            <input
+              autoFocus
+              className="theme-search"
+              type="search"
+              placeholder={`Search ${names.length} themes`}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          )}
           <ul className="theme-list" role="listbox" aria-label="Themes" onMouseLeave={() => setShown(current)}>
             {matches.map((name) => (
               <li key={name}>
