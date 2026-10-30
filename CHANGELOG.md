@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 22:44 — A close button on the prompt library
+
+The prompt library closed only with Esc or a click outside it. It now has the × the other dialogs have, at the end of the
+search row. While a new prompt is open, Esc still steps back to the list, and the × closes the library as a click outside it
+does.
+
 ## 2026-10-30 22:27 — The queue's prompt box takes the panel's width
 
 An empty queue opened on four lines of explanation, and the `+` node beside the box took 28 px of its width. Both are

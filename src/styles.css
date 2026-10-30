@@ -4230,6 +4230,19 @@ kbd {
   width: min(920px, calc(100vw - 32px));
 }
 
+.prompt-search {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.prompt-search .palette-input {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
 .prompt-body {
   display: grid;
   grid-template-columns: minmax(200px, 300px) 1fr;

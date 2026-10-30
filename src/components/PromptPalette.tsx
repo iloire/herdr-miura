@@ -132,27 +132,38 @@ export function PromptPalette({
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
-        <input
-          autoFocus
-          ref={search}
-          disabled={creating !== null}
-          className="palette-input"
-          placeholder={folder ? "Search prompts: this project's, then global" : "Search global prompts"}
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setSelected(0);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") setSelected((s) => Math.min(matches.length - 1, s + 1));
-            else if (event.key === "ArrowUp") setSelected((s) => Math.max(0, s - 1));
-            else if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
-              if (library && matches.length === 0) startNew();
-              else run(fallback);
-            } else return;
-            event.preventDefault();
-          }}
-        />
+        <div className="prompt-search">
+          <input
+            autoFocus
+            ref={search}
+            disabled={creating !== null}
+            className="palette-input"
+            placeholder={folder ? "Search prompts: this project's, then global" : "Search global prompts"}
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelected(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") setSelected((s) => Math.min(matches.length - 1, s + 1));
+              else if (event.key === "ArrowUp") setSelected((s) => Math.max(0, s - 1));
+              else if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+                if (library && matches.length === 0) startNew();
+                else run(fallback);
+              } else return;
+              event.preventDefault();
+            }}
+          />
+          <button
+            type="button"
+            className="worktrees-close"
+            aria-label="Close"
+            title={creating === null ? "Close (Esc)" : "Close"}
+            onClick={close}
+          >
+            ×
+          </button>
+        </div>
         <div className={creating === null ? "prompt-body" : "prompt-body creating"}>
           <div className="prompt-side">
             <ul className="palette-list prompt-list" role="listbox" ref={list}>
