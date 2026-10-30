@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 17:18 — An expanded card lists three ports, then `+N more`
+
+An expanded workspace card listed every listening port, so a workspace running Docker could push the rest of the
+sidebar down by eight rows or more. The Ports section now shows the first three and a `+N more` toggle under them
+that opens the rest and turns into `Show less`. Three ports or fewer show as before, with no toggle. Whether the
+list is open is `PortList`'s own state, so it closes with the card and is not saved.
+
 ## 2026-10-30 17:18 — The picked workspace card's background is gray in every hue
 
 The card's rail keeps the workspace's color, but the wash behind it no longer takes that color, so a purple or

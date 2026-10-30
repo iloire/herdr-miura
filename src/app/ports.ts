@@ -38,3 +38,12 @@ export function tabPorts(ports: ListeningPort[], panes: Pane[], tab: string): Li
   const here = new Set(panes.filter((pane) => pane.tab_id === tab).map((pane) => pane.pane_id));
   return ports.filter((port) => port.pane !== null && here.has(port.pane));
 }
+
+/// How many ports an expanded workspace card lists before it says how many more.
+const PORT_ROWS = 3;
+
+/// The ports a card lists until it is asked for all of them, keeping their
+/// order, and how many that leaves out.
+export function portRows(ports: readonly ListeningPort[]): { rows: ListeningPort[]; more: number } {
+  return { rows: ports.slice(0, PORT_ROWS), more: Math.max(0, ports.length - PORT_ROWS) };
+}

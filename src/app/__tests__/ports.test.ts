@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Pane } from "../../protocol";
-import { type ListeningPort, samePorts, tabPorts } from "../ports";
+import { type ListeningPort, portRows, samePorts, tabPorts } from "../ports";
 
 const port = (number: number, pane: string | null): ListeningPort => ({
   port: number,
@@ -49,5 +49,23 @@ describe("samePorts", () => {
     expect(samePorts(map(port(3000, "w1:p1")), map(port(3000, "w1:p1")))).toBe(true);
     expect(samePorts(map(port(3000, "w1:p1")), map(port(3000, "w1:p2")))).toBe(false);
     expect(samePorts(map(port(3000, null)), map(port(3000, "w1:p1")))).toBe(false);
+  });
+});
+
+describe("portRows", () => {
+  const ports = (count: number) => Array.from({ length: count }, (_, i) => port(3000 + i, null));
+
+  it("has nothing to list or hide without ports", () => {
+    expect(portRows([])).toEqual({ rows: [], more: 0 });
+  });
+
+  it("lists three ports with none left out", () => {
+    const three = ports(3);
+    expect(portRows(three)).toEqual({ rows: three, more: 0 });
+  });
+
+  it("keeps the first three of four and counts the one left out", () => {
+    const four = ports(4);
+    expect(portRows(four)).toEqual({ rows: four.slice(0, 3), more: 1 });
   });
 });

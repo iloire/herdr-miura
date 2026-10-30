@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { ListeningPort } from "../app/ports";
+import { useState } from "react";
+import { type ListeningPort, portRows } from "../app/ports";
 import { GlobeIcon } from "./icons";
 
 /// The globe an expanded workspace card shows while its servers listen,
@@ -46,15 +47,25 @@ export function Ports({ ports }: { ports: ListeningPort[] }) {
   );
 }
 
-/// Each port with what serves it, for an expanded workspace card.
+/// Each port with what serves it, for an expanded workspace card: a few at
+/// most so a Docker stack cannot push the card down, then a way to the rest.
 export function PortList({ ports }: { ports: ListeningPort[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const { rows, more } = portRows(ports);
   return (
-    <div className="card-ports">
-      {ports.map((port) => (
-        <PortButton key={port.port} port={port}>
-          :{port.port} {port.process && <small>{port.process}</small>}
-        </PortButton>
-      ))}
-    </div>
+    <>
+      <div className="card-ports">
+        {(expanded ? ports : rows).map((port) => (
+          <PortButton key={port.port} port={port}>
+            :{port.port} {port.process && <small>{port.process}</small>}
+          </PortButton>
+        ))}
+      </div>
+      {more > 0 && (
+        <button className="card-row card-row-more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+          {expanded ? "Show less" : `+${more} more`}
+        </button>
+      )}
+    </>
   );
 }
