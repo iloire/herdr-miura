@@ -2,7 +2,12 @@
 
 Newest first. Times are UTC.
 
-<<<<<<< Updated upstream
+## 2026-10-30 13:08 — A queued tab's tooltip shows its whole title
+
+A queued prompt's tab label was cut to 40 characters when the tab opened, so its tooltip ended in `…` too. The label
+now keeps the prompt's first line, up to 200 characters, and the pill still cuts it to its width. Tabs that are
+already open keep the label they were given.
+
 ## 2026-10-30 13:05 — The tab strip shows this tab's listening ports
 
 The strip over the terminal now shows the ports of the servers started in this tab, after the Git state, each number
@@ -15,15 +20,6 @@ leave the strip and keep counting under the old workspace; Herdr never gives the
 in the wrong tab. A listener from an older Herdr, with no pane id, stays out of the strip. The ports do not shrink on a
 tight strip, and a tab with very many stops at half of it, the rest in the status bar.
 
-||||||| Stash base
-=======
-## 2026-10-30 13:08 — A queued tab's tooltip shows its whole title
-
-A queued prompt's tab label was cut to 40 characters when the tab opened, so its tooltip ended in `…` too. The label
-now keeps the prompt's first line, up to 200 characters, and the pill still cuts it to its width. Tabs that are
-already open keep the label they were given.
-
->>>>>>> Stashed changes
 ## 2026-10-30 12:50 — The tab strip shows the agent's title
 
 Each agent's group over the terminal now ends in the agent's title, in full when there is room, with the whole
