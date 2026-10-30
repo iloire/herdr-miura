@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import type { Controller } from "../app/controller";
 import { ChangesIcon, FileIcon, QueueIcon } from "./icons";
 
@@ -7,15 +6,12 @@ import { ChangesIcon, FileIcon, QueueIcon } from "./icons";
 /// leaves the switch in place.
 export function PanelSwitch({
   controller,
-  hue,
   changes,
   files,
   queue,
   queued,
 }: {
   controller: Controller;
-  /// The focused workspace's color, for the open panel's key.
-  hue: string | null;
   changes: boolean;
   files: boolean;
   /// The Queue panel is open.
@@ -24,12 +20,7 @@ export function PanelSwitch({
   queued: { waiting: number; running: boolean };
 }) {
   return (
-    <div
-      className="panel-switch"
-      role="group"
-      aria-label="Side panel"
-      style={hue ? ({ "--hue": hue } as CSSProperties) : undefined}
-    >
+    <div className="panel-switch" role="group" aria-label="Side panel">
       <button
         className="panel-toggle"
         title="Changes"

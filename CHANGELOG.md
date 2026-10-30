@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 23:00 — The panel switch carries the lantern gold
+
+The open panel in the Changes, Files and Queue switch was a raised pill in the focused workspace's color. It now carries
+the gold of the New tab button beside it: the icon in the theme's lantern, a faint gold wash and a gold underline along its
+bottom edge, so the top right matches the tab row. The Queue icon still pulses blue while a prompt runs, panel open or not,
+and the waiting count is unchanged. The prompt library's button keeps the workspace color.
+
 ## 2026-10-30 22:56 — The sidebar title in the lantern gold
 
 The window title at the top of the sidebar is now the color of the New tab button, so the gold sits at the top left too and

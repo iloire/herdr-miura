@@ -2954,8 +2954,9 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* Changes, Files and Queue as one recessed track whose open panel stands
-   raised in the workspace's hue. */
+/* Changes, Files and Queue as one recessed track whose open panel carries
+   the lantern, as the New tab button beside it does: a wash and an underline,
+   inset so nothing shifts. */
 .panel-switch {
   position: absolute;
   top: 6px;
@@ -2989,7 +2990,13 @@ kbd {
   color: var(--text);
 }
 
-.panel-toggle[aria-pressed="true"] {
+.panel-switch .panel-toggle[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--lantern) 8%, var(--raised));
+  box-shadow: inset 0 -2px 0 var(--lantern);
+  color: var(--lantern);
+}
+
+.library-toggle[aria-pressed="true"] {
   background: color-mix(in srgb, var(--hue) 18%, var(--raised));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 45%, transparent);
   color: var(--hue);

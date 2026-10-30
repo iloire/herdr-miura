@@ -460,7 +460,6 @@ export default function App() {
         <div className="workarea">
           <PanelSwitch
             controller={controller}
-            hue={focusedWorkspace ? hueColor(focusedWorkspace.label) : null}
             changes={state.changes}
             files={state.files}
             queue={state.queue}
