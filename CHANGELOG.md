@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 23:09 — One solid gold main action in the side panels
+
+The Queue and Changes panels now mark their main action the way the New tab button does: solid in the theme's lantern, so it
+is found at a glance. In the queue that is Add to queue and Save. An open edit outranks the box below it, and of several open
+edits the first that can be saved wins, so one button is gold at a time. Add first and Cancel stay secondary. In Changes it
+is Push, Pull or Publish, whichever the checkout offers. Pull wins on a diverged checkout, which shows both, and after a
+rejected push the Pull in its note takes the gold. Land on a workspace card stays as it was, and the Files panel has no main
+action. A disabled button keeps its muted look, since gold in the sidebar means an agent waits on you. Words on gold use a
+new `--on-lantern` color that reaches 4.5:1 in every theme: it only differs from the background in Catppuccin Latte, where
+the background's 3.6:1 was too faint for small text. The New tab button is unchanged.
+
 ## 2026-10-30 23:00 — The panel switch carries the lantern gold
 
 The open panel in the Changes, Files and Queue switch was a raised pill in the focused workspace's color. It now carries

@@ -56,6 +56,20 @@ export function syncOffer(checkout: CheckoutChanges): SyncOffer {
   return { tracked: false, publish: checkout.remotes.includes("origin"), note: null };
 }
 
+/// The last push was turned away for commits on the remote, so its note offers a Pull.
+export function pullAfterRejection(note: SyncNote | null): boolean {
+  return note?.outcome.kind === "failed" && note.outcome.reason === "rejected";
+}
+
+/// The one action on the sync line that is the panel's main action. None while
+/// a note offers its own Pull, and Pull before Push: a diverged checkout shows
+/// both, and a push would only be turned away.
+export function mainSyncOp(checkout: CheckoutChanges, note: SyncNote | null): SyncOp | null {
+  if (pullAfterRejection(note)) return null;
+  if (checkout.behind > 0) return "pull";
+  return checkout.upstream ? "push" : "publish";
+}
+
 /// A checkout is fetched at most this often, however often the window comes
 /// back to the front.
 export const FETCH_GAP_MS = 60_000;

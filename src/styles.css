@@ -8,6 +8,7 @@
   --text: #d8dee9;
   --muted: #7d8896;
   --lantern: #f5d491;
+  --on-lantern: #101419; /* words on a solid lantern */
   --working: #82c4ff;
   --blocked: #f28b94;
   --done: #98c379;
@@ -1187,15 +1188,34 @@ body.reordering * {
   cursor: default;
 }
 
-/* The row's main action, solid in the lantern so it is found at a glance. */
+/* Its plus is a large mark, not words, so it stays in the background's color. */
 .tab-rows .icon-button.new-tab {
-  background: var(--lantern);
-  color: var(--ink);
+  --on-lantern: var(--ink);
 }
 
-.tab-rows .icon-button.new-tab:hover:not(:disabled) {
+/* The main action of a row or a panel, solid in the lantern so it is found at a
+   glance. Gold in the sidebar means an agent waits on you, so a disabled one
+   keeps its own look, and a panel has one: of the queue's boxes, the first that
+   can act, so an open edit outranks the box below it. */
+.tab-rows .icon-button.new-tab,
+.queue-add:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
+.sync-action.sync-main:not(:disabled) {
+  border-color: transparent;
+  background: var(--lantern);
+  color: var(--on-lantern);
+}
+
+.tab-rows .icon-button.new-tab:hover:not(:disabled),
+.queue-add:hover:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
+.sync-action.sync-main:hover:not(:disabled) {
   background: color-mix(in srgb, var(--lantern) 82%, var(--bright));
-  color: var(--ink);
+  color: var(--on-lantern);
+}
+
+/* The focus ring is the lantern too, so on these it stands clear of the button. */
+.queue-add:focus-visible,
+.sync-action.sync-main:focus-visible {
+  outline-offset: 1px;
 }
 
 .stage {
@@ -3495,6 +3515,10 @@ kbd {
   margin-left: 4px;
   color: var(--muted);
   font: calc(11px * var(--ui-scale)) var(--sans);
+}
+
+.queue-add:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add) kbd {
+  color: inherit;
 }
 
 .queue-add:hover:not(:disabled) {

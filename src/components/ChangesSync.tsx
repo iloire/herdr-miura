@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore } from "react";
 import { relativeTime } from "../app/time";
 import { clean } from "../changes/diff";
 import type { CheckoutChanges, Direction } from "../changes/store";
-import { IDLE, syncOffer, type SyncNote, type SyncOp, type SyncStore } from "../changes/sync";
+import { IDLE, mainSyncOp, pullAfterRejection, syncOffer, type SyncNote, type SyncOp, type SyncStore } from "../changes/sync";
 import { useMovingCommits } from "../changes/useMovingCommits";
 import { CommitList, type CommitRows } from "./CommitList";
 
@@ -43,6 +43,7 @@ export function ChangesSync({
 
   const busy = sync.running !== null;
   const run = (op: SyncOp) => void store.run(checkout.path, op, checkout.branch);
+  const main = mainSyncOp(checkout, sync.note);
   const count = (which: Direction, arrow: string, label: string) =>
     offer.tracked ? (
       <button
@@ -62,7 +63,7 @@ export function ChangesSync({
       </span>
     );
   const action = (op: SyncOp, label: string, title: string) => (
-    <button className="sync-action" disabled={busy} title={title} onClick={() => run(op)}>
+    <button className={`sync-action ${op === main ? "sync-main" : ""}`} disabled={busy} title={title} onClick={() => run(op)}>
       {label}
     </button>
   );
@@ -131,8 +132,8 @@ function Note({ note, onPull, onDismiss }: { note: SyncNote; onPull: (() => void
     <div className={`sync-result ${failed ? "failed" : ""}`} role="status">
       <p>{failed ? outcome.message : `${DONE[op]} ${relativeTime(at / 1000)}.`}</p>
       {failed && outcome.details && <pre>{outcome.details.split("\n").map(clean).join("\n")}</pre>}
-      {failed && outcome.reason === "rejected" && (
-        <button className="sync-action" disabled={!onPull} title="git pull --ff-only" onClick={() => onPull?.()}>
+      {pullAfterRejection(note) && (
+        <button className="sync-action sync-main" disabled={!onPull} title="git pull --ff-only" onClick={() => onPull?.()}>
           Pull
         </button>
       )}

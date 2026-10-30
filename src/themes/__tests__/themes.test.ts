@@ -87,6 +87,13 @@ describe("builtin themes", () => {
     }
     expect(root).toContain("color-scheme: dark");
   });
+
+  it("keeps words readable on a solid lantern", () => {
+    for (const name of BUILTIN_NAMES) {
+      const { tokens } = builtinTheme(name)!.chrome;
+      expect(ratio(hex(tokens["on-lantern"]), hex(tokens.lantern)), name).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
 
 describe("chromeTokens", () => {
@@ -119,6 +126,9 @@ describe("chromeTokens", () => {
         expect(ratio(hex(tokens[token]), hex(tokens[under])), `${token} on ${under}`).toBeGreaterThanOrEqual(3);
       }
     }
+    // The background is too pale for words on the lantern, so they darken.
+    expect(ratio(hex(tokens.ink), hex(tokens.lantern))).toBeLessThan(4.5);
+    expect(tokens["on-lantern"]).not.toBe(tokens.ink);
     // The palette itself, which terminal cells draw from, is untouched.
     expect(latte.palette[3]).toBe(0xdf8e1d);
   });

@@ -6,6 +6,8 @@
 
 /// Colored marks reach 3:1, the WCAG minimum for meaningful graphics.
 export const MARK_RATIO = 3;
+/// Small text reaches 4.5:1, the WCAG minimum for body text.
+export const TEXT_RATIO = 4.5;
 
 function channels(color: number): [number, number, number] {
   return [16, 8, 0].map((shift) => ((color >> shift) & 255) / 255) as [number, number, number];

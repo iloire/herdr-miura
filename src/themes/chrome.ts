@@ -4,7 +4,7 @@
 // when they would not read on the chrome.
 
 import { css, type Theme } from "../terminal/theme";
-import { MARK_RATIO, ink, ratio } from "./contrast";
+import { MARK_RATIO, TEXT_RATIO, ink, ratio } from "./contrast";
 
 /// The CSS custom properties a theme sets, without their `--`.
 export const TOKENS = [
@@ -14,6 +14,7 @@ export const TOKENS = [
   "text",
   "muted",
   "lantern",
+  "on-lantern",
   "working",
   "blocked",
   "done",
@@ -63,9 +64,9 @@ export function chromeTokens(theme: Theme): Chrome {
   const surface = blend(2);
   const active = blend(12);
   // A status mark sits on the background, the sidebar and a selected row.
-  const mark = (color: number) => css(ink(color, [bg, surface, active], MARK_RATIO));
+  const mark = (color: number) => ink(color, [bg, surface, active], MARK_RATIO);
   // The cursor is the theme's own accent unless it merely repeats the text.
-  const lantern = theme.cursor !== fg ? theme.cursor : palette[3];
+  const lantern = mark(theme.cursor !== fg ? theme.cursor : palette[3]);
   const scrim = mix(bg, 0x000000, 70);
   return {
     scheme: dark ? "dark" : "light",
@@ -75,10 +76,12 @@ export function chromeTokens(theme: Theme): Chrome {
       rule: css(blend(7)),
       text: css(fg),
       muted: css(blend(55)),
-      lantern: mark(lantern),
-      working: mark(palette[4]),
-      blocked: mark(palette[1]),
-      done: mark(palette[2]),
+      lantern: css(lantern),
+      // Words on a solid lantern: the background, moved only if it would not read.
+      "on-lantern": css(ink(bg, [lantern], TEXT_RATIO)),
+      working: css(mark(palette[4])),
+      blocked: css(mark(palette[1])),
+      done: css(mark(palette[2])),
       hover: css(blend(8)),
       active: css(active),
       raised: css(blend(16)),
@@ -87,7 +90,7 @@ export function chromeTokens(theme: Theme): Chrome {
       gutter: css(blend(3)),
       faint: css(blend(35)),
       bright: css(mix(fg, dark ? 0xffffff : 0x000000, 50)),
-      team: mark(palette[5]),
+      team: css(mark(palette[5])),
       scrim: `rgb(${(scrim >> 16) & 255} ${(scrim >> 8) & 255} ${scrim & 255} / 0.45)`,
       shadow: "#000000",
     },

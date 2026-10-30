@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CheckoutChanges } from "../store";
-import { FETCH_GAP_MS, IDLE, SyncStore, fetchDue, settled, syncOffer, type SyncOutcome } from "../sync";
+import { FETCH_GAP_MS, IDLE, SyncStore, fetchDue, mainSyncOp, settled, syncOffer, type SyncOutcome } from "../sync";
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
@@ -80,6 +80,29 @@ describe("syncOffer", () => {
     expect(syncOffer(checkout({ ahead: 1, behind: 2 })).note).toContain("Diverged");
     expect(syncOffer(checkout({ ahead: 1 })).note).toBeNull();
     expect(syncOffer(checkout({ behind: 2 })).note).toBeNull();
+  });
+});
+
+describe("mainSyncOp", () => {
+  it("is the action a checkout shows when it shows one", () => {
+    expect(mainSyncOp(checkout({ ahead: 1 }), null)).toBe("push");
+    expect(mainSyncOp(checkout({ behind: 1 }), null)).toBe("pull");
+    expect(mainSyncOp(checkout({ upstream: null }), null)).toBe("publish");
+  });
+
+  it("is Pull alone on a diverged checkout, which shows both", () => {
+    expect(mainSyncOp(checkout({ ahead: 1, behind: 2 }), null)).toBe("pull");
+  });
+
+  it("leaves the line alone while a rejected push's note offers its Pull", () => {
+    const note = { op: "push" as const, outcome: failed("rejected"), at: 0 };
+    expect(mainSyncOp(checkout({ ahead: 1 }), note)).toBeNull();
+    expect(mainSyncOp(checkout({ ahead: 1, behind: 2 }), note)).toBeNull();
+  });
+
+  it("keeps the line's action under a note with no Pull", () => {
+    const note = { op: "push" as const, outcome: failed("other"), at: 0 };
+    expect(mainSyncOp(checkout({ ahead: 1 }), note)).toBe("push");
   });
 });
 

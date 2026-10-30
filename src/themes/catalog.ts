@@ -28,6 +28,7 @@ export const HERDR_NIGHT: NamedTheme = {
       text: "#d8dee9",
       muted: "#7d8896",
       lantern: "#f5d491",
+      "on-lantern": "#101419",
       working: "#82c4ff",
       blocked: "#f28b94",
       done: "#98c379",
