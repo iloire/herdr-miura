@@ -2416,7 +2416,7 @@ kbd {
   width: 8px;
 }
 
-/* A workspace's prompt queue: an hourglass and how many wait, muted while it
+/* A workspace's prompt queue: its icon and how many wait, muted while it
    only waits, the working blue while one of its prompts runs, the lantern
    while paused, since a paused queue is waiting on you. */
 .queue-chip {
@@ -2438,7 +2438,7 @@ kbd {
 }
 
 .queue-chip.running svg {
-  animation: queue-turn 2.4s ease-in-out infinite;
+  animation: queue-pulse 2.4s ease-in-out infinite;
 }
 
 .queue-chip.paused {
@@ -2450,13 +2450,13 @@ kbd {
   text-decoration: underline;
 }
 
-@keyframes queue-turn {
+@keyframes queue-pulse {
   0%,
-  70% {
-    transform: rotate(0);
-  }
   100% {
-    transform: rotate(180deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
   }
 }
 
@@ -2525,10 +2525,10 @@ kbd {
   margin-left: 4px;
 }
 
-/* The hourglass turns in the working blue while one of the queue's prompts
+/* The icon pulses in the working blue while one of the queue's prompts
    runs, and the number waiting sits on its corner. */
 .queue-toggle.running svg {
-  animation: queue-turn 2.4s ease-in-out infinite;
+  animation: queue-pulse 2.4s ease-in-out infinite;
   color: var(--working);
 }
 

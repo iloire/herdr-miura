@@ -1,7 +1,7 @@
 import { isActive, type Queue, summary, title } from "../app/queue";
 import { QueueIcon } from "./icons";
 
-/// An hourglass and how many prompts wait in a workspace's queue, amber while
+/// The queue icon and how many prompts wait in a workspace's queue, amber while
 /// it is paused, pulsing while one runs; hovering names what is next, clicking
 /// opens the queue. A span, not a button: on a workspace card it sits inside
 /// the card's button.

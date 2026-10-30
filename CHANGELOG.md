@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 11:41 — New icons for Changes, Files and Queue
+
+Changes is now a path from one commit to the next instead of a page with a plus and a minus, and Files is a
+page with a folded corner instead of a folder; the same page marks a file in the Files tree. The Queue's
+hourglass is now a list with a play mark, in the panel switch, on the card and in the status bar. A list can't
+flip like the hourglass did, so while a prompt runs the icon pulses instead.
+
 ## 2026-10-30 11:31 — No title bar: the tab row is the top of the window
 
 The 30 px title strip is gone, so the terminal gets that height back. The traffic lights and the app's name

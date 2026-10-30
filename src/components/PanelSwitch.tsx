@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Controller } from "../app/controller";
-import { DiffIcon, FolderIcon, QueueIcon } from "./icons";
+import { ChangesIcon, FileIcon, QueueIcon } from "./icons";
 
 /// Changes, Files and Queue, pinned to the window's top right corner: over the
 /// tab row, and over the drawer once it opens, so a diff covering the tabs
@@ -37,7 +37,7 @@ export function PanelSwitch({
         aria-pressed={changes}
         onClick={() => controller.run("review_changes")}
       >
-        <DiffIcon />
+        <ChangesIcon />
       </button>
       <button
         className="panel-toggle"
@@ -46,7 +46,7 @@ export function PanelSwitch({
         aria-pressed={files}
         onClick={() => controller.run("browse_files")}
       >
-        <FolderIcon />
+        <FileIcon />
       </button>
       <button
         className={`panel-toggle queue-toggle ${queued.running ? "running" : ""}`}

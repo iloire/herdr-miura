@@ -93,18 +93,19 @@ export const FolderIcon = () => (
   </Icon>
 );
 
-/// A page with a line added and one removed: the Changes panel.
-export const DiffIcon = () => (
+/// One commit leading to the next: the Changes panel.
+export const ChangesIcon = () => (
   <Icon>
-    <rect x="2.75" y="1.75" width="10.5" height="12.5" rx="1.5" {...LINE} />
-    <path d="M8 4.25v4M6 6.25h4M6 11h4" {...LINE} />
+    <circle cx="4" cy="3.75" r="1.75" {...LINE} />
+    <circle cx="12" cy="12" r="1.75" {...LINE} />
+    <path d="M4 5.5v3A3.5 3.5 0 0 0 7.5 12h2.75M8.5 10l2 2-2 2" {...LINE} />
   </Icon>
 );
 
-/// A file in the Files tree.
+/// A page with its corner folded: the Files panel, and a file in its tree.
 export const FileIcon = () => (
   <Icon>
-    <path d="M4 1.75h5L12.5 5.25v8a1 1 0 0 1-1 1h-7.5a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1ZM8.75 1.75v3.5h3.5M5.5 8.5h5M5.5 11h3.5" {...LINE} />
+    <path d="M4.25 1.75H9l4 4V13a1.25 1.25 0 0 1-1.25 1.25h-7.5A1.25 1.25 0 0 1 3 13V3a1.25 1.25 0 0 1 1.25-1.25ZM9 1.75V4.5a1.25 1.25 0 0 0 1.25 1.25H13" {...LINE} />
   </Icon>
 );
 
@@ -130,10 +131,10 @@ export const TeamIcon = () => (
   </Icon>
 );
 
-/// An hourglass: the prompt queue.
+/// A list with a play mark, like a playlist: the prompt queue.
 export const QueueIcon = () => (
   <Icon>
-    <path d="M4 2.5h8M4 13.5h8M5 2.5c0 3 6 3.5 6 5.5s-6 2.5-6 5.5M11 2.5c0 3-6 3.5-6 5.5s6 2.5 6 5.5" {...LINE} />
+    <path d="M2.5 3.5h11M2.5 8h5.5M2.5 12.5h5.5M10.5 7.75v5.5l3.75-2.75z" {...LINE} />
   </Icon>
 );
 
