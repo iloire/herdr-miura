@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 17:30 — Stable, Edge and dev each have their own icon
+
+All three showed the same icon, so the Dock could not tell them apart. Stable keeps the yellow and cyan, Edge is
+violet, and a `tauri dev` window or a build made by hand is red. `tauri.conf.json` names the red icon, because Tauri
+reads a dev run's Dock icon from there and offers no other way to set it, and `herdr-channels` passes Stable and
+Edge their own with `--config`.
+
 ## 2026-10-30 17:18 — An expanded card lists three ports, then `+N more`
 
 An expanded workspace card listed every listening port, so a workspace running Docker could push the rest of the

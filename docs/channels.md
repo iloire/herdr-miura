@@ -10,6 +10,7 @@ Two builds of the app stay open on Ivan's Mac, attached to the same Herdr daemon
 | Prompt queue | the daily one | its own, empty unless used |
 | Build | full release profile (LTO) | release without LTO, incremental |
 | Window | no strip | `DEV · edge <commit>` strip and title |
+| Icon | yellow and cyan, `icons/icon.icns` | violet, `icons/edge/icon.icns` |
 
 `herdr-channels` (`~/dotfiles/bin`) is the whole mechanism; the `herdr_channels` role in
 `ansible-recipes` installs its three LaunchAgents:
@@ -36,3 +37,13 @@ Logs: `~/Library/Logs/herdr-channels.log`, and the last build of each channel in
 
 `HERDR_BUILD_LABEL` at build time sets the dev strip in a built app (`vite.config.ts`). Both channels
 share `~/.config/herdr/config-tauri.toml`; only the app data folder is Edge's own.
+
+The Dock tells the three apart: `tauri.conf.json` names the red `icons/dev/icon.icns`, so a `tauri dev`
+window and any build made by hand are red, and `herdr-channels` passes each channel its own icon with
+`--config`. The red and violet ones are `icons/icon.icns` tinted, a single size like the original:
+
+```sh
+iconutil -c iconset src-tauri/icons/icon.icns -o orig.iconset
+magick orig.iconset/icon_512x512.png -colorspace Gray -fill '#E5484D' -tint 100 -colorspace sRGB PNG32:dev.iconset/icon_512x512.png
+iconutil -c icns dev.iconset -o src-tauri/icons/dev/icon.icns
+```
