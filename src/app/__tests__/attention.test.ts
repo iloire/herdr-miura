@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, loopTag, loopTags, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -11,6 +11,7 @@ function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus,
     display_agent: null,
     agent: "claude",
     title: null,
+    terminal_title_stripped: null,
     agent_status,
     tokens: [],
     focused: false,
@@ -33,6 +34,39 @@ function snapshot(agents: Agent[]): Snapshot {
     agents,
   };
 }
+
+describe("agentTitle", () => {
+  const title = (over: Partial<Agent>) => agentTitle(agent("1", "a", "idle", over));
+
+  it("takes the terminal's stripped title, which is all Claude Code gives", () => {
+    expect(title({ terminal_title_stripped: "Tab strip agent title" })).toBe("Tab strip agent title");
+  });
+
+  it("prefers a reported title, unless it is blank", () => {
+    expect(title({ title: "Reported", terminal_title_stripped: "Terminal" })).toBe("Reported");
+    expect(title({ title: "  ", terminal_title_stripped: "Terminal" })).toBe("Terminal");
+  });
+
+  it("shows nothing for a missing or blank title", () => {
+    expect(title({})).toBeNull();
+    expect(title({ terminal_title_stripped: "   " })).toBeNull();
+  });
+
+  it("shows nothing for a title that repeats the agent, whatever its case", () => {
+    expect(title({ terminal_title_stripped: "claude" })).toBeNull();
+    expect(title({ terminal_title_stripped: "Claude Code" })).toBeNull();
+    expect(title({ agent: "pi", display_agent: "Pi Agent", terminal_title_stripped: "pi agent" })).toBeNull();
+    expect(title({ name: "q46", terminal_title_stripped: "Q46" })).toBeNull();
+  });
+
+  it("keeps a title that only starts with the agent's name", () => {
+    expect(title({ terminal_title_stripped: "Claude Code hooks" })).toBe("Claude Code hooks");
+  });
+
+  it("drops the controls and bidi overrides a terminal title can carry", () => {
+    expect(title({ terminal_title_stripped: "a\u202Eb\u0007c" })).toBe("abc");
+  });
+});
 
 describe("agentsByWorkspace", () => {
   it("groups by workspace and puts what needs you first, keeping the daemon's order within a status", () => {

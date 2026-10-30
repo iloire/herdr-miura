@@ -1,6 +1,7 @@
 // What needs you, read only from the daemon snapshot's agent statuses, never
 // guessed from terminal output. Ordering and counting follow herdr-gpui.
 
+import { clean } from "../changes/diff";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../protocol";
 
 /// Attention first, then the most recent change (herdr-gpui's `status_priority`).
@@ -42,6 +43,15 @@ export function agentRowName(agent: Agent, tabs: readonly Tab[], counts: Readonl
   const tab = tabs.find((candidate) => candidate.tab_id === agent.tab_id);
   if (!tab) return own;
   return (counts.get(agent.tab_id) ?? 0) > 1 ? `${tab.label} · ${own}` : tab.label;
+}
+
+/// What an agent says it is working on, for the strip over the terminal: a
+/// reported title, else the terminal's. Null when blank or when it only repeats
+/// the agent, as Claude Code's "Claude Code" does until a session has a topic.
+export function agentTitle(agent: Agent): string | null {
+  const title = clean(agent.title?.trim() || agent.terminal_title_stripped || "").trim();
+  const own = [agent.name, agent.display_agent, agent.agent, "claude code"];
+  return title && !own.some((name) => name?.toLowerCase() === title.toLowerCase()) ? title : null;
 }
 
 /// A workspace card's marks: one per live status among its agents, so a

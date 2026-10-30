@@ -1,4 +1,4 @@
-import { loopTag } from "../app/attention";
+import { agentTitle, loopTag } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
 import type { TabGit } from "../app/gitLine";
 import {
@@ -37,9 +37,9 @@ const STRAY_FLOOR = 16;
 /// wrong place. Then the Git state of its checkout, which the sidebar cannot
 /// give: tabs of a workspace can sit in different worktrees. Then what matters
 /// about each of its agents at all times: status, model, context, spend this
-/// plan window, the last fifteen minutes' burn, and a loop's next tick. At its
-/// right end the prompt library, whose prompts go to this tab's agent; for a
-/// tab with nothing else to say the library is all it holds.
+/// plan window, the last fifteen minutes' burn, a loop's next tick, and its
+/// title. At its right end the prompt library, whose prompts go to this tab's
+/// agent; for a tab with nothing else to say the library is all it holds.
 export function TabHeader({
   controller,
   snapshot,
@@ -150,29 +150,37 @@ function AgentFacts({
 }) {
   const loop = loopTag(agent);
   const spent = usage && tokensSince([usage], since);
+  const title = agentTitle(agent);
   return (
-    <span className="tab-agent">
-      <StatusMark status={agent.agent_status} />
-      <span
-        className="tab-agent-name"
-        title={usage ? undefined : "Token use shows once a Claude Code hook reports this session, at its next prompt"}
-      >
-        {agent.display_agent ?? agent.agent ?? "agent"}
-        {usage?.model && <span className="tab-agent-model"> · {shortModel(usage.model)}</span>}
+    <>
+      <span className="tab-agent">
+        <StatusMark status={agent.agent_status} />
+        <span
+          className="tab-agent-name"
+          title={usage ? undefined : "Token use shows once a Claude Code hook reports this session, at its next prompt"}
+        >
+          {agent.display_agent ?? agent.agent ?? "agent"}
+          {usage?.model && <span className="tab-agent-model"> · {shortModel(usage.model)}</span>}
+        </span>
+        {usage && spent && (
+          <>
+            <span className={`tab-fact ctx-${contextLevel(usage.context)}`} title={contextTitle(usage.context)}>
+              ctx <b>{formatTokens(usage.context)}</b>
+            </span>
+            <span className="tab-fact" title={spendTitle(spent, since)}>
+              5h <b>{formatTokens(weighted(spent))}</b>
+            </span>
+            <Burn bars={burn([usage], now)} />
+          </>
+        )}
+        {loop && <span className="tab-agent-loop">{loop}</span>}
       </span>
-      {usage && spent && (
-        <>
-          <span className={`tab-fact ctx-${contextLevel(usage.context)}`} title={contextTitle(usage.context)}>
-            ctx <b>{formatTokens(usage.context)}</b>
-          </span>
-          <span className="tab-fact" title={spendTitle(spent, since)}>
-            5h <b>{formatTokens(weighted(spent))}</b>
-          </span>
-          <Burn bars={burn([usage], now)} />
-        </>
+      {title && (
+        <span className="tab-agent-title" title={title}>
+          {title}
+        </span>
       )}
-      {loop && <span className="tab-agent-loop">{loop}</span>}
-    </span>
+    </>
   );
 }
 

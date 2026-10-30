@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 12:50 — The tab strip shows the agent's title
+
+Each agent's group over the terminal now ends in the agent's title, in full when there is room, with the whole
+text in its tooltip. It is the first thing to give way on a tight strip: the titles shrink to nothing before the
+branch name, the queue line or any fact moves. Nothing else changed size, and a title squeezed out leaves no gap.
+
+The title comes from `terminal_title_stripped`, not `Agent.title`, which Claude Code leaves empty. So it is the
+terminal title without its `✳` or spinner, and for a queued tab it is not the prompt the tab's label cuts short.
+An integration's reported title wins if there is one. A blank title or one that repeats the agent's name, such as
+Claude Code's default `Claude Code`, shows nothing.
+
 ## 2026-10-30 12:47 — The tab strip shows a pane in an unexpected place
 
 To catch an agent working in the wrong place, the strip now starts with a short amber path when the focused pane's

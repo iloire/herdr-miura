@@ -48,7 +48,10 @@ export interface Agent {
   name: string | null;
   display_agent: string | null;
   agent: string | null;
+  /// What an integration reported through pane metadata, null for Claude Code.
   title: string | null;
+  /// The terminal's own title without its leading spinner or activity glyph.
+  terminal_title_stripped: string | null;
   agent_status: AgentStatus;
   /// Metadata tokens reported on the agent's pane, e.g. `["attn_loop", "↻ loop 14:32"]`.
   tokens: [string, string][];

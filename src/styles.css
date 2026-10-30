@@ -2026,10 +2026,12 @@ kbd {
   white-space: nowrap;
 }
 
-/* What gives way on a tight strip, in order: the stray path and the branch
-   name down to their floors, the queue line, then each agent's rightmost
-   facts. The counts and the library always stay. The branch can only shrink as an item of the strip
-   itself: a wrapper's minimum would be its text's full width. */
+/* What gives way on a tight strip, in order: the agents' titles, the stray
+   path and the branch name down to their floors, the queue line, then each
+   agent's rightmost facts. The counts and the library always stay. The titles
+   and the branch can only shrink as items of the strip itself: a wrapper's
+   minimum would be its text's full width, and a shrinking agent group would
+   clip its facts first. */
 .tab-git {
   display: contents;
 }
@@ -2139,6 +2141,26 @@ kbd {
 
 .tab-agent-loop {
   color: var(--working);
+}
+
+/* The group's last item, though a sibling of it. The factor has to dwarf the
+   branch's and the queue's, since flex shares a shrink out by ratio and has no
+   strict order. It cancels the strip's gap and brings the group's own 10 px as
+   content, so a title squeezed to nothing leaves no space behind. The padding
+   keeps descenders clear of the clip at the strip's line-height of 1. */
+.tab-agent-title {
+  flex: 0 1000000000 auto;
+  min-width: 0;
+  margin: -2px 0 -2px -20px;
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-agent-title::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
 }
 
 /* Every running agent, above the team, when ui.sidebar_agents is on. The

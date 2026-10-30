@@ -15,6 +15,7 @@ function agent(tab_id: string, agent_status: AgentStatus): Agent {
     display_agent: null,
     agent: "claude",
     title: null,
+    terminal_title_stripped: null,
     agent_status,
     tokens: [],
     focused: false,
