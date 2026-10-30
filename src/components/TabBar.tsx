@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { agentCountsByTab, loopTags } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
@@ -16,11 +16,13 @@ export function TabBar({
   snapshot,
   pins,
   onPinsChange,
+  wrap,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
+  wrap: boolean;
 }) {
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -33,6 +35,14 @@ export function TabBar({
     isPinned,
   );
   const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
+
+  // On one row the open tab can sit past the edge, so it is scrolled to.
+  const rows = useRef<HTMLDivElement>(null);
+  const focusedTab = tabs.find((tab) => tab.focused)?.tab_id;
+  useEffect(() => {
+    if (wrap) return;
+    rows.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [wrap, focusedTab, tabs.length]);
 
   const togglePin = (tab: Tab) => {
     if (!snapshot) return;
@@ -73,7 +83,17 @@ export function TabBar({
 
   return (
     <div className="tabbar" data-tauri-drag-region>
-      <div className="tab-rows" role="tablist" aria-label="Tabs" data-tauri-drag-region>
+      <div
+        ref={rows}
+        className={wrap ? "tab-rows" : "tab-rows one-row"}
+        role="tablist"
+        aria-label="Tabs"
+        data-tauri-drag-region
+        // A mouse wheel only scrolls up and down, and the row only goes sideways.
+        onWheel={(event) => {
+          if (!wrap) event.currentTarget.scrollLeft += event.deltaY;
+        }}
+      >
         {tabs.map((tab) => {
           const pinned = isPinned(tab);
           const agents = agentCounts.get(tab.tab_id) ?? 0;

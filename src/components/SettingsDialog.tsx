@@ -85,6 +85,17 @@ export function SettingsDialog({
                 <small>Herdr reports agents, not other processes, so a tab with only a shell or a server closes at once.</small>
               </span>
             </label>
+            <label className="settings-check">
+              <input
+                type="checkbox"
+                checked={settings.tabsWrap}
+                onChange={(event) => save("tabs.wrap", event.target.checked ? null : false)}
+              />
+              <span>
+                Wrap tabs onto more rows
+                <small>Off keeps one row of tabs, which scrolls sideways when they do not fit.</small>
+              </span>
+            </label>
             <div className="settings-grid">
               <TextField
                 label="New tab command"

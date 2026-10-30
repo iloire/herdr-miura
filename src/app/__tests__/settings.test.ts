@@ -22,6 +22,7 @@ describe("parseSettings", () => {
       ui: { font_size: 14 },
       confirm_close_tab: true,
       new_tab: { command: " claude " },
+      tabs: { wrap: false },
     });
     expect(warnings).toEqual([]);
     expect(settings).toEqual({
@@ -29,6 +30,7 @@ describe("parseSettings", () => {
       terminal: { fontFamily: "Menlo", fontSize: 15, lineHeight: 1.2 },
       ui: { fontSize: 14 },
       confirmCloseTab: true,
+      tabsWrap: false,
       newTabCommand: "claude",
     });
   });
@@ -40,10 +42,11 @@ describe("parseSettings", () => {
       ui: { font_size: 9 },
       confirm_close_tab: "yes",
       new_tab: { command: "claude\nrm -rf ~" },
+      tabs: { wrap: "no" },
     });
     expect(settings).toEqual(DEFAULT_SETTINGS);
-    expect(warnings).toHaveLength(7);
-    for (const key of ["theme", "terminal.font_size", "terminal.line_height", "terminal.font_family", "ui.font_size", "confirm_close_tab", "new_tab.command"]) {
+    expect(warnings).toHaveLength(8);
+    for (const key of ["theme", "terminal.font_size", "terminal.line_height", "terminal.font_family", "ui.font_size", "confirm_close_tab", "new_tab.command", "tabs.wrap"]) {
       expect(warnings.some((warning) => warning.startsWith(`\`${key}\``)), key).toBe(true);
     }
     expect(warnings.find((w) => w.startsWith("`terminal.font_size`"))).toContain("from 8 to 32; using 13");

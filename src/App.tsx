@@ -454,6 +454,7 @@ export default function App() {
                 snapshot={state.snapshot}
                 pins={pins}
                 onPinsChange={setPins}
+                wrap={state.settings.tabsWrap}
               />
               <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">

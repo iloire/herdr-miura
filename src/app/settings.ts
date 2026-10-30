@@ -20,6 +20,8 @@ export interface Settings {
     fontSize: number;
   };
   confirmCloseTab: boolean;
+  /// Tabs that do not fit wrap onto more rows; off keeps one row that scrolls.
+  tabsWrap: boolean;
   /// What a new tab runs; `null` is the shell.
   newTabCommand: string | null;
 }
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
   ui: { fontSize: 13 },
   confirmCloseTab: false,
+  tabsWrap: true,
   newTabCommand: null,
 };
 
@@ -97,6 +100,7 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   settings.terminal.lineHeight = number("terminal.line_height", settings.terminal.lineHeight);
   settings.ui.fontSize = number("ui.font_size", settings.ui.fontSize);
   settings.confirmCloseTab = flag("confirm_close_tab", settings.confirmCloseTab);
+  settings.tabsWrap = flag("tabs.wrap", settings.tabsWrap);
   const command = text("new_tab.command", "", true);
   // One line, typed into a shell: a control character would run or edit more than it.
   if (command.length > 1024 || /[\u0000-\u001f\u007f]/.test(command)) wrong("new_tab.command", "one line of at most 1024 characters", null);

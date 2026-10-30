@@ -1022,6 +1022,25 @@ body.reordering * {
   min-width: 0;
 }
 
+/* tabs.wrap off: one row that scrolls, with no scrollbar and + held at its end. */
+.tab-rows.one-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-padding-right: 30px;
+}
+
+.tab-rows.one-row .tab {
+  min-width: 140px;
+}
+
+.tab-rows.one-row .icon-button {
+  position: sticky;
+  right: 0;
+  flex: none;
+  background: var(--peat);
+}
+
 .tab {
   display: flex;
   align-items: center;
