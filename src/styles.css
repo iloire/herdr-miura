@@ -1014,6 +1014,8 @@ body.reordering * {
   --hue: var(--text);
   flex: 1;
   display: grid;
+  /* An auto column would grow to fit a row of tabs that is meant to scroll. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 1fr auto;
   min-width: 0;
   min-height: 0;
@@ -1023,6 +1025,7 @@ body.reordering * {
 .deck {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   /* Tabs, the tab header (absent with no tab focused), the terminal. */
   grid-template-rows: auto auto 1fr;
   min-height: 0;

@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:17 — One row of tabs scrolls, and stays in the window
+
+With `tabs.wrap` off and more tabs than fit, the main column grew to the width of all the tabs instead of the row
+scrolling, so the terminal grew with it and the wheel did nothing. Moving to a tab past the edge then scrolled the whole
+window, pushing the sidebar out of sight until a reload. The column now keeps the window's width and only the row scrolls.
+
 ## 2026-10-30 21:08 — The running queue card shows what it is doing
 
 The card's track node was the same ring whatever the prompt was doing, with a faint pulse. It now carries the spinner
