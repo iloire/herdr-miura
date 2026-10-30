@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, loopTag, loopTags, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, loopTag, loopTags, tabVerifiedDone, verifiedDone, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -235,5 +235,27 @@ describe("attentionRows", () => {
     const blocked = ["1", "2", "3"].map((id) => agent(id, "a", "blocked"));
     expect(attentionRows([...blocked, agent("4", "a", "working")]).more).toBe(0);
     expect(attentionRows([...blocked, agent("4", "a", "done"), agent("5", "a", "done")]).more).toBe(0);
+  });
+});
+
+describe("verifiedDone", () => {
+  const verified = { tokens: [["attn_outcome", "verified"]] as [string, string][] };
+
+  it("needs Git's agreement, not just a finished turn", () => {
+    expect(verifiedDone(agent("p", "w", "done"))).toBe(false);
+    expect(verifiedDone(agent("p", "w", "done", { tokens: [["attn_outcome", "unverified: 2 uncommitted files here"]] }))).toBe(false);
+    expect(verifiedDone(agent("p", "w", "done", verified))).toBe(true);
+  });
+
+  it("survives being seen, but not new work", () => {
+    expect(verifiedDone(agent("p", "w", "idle", verified))).toBe(true);
+    expect(verifiedDone(agent("p", "w", "working", verified))).toBe(false);
+    expect(verifiedDone(agent("p", "w", "blocked", verified))).toBe(false);
+  });
+
+  it("holds for a tab only when all its agents do", () => {
+    expect(tabVerifiedDone([])).toBe(false);
+    expect(tabVerifiedDone([agent("a", "w", "done", verified), agent("b", "w", "done")])).toBe(false);
+    expect(tabVerifiedDone([agent("a", "w", "done", verified), agent("b", "w", "idle", verified)])).toBe(true);
   });
 });

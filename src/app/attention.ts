@@ -90,6 +90,19 @@ export function loopTags(agents: readonly Agent[]): string[] {
   return agents.map(loopTag).filter((tag) => tag !== null);
 }
 
+/// Whether an agent's task is finished for sure: it said so through dotfiles'
+/// `herdr-outcome` and Git agreed. Herdr's own `done` only says a turn ended.
+/// It outlives `done` turning idle once seen, and the next prompt clears it.
+export function verifiedDone(agent: Agent): boolean {
+  const resting = agent.agent_status === "done" || agent.agent_status === "idle";
+  return resting && agentToken(agent, "attn_outcome") === "verified";
+}
+
+/// Whether a tab's agents are all finished for sure.
+export function tabVerifiedDone(agents: readonly Agent[]): boolean {
+  return agents.length > 0 && agents.every(verifiedDone);
+}
+
 /// Whether an agent wants you: it finished or is waiting for input. Done ones
 /// clear when the daemon marks them seen, blocked ones when their status moves.
 export function wantsYou(agent: Agent): boolean {

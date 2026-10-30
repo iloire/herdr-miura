@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { type StatusSince, statusAge, trackStatus } from "../app/agentAge";
-import { agentTitle, loopTag } from "../app/attention";
+import { agentTitle, loopTag, verifiedDone } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
 import type { TabGit } from "../app/gitLine";
 import { type ListeningPort, tabPorts } from "../app/ports";
@@ -173,7 +173,7 @@ function AgentFacts({
   return (
     <>
       <span className="tab-agent">
-        <StatusMark status={agent.agent_status} />
+        <StatusMark status={agent.agent_status} verified={verifiedDone(agent)} />
         <span
           className="tab-agent-name"
           title={usage ? undefined : "Token use shows once a Claude Code hook reports this session, at its next prompt"}

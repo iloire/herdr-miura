@@ -928,8 +928,13 @@ body.reordering * {
   animation: orbit 0.9s linear infinite;
 }
 
-.mark-done {
+.mark-done,
+.mark-verified {
   color: var(--done);
+}
+
+.mark-verified-check {
+  stroke: var(--ink);
 }
 
 .mark-blocked {

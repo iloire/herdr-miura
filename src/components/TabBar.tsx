@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentCountsByTab, loopTags } from "../app/attention";
+import { agentCountsByTab, loopTags, tabVerifiedDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
@@ -140,7 +140,10 @@ export function TabBar({
                   <LoopMark tags={loopTags(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])} />
                   {agents > 1 && <AgentCount count={agents} />}
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
-                  <StatusMark status={tab.agent_status} />
+                  <StatusMark
+                    status={tab.agent_status}
+                    verified={tabVerifiedDone(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])}
+                  />
                 </button>
               )}
               <button

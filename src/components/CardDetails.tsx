@@ -1,4 +1,4 @@
-import { agentCountsByTab, agentRowName, attentionRows, wantsYou } from "../app/attention";
+import { agentCountsByTab, agentRowName, attentionRows, verifiedDone, wantsYou } from "../app/attention";
 import type { Controller } from "../app/controller";
 import type { ListeningPort } from "../app/ports";
 import { canLand } from "../changes/land";
@@ -19,9 +19,9 @@ function AgentRow({ controller, snapshot, agent }: { controller: Controller; sna
       aria-current={agent.focused ? "true" : undefined}
       onClick={() => controller.request("tab.focus", { tab_id: agent.tab_id })}
     >
-      <StatusMark status={agent.agent_status} />
+      <StatusMark status={agent.agent_status} verified={verifiedDone(agent)} />
       <span className="card-row-name">{name}</span>
-      {wantsYou(agent) && <span className="card-row-note">{agent.agent_status === "blocked" ? "Needs you" : "Done"}</span>}
+      {wantsYou(agent) && <span className="card-row-note">{agent.agent_status === "blocked" ? "Needs you" : verifiedDone(agent) ? "Nothing left" : "Done"}</span>}
     </button>
   );
 }

@@ -21,8 +21,19 @@ const STROKE = {
 
 /// An agent's status as a 14 px mark. A blocked mark carries `count`, the
 /// agents waiting on you, when there is more than a single agent behind it.
-export function StatusMark({ status, count }: { status: AgentStatus; count?: number }) {
+/// `verified` takes over from the outlined check: the task is finished for
+/// sure, where that one only says a turn ended.
+export function StatusMark({ status, count, verified }: { status: AgentStatus; count?: number; verified?: boolean }) {
   if (status === "unknown") return null;
+  if (verified) {
+    return (
+      <svg className="mark mark-verified" viewBox="0 0 16 16" role="img" aria-label="Finished, nothing left">
+        <title>Finished, nothing left: the agent said so and Git agrees</title>
+        <circle cx="8" cy="8" r="8" fill="currentColor" />
+        <path className="mark-verified-check" d="M4.5 8.25 7 10.75l4.5-5" fill="none" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   const label = count && count > 1 ? `${count} need you` : LABEL[status];
   if (status === "blocked") {
     return (

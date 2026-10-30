@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 21:35 — A mark for work finished for sure
+
+Herdr's done only says a turn ended, so a tab looked the same whether the agent finished, left something or never
+started. An agent now reports how the task ended through dotfiles' `herdr-outcome`, and when it says done and Git agrees
+nothing is left, its agent row, tab header and tab show a filled check instead of the outlined one, kept after you have
+looked and cleared by the next prompt.
+
 ## 2026-10-30 21:21 — Workspace cards stop listing idle agents
 
 An expanded card listed every agent, so a dozen idle sessions buried the ones that were working or waiting on you. Its
