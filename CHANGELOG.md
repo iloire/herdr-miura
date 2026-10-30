@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 09:56 — The card drops the branch name on main and master
+
+The Git line said `main ±8` on the default branch, where the name tells you nothing. A card on `main` or
+`master` now shows only `±8`, and a card with nothing pending there has no Git line at all. Any other
+branch still shows, because it warns the checkout is off the default branch. ↑, ↓, ± and ⑂ are unchanged,
+and ↑ or ↓ alone now keep the line, which the old test only did by leaning on the branch being there.
+The names are matched literally. The Changes panel still shows the branch.
+
 ## 2026-10-30 09:51 — No team mark on the workspace card
 
 The card showed a violet team icon and count beside its other chips. It added little: the Team section

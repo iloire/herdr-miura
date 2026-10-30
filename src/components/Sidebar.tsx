@@ -5,6 +5,7 @@ import { useHome } from "../app/useHome";
 import { workspaceDirectory } from "../changes/counts";
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, loopTags, workspaceMarks } from "../app/attention";
+import { hasGitLine, shownBranch } from "../app/gitLine";
 import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { groupWorktrees } from "../app/worktreeGroups";
@@ -372,9 +373,10 @@ function PinnedTabs({ tabs }: { tabs: Tab[] }) {
   );
 }
 
-/// The branch line, as herdr-gpui's folder card has it: the branch, commits to
-/// push and pull, how many files are changed, and how many linked worktrees
-/// the checkout has. Only what is non-zero shows.
+/// The branch line, as herdr-gpui's folder card has it: the branch unless it is
+/// `main` or `master`, commits to push and pull, how many files are changed, and
+/// how many linked worktrees the checkout has. Only what is non-zero shows, and
+/// the line is gone when that leaves nothing.
 function WorkspaceGit({
   branch,
   aheadBehind,
@@ -389,10 +391,11 @@ function WorkspaceGit({
   onOpenWorktrees: () => void;
 }) {
   const [ahead, behind] = aheadBehind ?? [0, 0];
-  if (!branch && !changed && worktrees.length === 0) return null;
+  if (!hasGitLine(branch, [ahead, behind, changed, worktrees.length])) return null;
+  const name = shownBranch(branch);
   return (
     <span className="workspace-branch">
-      {branch && <span className="workspace-branch-name">{branch}</span>}
+      {name && <span className="workspace-branch-name">{name}</span>}
       {ahead > 0 && <span className="git-ahead" title={`${ahead} to push`}>↑{ahead}</span>}
       {behind > 0 && <span className="git-behind" title={`${behind} to pull`}>↓{behind}</span>}
       {changed > 0 && (
