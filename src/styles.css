@@ -331,12 +331,13 @@ body.reordering * {
   font: calc(10.5px * var(--ui-scale))/1 var(--mono);
 }
 
-.workspace-tray > .ports {
+.workspace-tray > .ports-mark {
   color: var(--done);
 }
 
-.workspace-tray .port {
-  color: inherit;
+.ports-mark svg {
+  width: 12px;
+  height: 12px;
 }
 
 .workspace-tray .queue-chip:hover {
@@ -1654,8 +1655,8 @@ kbd {
   margin-bottom: 3px;
 }
 
-/* Ports a workspace's servers listen on, under its card and in the status
-   bar: a globe, then each number, which opens its page in the browser. */
+/* Ports the focused workspace's servers listen on, in the status bar: a
+   globe, then each number, which opens its page in the browser. */
 .ports {
   display: flex;
   align-items: center;

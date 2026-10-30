@@ -23,6 +23,12 @@ page with a folded corner instead of a folder; the same page marks a file in the
 hourglass is now a list with a play mark, in the panel switch, on the card and in the status bar. A list can't
 flip like the hourglass did, so while a prompt runs the icon pulses instead.
 
+## 2026-10-30 11:37 — A workspace card shows a globe, not its ports
+
+A workspace with more ports than fit ran off the card's right edge, because the chip holding them could
+not wrap. The card now shows only the globe, with every port and its process in the tooltip. A click
+focuses the workspace, and the status bar lists its ports, each one opening its page.
+
 ## 2026-10-30 11:31 — No title bar: the tab row is the top of the window
 
 The 30 px title strip is gone, so the terminal gets that height back. The traffic lights and the app's name

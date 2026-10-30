@@ -27,7 +27,7 @@ import {
   RenameIcon,
   TeamIcon,
 } from "./icons";
-import { Ports } from "./Ports";
+import { PortsMark } from "./Ports";
 import { QueueChip } from "./QueueChip";
 import { RenameField } from "./RenameField";
 import { Worktrees } from "./Worktrees";
@@ -255,12 +255,12 @@ export function Sidebar({
                 )}
                 {/* What else lives here, a chip each on the card's last line, so the
                     name keeps its width however much is going on. Beside the
-                    card's button, not in it: a port is a button of its own. */}
+                    card's button, not in it: a chip can be a button of its own. */}
                 <div className="workspace-tray" onClick={focus}>
                   <QueueChip queue={queues.get(workspace.workspace_id) ?? null} onOpen={() => onOpenQueue(workspace.workspace_id)} />
                   <PinnedTabs tabs={pinned.get(workspace.workspace_id) ?? []} />
                   <LoopMark tags={loopTags(own)} />
-                  <Ports ports={listening} />
+                  <PortsMark ports={listening} />
                 </div>
               </div>
             </li>
