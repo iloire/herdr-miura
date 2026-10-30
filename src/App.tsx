@@ -8,7 +8,7 @@ import { loadPins } from "./app/pins";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
-import { clampWidth, loadWidth, saveWidth } from "./app/sidebar";
+import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
 import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { fontStack } from "./app/settings";
@@ -31,9 +31,9 @@ import { QueuePanel } from "./components/QueuePanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
-import { SidebarResizer } from "./components/SidebarResizer";
 import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
+import { PaneResizer } from "./components/PaneResizer";
 import { PanelSwitch } from "./components/PanelSwitch";
 import { TabHeader } from "./components/TabHeader";
 import { WorktreesDialog } from "./components/WorktreesDialog";
@@ -79,15 +79,26 @@ export default function App() {
   const restore = useRef<{ changesFile: SavedFile | null; treeFile: SavedFile | null } | null>(null);
   restore.current ??= loadLayout();
   const directory = focusedDirectory(state.snapshot);
-  const [sidebarWidth, setSidebarWidth] = useState(() => clampWidth(loadWidth(), window.innerWidth));
+  // The widths asked for, which a narrower window or a wider sidebar shrink
+  // only as they are shown, so neither forgets the saved width.
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [wantedSidebar, setWantedSidebar] = useState(() => loadWidth(SIDEBAR));
+  const [wantedDrawer, setWantedDrawer] = useState(() => loadWidth(DRAWER));
+  const fitSidebar = (width: number) => clampSidebar(width, windowWidth);
+  const sidebarWidth = fitSidebar(wantedSidebar);
+  const fitDrawer = (width: number) => clampDrawer(width, windowWidth, state.sidebar ? sidebarWidth : 0);
+  const drawerWidth = fitDrawer(wantedDrawer);
   const commitSidebarWidth = (width: number) => {
-    setSidebarWidth(width);
-    saveWidth(width);
+    setWantedSidebar(width);
+    saveWidth(SIDEBAR, width);
+  };
+  const commitDrawerWidth = (width: number) => {
+    setWantedDrawer(width);
+    saveWidth(DRAWER, width);
   };
 
-  // A narrower window shrinks the sidebar for now, without forgetting the saved width.
   useEffect(() => {
-    const onResize = () => setSidebarWidth(clampWidth(loadWidth(), window.innerWidth));
+    const onResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -390,6 +401,8 @@ export default function App() {
     [state.commands],
   );
 
+  const drawerOpen = readChanges || state.queue;
+
   return (
     <>
       <div
@@ -398,7 +411,7 @@ export default function App() {
       >
         {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} showAgents={state.settings.ui.sidebarAgents} />}
         {state.sidebar && (
-          <SidebarResizer width={sidebarWidth} onChange={setSidebarWidth} onCommit={commitSidebarWidth} />
+          <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}
         <div className="workarea">
           <PanelSwitch
@@ -461,7 +474,14 @@ export default function App() {
             </div>
             <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} />
           </main>
-          <div className={`drawer ${readChanges || state.queue ? "open" : ""}`} aria-hidden={!(readChanges || state.queue)}>
+          {drawerOpen && (
+            <PaneResizer pane={DRAWER} width={drawerWidth} clamp={fitDrawer} onChange={setWantedDrawer} onCommit={commitDrawerWidth} />
+          )}
+          <div
+            className={`drawer ${drawerOpen ? "open" : ""}`}
+            aria-hidden={!drawerOpen}
+            style={{ "--drawer-width": `${drawerWidth}px` } as CSSProperties}
+          >
             {state.queue && state.snapshot ? (
               <QueuePanel
                 controller={controller}

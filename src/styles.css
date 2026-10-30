@@ -88,20 +88,27 @@ input:focus-visible {
   height: 100%;
 }
 
-/* A 7 px grab strip centred on the sidebar's border; the border lights up
-   while hovered, dragged, or focused from the keyboard. */
-.sidebar-resizer {
+/* A 7 px grab strip centred on the border of the sidebar or the drawer; the
+   border lights up while hovered, dragged, or focused from the keyboard. */
+.resizer {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 7px;
-  margin-left: -4px;
   z-index: 5;
   cursor: col-resize;
   touch-action: none;
 }
 
-.sidebar-resizer::after {
+.resizer-left {
+  margin-left: -4px;
+}
+
+.resizer-right {
+  margin-right: -4px;
+}
+
+.resizer::after {
   content: "";
   position: absolute;
   top: 0;
@@ -112,13 +119,13 @@ input:focus-visible {
   transition: background-color 120ms ease;
 }
 
-.sidebar-resizer:hover::after,
-.sidebar-resizer:focus-visible::after,
-body.resizing .sidebar-resizer::after {
+.resizer:hover::after,
+.resizer:focus-visible::after,
+.resizer.dragging::after {
   background: var(--lantern);
 }
 
-.sidebar-resizer:focus-visible {
+.resizer:focus-visible {
   outline: none;
 }
 
@@ -128,8 +135,18 @@ body.resizing {
   cursor: col-resize;
 }
 
-body.resizing .app > :not(.sidebar-resizer) {
+body.resizing .app > :not(.resizer) {
   pointer-events: none;
+}
+
+/* The drawer's edge sits inside the work area, which the rule above covers. */
+body.resizing .resizer {
+  pointer-events: auto;
+}
+
+/* Otherwise the drawer's edge would lag behind the pointer. */
+body.resizing .drawer {
+  transition: none;
 }
 
 .app.no-sidebar {
@@ -1197,12 +1214,13 @@ body.reordering * {
 }
 
 .drawer.open {
-  width: 320px;
+  width: var(--drawer-width);
   border-left-color: var(--rule);
 }
 
+/* As wide as the open drawer even while it slides, so nothing reflows. */
 .changes {
-  width: 320px;
+  width: var(--drawer-width);
   height: 100%;
   overflow-y: auto;
   background: var(--peat);

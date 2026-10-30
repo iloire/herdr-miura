@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 12:17 — The drawer is resizable
+
+The right-hand drawer that holds Changes, Files and Queue was stuck at 320 px. Its left edge now resizes it the
+way the sidebar's does: drag it, double-click for 320 px, or focus it and use the arrow keys. It goes from 260 to
+640 px, and the width is remembered between launches. All three panels share the one width.
+
+The drawer takes at most half of what the sidebar leaves, so the terminal is never narrower than the drawer. In
+a window too narrow for that, the drawer goes under 260 px rather than squeeze the terminal, and it returns to
+the saved width when there is room again, as it does when the sidebar is narrowed or hidden. A click on either
+edge that moves nothing no longer saves a width the window had only shrunk.
+
 ## 2026-10-30 12:07 — The ports globe is gray and sits on the name line
 
 A workspace whose only extra was its ports gave a whole row to one green chip. The globe is now a plain gray
