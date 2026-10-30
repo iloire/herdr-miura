@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 22:27 — The queue's prompt box takes the panel's width
+
+An empty queue opened on four lines of explanation, and the `+` node beside the box took 28 px of its width. Both are
+gone: the explanation is now the tooltip of a `?` beside the buttons, there whether the queue is empty or not, and the
+track's line ends at the box.
+
 ## 2026-10-30 22:21 — Add a prompt from the prompt library
 
 The library could only send what was already a file, so a new prompt meant leaving for an editor. New prompt (⌘N, the

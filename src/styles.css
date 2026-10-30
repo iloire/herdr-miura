@@ -3166,8 +3166,10 @@ kbd {
   background: linear-gradient(var(--working), var(--rule));
 }
 
-.queue-compose::before {
-  display: none;
+/* Over the last stop's line, which ends at the box. */
+.queue-compose {
+  position: relative;
+  padding-bottom: 14px;
 }
 
 .queue-node {
@@ -3198,18 +3200,6 @@ kbd {
 
 .queue-stop.running.needs-you .queue-node {
   --lit: var(--lantern);
-}
-
-.queue-node.add {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  top: 6px;
-  left: 0;
-  border: 1.5px dashed color-mix(in srgb, var(--hue) 75%, transparent);
-  color: var(--hue);
-  font: 600 calc(13px * var(--ui-scale))/1 var(--sans);
 }
 
 /* What runs now: a card in the working blue's wash. */
@@ -3447,18 +3437,6 @@ kbd {
   gap: 8px;
 }
 
-.queue-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-  line-height: 1.5;
-}
-
-.queue-hint b {
-  color: var(--hue);
-  font-weight: 600;
-}
-
 .queue-compose-box textarea,
 .queue-edit textarea {
   width: 100%;
@@ -3522,6 +3500,20 @@ kbd {
 .queue-add:disabled,
 .queue-add-first:disabled {
   opacity: 0.4;
+}
+
+.queue-help {
+  display: grid;
+  flex: none;
+  align-self: center;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  color: var(--muted);
+  font: 600 calc(11px * var(--ui-scale))/1 var(--sans);
+  cursor: help;
 }
 
 .queue-options {

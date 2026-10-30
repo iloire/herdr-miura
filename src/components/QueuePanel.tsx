@@ -133,6 +133,7 @@ function QueueBody({
     actions.add(folder, draft, front);
     setDraft("");
   };
+  const help = `Each prompt starts in a new tab with a fresh Claude session as soon as nothing else in ${workspace.label} is working, and the next one waits for it to finish.`;
   const onComposerKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       // Before the window's shortcuts, which bind ⇧⌘↵ to zoom.
@@ -222,17 +223,8 @@ function QueueBody({
           />
         ))}
 
-        <li className="queue-stop queue-compose">
-          <span className="queue-node add" aria-hidden="true">
-            +
-          </span>
+        <li className="queue-compose">
           <div className="queue-compose-box">
-            {!active && waiting.length === 0 && (
-              <p className="queue-hint">
-                Write what an agent should do. It starts in a new tab with a fresh Claude session as soon as nothing
-                else in <b>{workspace.label}</b> is working, and the next one waits for it to finish.
-              </p>
-            )}
             <textarea
               ref={composer}
               value={draft}
@@ -254,6 +246,9 @@ function QueueBody({
               >
                 Add first
               </button>
+              <span className="queue-help" role="img" aria-label={help} title={help}>
+                ?
+              </span>
             </div>
             <div className="queue-options">
               <label title="Ends each prompt by asking the agent to commit, so the next one starts from a clean tree">
