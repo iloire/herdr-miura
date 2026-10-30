@@ -176,6 +176,7 @@ body.resizing .drawer {
   height: var(--top-row);
   padding: 0 12px 0 var(--traffic-lights);
   background: var(--peat);
+  color: var(--lantern);
   font-weight: 600;
   white-space: nowrap;
 }

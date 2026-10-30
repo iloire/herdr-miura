@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 22:56 — The sidebar title in the lantern gold
+
+The window title at the top of the sidebar is now the color of the New tab button, so the gold sits at the top left too and
+balances the tab row. It is the theme's lantern, so it follows every theme. The workspace list, where gold means an agent
+waits on you, is unchanged.
+
 ## 2026-10-30 22:44 — A close button on the prompt library
 
 The prompt library closed only with Esc or a click outside it. It now has the × the other dialogs have, at the end of the
