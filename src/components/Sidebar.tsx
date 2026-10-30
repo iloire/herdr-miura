@@ -14,6 +14,7 @@ import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
 import { type AgentGroup, AgentsSection } from "./AgentsSection";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
@@ -413,13 +414,9 @@ function WorkspaceGit({
   return (
     <span className="workspace-branch">
       {name && <span className="workspace-branch-name">{name}</span>}
-      {ahead > 0 && <span className="git-ahead" title={`${ahead} to push`}>↑{ahead}</span>}
-      {behind > 0 && <span className="git-behind" title={`${behind} to pull`}>↓{behind}</span>}
-      {changed > 0 && (
-        <span className="git-changed" title={`${changed} changed ${changed === 1 ? "file" : "files"}`}>
-          ±{changed}
-        </span>
-      )}
+      <GitAhead count={ahead} />
+      <GitBehind count={behind} />
+      <GitChanged count={changed} />
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
     </span>
   );

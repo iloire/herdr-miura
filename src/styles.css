@@ -2026,10 +2026,59 @@ kbd {
   white-space: nowrap;
 }
 
+/* What gives way on a tight strip, in order: the branch name down to its
+   floor, the queue line, then each agent's rightmost facts. The counts and
+   the library always stay. The branch can only shrink as an item of the strip
+   itself: a wrapper's minimum would be its text's full width. */
+.tab-git {
+  display: contents;
+}
+
+/* The strip's 20 px gap, closed to 8 px inside the group. */
+.tab-git > * + * {
+  margin-left: -12px;
+}
+
+.tab-git > * {
+  flex: none;
+}
+
+.tab-git > .tab-git-branch {
+  display: inline-flex;
+  flex: 0 10000 auto;
+  align-items: center;
+  gap: 4px;
+  color: color-mix(in srgb, var(--text) 70%, var(--muted));
+}
+
+.tab-git-branch svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.tab-git-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-git-unmerged {
+  color: var(--done);
+}
+
 .tab-agent {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tab-agent > * {
+  flex: none;
 }
 
 .tab-agent .mark {
@@ -2587,6 +2636,7 @@ kbd {
 }
 
 .tab-queue {
+  flex: 0 100 auto;
   margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;

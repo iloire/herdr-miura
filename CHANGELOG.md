@@ -2,6 +2,21 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 12:30 — The tab strip shows the tab's Git state
+
+The strip over the terminal now starts with the Git state of the focused pane's checkout, because tabs of one
+workspace can sit in different worktrees and the sidebar card cannot tell them apart. It shows the branch (not
+main or master), ±changed files, ↑ahead, ↓behind and `N unmerged` with the base branch in its tooltip, each only
+when it has something to say, so a clean, pushed main shows none of it. Unpushed work on main does show.
+
+The checkout is now read every 15 s with the Changes and Files panels closed, on this Mac only; an open panel
+keeps its 5 s. The strip ignores a read of any other directory, so on a tab switch it is empty until the new read
+is in and never shows the last tab's branch. The panels go by the last read they saw, so these reads do not close
+an open commit or use up the diff waiting to reopen.
+
+The strip stays one line. When it runs out of room the branch name truncates down to 12 characters, then the
+queue line, then each agent's rightmost facts are cut off. The Git counts and the prompt library always stay.
+
 ## 2026-10-30 12:17 — The drawer is resizable
 
 The right-hand drawer that holds Changes, Files and Queue was stuck at 320 px. Its left edge now resizes it the

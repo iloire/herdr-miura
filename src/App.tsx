@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
+import { tabGit } from "./app/gitLine";
 import { hueColor } from "./app/hue";
 import { loadLayout, type SavedFile, saveLayout } from "./app/layout";
 import { loadPins } from "./app/pins";
@@ -16,7 +17,7 @@ import { useSettings } from "./app/useSettings";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
-import { ChangesStore, type RecentCommit } from "./changes/store";
+import { ChangesStore, type CheckoutChanges, type RecentCommit } from "./changes/store";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
@@ -43,6 +44,8 @@ import type { Snapshot } from "./protocol";
 
 /// How often an open Changes panel rereads its checkout.
 const CHANGES_POLL_MS = 5000;
+/// How often the tab header's Git facts are reread while no panel is.
+const TAB_GIT_POLL_MS = 15_000;
 /// How often the sidebar recounts every workspace's changed files.
 const COUNTS_POLL_MS = 10000;
 /// How often listening ports are rescanned: servers start and stop at human
@@ -285,21 +288,30 @@ export default function App() {
 
   // An open panel follows the focused pane, rereads on a timer, and rereads
   // when the window comes back, since work usually happened elsewhere. The
-  // Files panel reads it too, to mark the changed files in its tree.
+  // Files panel reads it too, to mark the changed files in its tree. With both
+  // closed the tab header keeps it going, slower and on this Mac only: a
+  // remote host's folders are refused.
   const readChanges = state.changes || state.files;
+  const changesPoll = readChanges ? CHANGES_POLL_MS : local ? TAB_GIT_POLL_MS : null;
   useEffect(() => {
-    if (!readChanges || !directory) return;
+    if (changesPoll === null || !directory) return;
     const refresh = () => changesStore.refresh(directory);
     refresh();
-    const timer = window.setInterval(refresh, CHANGES_POLL_MS);
+    const timer = window.setInterval(refresh, changesPoll);
     window.addEventListener("focus", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [readChanges, directory, changesStore]);
+  }, [changesPoll, directory, changesStore]);
+  const git = local ? tabGit(changes, directory) : null;
 
-  const checkout = changes.phase === "ready" ? changes.checkout : null;
+  // The panels go by the read they last saw. The tab header's reads with both
+  // closed must not close the open commit, spend the diff waiting to reopen on
+  // whichever checkout happens to be focused, or save over it.
+  const panelCheckout = useRef<CheckoutChanges | null>(null);
+  if (readChanges) panelCheckout.current = changes.phase === "ready" ? changes.checkout : null;
+  const checkout = panelCheckout.current;
   const checkoutPath = checkout?.path ?? null;
   // A commit opened in one checkout means nothing in the next.
   useEffect(() => setOpenCommit(null), [checkoutPath]);
@@ -440,7 +452,7 @@ export default function App() {
                 pins={pins}
                 onPinsChange={setPins}
               />
-              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} queued={queuedTab} />
               <div className="stage">
                 <Terminal
                   controller={controller}
