@@ -2,6 +2,18 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-30 17:56 — The Changes panel fetches, pushes and pulls
+
+The panel's ↑ and ↓ only knew the last fetch that ran in the checkout. While it is open it now fetches by itself,
+when the window comes back and every 3 minutes, and says when (`fetched 2m ago`). A failed fetch is a quiet note. Each
+count lists exactly the commits that would move, past the five Recent commits shows, with the same rows and diff
+view, and **Push** and **Pull** beside it move them. A branch with no upstream gets **Publish**. A rejected push shows
+Git's reason and offers Pull. Pull only ever fast-forwards: diverged branches are refused and left alone, and it
+never stashes, even with `merge.autoStash` set. Force-pushing is not offered, and a repository whose config would
+make a plain push force is refused. One operation runs per checkout. All of it stays hidden on a detached HEAD,
+during a rebase or merge, on an unborn branch, and on a remote host. To back this, a Git command that overruns its
+limit now stops everything it started, gently enough to leave no lock file behind.
+
 ## 2026-10-30 17:34 — Tabs can stay on one row
 
 A new setting, `tabs.wrap`, and a checkbox under Behavior in Settings, choose what tabs do when they do not fit.

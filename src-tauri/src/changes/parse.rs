@@ -39,6 +39,8 @@ pub struct Status {
     /// `None` on a detached HEAD.
     pub branch: Option<String>,
     pub upstream: Option<String>,
+    /// Git could compare with the upstream. It says nothing when that ref is gone.
+    pub compared: bool,
     pub ahead: u32,
     pub behind: u32,
     /// HEAD has a commit; an unborn branch has none to diff or log from.
@@ -77,6 +79,7 @@ pub fn status(text: &str) -> Status {
                 "branch.head" if value != "(detached)" => status.branch = Some(value.to_owned()),
                 "branch.upstream" => status.upstream = Some(value.to_owned()),
                 "branch.ab" => {
+                    status.compared = true;
                     for count in value.split(' ') {
                         if let Some(ahead) = count.strip_prefix('+') {
                             status.ahead = ahead.parse().unwrap_or(0);

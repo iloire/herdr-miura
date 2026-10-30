@@ -22,8 +22,14 @@ export interface CheckoutChanges {
   path: string;
   branch: string | null;
   upstream: string | null;
+  /// The upstream's ref is gone, deleted on the remote and pruned here.
+  upstream_gone: boolean;
   ahead: number;
   behind: number;
+  /// HEAD has a commit.
+  born: boolean;
+  operation: "rebase" | "merge" | null;
+  remotes: string[];
   unmerged: [string, number] | null;
   files: ChangedFile[];
   total_files: number;
@@ -74,6 +80,11 @@ export class ChangesStore {
     void this.read(directory);
   }
 
+  /// Reads the directory last asked for again, as after a push or a pull.
+  reread(): void {
+    if ("directory" in this.state) this.refresh(this.state.directory);
+  }
+
   private async read(directory: string): Promise<void> {
     this.running = true;
     // Keep showing the last result for the same directory while it reloads.
@@ -96,6 +107,13 @@ export class ChangesStore {
 
 export function commitFiles(checkout: string, sha: string): Promise<CommitFiles> {
   return invoke<CommitFiles>("commit_files", { checkout, sha });
+}
+
+/// Which way commits would move between a branch and its upstream.
+export type Direction = "outgoing" | "incoming";
+
+export function movingCommits(checkout: string, direction: Direction): Promise<RecentCommit[]> {
+  return invoke<RecentCommit[]>("moving_commits", { checkout, direction });
 }
 
 /// A file's uncommitted change, or with `commit`, its change in that commit.

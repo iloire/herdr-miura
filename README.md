@@ -7,6 +7,7 @@ be changed with hot reload instead of a Rust rebuild. It is a port of the fundam
 [herdr-gpui](https://github.com/penso/herdr-gpui): the workspace sidebar, tabs, split panes, the terminal
 surface, keyboard, mouse, and paste input, and the command catalog with its shortcuts. A Changes panel shows
 what changed in the checkout you are working in, with each file's diff, and what each recent commit changed.
+It fetches in the background so ↑ and ↓ stay true, pushes, publishes and fast-forwards a branch, and lists the commits each would move.
 A Files panel (⌘⇧E) browses the whole checkout as a tree with a filter, and opens any file's text or image, a Markdown file rendered as a page,
 over the terminal.
 A workspace can name a team of agents in `.herdr/team.json`: the sidebar lists each role, a Claude Code
@@ -83,7 +84,8 @@ Stable, and an Edge that rebuilds and restarts after every commit on `main` ([ch
 
 ## Status
 
-Working: the core terminal client, a read-only Changes panel with diffs ([plan](docs/plan-changes.md)),
+Working: the core terminal client, a Changes panel with diffs that fetches, pushes and pulls but never
+stages, commits, merges, rebases or stashes ([plan](docs/plan-changes.md)),
 and agent status at a glance: each workspace's agents listed under it with a mark for working, waiting on
 you (with a count), done, or idle, and the Dock badge and window title counting agents that finished or need
 you ([plan](docs/plan-agent-status.md)), plus a ↻ on the tab and workspace card of a Claude session that `/loop`
@@ -96,6 +98,6 @@ by attention, with those waiting on you first. Right-clicking a tab opens a new 
 workspace, or closes it. The status bar's host picker attaches to Herdr on another machine over SSH, one host
 at a time, and asks before trusting a new host's key ([how](docs/ssh.md)). A settings file and a Settings
 dialog (⌘,) choose the theme, fonts and a few behaviors ([settings](docs/settings.md), [plan](docs/plan-settings.md)).
-Still to come, roughly in priority order: commit and push, GitHub pull requests, text selection and copy,
+Still to come, roughly in priority order: commit, GitHub pull requests, text selection and copy,
 find, terminal graphics, hyperlinks, renaming workspaces, more settings (status bar items, the Dock badge,
 key bindings), system notifications, usage, the orchestrator, and the Changes panel on remote machines.

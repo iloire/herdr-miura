@@ -67,3 +67,73 @@ fn a_passed_deadline_stops_git() {
         "{error:?}"
     );
 }
+
+/// Git in `dir` running `script` as a shell alias, under `deadline`.
+fn alias(dir: &tempfile::TempDir, script: &str, deadline: Instant) -> Result<Finished, Error> {
+    let alias = format!("alias.probe=!{script}");
+    network(
+        &dir.path().to_string_lossy(),
+        &["-c", &alias, "probe"],
+        "probe",
+        deadline,
+    )
+}
+
+#[test]
+fn network_returns_a_failure_with_both_streams() {
+    let dir = tempfile::tempdir().unwrap();
+    let done = alias(&dir, "echo out; echo first >&2; echo second >&2; exit 3", soon()).unwrap();
+    assert!(!done.success);
+    assert_eq!(done.stdout, "out");
+    assert_eq!(done.stderr, "first\nsecond");
+}
+
+#[test]
+fn network_keeps_the_end_of_a_long_stderr() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = "yes 'hook noise' | head -c 300000 >&2; echo 'the reason' >&2; exit 1";
+    let done = alias(&dir, script, soon()).unwrap();
+    assert!(done.stderr.ends_with("the reason"), "{}", &done.stderr[..40]);
+    assert!(done.stderr.len() <= NETWORK_OUTPUT);
+    assert!(done.stderr.starts_with("hook noise"), "cut line kept");
+}
+
+#[test]
+fn network_messages_are_in_english_whatever_the_locale() {
+    let dir = tempfile::tempdir().unwrap();
+    let done = alias(&dir, "echo $LC_ALL", soon()).unwrap();
+    assert_eq!(done.stdout, "C");
+}
+
+#[test]
+fn an_overrun_stops_everything_git_started_and_returns_on_time() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("survived");
+    // The grandchild would write the marker if it outlived the deadline.
+    let script = format!("(sleep 2; touch '{}') & wait", marker.display());
+    let start = Instant::now();
+    let error = alias(&dir, &script, start + Duration::from_millis(300)).unwrap_err();
+    assert!(matches!(error, Error::Timeout { .. }), "{error:?}");
+    assert!(start.elapsed() < Duration::from_millis(1500), "{:?}", start.elapsed());
+    thread::sleep(Duration::from_millis(2300));
+    assert!(!marker.exists(), "a child of Git outlived it");
+}
+
+#[test]
+fn a_stopped_git_gets_to_clean_up_first() {
+    let dir = tempfile::tempdir().unwrap();
+    let marker = dir.path().join("cleaned");
+    let script = format!("trap \"touch '{}'; exit 1\" TERM; sleep 30 & wait", marker.display());
+    alias(&dir, &script, Instant::now() + Duration::from_millis(300)).unwrap_err();
+    assert!(marker.exists(), "SIGKILL went first");
+}
+
+#[test]
+fn a_background_job_holding_the_pipes_does_not_block_a_finished_git() {
+    let dir = tempfile::tempdir().unwrap();
+    let start = Instant::now();
+    let done = alias(&dir, "echo said; sleep 5 & exit 0", soon()).unwrap();
+    assert!(done.success);
+    assert_eq!(done.stdout, "said");
+    assert!(start.elapsed() < Duration::from_secs(2), "{:?}", start.elapsed());
+}

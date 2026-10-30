@@ -22,6 +22,7 @@ mod queue;
 mod session_usage;
 mod settings;
 mod ssh_hosts;
+mod sync;
 mod tab_move;
 mod team;
 mod worktrees;
@@ -37,7 +38,8 @@ pub fn run() {
         .manage(connection::Connection::default())
         .manage(queue::Owner::default())
         .manage(session_usage::Cache::default())
-        .manage(ssh_hosts::PendingKeys::default());
+        .manage(ssh_hosts::PendingKeys::default())
+        .manage(sync::Running::default());
     #[cfg(target_os = "macos")]
     let builder = builder.menu(menu::build).on_menu_event(menu::on_event);
     let result = builder
@@ -52,6 +54,8 @@ pub fn run() {
             commands::create_team,
             commands::disconnect,
             commands::commit_files,
+            commands::moving_commits,
+            commands::sync_checkout,
             commands::file_diff,
             commands::listening_ports,
             commands::list_files,

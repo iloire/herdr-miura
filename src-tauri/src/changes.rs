@@ -6,7 +6,7 @@ mod parse;
 
 use crate::git;
 use parse::{Commit, FileChange};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::Read,
@@ -26,6 +26,10 @@ const MAX_FILES: usize = 50;
 const MAX_COMMITS: usize = 5;
 /// Files listed per commit; the rest are only counted.
 const MAX_COMMIT_FILES: usize = 300;
+/// Commits listed per direction of a push or pull; the panel counts the rest.
+const MAX_MOVING: usize = 500;
+/// One commit as `parse::log` reads it.
+const LOG_FORMAT: &str = "--format=%H%x1f%ct%x1f%an%x1f%s";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -48,8 +52,15 @@ pub struct CheckoutView {
     path: String,
     branch: Option<String>,
     upstream: Option<String>,
+    /// The upstream's ref is gone, deleted on the remote and pruned here.
+    upstream_gone: bool,
     ahead: u32,
     behind: u32,
+    /// HEAD has a commit.
+    born: bool,
+    /// `rebase` or `merge` while one is under way.
+    operation: Option<&'static str>,
+    remotes: Vec<String>,
     /// Commits the remote's default branch lacks, and that branch.
     unmerged: Option<(String, u32)>,
     files: Vec<FileView>,
@@ -156,7 +167,7 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         let format = format!("--max-count={MAX_COMMITS}");
         commits = parse::log(&git::text(
             &path,
-            &["log", &format, "-z", "--format=%H%x1f%ct%x1f%an%x1f%s"],
+            &["log", &format, "-z", LOG_FORMAT],
             "read recent commits",
             deadline,
         )?);
@@ -178,6 +189,11 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
                 Some((base, count))
             });
     }
+    // Neither is worth losing the panel for: without them it offers less.
+    let operation = operation_in_progress(&path, deadline);
+    let remotes = git::text(&path, &["remote"], "list the remotes", deadline)
+        .map(|remotes| remotes.lines().map(str::to_owned).collect())
+        .unwrap_or_default();
     let total_files = files.len();
     files.truncate(MAX_FILES);
     let (added, removed) = files.iter().fold((0, 0), |(added, removed), file| {
@@ -189,9 +205,13 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     Ok(Some(CheckoutView {
         path,
         branch: status.branch,
+        upstream_gone: status.born && status.upstream.is_some() && !status.compared,
         upstream: status.upstream,
         ahead: status.ahead,
         behind: status.behind,
+        born: status.born,
+        operation,
+        remotes,
         unmerged,
         files: files.into_iter().map(FileView::from).collect(),
         total_files,
@@ -199,6 +219,32 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         removed,
         commits: commits.into_iter().map(CommitView::from).collect(),
     }))
+}
+
+/// `rebase` or `merge` while one is under way. Asked of Git, since these
+/// live under `.git/worktrees/<name>` in a linked worktree, where `.git` is a file.
+pub fn operation_in_progress(checkout: &str, deadline: Instant) -> Option<&'static str> {
+    let paths = git::text(
+        checkout,
+        &[
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-path",
+            "rebase-merge",
+            "--git-path",
+            "rebase-apply",
+            "--git-path",
+            "MERGE_HEAD",
+        ],
+        "look for a rebase or merge",
+        deadline,
+    )
+    .ok()?;
+    paths
+        .lines()
+        .zip(["rebase", "rebase", "merge"])
+        .find(|(path, _)| Path::new(path).exists())
+        .map(|(_, operation)| operation)
 }
 
 /// A commit's full name, as the webview sends it back: 40 lowercase hex
@@ -252,13 +298,38 @@ pub fn read_commits_after(checkout: &str, since: &str, count: usize) -> Result<V
     let range = format!("{since}..HEAD");
     let log = git::text(
         checkout,
-        &["log", "-z", "--format=%H%x1f%ct%x1f%an%x1f%s", &range],
+        &["log", "-z", LOG_FORMAT, &range],
         "read the commits",
         Instant::now() + DEADLINE,
     )?;
     let commits = parse::log(&log);
     let later = commits.len().saturating_sub(count);
     Ok(commits.into_iter().skip(later).map(CommitView::from).collect())
+}
+
+/// Which way commits would move between a branch and its upstream.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Direction {
+    Outgoing,
+    Incoming,
+}
+
+/// The commits `git push` (`Outgoing`) or `git pull` (`Incoming`) would move,
+/// newest first, as far as the last fetch knows.
+pub fn read_moving(checkout: &str, direction: Direction) -> Result<Vec<CommitView>, Error> {
+    let range = match direction {
+        Direction::Outgoing => "@{upstream}..HEAD",
+        Direction::Incoming => "HEAD..@{upstream}",
+    };
+    let limit = format!("--max-count={MAX_MOVING}");
+    let log = git::text(
+        checkout,
+        &["log", &limit, "-z", LOG_FORMAT, range],
+        "read the commits that would move",
+        Instant::now() + DEADLINE,
+    )?;
+    Ok(parse::log(&log).into_iter().map(CommitView::from).collect())
 }
 
 /// The remote's default branch as last fetched: what `origin/HEAD` names,

@@ -1,7 +1,9 @@
 # Plan: Changes panel and diff view
 
 Shows what changed in the checkout you are working in, and the diff of any file, without leaving the app.
-Read-only: commit and push come in the next step.
+It keeps a branch in step with its remote too: background fetch, push, publish and pull, with the
+commits each would move. It does not stage, commit, discard, stash, merge or rebase. Agents do the
+committing here, and discard or stash could destroy another agent's work.
 
 ## Where the data comes from
 
@@ -13,7 +15,8 @@ Read-only: commit and push come in the next step.
   - `Session::git_bytes` runs `git diff HEAD -- <file>` with a 1 MiB cap. An untracked file is read with
     `Session::read_text`, which is capped at 1 MiB and refuses binaries and symlinks, and is shown as all
     added.
-- All Git runs on Tauri's blocking pool, each read has a 5 s deadline, and nothing contacts a remote.
+- All Git runs on Tauri's blocking pool. Each read has a 5 s deadline and `changes.rs` contacts no remote;
+  everything that does is in `sync.rs`, with a 60 s limit (see [Remote sync](#remote-sync)).
 
 ## Steps
 
@@ -35,10 +38,58 @@ Read-only: commit and push come in the next step.
 8. ~~The whole commit at once: picking a recent commit opens every file's diff in the main pane, one
    after another under a sticky file name, so a commit reads without opening each file. Its files
    still list under it in the panel, and picking one scrolls the diff to it; ↑/↓ jump between files.~~ ✅
+9. ~~Remote sync: background fetch, Push, Publish, Pull, and the commits that would move.~~ ✅
+
+## Remote sync
+
+`git status` counts ↑/↓ against the last fetch that ran in the checkout, so ↓0 means little on its own.
+Fetch comes first for that reason, and everything else leans on it.
+
+- **Fetch** runs while the Changes panel is open: when it opens or moves to another checkout, when the
+  window comes back, and every 3 minutes, at most once a minute per checkout. The panel says when
+  (`fetched 2m ago`) and goes by this app's own fetches, so a relaunch starts from nothing until the
+  first one lands. A failed fetch is `fetch failed`, with Git's line on hover, and nothing else changes.
+  It leaves `FETCH_HEAD` alone, since an agent may be about to merge it, and skips Git's auto maintenance.
+- **Each count opens what would move, and the word beside it moves it.** `↑27` lists the outgoing commits
+  (`@{upstream}..HEAD`), and **Push** beside it pushes; `↓3` and **Pull** are the same for incoming. So
+  looking can never push. The list uses the same rows as Recent commits, opens the same diff view, and
+  stops at 500 commits. The lists read local refs under the usual 5 s deadline, as far as the last
+  fetch knows.
+- **Push** is `git push --porcelain`, so the ref Git refused can be read from stdout. A rejection shows
+  Git's reason and offers Pull, and fetches so ↓ shows what arrived. A non-fast-forward rejection means
+  the branches have diverged, so that Pull is then refused too, and says so.
+- **Publish** replaces Push on a branch with no upstream, when an `origin` exists: `git push -u origin <branch>`.
+- **Pull** is `git pull --ff-only --no-rebase --no-autostash`. `--ff-only` alone is not enough:
+  `merge.autoStash` still stashes a dirty tree with it, and a stash could hold another agent's work. Diverged
+  branches are refused and left as they were, and the note says so. So is a pull whose incoming commits
+  touch a file with uncommitted changes.
+- **Never force.** The panel has no such option, and it refuses to push when a `+` refspec under
+  `remote.<name>.push` or `remote.<name>.mirror` would make a plain push force.
+- **One operation per checkout**, held in `sync::Running` on the Rust side by the checkout's root, and in
+  `SyncStore` so the panel does not ask twice. All the buttons disable while one runs, a background
+  fetch included, and the running state replaces the fetch time.
+- **Hidden** on a detached HEAD, during a rebase or merge (found through `--git-path`, since in a linked
+  worktree those files are not under `.git/`), on an unborn branch, with no remote, and when the upstream
+  is gone. The panel's view is up to 5 s old, so the backend checks the branch and any rebase or merge again
+  just before it runs, and a checkout that has moved off the branch on show is left alone.
+- **On a remote host** all of it stays hidden. The panel has no checkout there at all, since
+  `checkout_changes` is refused ([ssh.md](ssh.md)). `sync_checkout` and `moving_commits` are refused the same
+  way, and the panel gets no sync store, so a checkout read before switching hosts offers nothing either.
+
+`git.rs`'s `network` differs from the runner the reads use: `ssh`, transport helpers, the `fetch` inside a
+`pull` and hooks share Git's process group, so an overrun stops them all with SIGTERM first, which lets Git
+remove its lock files, and SIGKILL after 2 s. It keeps the end of each stream, since Git prints its reason
+last, after whatever a hook said, and keeps the lines. A hook's background job holding a pipe cannot
+hold the panel up.
+
+Known limits: the counts and lists go by the upstream, so with a `pushRemote` that differs from it, they
+do not describe what a push moves. Under `push.default=simple` a branch tracking another name
+(`git worktree add -b feat/x origin/main` makes one) is refused by Git, which the note shows; publish it
+under its own name from a terminal. A hook slower than 60 s is stopped.
 
 ## Later, not in this step
 
-Syntax highlighting (Shiki), side-by-side view, word-level emphasis, staging, commit, push,
+Syntax highlighting (Shiki), side-by-side view, word-level emphasis, staging, commit,
 and pull requests (`herdr-github`).
 
 ## Ideas from codeflow (gimenete/codeflow)

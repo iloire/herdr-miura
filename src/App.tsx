@@ -21,6 +21,7 @@ import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
 import { ChangesStore, type CheckoutChanges, type RecentCommit } from "./changes/store";
+import { SyncStore } from "./changes/sync";
 import { useCommitFiles } from "./changes/useCommitFiles";
 import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
@@ -47,6 +48,8 @@ import type { Snapshot } from "./protocol";
 
 /// How often an open Changes panel rereads its checkout.
 const CHANGES_POLL_MS = 5000;
+/// How often an open Changes panel fetches, so ↓ means something.
+const FETCH_POLL_MS = 180_000;
 /// How often the tab header's Git facts are reread while no panel is.
 const TAB_GIT_POLL_MS = 15_000;
 /// How often the sidebar recounts every workspace's changed files.
@@ -70,6 +73,7 @@ function focusedDirectory(snapshot: Snapshot | null): string | null {
 export default function App() {
   const controller = useMemo(() => new Controller(), []);
   const changesStore = useMemo(() => new ChangesStore(), []);
+  const syncStore = useMemo(() => new SyncStore(() => changesStore.reread()), [changesStore]);
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const settings = useSettings(controller);
@@ -320,6 +324,20 @@ export default function App() {
   if (readChanges) panelCheckout.current = changes.phase === "ready" ? changes.checkout : null;
   const checkout = panelCheckout.current;
   const checkoutPath = checkout?.path ?? null;
+  // An open Changes panel fetches on this Mac, on a timer and when the window
+  // comes back, since `git status` alone only knows the last fetch.
+  const fetched = state.changes && local && checkout?.remotes.length ? checkoutPath : null;
+  useEffect(() => {
+    if (!fetched) return;
+    const fetch = () => syncStore.fetch(fetched);
+    fetch();
+    const timer = window.setInterval(fetch, FETCH_POLL_MS);
+    window.addEventListener("focus", fetch);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", fetch);
+    };
+  }, [fetched, syncStore]);
   // A commit opened in one checkout means nothing in the next.
   useEffect(() => setOpenCommit(null), [checkoutPath]);
   const commitFiles = useCommitFiles(checkoutPath, openCommit?.sha ?? null);
@@ -520,6 +538,7 @@ export default function App() {
             ) : (
               <ChangesPanel
                 store={changesStore}
+                sync={local ? syncStore : null}
                 selected={shownDiff ? diffPick : null}
                 openCommit={openCommit?.sha ?? null}
                 commitFiles={commitFiles}

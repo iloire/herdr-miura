@@ -12,6 +12,7 @@ use crate::{
     session_usage::{self, SessionUsage},
     settings,
     ssh_hosts,
+    sync,
     worktrees,
 };
 use crate::herdr::{
@@ -179,6 +180,36 @@ pub async fn commit_files(
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&checkout, &sha));
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The commits a push or a pull would move, as the last fetch knows them.
+#[tauri::command]
+pub async fn moving_commits(
+    connection: State<'_, Connection>,
+    checkout: String,
+    direction: changes::Direction,
+) -> Result<Vec<CommitView>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_moving(&checkout, direction));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// Fetches, pushes, publishes or pulls. Refused on a remote host, where the
+/// panel has no checkout to act on. `branch` is the one the panel showed, and
+/// a checkout that has moved off it is left alone.
+#[tauri::command]
+pub async fn sync_checkout(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    op: sync::Op,
+    branch: Option<String>,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        sync::run(&app.state::<sync::Running>(), &checkout, op, branch.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
 }
 
 /// One file's diff: its uncommitted change, or with `commit`, its change in that commit.

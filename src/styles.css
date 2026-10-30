@@ -1446,6 +1446,129 @@ body.reordering * {
   text-align: left;
 }
 
+/* Sync with the remote: each count opens what would move, and the word beside
+   it moves it, so a click meant to look can never push. */
+.sync {
+  padding: 0 16px 8px;
+}
+
+.sync-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.sync-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sync-count,
+.sync-action {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font: calc(11px * var(--ui-scale))/1.5 var(--mono);
+}
+
+.sync-count {
+  color: var(--bright);
+}
+
+.sync-count:not(:disabled):hover,
+.sync-count[aria-expanded="true"] {
+  background: var(--active);
+}
+
+.sync-action {
+  border: 1px solid var(--rule);
+  color: var(--bright);
+}
+
+.sync-action:not(:disabled):hover {
+  background: var(--hover);
+}
+
+.sync-action:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.sync-fetched {
+  margin-left: auto;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.5 var(--mono);
+  white-space: nowrap;
+}
+
+.sync-running {
+  color: var(--working);
+}
+
+.sync-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+  overflow-wrap: anywhere;
+}
+
+.sync-result {
+  position: relative;
+  margin-top: 6px;
+  padding: 6px 24px 6px 8px;
+  border-left: 2px solid var(--rule);
+  font-size: calc(12px * var(--ui-scale));
+  overflow-wrap: anywhere;
+}
+
+.sync-result.failed {
+  border-left-color: var(--blocked);
+}
+
+.sync-result p {
+  margin: 0;
+}
+
+.sync-result pre {
+  max-height: 140px;
+  margin: 4px 0 0;
+  overflow-y: auto;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.4 var(--mono);
+  white-space: pre-wrap;
+}
+
+.sync-result .sync-action {
+  margin-top: 6px;
+}
+
+.sync-dismiss {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.sync-dismiss:hover {
+  background: var(--hover);
+}
+
+.sync-moving {
+  margin: 0 -10px;
+}
+
+.sync-moving .changes-section {
+  padding: 0 10px;
+}
+
+.sync-moving .commit-list {
+  padding: 0;
+}
+
 .changes-section {
   display: flex;
   justify-content: space-between;
