@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 18:16 — One gold button in the Changes panel
+
+Once a commit has its files and message, Commit is the panel's only gold button: Push, Pull and Publish drop to their
+outline until it is done, as a push at that point would leave the commit behind.
+
 ## 2026-10-31 18:20 — The docs checked against the code
 
 A review of every doc found drift in `docs/architecture.md`: the commands that block, Land's lock, the queue's prompt

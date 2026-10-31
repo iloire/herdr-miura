@@ -1282,10 +1282,11 @@ body.reordering * {
 /* The main action of a row or a panel, solid in the lantern so it is found at a
    glance. Gold in the sidebar means an agent waits on you, so a disabled one
    keeps its own look, and a panel has one: of the queue's boxes, the first that
-   can act, so an open edit outranks the box below it. */
+   can act, so an open edit outranks the box below it; in Changes, a commit ready
+   to go outranks the sync line, as a push now would leave it behind. */
 .tab-rows .icon-button.new-tab:not(.plain),
 .queue-add:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
-.sync-action.sync-main:not(:disabled) {
+.sync-action.sync-main:not(:disabled):not(.changes:has(.commit-box .sync-action:not(:disabled)) .sync .sync-action) {
   border-color: transparent;
   background: var(--lantern);
   color: var(--ink);
@@ -1293,7 +1294,7 @@ body.reordering * {
 
 .tab-rows .icon-button.new-tab:not(.plain):hover:not(:disabled),
 .queue-add:hover:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
-.sync-action.sync-main:hover:not(:disabled) {
+.sync-action.sync-main:hover:not(:disabled):not(.changes:has(.commit-box .sync-action:not(:disabled)) .sync .sync-action) {
   background: color-mix(in srgb, var(--lantern) 82%, var(--bright));
   color: var(--ink);
 }
