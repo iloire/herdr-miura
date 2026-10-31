@@ -26,6 +26,7 @@ mod ssh_hosts;
 mod sync;
 mod tab_move;
 mod team;
+mod worktree_ops;
 mod worktrees;
 
 pub use error::{Error, Result};
@@ -53,6 +54,8 @@ pub fn run() {
             commands::copy_path,
             commands::create_agent,
             commands::create_team,
+            commands::discard_file,
+            commands::discard_plan,
             commands::disconnect,
             commands::commit_files,
             commands::moving_commits,

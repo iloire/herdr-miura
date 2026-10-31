@@ -2,7 +2,7 @@
 //! files and commits, the files one commit changed, and one file's diff. Every read runs Git on Tauri's
 //! blocking pool under a deadline and contacts no remote; nothing here writes.
 
-mod parse;
+pub(crate) mod parse;
 
 use crate::git;
 use parse::{Commit, FileChange, Kind};
@@ -135,26 +135,10 @@ pub enum FileDiff {
 /// empty state rather than an error.
 pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     let deadline = Instant::now() + DEADLINE;
-    let Ok(path) = git::text(
-        directory,
-        &["rev-parse", "--path-format=absolute", "--show-toplevel"],
-        "find the checkout",
-        deadline,
-    ) else {
+    let Ok(path) = checkout_root(directory, deadline) else {
         return Ok(None);
     };
-    let status = parse::status(&git::text(
-        &path,
-        &[
-            "status",
-            "--porcelain=v2",
-            "--branch",
-            "-z",
-            "--untracked-files=normal",
-        ],
-        "read the working tree",
-        deadline,
-    )?);
+    let status = read_status(&path, deadline)?;
     let mut files = status.files;
     let mut commits = Vec::new();
     let mut unmerged = None;
@@ -227,6 +211,33 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         removed,
         commits: commits.into_iter().map(CommitView::from).collect(),
     }))
+}
+
+/// The top of the checkout `directory` sits in.
+pub fn checkout_root(directory: &str, deadline: Instant) -> Result<String, git::Error> {
+    git::text(
+        directory,
+        &["rev-parse", "--path-format=absolute", "--show-toplevel"],
+        "find the checkout",
+        deadline,
+    )
+}
+
+/// The checkout's whole status. A filter on one path would hide a rename.
+pub fn read_status(checkout: &str, deadline: Instant) -> Result<parse::Status, git::Error> {
+    let text = git::text(
+        checkout,
+        &[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "-z",
+            "--untracked-files=normal",
+        ],
+        "read the working tree",
+        deadline,
+    )?;
+    Ok(parse::status(&text))
 }
 
 /// `rebase`, `merge` or `cherry-pick` while one is under way.
@@ -445,6 +456,14 @@ fn read_text(path: &Path) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
+/// Every part of `path` is a plain name, so it cannot leave the folder it is
+/// joined to.
+pub fn stays_inside(path: &str) -> bool {
+    Path::new(path)
+        .components()
+        .all(|part| matches!(part, Component::Normal(_)))
+}
+
 /// `path` is relative to `checkout`, as Git status lists it. The webview
 /// sends it back, so a path that could leave the checkout is refused.
 /// With `commit`, the file's change in that commit; else its uncommitted one.
@@ -454,10 +473,7 @@ pub fn read_diff(
     untracked: bool,
     commit: Option<&str>,
 ) -> Result<FileDiff, Error> {
-    if !Path::new(path)
-        .components()
-        .all(|part| matches!(part, Component::Normal(_)))
-    {
+    if !stays_inside(path) {
         return Err(Error::OutsideCheckout(path.into()));
     }
     let commit = commit.map(commit_name).transpose()?;

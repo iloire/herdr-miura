@@ -30,11 +30,11 @@ because it can be undone and it refuses to act on a file that moved since you lo
 
 Two commands, as Land has `land_plan` then `land_finish`:
 
-1. ~~**`discard_plan(checkout, path)`** runs when the dialog opens. It reads the status now and returns what a
+1. **`discard_plan(checkout, path, branch)`** runs when the dialog opens. It reads the status now and returns what a
    discard would do, the line counts, and a fingerprint: the file's raw status entry plus
    `git hash-object --no-filters` of the working file. The entry holds the HEAD and index hashes, so the
-   fingerprint covers all three versions.~~ ✅
-2. ~~**`discard_file(checkout, path, fingerprint)`** runs on confirm. It takes the checkout's `sync::Running`
+   fingerprint covers all three versions.
+2. **`discard_file(checkout, path, fingerprint, branch)`** runs on confirm. It takes the checkout's `sync::Running`
    claim, makes the same checks as a sync (`current_branch`: same branch, no rebase or merge under way), and
    reads the fingerprint again. If it differs, nothing happens and the dialog says the file changed. An
    overlapping Git operation fails on `index.lock`; Git's reason is shown, with no retry.
@@ -50,6 +50,10 @@ Then, by kind of file:
 | Untracked file (`?`) | Move to Trash |
 | Folder, symlink, submodule, conflict | Refused, and the dialog says why |
 
+A plain file on disk at a path the row does not show is saved as well: a staged deletion with the file put back
+(`git rm --cached`), or a new file at a rename's old path. A parent that is no longer a folder is refused, since
+Git would replace it to make the path. On an unborn branch only an untracked file can be discarded.
+
 The restore is `git --literal-pathspecs restore --source=HEAD --staged --worktree -- <paths>`, run through
 `git::supervised`, which is the runner for commands that write.
 
@@ -57,8 +61,17 @@ The restore is `git --literal-pathspecs restore --source=HEAD --staged --worktre
 own to build. Tracked files are copied to a temporary file that goes to the Trash, and the working file stays in
 place until that has succeeded. If the Trash fails, the discard stops with the file untouched. A staged version
 that differs from the working file is not kept. Use the `trash` crate (5.2.9), which also covers Linux and
-Windows. On macOS use its NSFileManager method if the default Finder one prompts for automation permission;
-step 3 checks this.
+Windows. On macOS it uses the NSFileManager method.
+
+Checked on 2026-10-31 in a real bundled app, signed ad hoc and started with `open`, so no terminal lent it its
+permissions. The crate's default Finder method scripts the Finder through `osascript`: macOS put up
+"wants access to control Finder.app" and `osascript` blocked until it was answered, so a discard would hang on a
+dialog that can open on another display. NSFileManager took 74 ms with no prompt, and the file was in `~/.Trash`.
+The price is that the Trash may not offer Put Back: drag the file out instead, which is all a temporary copy
+could use anyway.
+
+The temporary copy is made in a folder inside the Git directory (`rev-parse --absolute-git-dir`). That is the
+same volume as the file, so it reaches the same Trash, and no `git status` or agent can see it there.
 
 **Checked in a scratch repo with Git 2.51.** These are why the table looks as it does:
 
@@ -84,7 +97,7 @@ A tick box on each file row, unticked by default and forgotten when the file lea
 a Commit button appear once something is ticked.
 
 `commit_paths(checkout, paths, message, branch)` takes the same claim and checks, then runs:
-~~ ✅
+
 1. `git --literal-pathspecs add -- <the untracked paths>`
 2. `git --literal-pathspecs commit --only -m <message> -- <paths>`, with a rename's old and new paths both
    listed.
@@ -102,15 +115,15 @@ a detached HEAD, on an unborn branch and on a remote host. Push stays a separate
 
 One commit each.
 
-1. **Right-click menus, read-only.** `ContextMenu` on `FileRow` (Copy Path, Open in VS Code through
-   `folder::open_file`) and on commit rows (Copy SHA). A deleted file has no Open.
-2. **Status keeps what actions need.** `parse::status` keeps a rename's old path and each entry's raw text.
-   Rust tests.
-3. **Discard backend.** A new `src-tauri/src/worktree_ops.rs`, since `changes.rs` promises it never writes.
+1. ~~**Right-click menus, read-only.** `ContextMenu` on `FileRow` (Copy Path, Open in VS Code through
+   `folder::open_file`) and on commit rows (Copy SHA). A deleted file has no Open.~~ ✅
+2. ~~**Status keeps what actions need.** `parse::status` keeps a rename's old path and each entry's raw text.
+   Rust tests.~~ ✅
+3. ~~**Discard backend.** A new `src-tauri/src/worktree_ops.rs`, since `changes.rs` promises it never writes.
    `sync::Running::claim` and `current_branch` become `pub(crate)`. Both commands refuse a remote host with
    `ensure_local`, and paths with a component that is not `Normal`. Rust tests against real repos: each row of
    the table, a glob-named file beside files it must not touch, a stale fingerprint, a rebase under way. Check
-   the Trash method in a real build here.
+   the Trash method in a real build here.~~ ✅
 4. **Discard UI.** The menu item, the diff header button, the dialog, moving to the next file, and a reread of
    `ChangesStore` and the sidebar counts. Hidden when `sync` is null, as on a remote host.
 5. **Commit backend.** `commit_paths` with Rust tests: an agent's staged file left alone, a glob-named path, an

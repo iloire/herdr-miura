@@ -16,7 +16,7 @@ use std::{
 };
 
 /// How long one operation may take before Git is stopped.
-const LIMIT: Duration = Duration::from_secs(60);
+pub const LIMIT: Duration = Duration::from_secs(60);
 /// How long the local checks before it may take.
 const CHECKS: Duration = Duration::from_secs(5);
 
@@ -57,7 +57,7 @@ pub enum Outcome {
 }
 
 impl Outcome {
-    fn failed(reason: Reason, message: impl Into<String>, details: impl Into<String>) -> Self {
+    pub fn failed(reason: Reason, message: impl Into<String>, details: impl Into<String>) -> Self {
         Self::Failed {
             reason,
             message: message.into(),
@@ -65,7 +65,7 @@ impl Outcome {
         }
     }
 
-    fn other(message: impl Into<String>) -> Self {
+    pub fn other(message: impl Into<String>) -> Self {
         Self::failed(Reason::Other, message, "")
     }
 }
@@ -76,7 +76,7 @@ impl Outcome {
 pub struct Running(Mutex<HashSet<String>>);
 
 impl Running {
-    fn claim<'a>(&'a self, checkout: &str) -> Option<Claim<'a>> {
+    pub(crate) fn claim<'a>(&'a self, checkout: &str) -> Option<Claim<'a>> {
         let mut running = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         running.insert(checkout.to_owned()).then(|| Claim {
             running: self,
@@ -86,7 +86,7 @@ impl Running {
 }
 
 /// Holds a checkout until the operation ends, however it ends.
-struct Claim<'a> {
+pub(crate) struct Claim<'a> {
     running: &'a Running,
     checkout: String,
 }
@@ -110,22 +110,9 @@ fn run_within(
     limit: Duration,
 ) -> Outcome {
     let checks = Instant::now() + CHECKS;
-    // By its root, so two paths into one checkout are one checkout.
-    let root = match git::text(
-        checkout,
-        &["rev-parse", "--path-format=absolute", "--show-toplevel"],
-        "find the checkout",
-        checks,
-    ) {
-        Ok(root) => root,
-        Err(error) => return Outcome::other(error.to_string()),
-    };
-    let Some(_claim) = running.claim(&root) else {
-        return Outcome::failed(
-            Reason::Busy,
-            "Another Git operation is still running in this checkout.",
-            "",
-        );
+    let (root, _claim) = match claim_checkout(running, checkout, checks) {
+        Ok(claimed) => claimed,
+        Err(refused) => return refused,
     };
     let deadline = || Instant::now() + limit;
     match op {
@@ -153,24 +140,44 @@ fn run_within(
     }
 }
 
+/// The checkout's root and its claim. By its root, so two paths into one
+/// checkout are one checkout.
+pub(crate) fn claim_checkout<'a>(
+    running: &'a Running,
+    checkout: &str,
+    deadline: Instant,
+) -> Result<(String, Claim<'a>), Outcome> {
+    let root = changes::checkout_root(checkout, deadline)
+        .map_err(|error| Outcome::other(error.to_string()))?;
+    let claim = running.claim(&root).ok_or_else(|| {
+        Outcome::failed(
+            Reason::Busy,
+            "Another Git operation is still running in this checkout.",
+            "",
+        )
+    })?;
+    Ok((root, claim))
+}
+
 /// The branch to act on, read now: the panel's view is up to 5 s old, and an
 /// agent may have moved the checkout or started a rebase since.
-fn current_branch(root: &str, shown: Option<&str>, deadline: Instant) -> Result<String, Outcome> {
+pub(crate) fn current_branch(root: &str, shown: Option<&str>, deadline: Instant) -> Result<String, Outcome> {
+    // First, as a rebase detaches HEAD and that would say less.
+    if let Some(operation) = changes::operation_in_progress(root, deadline) {
+        return Err(Outcome::other(format!(
+            "A {operation} is in progress, so nothing ran."
+        )));
+    }
     let current = git::text(
         root,
         &["symbolic-ref", "--quiet", "--short", "HEAD"],
         "read the branch",
         deadline,
     )
-    .map_err(|_| Outcome::other("HEAD is detached, so there is no branch to sync."))?;
+    .map_err(|_| Outcome::other("HEAD is detached, so nothing ran."))?;
     if shown.is_some_and(|shown| shown != current) {
         return Err(Outcome::other(format!(
             "The checkout moved to {current}, so nothing ran."
-        )));
-    }
-    if let Some(operation) = changes::operation_in_progress(root, deadline) {
-        return Err(Outcome::other(format!(
-            "A {operation} is in progress, so nothing ran."
         )));
     }
     Ok(current)
@@ -279,7 +286,7 @@ fn pull_failure(stderr: String) -> Outcome {
     }
 }
 
-fn timed_out(error: git::Error) -> Outcome {
+pub(crate) fn timed_out(error: git::Error) -> Outcome {
     Outcome::other(match error {
         git::Error::Timeout { .. } => format!("Git was stopped after {} s.", LIMIT.as_secs()),
         error => error.to_string(),

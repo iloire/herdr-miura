@@ -13,6 +13,7 @@ use crate::{
     settings,
     ssh_hosts,
     sync,
+    worktree_ops,
     worktrees,
 };
 use crate::herdr::{
@@ -197,6 +198,44 @@ pub async fn moving_commits(
 /// Fetches, pushes, publishes or pulls. Refused on a remote host, where the
 /// panel has no checkout to act on. `branch` is the one the panel showed, and
 /// a checkout that has moved off it is left alone.
+/// What discarding `path` would do, with the fingerprint a discard must match.
+#[tauri::command]
+pub async fn discard_plan(
+    connection: State<'_, Connection>,
+    checkout: String,
+    path: String,
+    branch: Option<String>,
+) -> Result<worktree_ops::Plan> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        worktree_ops::discard_plan(&checkout, &path, branch.as_deref())
+    });
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Discards `path`, unless it no longer matches `fingerprint`.
+#[tauri::command]
+pub async fn discard_file(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    path: String,
+    fingerprint: String,
+    branch: Option<String>,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        worktree_ops::discard_file(
+            &app.state::<sync::Running>(),
+            &checkout,
+            &path,
+            &fingerprint,
+            branch.as_deref(),
+        )
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
 #[tauri::command]
 pub async fn sync_checkout(
     app: AppHandle,
