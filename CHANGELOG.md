@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 18:00 — A tab's right-click menu in groups
+
+The tab menu now opens on Rename, Pin and Mark as Seen, then Add to Queue, Folder and Move to Workspace, with New Tab and
+Close Tab last, and writes each shortcut beside its row. Mark as Seen clears one tab's finished agents, and Folder opens
+the tab's own folder, which can differ from its workspace's. New Tab in the menu now does what the + does, where it used
+to open a plain terminal whatever `new_tab_command` said. A pinned tab has no × any more and its menu's Close Tab is
+disabled until it is unpinned; ⌘⇧W still closes it.
+
 ## 2026-10-31 17:01 — One sync line in the Changes panel
 
 Moving between checkouts left the last one's sync line behind, with its Push button, its count and its note, stacked

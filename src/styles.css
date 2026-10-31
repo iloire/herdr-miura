@@ -2594,8 +2594,14 @@ kbd {
   white-space: nowrap;
 }
 
+.context-menu-hint,
 .context-menu-more {
+  flex: none;
   color: var(--muted);
+}
+
+.context-menu-hint {
+  font-size: 0.9em;
 }
 
 .context-menu-swatches {

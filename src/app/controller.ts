@@ -5,7 +5,7 @@ import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
 import { HERDR_NIGHT, type NamedTheme } from "../themes/catalog";
 import { DEFAULT_SETTINGS, type Settings, saveSetting } from "./settings";
-import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
+import { parseShortcut, shortcutLabel, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
@@ -231,6 +231,12 @@ export class Controller {
         .filter((s): s is Shortcut => s !== null),
     }));
     this.set({ commands });
+  }
+
+  /// The first key a command is bound to, as the palette writes it.
+  shortcutHint(name: string): string | undefined {
+    const shortcut = this.state.commands.find((command) => command.name === name)?.parsed[0];
+    return shortcut && shortcutLabel(shortcut);
   }
 
   /// Connects, or resizes the live connection, to the grid the view can show.

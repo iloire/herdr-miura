@@ -1,14 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentCountsByTab, loopTags, tabNeedsYou, tabVerifiedDone } from "../app/attention";
+import { agentCountsByTab, loopTags, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
+import { tabDirectory } from "../app/sharedCheckout";
 import { useSteadyStrip } from "../app/useSteadyStrip";
-import type { Snapshot, Tab } from "../protocol";
+import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { CloseDialog } from "./CloseDialog";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { NewTabIcon, PinIcon, TerminalIcon } from "./icons";
+import { folderMenu } from "./folderMenu";
+import { CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
@@ -39,6 +41,8 @@ export function TabBar({
   onPinsChange,
   wrap,
   newTabCommand,
+  onMarkSeen,
+  onOpenQueue,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
@@ -46,6 +50,8 @@ export function TabBar({
   onPinsChange: (pins: Set<string>) => void;
   wrap: boolean;
   newTabCommand: string | null;
+  onMarkSeen: (agents: Agent[]) => void;
+  onOpenQueue: (workspaceId: string) => void;
 }) {
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -101,22 +107,58 @@ export function TabBar({
     );
   };
 
-  /// The tab menu, as herdr-gpui's: new, rename, pin, move, close.
-  const tabMenu = (tab: Tab): MenuItem[] => {
+  /// The tab menu. It opens on the tab's own actions, so Enter never makes a
+  /// new tab, and ends with the ones that add or remove a tab.
+  const tabMenu = (tab: Tab): MenuItem[][] => {
     const others = snapshot?.workspaces.filter((workspace) => workspace.workspace_id !== tab.workspace_id) ?? [];
+    const pinned = isPinned(tab);
+    const folder = snapshot && tabDirectory(tab, snapshot);
+    // The agents as they stand now: one that finishes again before the pick
+    // has a new sequence, so its mark stays.
+    const finished = unseenDone(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? []);
     return [
-      { label: "New Tab", onSelect: () => controller.run("new_tab") },
-      { label: "Rename", onSelect: () => setRenaming(tab.tab_id) },
-      { label: isPinned(tab) ? "Unpin" : "Pin", onSelect: () => togglePin(tab) },
-      {
-        label: "Move to Workspace",
-        disabled: others.length === 0,
-        items: others.map((workspace) => ({
-          label: workspace.label,
-          onSelect: () => moveTo(tab, workspace.workspace_id),
-        })),
-      },
-      { label: "Close Tab", onSelect: () => controller.request("tab.close", { tab_id: tab.tab_id }) },
+      [
+        { label: "Rename…", icon: <RenameIcon />, onSelect: () => setRenaming(tab.tab_id) },
+        { label: pinned ? "Unpin" : "Pin", icon: <PinIcon />, onSelect: () => togglePin(tab) },
+        {
+          label: "Mark as Seen",
+          icon: <CheckIcon />,
+          // Stays when there is nothing to mark, so the rows below don't jump.
+          disabled: finished.length === 0,
+          onSelect: () => onMarkSeen(finished),
+        },
+      ],
+      [
+        ...(folder
+          ? [
+              {
+                label: "Add to Queue…",
+                icon: <QueueIcon />,
+                hint: controller.shortcutHint("add_to_queue"),
+                onSelect: () => onOpenQueue(tab.workspace_id),
+              },
+              { label: "Folder", icon: <OpenIcon />, items: folderMenu(controller, folder) },
+            ]
+          : []),
+        {
+          label: "Move to Workspace",
+          disabled: others.length === 0,
+          items: others.map((workspace) => ({
+            label: workspace.label,
+            onSelect: () => moveTo(tab, workspace.workspace_id),
+          })),
+        },
+      ],
+      [
+        // As the + button: the shortcut that does the same is ⌘⇧T, not ⌘T's plain terminal.
+        { label: "New Tab", icon: <NewTabIcon />, hint: controller.shortcutHint("new_command_tab"), onSelect: () => controller.newTab() },
+        {
+          label: "Close Tab",
+          hint: pinned ? "Unpin first" : controller.shortcutHint("close_tab"),
+          disabled: pinned,
+          onSelect: () => controller.request("tab.close", { tab_id: tab.tab_id }),
+        },
+      ],
     ];
   };
 
@@ -184,14 +226,16 @@ export function TabBar({
                   <StatusMark status={waiting === null ? tab.agent_status : "blocked"} verified={tabVerifiedDone(own)} note={waiting} />
                 </button>
               )}
-              <button
-                className="tab-close"
-                aria-label={`Close ${tab.label}`}
-                title="Close tab"
-                onClick={() => closeByPointer(tab)}
-              >
-                ×
-              </button>
+              {!pinned && (
+                <button
+                  className="tab-close"
+                  aria-label={`Close ${tab.label}`}
+                  title="Close tab"
+                  onClick={() => closeByPointer(tab)}
+                >
+                  ×
+                </button>
+              )}
             </div>
           );
         })}

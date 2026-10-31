@@ -6,7 +6,7 @@
 // each one.
 
 import type { ChangesState } from "../changes/store";
-import type { AgentStatus, Pane, Snapshot } from "../protocol";
+import type { AgentStatus, Pane, Snapshot, Tab } from "../protocol";
 import { agentCountsByTab, agentRowName } from "./attention";
 import { inside } from "./worktreeGroups";
 
@@ -31,6 +31,12 @@ export interface SharedCheckout {
 /// The folder a pane is working in: its foreground process's, else its shell's.
 export function paneDirectory(pane: Pane | undefined): string | null {
   return pane?.foreground_cwd ?? pane?.cwd ?? null;
+}
+
+/// The folder a tab is working in: its focused pane's, else its first's.
+export function tabDirectory(tab: Tab, snapshot: Snapshot): string | null {
+  const panes = snapshot.panes.filter((pane) => pane.tab_id === tab.tab_id);
+  return paneDirectory(panes.find((pane) => pane.focused) ?? panes[0]);
 }
 
 /// `directory` is in `checkout` itself, not in a linked worktree inside it.

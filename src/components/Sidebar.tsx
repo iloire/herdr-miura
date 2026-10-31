@@ -1,6 +1,5 @@
 import { type CSSProperties, type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
 import type { Controller } from "../app/controller";
-import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
@@ -18,18 +17,15 @@ import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
 import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { folderMenu } from "./folderMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { LandDialog, LandNote } from "./Land";
 import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
-  BranchIcon,
   CheckIcon,
   ChevronIcon,
-  CodeIcon,
-  CopyIcon,
   HandOrderIcon,
-  OpenIcon,
   PinIcon,
   QueueIcon,
   RenameIcon,
@@ -42,20 +38,6 @@ import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
 import { createTeam, type TeamState, useTeams } from "../app/team";
-
-/// What a workspace's right-click offers for its folder, as herdr-gpui's folder menu does.
-function folderMenu(controller: Controller, path: string): MenuItem[] {
-  return [
-    { label: "Open in VS Code", icon: <CodeIcon />, onSelect: () => controller.act(openFolder(path, "vs_code")) },
-    {
-      label: "Open in GitHub Desktop",
-      icon: <BranchIcon />,
-      onSelect: () => controller.act(openFolder(path, "github_desktop")),
-    },
-    { label: "Open Folder", icon: <OpenIcon />, onSelect: () => controller.act(openFolder(path, "files")) },
-    { label: "Copy Path", icon: <CopyIcon />, onSelect: () => controller.act(copyPath(path)) },
-  ];
-}
 
 /// The row of colors a workspace can take, in its menu.
 function colorSwatches(chosen: HueSlot | null, pick: (slot: HueSlot | null) => void): MenuItem {

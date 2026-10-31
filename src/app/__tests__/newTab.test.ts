@@ -63,6 +63,13 @@ describe("opening a tab", () => {
     expect(catalog(true).find((e) => e.name === "new_tab")?.shortcuts).toEqual(["cmd-t"]);
   });
 
+  it("writes a command's first key for a menu, and nothing for a command without one", () => {
+    const controller = new Controller();
+    controller.loadCatalog();
+    expect(controller.shortcutHint("new_command_tab")).toBe("⌃⌥⇧T");
+    expect(controller.shortcutHint("review_changes")).toBeUndefined();
+  });
+
   it("types the command into the tab new_command_tab opens", async () => {
     const { controller, emit } = await connected("claude");
     controller.run("new_command_tab");

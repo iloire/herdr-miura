@@ -561,6 +561,8 @@ export default function App() {
                 onPinsChange={setPins}
                 wrap={state.settings.tabsWrap}
                 newTabCommand={state.settings.newTabCommand}
+                onMarkSeen={markSeen}
+                onOpenQueue={openQueue}
               />
               <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">

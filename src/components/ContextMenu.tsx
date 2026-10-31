@@ -4,6 +4,8 @@ import { type Grouped, menuGroups } from "../app/menuGroups";
 export interface MenuItem {
   label: string;
   icon?: ReactNode;
+  /// Quiet text at the row's end: a shortcut, or why it is disabled.
+  hint?: string;
   /// Runs, then the menu closes.
   onSelect?: () => void;
   /// A page of choices shown in place of this menu, with a way back.
@@ -136,6 +138,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
                   {item.icon}
                 </span>
                 <span className="context-menu-label">{item.label}</span>
+                {item.hint && <span className="context-menu-hint">{item.hint}</span>}
                 {item.items && <span className="context-menu-more">›</span>}
               </button>
             ),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChangesState, CheckoutChanges } from "../../changes/store";
 import type { Agent, AgentStatus, Pane, Snapshot, Tab } from "../../protocol";
-import { paneDirectory, sharedCheckout, sharedTitle } from "../sharedCheckout";
+import { paneDirectory, sharedCheckout, sharedTitle, tabDirectory } from "../sharedCheckout";
 
 const pane = (id: string, cwd: string, over: Partial<Pane> = {}): Pane => ({
   pane_id: id,
@@ -13,6 +13,20 @@ const pane = (id: string, cwd: string, over: Partial<Pane> = {}): Pane => ({
   focused: false,
   right_click_passthrough: false,
   ...over,
+});
+
+describe("tabDirectory", () => {
+  const tab = { tab_id: "t" } as Tab;
+  const of = (...panes: Pane[]) => tabDirectory(tab, { panes } as Snapshot);
+
+  it("takes the tab's focused pane, else its first, and never another tab's", () => {
+    const other = pane("x", "/other", { focused: true });
+    const first = pane("1", "/first", { tab_id: "t" });
+    const second = pane("2", "/second", { tab_id: "t", focused: true });
+    expect(of(other, first, second)).toBe("/second");
+    expect(of(other, first)).toBe("/first");
+    expect(of(other)).toBeNull();
+  });
 });
 
 const agent = (id: string, status: AgentStatus = "working"): Agent => ({
