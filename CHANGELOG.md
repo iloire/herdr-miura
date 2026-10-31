@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 22:44 — The pin shows on a collapsed card
+
+A workspace with pinned tabs now shows its pin on the card's name line while collapsed, between the queue and any loop,
+with the count when more than one. It used to appear only in the tray of an expanded card.
+
 ## 2026-10-31 18:24 — Tab menu and theme screenshots retaken
 
 `menu-tab.png` shows the regrouped tab menu, and `theme.png` replaces the white `light.png` with the app in Catppuccin

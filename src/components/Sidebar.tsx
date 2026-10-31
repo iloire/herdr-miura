@@ -242,6 +242,7 @@ export function Sidebar({
                 <>
                   {gitLine}
                   <QueueChip queue={queue} onOpen={openQueue} />
+                  <PinnedTabs tabs={pinnedTabs} />
                   <LoopMark tags={loopTags(own)} />
                 </>
               )}
