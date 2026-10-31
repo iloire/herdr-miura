@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder, tildePath } from "../app/folder";
-import { hueColor } from "../app/hue";
 import { relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
 import { isPending, pendingFirst, type Worktree, worktreeName } from "../changes/worktrees";
@@ -15,12 +14,15 @@ export function WorktreesDialog({
   controller,
   workspaceId,
   workspace,
+  hue,
   worktrees,
   onClose,
 }: {
   controller: Controller;
   workspaceId: string;
   workspace: string;
+  /// The workspace's color.
+  hue: string;
   worktrees: Worktree[];
   onClose: () => void;
 }) {
@@ -36,7 +38,7 @@ export function WorktreesDialog({
         className="palette worktrees-dialog"
         role="dialog"
         aria-labelledby="worktrees-title"
-        style={{ "--hue": hueColor(workspace) } as CSSProperties}
+        style={{ "--hue": hue } as CSSProperties}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && onClose()}
       >

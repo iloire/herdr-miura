@@ -26,6 +26,7 @@ export function TeamDialog({
   controller,
   snapshot,
   workspace,
+  hue,
   directory,
   team,
   onClose,
@@ -33,6 +34,8 @@ export function TeamDialog({
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace;
+  /// The workspace's color.
+  hue: string;
   directory: string;
   team: Exclude<TeamState, { phase: "none" }>;
   onClose: () => void;
@@ -60,7 +63,7 @@ export function TeamDialog({
         aria-labelledby="team-title"
         // A click on the text must leave focus inside, for Escape.
         tabIndex={-1}
-        style={{ "--hue": hueColor(workspace.label) } as CSSProperties}
+        style={{ "--hue": hue } as CSSProperties}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && onClose()}
       >

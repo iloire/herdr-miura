@@ -94,6 +94,7 @@ pub fn run() {
             commands::usage_history,
             commands::settings_load,
             commands::settings_set,
+            commands::settings_set_entry,
             commands::scan_host_key,
             commands::set_focus,
             commands::ssh_hosts,

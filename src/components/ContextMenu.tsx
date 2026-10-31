@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { type CSSProperties, Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { type Grouped, menuGroups } from "../app/menuGroups";
 
 export interface MenuItem {
@@ -9,6 +9,18 @@ export interface MenuItem {
   /// A page of choices shown in place of this menu, with a way back.
   items?: Grouped<MenuItem>;
   disabled?: boolean;
+  /// Draws this item as one row of round choices; `label` names the row.
+  swatches?: MenuSwatch[];
+}
+
+/// A round choice in a swatch row: picking it runs, then the menu closes.
+export interface MenuSwatch {
+  label: string;
+  /// A CSS color; `null` draws a hollow one, for no color of its own.
+  color: string | null;
+  /// The current choice, marked with a ring.
+  current: boolean;
+  onSelect: () => void;
 }
 
 export interface MenuAt {
@@ -18,10 +30,12 @@ export interface MenuAt {
 }
 
 const EDGE = 8;
+const SWATCH = "context-menu-swatch";
 
-/// A right-click menu at a point, kept inside the window. Arrow keys move,
-/// Enter picks, Escape or a click elsewhere closes, and focus goes back to
-/// where it was (usually the terminal).
+/// A right-click menu at a point, kept inside the window. Arrow keys move, ←
+/// and → along a swatch row, which ↑ and ↓ take as one stop, landing on its
+/// current choice. Enter picks, Escape or a click elsewhere closes, and focus
+/// goes back to where it was (usually the terminal).
 export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState<{ title: string; items: Grouped<MenuItem> }[]>([{ title: "", items: menu.items }]);
@@ -57,7 +71,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
     box.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }, [menu.x, menu.y, pages]);
 
-  const pick = (item: MenuItem) => {
+  const pick = (item: Pick<MenuItem, "items" | "label" | "onSelect">) => {
     if (item.items) return setPages([...pages, { title: item.label, items: item.items }]);
     onClose();
     item.onSelect?.();
@@ -65,10 +79,17 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     const buttons = [...(ref.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
-    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    const move = (to: number) => buttons[(to + buttons.length) % buttons.length]?.focus();
-    if (event.key === "ArrowDown") move(at + 1);
-    else if (event.key === "ArrowUp") move(at - 1);
+    const active = document.activeElement as HTMLButtonElement;
+    const onSwatch = active.classList.contains(SWATCH);
+    const swatches = buttons.filter((button) => button.classList.contains(SWATCH));
+    const stops = buttons.filter(
+      (button) => !swatches.includes(button) || button === active || (!onSwatch && button.getAttribute("aria-checked") === "true"),
+    );
+    const step = (list: HTMLButtonElement[], by: number) => list[(list.indexOf(active) + by + list.length) % list.length]?.focus();
+    if (event.key === "ArrowDown") step(stops, 1);
+    else if (event.key === "ArrowUp") step(stops, -1);
+    else if (onSwatch && event.key === "ArrowRight") step(swatches, 1);
+    else if (onSwatch && event.key === "ArrowLeft") step(swatches, -1);
     else if (event.key === "Escape") pages.length > 1 ? setPages(pages.slice(0, -1)) : onClose();
     else if (event.key === "ArrowLeft" && pages.length > 1) setPages(pages.slice(0, -1));
     else return;
@@ -93,15 +114,32 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
       {menuGroups(page.items).map((group, index) => (
         <Fragment key={index}>
           {index > 0 && <div className="context-menu-divider" role="separator" />}
-          {group.map((item) => (
-            <button key={item.label} role="menuitem" disabled={item.disabled} onClick={() => pick(item)}>
-              <span className="context-menu-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="context-menu-label">{item.label}</span>
-              {item.items && <span className="context-menu-more">›</span>}
-            </button>
-          ))}
+          {group.map((item) =>
+            item.swatches ? (
+              <div key={item.label} className="context-menu-swatches" role="group" aria-label={item.label}>
+                {item.swatches.map((swatch) => (
+                  <button
+                    key={swatch.label}
+                    className={swatch.color ? SWATCH : `${SWATCH} hollow`}
+                    role="menuitemradio"
+                    aria-checked={swatch.current}
+                    aria-label={swatch.label}
+                    title={swatch.label}
+                    style={swatch.color ? ({ "--swatch": swatch.color } as CSSProperties) : undefined}
+                    onClick={() => pick(swatch)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <button key={item.label} role="menuitem" disabled={item.disabled} onClick={() => pick(item)}>
+                <span className="context-menu-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className="context-menu-label">{item.label}</span>
+                {item.items && <span className="context-menu-more">›</span>}
+              </button>
+            ),
+          )}
         </Fragment>
       ))}
     </div>

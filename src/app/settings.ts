@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { BUILTIN_NAMES, DEFAULT_THEME_NAME, HERDR_NIGHT, type NamedTheme, builtinTheme, named, parseThemeName } from "../themes/catalog";
 import { parseGhostty } from "../themes/ghostty";
+import { HUE_SLOTS, type HueSlot, isHueSlot } from "./hue";
 
 export interface Settings {
   /// A theme name, path, or `light:…,dark:…` pair.
@@ -25,6 +26,8 @@ export interface Settings {
   tabsWrap: boolean;
   /// What a new tab runs; `null` is the shell.
   newTabCommand: string | null;
+  /// The palette slot chosen for a workspace, by its folder.
+  workspaceColors: Record<string, HueSlot>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   confirmCloseTab: true,
   tabsWrap: true,
   newTabCommand: null,
+  workspaceColors: {},
 };
 
 /// The ranges a number setting accepts.
@@ -106,6 +110,15 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   // One line, typed into a shell: a control character would run or edit more than it.
   if (command.length > 1024 || /[\u0000-\u001f\u007f]/.test(command)) wrong("new_tab.command", "one line of at most 1024 characters", null);
   else settings.newTabCommand = command || null;
+  const colors = get("workspace_colors");
+  if (isObject(colors)) {
+    for (const [folder, slot] of Object.entries(colors)) {
+      if (isHueSlot(slot)) settings.workspaceColors[folder] = slot;
+      else warnings.push(`\`workspace_colors\` for ${folder} should be one of ${HUE_SLOTS.join(", ")}; using its automatic color.`);
+    }
+  } else if (colors !== undefined) {
+    warnings.push("`workspace_colors` should be a [workspace_colors] table of folders; every workspace keeps its automatic color.");
+  }
 
   // Every key the file holds that nothing above read.
   const unknown = (key: string) => warnings.push(`\`${key}\` is not a setting, so it does nothing.`);
@@ -130,6 +143,11 @@ export async function loadSettings(): Promise<Loaded> {
 /// Writes one key to the file, keeping its comments; `null` removes it.
 export function saveSetting(key: string, value: string | number | boolean | null): Promise<void> {
   return invoke("settings_set", { key, value });
+}
+
+/// Chooses a workspace's color, by its folder; `null` goes back to automatic.
+export function saveWorkspaceColor(folder: string, slot: HueSlot | null): Promise<void> {
+  return invoke("settings_set_entry", { table: "workspace_colors", entry: folder, value: slot });
 }
 
 /// The terminal's font list: the chosen face, then the usual monospace fallbacks.

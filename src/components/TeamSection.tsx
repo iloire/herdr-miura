@@ -14,12 +14,15 @@ export function TeamSection({
   controller,
   snapshot,
   workspace,
+  hue,
   directory,
   team,
 }: {
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace;
+  /// The workspace's color.
+  hue: string;
   /// The workspace's folder: where the team file is read and the tabs open.
   directory: string;
   team: TeamState;
@@ -31,6 +34,7 @@ export function TeamSection({
       controller={controller}
       snapshot={snapshot}
       workspace={workspace}
+      hue={hue}
       directory={directory}
       team={team}
       onClose={() => setOpen(false)}

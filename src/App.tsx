@@ -3,22 +3,23 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
 import { tabGit } from "./app/gitLine";
-import { hueColor } from "./app/hue";
+import { type HueSlot, workspaceHue, workspaceSlots } from "./app/hue";
 import { loadLayout, type SavedFile, saveLayout } from "./app/layout";
 import { loadPins } from "./app/pins";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
-import { isActive, itemOfTab, type Queue, queueKey } from "./app/queue";
+import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
-import { fontStack } from "./app/settings";
+import { fontStack, saveWorkspaceColor } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
 import { useRoots } from "./app/useRoots";
 import { useSeen } from "./app/useSeen";
 import { paneDirectory, sharedCheckout } from "./app/sharedCheckout";
 import { strayPath } from "./app/workspaceRoot";
+import { groupWorktrees } from "./app/worktreeGroups";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
@@ -226,6 +227,22 @@ export default function App() {
     }
     return byWorkspace;
   }, [counted, worktreeLists]);
+
+  // The colors chosen for workspaces. Every place that shows a workspace's hue
+  // reads it through `workspaceHue` with these.
+  const colors = state.settings.workspaceColors;
+  const slots = useMemo(() => {
+    const snapshot = state.snapshot;
+    if (!snapshot) return new Map<string, HueSlot>();
+    const rows = groupWorktrees(
+      snapshot.workspaces,
+      (workspace) => rootOf(workspace) ?? workspaceFolder(workspace, snapshot),
+      (workspace) => worktrees.get(workspace.workspace_id) ?? [],
+    );
+    return workspaceSlots(rows, rootOf, colors);
+  }, [state.snapshot, rootOf, worktrees, colors]);
+  const chooseColor = (folder: string, slot: HueSlot | null) =>
+    controller.act(saveWorkspaceColor(folder, slot).then(settings.reload));
 
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf);
@@ -513,7 +530,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}
@@ -532,7 +549,7 @@ export default function App() {
               bar, so the main column reads as the card picked in the sidebar. */}
           <main
             className="main"
-            style={focusedWorkspace ? ({ "--hue": hueColor(focusedWorkspace.label) } as CSSProperties) : undefined}
+            style={focusedWorkspace ? ({ "--hue": workspaceHue(focusedWorkspace, slots) } as CSSProperties) : undefined}
           >
             {/* The diff covers the tab bar too: its tabs are the sessions, not
                 the diff's, and would read as if they switched what it shows. */}
@@ -594,6 +611,7 @@ export default function App() {
                 controller={controller}
                 snapshot={state.snapshot}
                 workspace={focusedWorkspace ?? null}
+                hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 folder={local ? queueFolder : null}
                 queue={focusedQueue}
                 access={queueAccess}
@@ -649,6 +667,7 @@ export default function App() {
             controller={controller}
             workspaceId={shownWorktrees.workspace.workspace_id}
             workspace={shownWorktrees.workspace.label}
+            hue={workspaceHue(shownWorktrees.workspace, slots)}
             worktrees={shownWorktrees.list}
             onClose={closeWorktrees}
           />

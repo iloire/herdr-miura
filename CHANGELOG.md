@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 13:25 — Choose a workspace's color from its menu
+
+A workspace's right-click menu has a row of swatches below Mark as Seen: Automatic and the six palette colors. A chosen
+color replaces the automatic hue everywhere the workspace's hue shows (tab strip, status bar, Queue panel, Worktrees and
+Team dialogs), and on the card it colors the rail with a faint tint. Automatic cards stay neutral, and the current
+card's highlight and the gold of a card that needs you replace the color while they show. The swatches work with the
+arrow keys and Enter. A worktree takes its main checkout's color and has no swatches of its own, and neither does a
+workspace with no local folder. The choice is kept in the settings file as `workspace_colors`, by folder, so it survives
+a rename and follows the theme. A new `settings_set_entry` command writes tables keyed by paths, which `settings_set`
+refuses.
+
 ## 2026-10-31 13:14 — A README that shows the app at work
 
 The README now opens with two sentences and a large screenshot, then gives each main feature a short section and a

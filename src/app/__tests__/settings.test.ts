@@ -2,6 +2,29 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, fontStack, parseSettings } from "../settings";
 
 describe("parseSettings", () => {
+  it("reads workspace colors keyed by folder, and is quiet without the table", () => {
+    const { settings, warnings } = parseSettings({ workspace_colors: { "/code/my.app": "red", "/code/notes": "cyan" } });
+    expect(settings.workspaceColors).toEqual({ "/code/my.app": "red", "/code/notes": "cyan" });
+    expect(warnings).toEqual([]);
+    expect(parseSettings({}).settings.workspaceColors).toEqual({});
+  });
+
+  it("warns about a bad slot and keeps the good ones", () => {
+    for (const bad of ["pink", "Red", 3, ""]) {
+      const { settings, warnings } = parseSettings({ workspace_colors: { "/a": bad, "/b": "blue" } });
+      expect(settings.workspaceColors).toEqual({ "/b": "blue" });
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("/a");
+    }
+  });
+
+  it("warns when workspace_colors is not a table", () => {
+    const { settings, warnings } = parseSettings({ workspace_colors: "red" });
+    expect(settings.workspaceColors).toEqual({});
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("[workspace_colors]");
+  });
+
   it("gives every default for an empty or missing file", () => {
     for (const values of [{}, undefined, null, "junk"]) {
       expect(parseSettings(values)).toEqual({ settings: DEFAULT_SETTINGS, warnings: [] });
@@ -23,6 +46,7 @@ describe("parseSettings", () => {
       confirm_close_tab: false,
       new_tab: { command: " claude " },
       tabs: { wrap: false },
+      workspace_colors: { "/code/notes": "cyan" },
     });
     expect(warnings).toEqual([]);
     expect(settings).toEqual({
@@ -32,6 +56,7 @@ describe("parseSettings", () => {
       confirmCloseTab: false,
       tabsWrap: false,
       newTabCommand: "claude",
+      workspaceColors: { "/code/notes": "cyan" },
     });
   });
 

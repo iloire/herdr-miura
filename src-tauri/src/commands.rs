@@ -730,6 +730,18 @@ pub fn settings_set(key: String, value: Value) -> Result<()> {
     Ok(settings::set_in(&settings::path()?, &key, &value)?)
 }
 
+/// Sets one entry of a table keyed by the user's own names, such as folders
+/// (null removes it), keeping the file's comments.
+#[tauri::command]
+pub fn settings_set_entry(table: String, entry: String, value: Value) -> Result<()> {
+    Ok(settings::set_entry_in(
+        &settings::path()?,
+        &table,
+        &entry,
+        &value,
+    )?)
+}
+
 /// Every Ghostty theme installed on this Mac, by file name.
 #[tauri::command]
 pub async fn theme_list() -> Result<Vec<String>> {

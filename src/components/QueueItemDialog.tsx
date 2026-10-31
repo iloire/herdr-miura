@@ -1,7 +1,6 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { tildePath } from "../app/folder";
-import { hueColor } from "../app/hue";
 import { readItemCommits, title, type Item, worktreeBranch } from "../app/queue";
 import { formatMoment, formatSpan, relativeTime } from "../app/time";
 import { useCopied } from "../app/useCopied";
@@ -17,13 +16,14 @@ const STATE_WORDS = { done: "Done", failed: "Failed", stopped: "Stopped" } as Pa
 export function QueueItemDialog({
   item,
   folder,
-  workspace,
+  hue,
   onGo,
   onClose,
 }: {
   item: Item;
   folder: string;
-  workspace: string;
+  /// The workspace's color.
+  hue: string;
   /// Goes to its tab; null once the tab is gone.
   onGo: (() => void) | null;
   onClose: () => void;
@@ -44,7 +44,7 @@ export function QueueItemDialog({
         aria-labelledby="queue-item-title"
         // A click on the text must leave focus inside, for Escape.
         tabIndex={-1}
-        style={{ "--hue": hueColor(workspace) } as CSSProperties}
+        style={{ "--hue": hue } as CSSProperties}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && onClose()}
       >

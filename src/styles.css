@@ -605,8 +605,20 @@ body.reordering * {
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
 
+/* A workspace given a color wears it on the rail with a faint tint. The rules
+   for the current card and the lantern come later, so they replace all of it. */
+.workspace.colored {
+  --rail: var(--hue);
+  background: color-mix(in srgb, var(--hue) 10%, transparent);
+}
+
 .workspace:hover {
   background: var(--hover);
+}
+
+/* :where keeps this at the weight of the rules after it. */
+.workspace:where(.colored):hover {
+  background: color-mix(in srgb, var(--hue) 10%, var(--hover));
 }
 
 /* The picked card takes a thicker, brighter rail over a gray wash. */
@@ -2525,6 +2537,40 @@ kbd {
 
 .context-menu-more {
   color: var(--muted);
+}
+
+.context-menu-swatches {
+  display: flex;
+  gap: 7px;
+  padding: 7px 9px;
+}
+
+.context-menu button.context-menu-swatch {
+  --swatch: transparent;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+/* Automatic: hollow, with a dashed edge, as it has no color of its own. */
+.context-menu button.context-menu-swatch.hollow {
+  border: 1.5px dashed var(--muted);
+}
+
+.context-menu button.context-menu-swatch:hover:not(:disabled),
+.context-menu button.context-menu-swatch:focus-visible {
+  background: var(--swatch);
+  transform: scale(1.2);
+}
+
+/* The ring sits a gap away from the disc, so it reads on every color. */
+.context-menu button.context-menu-swatch[aria-checked="true"] {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
 
 .context-menu .context-menu-back {

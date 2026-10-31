@@ -196,7 +196,24 @@ fn toml_value(value: &Value) -> Result<Option<toml_edit::Value>, Error> {
 /// rewritten. A symlinked file is written through its link, so a provisioned
 /// file stays a link into the dotfiles.
 pub fn set_in(path: &Path, key: &str, value: &Value) -> Result<(), Error> {
-    let parts = key_parts(key)?;
+    set_parts(path, &key_parts(key)?, value)
+}
+
+/// Sets `entry` of a table whose keys are the user's rather than setting names,
+/// as `workspace_colors` is keyed by folder: any one line of text, which TOML
+/// quotes. `table` is a plain top-level key. Otherwise as `set_in`.
+pub fn set_entry_in(path: &Path, table: &str, entry: &str, value: &Value) -> Result<(), Error> {
+    let parts = key_parts(table)?;
+    let [table] = parts.as_slice() else {
+        return Err(Error::BadKey(table.into()));
+    };
+    if entry.is_empty() || entry.len() > MAX_VALUE_BYTES || entry.chars().any(char::is_control) {
+        return Err(Error::BadKey(entry.into()));
+    }
+    set_parts(path, &[table, entry], value)
+}
+
+fn set_parts(path: &Path, parts: &[&str], value: &Value) -> Result<(), Error> {
     let new = toml_value(value)?;
     let target = if path.is_symlink() {
         fs::canonicalize(path).map_err(|source| Error::Read {
@@ -215,7 +232,7 @@ pub fn set_in(path: &Path, key: &str, value: &Value) -> Result<(), Error> {
         })?;
     let (last, tables) = parts
         .split_last()
-        .ok_or_else(|| Error::BadKey(key.into()))?;
+        .ok_or_else(|| Error::BadKey(parts.join(".")))?;
     // A file of comments alone (as provisioned, every key commented out) holds
     // them as trailing text, which prints after everything: whatever is added
     // at the end takes them as its prefix, so it lands below them, not above.
@@ -583,6 +600,60 @@ mod tests {
             Err(Error::Unparsable { .. })
         ));
         assert_eq!(read(&path), "theme = [\n");
+    }
+
+    #[test]
+    fn a_table_keyed_by_paths_round_trips_and_keeps_the_file() {
+        let dir = temp();
+        let path = dir.path().join("config-tauri.toml");
+        put(&path, "# Herdr\ntheme = \"Nord\"\n");
+        let (dotted, odd) = ("/Users/me/code/my.app", "/tmp/it's a \"folder\"");
+        for (folder, slot) in [(dotted, "red"), (odd, "cyan")] {
+            set_entry_in(&path, "workspace_colors", folder, &json!(slot))
+                .unwrap_or_else(|error| panic!("{error}"));
+        }
+        let loaded = load_from(&path).unwrap_or_else(|error| panic!("{error}"));
+        assert!(loaded.error.is_none());
+        assert_eq!(
+            loaded.values,
+            json!({"theme": "Nord", "workspace_colors": {dotted: "red", odd: "cyan"}})
+        );
+        assert!(read(&path).starts_with("# Herdr\ntheme = \"Nord\"\n\n[workspace_colors]\n"));
+        set_entry_in(&path, "workspace_colors", dotted, &json!("blue"))
+            .unwrap_or_else(|error| panic!("{error}"));
+        set_entry_in(&path, "workspace_colors", odd, &Value::Null)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let loaded = load_from(&path).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(
+            loaded.values,
+            json!({"theme": "Nord", "workspace_colors": {dotted: "blue"}})
+        );
+    }
+
+    #[test]
+    fn a_keyed_table_refuses_bad_names_and_leaves_the_file() {
+        let dir = temp();
+        let path = dir.path().join("config-tauri.toml");
+        let long = "x".repeat(5000);
+        for entry in ["", "line\nbreak", long.as_str()] {
+            assert!(
+                matches!(
+                    set_entry_in(&path, "workspace_colors", entry, &json!("red")),
+                    Err(Error::BadKey(_))
+                ),
+                "{entry}"
+            );
+        }
+        for table in ["", "a.b", "Colors", "../x"] {
+            assert!(
+                matches!(
+                    set_entry_in(&path, table, "/a", &json!("red")),
+                    Err(Error::BadKey(_))
+                ),
+                "{table}"
+            );
+        }
+        assert!(!path.exists());
     }
 
     #[cfg(unix)]

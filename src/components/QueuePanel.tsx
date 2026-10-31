@@ -1,7 +1,6 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
-import { hueColor } from "../app/hue";
 import { formatSpan } from "../app/time";
 import { useHome } from "../app/useHome";
 import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, runningState, title, worktreeBranch } from "../app/queue";
@@ -24,6 +23,7 @@ export function QueuePanel({
   controller,
   snapshot,
   workspace,
+  hue,
   folder,
   queue: saved,
   access,
@@ -33,6 +33,8 @@ export function QueuePanel({
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace | null;
+  /// The workspace's color.
+  hue: string;
   /// The workspace's folder; null when there is no workspace or it is on another machine.
   folder: string | null;
   queue: Queue | null;
@@ -80,6 +82,7 @@ export function QueuePanel({
       controller={controller}
       snapshot={snapshot}
       workspace={workspace}
+      hue={hue}
       folder={folder}
       queue={saved ?? emptyQueue(folder)}
       separate={access.separate}
@@ -93,6 +96,7 @@ function QueueBody({
   controller,
   snapshot,
   workspace,
+  hue,
   folder,
   queue,
   separate,
@@ -102,6 +106,7 @@ function QueueBody({
   controller: Controller;
   snapshot: Snapshot;
   workspace: Workspace;
+  hue: string;
   folder: string;
   queue: Queue;
   /// A dev build's own queue, apart from the daily window's.
@@ -149,7 +154,7 @@ function QueueBody({
   const opened = queue.history.find((item) => item.id === openId);
 
   return (
-    <aside className="changes queue-panel" aria-label="Queue" style={{ "--hue": hueColor(workspace.label) } as CSSProperties}>
+    <aside className="changes queue-panel" aria-label="Queue" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">
         <span className="queue-head-title">
           Queue <b title={folder}>{workspace.label}</b>
@@ -309,7 +314,7 @@ function QueueBody({
         <QueueItemDialog
           item={opened}
           folder={folder}
-          workspace={workspace.label}
+          hue={hue}
           onGo={
             hasTab(opened)
               ? () => {

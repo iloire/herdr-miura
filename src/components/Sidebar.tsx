@@ -1,4 +1,4 @@
-import { type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
@@ -6,6 +6,7 @@ import { agentRefusal, type Land, type LandStore, landing } from "../changes/lan
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, cardAgents, loopTags, unseenDone, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
+import { HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
@@ -54,6 +55,18 @@ function folderMenu(controller: Controller, path: string): MenuItem[] {
   ];
 }
 
+/// The row of colors a workspace can take, in its menu.
+function colorSwatches(chosen: HueSlot | null, pick: (slot: HueSlot | null) => void): MenuItem {
+  const named = (slot: HueSlot) => slot[0].toUpperCase() + slot.slice(1);
+  return {
+    label: "Workspace color",
+    swatches: [
+      { label: "Automatic", color: null, current: chosen === null, onSelect: () => pick(null) },
+      ...HUE_SLOTS.map((slot) => ({ label: named(slot), color: slotColor(slot), current: chosen === slot, onSelect: () => pick(slot) })),
+    ],
+  };
+}
+
 const NO_LANDS: ReadonlyMap<string, Land> = new Map();
 const noLands = () => NO_LANDS;
 const noSubscription = () => () => {};
@@ -73,6 +86,8 @@ export function Sidebar({
   rootOf,
   lands,
   onMarkSeen,
+  slots,
+  onChooseColor,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -99,6 +114,10 @@ export function Sidebar({
   lands: LandStore | null;
   /// Clears these finished agents' marks in this window.
   onMarkSeen: (agents: Agent[]) => void;
+  /// Each workspace's chosen color, by workspace id; absent when automatic.
+  slots: ReadonlyMap<string, HueSlot>;
+  /// Chooses the color of the workspace on this folder; `null` is automatic.
+  onChooseColor: (folder: string, slot: HueSlot | null) => void;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -186,6 +205,7 @@ export function Sidebar({
           const path = snapshot && (rootOf(workspace) ?? workspaceDirectory(workspace, snapshot));
           const marks = workspaceMarks(own, workspace.agent_status);
           const needsYou = marks.some((mark) => mark.status === "blocked");
+          const colored = slots.has(workspace.workspace_id);
           const listening = ports.get(workspace.workspace_id) ?? [];
           const trees = worktrees.get(workspace.workspace_id) ?? [];
           const pinnedTabs = pinned.get(workspace.workspace_id) ?? [];
@@ -241,7 +261,8 @@ export function Sidebar({
               {/* A worktree hangs off its main checkout's card. */}
               {parent && <span className="worktree-link" aria-hidden="true" />}
               <div
-                className={["workspace", workspace.focused && "current", needsYou && "needs-you"].filter(Boolean).join(" ")}
+                className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored"].filter(Boolean).join(" ")}
+                style={colored ? ({ "--hue": workspaceHue(workspace, slots) } as CSSProperties) : undefined}
                 title={parent ? `A worktree of ${parent.label}` : undefined}
                 {...drag.handlers(index)}
                 onContextMenu={(event) => {
@@ -262,7 +283,11 @@ export function Sidebar({
                     disabled: finished.length === 0,
                     onSelect: () => onMarkSeen(finished),
                   };
-                  const items = [[rename, markSeen]];
+                  // A worktree wears its main checkout's color, and only a local
+                  // workspace has a root to keep the choice under.
+                  const root = rootOf(workspace);
+                  const colors = root !== null && !parent ? [colorSwatches(slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(root, slot))] : [];
+                  const items = [[rename, markSeen, ...colors]];
                   if (path && folder) {
                     const queue: MenuItem = {
                       label: "Add to Queue…",
@@ -361,6 +386,7 @@ export function Sidebar({
           controller={controller}
           snapshot={snapshot}
           workspace={focused}
+          hue={workspaceHue(focused, slots)}
           directory={focusedFolder}
           team={teamOf(focused)}
         />
