@@ -284,7 +284,7 @@ export function end(queue: Queue, id: string, state: "done" | "failed" | "stoppe
 export function dropItem(queue: Queue, id: string, now: number): Queue {
   const item = queue.items.find((i) => i.id === id);
   if (!item || !isActive(item) || item.state === "starting" || item.state === "prompting") return queue;
-  return { ...end(queue, id, "stopped", now, "removed by you"), paused: queue.paused };
+  return { ...end(queue, id, "stopped", now, "left the queue, agent kept running"), paused: queue.paused };
 }
 
 /// Puts a `starting` item back at its place and pauses, for a start refused

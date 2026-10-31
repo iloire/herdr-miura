@@ -348,21 +348,29 @@ function Running({
 }) {
   const agent = snapshot.agents.find((a) => a.pane_id === item.paneId);
   const { words, mark } = runningState(item, agent?.agent_status);
+  const here = inItsTab(item, snapshot.focused_tab_id);
+  const canOpen = !!item.tabId && !here;
+  const canLeave = item.state !== "starting" && item.state !== "prompting";
   return (
     <li className={`queue-stop running ${mark === "blocked" ? "needs-you" : ""}`}>
       <span className={`queue-node ${mark ? "marked" : ""}`} aria-hidden="true">
         {mark && <StatusMark status={mark} />}
       </span>
-      <div className="queue-card">
+      <div
+        className={`queue-card ${canOpen ? "opens" : ""}`}
+        title={canOpen ? "Open its tab" : undefined}
+        onClick={canOpen ? onGo : undefined}
+      >
         <div className="queue-card-meta">
           <span className="queue-state">{words}</span>
           <span className="queue-num">
             #{item.n} · {elapsed(item.started)}
           </span>
         </div>
-        <p className="queue-card-title" title={item.prompt}>
-          {title(item.prompt, 120)}
-        </p>
+        {/* The keyboard's way in: a click here bubbles to the card. */}
+        <button className="queue-card-open" title={item.prompt} disabled={!canOpen} aria-label={`Open the tab of #${item.n}`}>
+          <span className="queue-card-title">{title(item.prompt, 120)}</span>
+        </button>
         <FromAgent item={item} />
         {item.worktree && (
           <span className="queue-from" title={item.worktree}>
@@ -372,29 +380,28 @@ function Running({
         {item.state === "waiting" && item.reason && (
           <p className="queue-note" title={item.reason}>Claude is asking something before it starts. Answer it in the tab; the prompt follows.</p>
         )}
-        <div className="queue-card-actions">
-          {inItsTab(item, snapshot.focused_tab_id) ? (
-            <span className="queue-here" title="The tab in front is running this prompt">
-              <TerminalIcon />
-              In this tab
-            </span>
-          ) : (
-            <button className="primary" disabled={!item.tabId} onClick={onGo}>
-              <TerminalIcon />
-              Open tab
-            </button>
-          )}
-          {item.state !== "starting" && item.state !== "prompting" && (
-            <button
-              className="danger"
-              aria-label={`Remove #${item.n}`}
-              onClick={onDrop}
-              title="Remove: take it off the queue; its tab and agent stay as they are"
-            >
-              ×
-            </button>
-          )}
-        </div>
+        {(here || canLeave) && (
+          <div className="queue-card-actions">
+            {here && (
+              <span className="queue-here" title="The tab in front is running this prompt">
+                <TerminalIcon />
+                In this tab
+              </span>
+            )}
+            {canLeave && (
+              <button
+                className="queue-leave"
+                title="Its agent and tab are left untouched; only the queue stops following it. The next prompt waits until the agent is quiet."
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDrop();
+                }}
+              >
+                Leave queue, keep running
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </li>
   );

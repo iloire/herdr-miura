@@ -274,7 +274,7 @@ describe("editing a queue", () => {
     const id = queue.items[0].id;
     const dropped = dropItem(queue, id, 5000);
     expect(dropped.items.map((i) => i.prompt)).toEqual(["b"]);
-    expect(dropped.history[0]).toMatchObject({ id, state: "stopped", reason: "removed by you", finished: 5000 });
+    expect(dropped.history[0]).toMatchObject({ id, state: "stopped", reason: "left the queue, agent kept running", finished: 5000 });
     expect(dropped.paused).toBeNull();
     const paused = { ...queue, paused: { reason: "Paused by you." } };
     expect(dropItem(paused, id, 5000).paused).toEqual({ reason: "Paused by you." });

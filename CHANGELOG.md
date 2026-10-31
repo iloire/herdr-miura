@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 10:30 — The running prompt's card says what its buttons do
+
+A click anywhere on the card opens its tab, so the Open tab button is gone. The × read like a kill switch, though it
+only ever stopped the queue following the prompt. It is now **Leave queue, keep running**, never red, and the history
+row says "left the queue, agent kept running" instead of "removed by you".
+
 ## 2026-10-31 10:08 — Esc closes the Team dialog wherever you clicked
 
 A click on a card's text, a pill or the header moved focus out of the dialog, and Esc then did nothing. The dialog now

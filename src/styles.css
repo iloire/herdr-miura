@@ -3658,6 +3658,16 @@ kbd {
   --lit: var(--lantern);
 }
 
+/* The whole card opens the prompt's tab, unless that tab is already in front. */
+.queue-card.opens {
+  cursor: pointer;
+}
+
+.queue-card.opens:hover {
+  background: color-mix(in srgb, var(--lit) 12%, var(--ink));
+  border-color: color-mix(in srgb, var(--lit) 50%, var(--rule));
+}
+
 .queue-card-meta {
   display: flex;
   align-items: baseline;
@@ -3683,9 +3693,20 @@ kbd {
   font-style: normal;
 }
 
+.queue-card-open {
+  display: block;
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 0;
+  text-align: left;
+}
+
+.queue-card-open:disabled {
+  cursor: default;
+}
+
 .queue-card-title {
   display: -webkit-box;
-  margin: 6px 0 0;
   overflow: hidden;
   color: var(--text);
   font-size: calc(13px * var(--ui-scale));
@@ -3722,24 +3743,22 @@ kbd {
   white-space: nowrap;
 }
 
-.queue-card-actions button.danger {
+/* Quiet and never red: it stops nothing, the agent carries on in its tab. */
+.queue-card-actions button.queue-leave {
   margin-left: auto;
   color: var(--muted);
 }
 
-.queue-card-actions button.danger:hover {
-  color: var(--blocked);
+.queue-card-actions button.queue-leave:hover {
+  color: var(--text);
 }
 
-.queue-card-actions button svg,
 .queue-here svg {
   width: 13px;
   height: 13px;
   color: var(--muted);
 }
 
-/* Where Open tab sits when that tab is the one in front: the same box, so the
-   buttons beside it stay put, but a statement rather than an action. */
 .queue-here {
   display: inline-flex;
   align-items: center;
@@ -3749,15 +3768,6 @@ kbd {
   color: var(--muted);
   font: calc(12px * var(--ui-scale)) var(--sans);
   white-space: nowrap;
-}
-
-.queue-card-actions button.primary {
-  border-color: color-mix(in srgb, var(--lit) 40%, var(--rule));
-  background: color-mix(in srgb, var(--lit) 12%, transparent);
-}
-
-.queue-card-actions button.primary svg {
-  color: var(--lit);
 }
 
 .queue-card-actions button:hover:not(:disabled) {
