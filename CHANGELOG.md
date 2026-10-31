@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 09:38 — One pause button for the queue
+
+The running prompt's card no longer has Pause after. It did the same as the pause button in the panel's header, which
+also lets the running prompt finish and starts nothing after it, except that it waited to say so. It could also outlive
+its prompt: removing the running prompt left it armed for the next one.
+
 ## 2026-10-31 09:34 — The header strip says a tab came from the queue
 
 A queued prompt's tab is now labelled with its title alone and shows the usual status mark, dropping the `⧗ 43 ·`

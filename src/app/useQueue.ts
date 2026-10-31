@@ -72,7 +72,7 @@ export interface QueueActions {
   move(folder: string, id: string, delta: number): void;
   /// Pauses with a reason, or resumes with null.
   pause(folder: string, paused: boolean): void;
-  set(folder: string, patch: Partial<Pick<Queue, "stopAfter" | "commitSuffix" | "requireClean">>): void;
+  set(folder: string, patch: Partial<Pick<Queue, "commitSuffix" | "requireClean">>): void;
 }
 
 /// The queue file, null until it is read. Queues only run while the window is

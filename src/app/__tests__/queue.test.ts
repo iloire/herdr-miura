@@ -176,12 +176,12 @@ describe("step", () => {
     expect(step(waiting, view([agent("p1", "blocked")], 99_000)).queue).toBe(waiting);
   });
 
-  it("pauses after the running item when asked to stop after it", () => {
-    let queue = { ...running(queued("one", "two")), stopAfter: true };
+  it("paused while an item runs, lets it finish and starts nothing after it", () => {
+    let queue: Queue = { ...running(queued("one", "two")), paused: { reason: "by you" } };
     queue = step(queue, view([agent("p1", "done")], 2000)).queue;
-    const { queue: ended } = step(queue, view([agent("p1", "done")], 2000 + FINISH_DEBOUNCE_MS));
-    expect(ended.paused?.reason).toMatch(/Stopped after #1/);
-    expect(ended.stopAfter).toBe(false);
+    const { queue: ended, effect } = step(queue, view([agent("p1", "done")], 2000 + FINISH_DEBOUNCE_MS));
+    expect(effect?.kind).toBe("finished");
+    expect(ended.paused?.reason).toBe("by you");
     expect(step(ended, view([], 99_000)).effect).toBeNull();
   });
 
@@ -463,14 +463,13 @@ describe("a prompt run in a worktree", () => {
     expect(step(waiting, view([agent("w1", "idle")], 2000)).effect?.kind).toBe("prompt");
   });
 
-  it("finishes without using up the queue's Pause after", () => {
-    let queue = { ...sent("fix it"), stopAfter: true };
+  it("finishes without pausing the queue", () => {
+    let queue = sent("fix it");
     queue = step(queue, view([agent("w1", "idle")], 2000)).queue;
     const result = step(queue, view([agent("w1", "idle")], 2000 + FINISH_DEBOUNCE_MS));
     expect(result.effect?.kind).toBe("finished");
     expect(result.effect?.item.worktree).toBe(PATH);
     expect(result.queue.items).toEqual([]);
-    expect(result.queue.stopAfter).toBe(true);
     expect(result.queue.paused).toBeNull();
   });
 

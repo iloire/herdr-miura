@@ -70,8 +70,6 @@ export interface Item {
 export interface Queue {
   folder: string;
   paused: { reason: string } | null;
-  /// Pause once the running item finishes.
-  stopAfter: boolean;
   commitSuffix: boolean;
   requireClean: boolean;
   nextN: number;
@@ -134,7 +132,6 @@ export function emptyQueue(folder: string): Queue {
   return {
     folder,
     paused: null,
-    stopAfter: false,
     commitSuffix: true,
     requireClean: true,
     nextN: 1,
@@ -251,11 +248,7 @@ function advance(queue: Queue, active: Item, view: View): { queue: Queue; effect
   if (now - active.quietSince < FINISH_DEBOUNCE_MS) return same;
   if (!agent) return { queue: end(queue, active.id, "stopped", now, "its agent exited"), effect: null };
   const ended = end(queue, active.id, "done", now);
-  const finished = ended.history[0];
-  const next = queue.stopAfter && !isAway(active)
-    ? { ...ended, stopAfter: false, paused: { reason: `Stopped after #${active.n}, as asked.` } }
-    : ended;
-  return { queue: next, effect: { kind: "finished", item: finished } };
+  return { queue: ended, effect: { kind: "finished", item: ended.history[0] } };
 }
 
 /// The queue with `item` in place of the one with its id.

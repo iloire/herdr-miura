@@ -194,9 +194,7 @@ function QueueBody({
           <Running
             item={active}
             snapshot={snapshot}
-            stopAfter={queue.stopAfter}
             onGo={() => goTo(active)}
-            onStopAfter={() => actions.set(folder, { stopAfter: !queue.stopAfter })}
             onDrop={() => actions.drop(folder, active.id)}
           />
         )}
@@ -340,17 +338,12 @@ function elapsed(since: number | undefined): string {
 function Running({
   item,
   snapshot,
-  stopAfter,
   onGo,
-  onStopAfter,
   onDrop,
 }: {
   item: Item;
   snapshot: Snapshot;
-  /// Absent for an item out of line, which the queue's pause does not reach.
-  stopAfter?: boolean;
   onGo: () => void;
-  onStopAfter?: () => void;
   onDrop: () => void;
 }) {
   const agent = snapshot.agents.find((a) => a.pane_id === item.paneId);
@@ -389,12 +382,6 @@ function Running({
             <button className="primary" disabled={!item.tabId} onClick={onGo}>
               <TerminalIcon />
               Open tab
-            </button>
-          )}
-          {onStopAfter && (
-            <button aria-pressed={stopAfter} onClick={onStopAfter} title="Pause the queue once this prompt finishes">
-              <PauseIcon />
-              {stopAfter ? "Pausing after" : "Pause after"}
             </button>
           )}
           {item.state !== "starting" && item.state !== "prompting" && (

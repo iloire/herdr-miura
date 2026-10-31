@@ -3720,13 +3720,6 @@ kbd {
   white-space: nowrap;
 }
 
-/* Wide enough for either, so Pause after doesn't shift as tabs change. */
-.queue-card-actions button.primary,
-.queue-here {
-  justify-content: center;
-  min-width: calc(90px * var(--ui-scale));
-}
-
 .queue-card-actions button.primary {
   border-color: color-mix(in srgb, var(--lit) 40%, var(--rule));
   background: color-mix(in srgb, var(--lit) 12%, transparent);
@@ -3734,11 +3727,6 @@ kbd {
 
 .queue-card-actions button.primary svg {
   color: var(--lit);
-}
-
-.queue-card-actions button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--lantern) 45%, var(--rule));
-  color: var(--lantern);
 }
 
 .queue-card-actions button:hover:not(:disabled) {
