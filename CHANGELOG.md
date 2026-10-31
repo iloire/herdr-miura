@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 16:51 — A logo of its own
+
+The Tauri logo is gone. The app icon is now a terminal window with horns and a gold cursor, on a dark tile for Stable, a
+violet one for Edge and a red one for dev. `src-tauri/icons/icon.svg` is the source and `scripts/icons.sh` redraws
+every size from it.
+
 ## 2026-10-31 16:30 — ⌥←/→ follow the strip
 
 ⌥←/→ and Next / Previous Tab now step through tabs in the order the strip shows them. They used the daemon's order, so
