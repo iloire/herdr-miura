@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 22:58 — Tick every changed file at once
+
+The Changes panel's count now has a tick box above the rows' boxes. It ticks every file, or unticks them once all are
+ticked, and shows a dash when only some are. Conflicts stay out, and a file that appears later comes in unticked.
+
 ## 2026-10-31 22:44 — The pin shows on a collapsed card
 
 A workspace with pinned tabs now shows its pin on the card's name line while collapsed, between the queue and any loop,

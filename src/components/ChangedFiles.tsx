@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { clean } from "../changes/diff";
-import { canCommit, canTick, commitPaths, keepListed } from "../changes/fileActions";
+import { canCommit, canTick, commitPaths, keepListed, tickState, toggleAll } from "../changes/fileActions";
 import type { ChangedFile, CheckoutChanges } from "../changes/store";
 import { IDLE, type CheckoutSync, type SyncOutcome, type SyncStore } from "../changes/sync";
 import { FileRow } from "./CommitList";
@@ -13,8 +13,9 @@ const filesLabel = (count: number) => `${count} ${count === 1 ? "file" : "files"
 
 type Failure = Extract<SyncOutcome, { kind: "failed" }>;
 
-/// The checkout's changed files, each with a tick box where it can be
-/// committed, and the message box once something is ticked. A tick is
+/// The checkout's changed files under their count, each with a tick box where
+/// it can be committed, a box on the count for all of them, and the message box
+/// once something is ticked. A tick is
 /// forgotten when its file leaves the list. A failed commit keeps the ticks and
 /// the message, so fixing what a hook said costs one more click.
 export function ChangedFiles({
@@ -44,6 +45,9 @@ export function ChangedFiles({
   if (kept !== ticks) setTicks(kept);
   const tickable = sync !== null && canCommit(checkout);
   const ticked = tickable ? files.filter((file) => kept.has(file.path)) : [];
+  const listTick = tickable && files.some(canTick);
+  const allTicks = tickState(kept, files);
+  const count = checkout.total_files === 0 ? "No uncommitted changes" : `${checkout.total_files} changed`;
 
   const toggle = (path: string) => {
     const next = new Set(kept);
@@ -82,6 +86,31 @@ export function ChangedFiles({
 
   return (
     <>
+      <h3 className={listTick ? "changes-section changes-section-ticks" : "changes-section"}>
+        {listTick ? (
+          <label>
+            <input
+              type="checkbox"
+              className="file-tick"
+              aria-label={allTicks === "all" ? "Untick all files" : "Tick all files"}
+              title={allTicks === "all" ? "Untick all files" : "Tick all files"}
+              checked={allTicks === "all"}
+              ref={(box) => {
+                if (box) box.indeterminate = allTicks === "some";
+              }}
+              onChange={() => setTicks(toggleAll(kept, files))}
+            />
+            {count}
+          </label>
+        ) : (
+          count
+        )}
+        {checkout.total_files > 0 && (
+          <span className="lines">
+            <span className="plus">+{checkout.added}</span> <span className="minus">−{checkout.removed}</span>
+          </span>
+        )}
+      </h3>
       <ul className="file-list">
         {files.map((file) => (
           <FileRow

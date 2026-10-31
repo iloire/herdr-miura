@@ -93,8 +93,8 @@ the last.
 
 ## Commit
 
-A tick box on each file row, unticked by default and forgotten when the file leaves the list. A message box and
-a Commit button appear once something is ticked.
+A tick box on each file row, unticked by default and forgotten when the file leaves the list, and one on the list's
+count for all of them. A message box and a Commit button appear once something is ticked.
 
 `commit_paths(checkout, paths, message, branch)` takes the same claim and checks, then runs:
 

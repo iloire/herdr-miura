@@ -101,14 +101,6 @@ export function ChangesPanel({
             <bdi>{checkout.path}</bdi>
           </div>
           {sync && <ChangesSync store={sync} checkout={checkout} rows={rows("moving")} />}
-          <h3 className="changes-section">
-            {checkout.total_files === 0 ? "No uncommitted changes" : `${checkout.total_files} changed`}
-            {checkout.total_files > 0 && (
-              <span className="lines">
-                <span className="plus">+{checkout.added}</span> <span className="minus">−{checkout.removed}</span>
-              </span>
-            )}
-          </h3>
           <ChangedFiles
             checkout={checkout}
             sync={sync}

@@ -2097,6 +2097,19 @@ body.reordering * {
   color: var(--muted);
 }
 
+/* The box sits over the rows' boxes, and the count over their marks. */
+.changes-section-ticks {
+  align-items: center;
+  padding-left: 14px;
+}
+
+.changes-section-ticks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .file-list,
 .commit-list {
   list-style: none;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { absolutePath, canCommit, canOpen, canTick, keepListed } from "../fileActions";
+import { absolutePath, canCommit, canOpen, canTick, keepListed, tickState, toggleAll } from "../fileActions";
 import type { ChangedFile, CheckoutChanges } from "../store";
 
 const file = (path: string, mark: string): ChangedFile => ({ path, mark, additions: null, deletions: null });
@@ -53,5 +53,36 @@ describe("keepListed", () => {
   it("answers with the same set when nothing left", () => {
     const ticks = new Set(["a"]);
     expect(keepListed(ticks, [file("a", "M"), file("b", "M")])).toBe(ticks);
+  });
+});
+
+describe("tickState", () => {
+  const files = [file("a", "M"), file("b", "?")];
+
+  it("tells none, some and all apart", () => {
+    expect(tickState(new Set(), files)).toBe("none");
+    expect(tickState(new Set(["a"]), files)).toBe("some");
+    expect(tickState(new Set(["a", "b"]), files)).toBe("all");
+  });
+
+  it("does not hold a conflict against all", () => {
+    expect(tickState(new Set(["a"]), [file("a", "M"), file("c", "U")])).toBe("all");
+  });
+
+  it("reads an empty list as none", () => {
+    expect(tickState(new Set(), [])).toBe("none");
+  });
+});
+
+describe("toggleAll", () => {
+  const files = [file("a", "M"), file("b", "?"), file("c", "U")];
+
+  it("ticks everything but a conflict from none or some", () => {
+    expect([...toggleAll(new Set(), files)]).toEqual(["a", "b"]);
+    expect([...toggleAll(new Set(["b"]), files)]).toEqual(["a", "b"]);
+  });
+
+  it("unticks everything from all", () => {
+    expect(toggleAll(new Set(["a", "b"]), files).size).toBe(0);
   });
 });
