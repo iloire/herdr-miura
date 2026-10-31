@@ -124,8 +124,8 @@ One commit each.
    `ensure_local`, and paths with a component that is not `Normal`. Rust tests against real repos: each row of
    the table, a glob-named file beside files it must not touch, a stale fingerprint, a rebase under way. Check
    the Trash method in a real build here.~~ ✅
-4. **Discard UI.** The menu item, the diff header button, the dialog, moving to the next file, and a reread of
-   `ChangesStore` and the sidebar counts. Hidden when `sync` is null, as on a remote host.
+4. ~~**Discard UI.** The menu item, the diff header button, the dialog, moving to the next file, and a reread of
+   `ChangesStore` and the sidebar counts. Hidden when `sync` is null, as on a remote host.~~ ✅
 5. **Commit backend.** `commit_paths` with Rust tests: an agent's staged file left alone, a glob-named path, an
    untracked folder, a rename, a hook refusing.
 6. **Commit UI.** Tick boxes, the message box, the failure note.

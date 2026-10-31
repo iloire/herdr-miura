@@ -244,6 +244,7 @@ fn a_deleted_file_comes_back_with_nothing_to_save() {
     let world = World::new();
     fs::remove_file(world.path().join("a.txt")).unwrap();
     assert_eq!(world.effect("a.txt"), Effect::BringBack);
+    assert!(matches!(world.plan("a.txt"), Plan::Ready { keeps_copy: false, .. }));
     assert_eq!(world.discard("a.txt"), Outcome::Done);
     assert_eq!(text(&world, "a.txt"), "committed\n");
     assert_eq!(world.short(), "");

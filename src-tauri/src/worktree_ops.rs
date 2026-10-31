@@ -62,6 +62,8 @@ pub enum Plan {
         deletions: Option<u64>,
         /// The index holds a version of its own, which is not kept.
         drops_staged: bool,
+        /// A copy of the working file goes to the Trash.
+        keeps_copy: bool,
         fingerprint: String,
     },
     Refused {
@@ -238,6 +240,7 @@ pub fn discard_plan(checkout: &str, path: &str, branch: Option<&str>) -> Plan {
         Ok(found) => Plan::Ready {
             effect: effect_of(&found.file),
             drops_staged: drops_staged(&found.file),
+            keeps_copy: !found.on_disk.is_empty(),
             old_path: found.file.old_path,
             additions: found.file.additions,
             deletions: found.file.deletions,

@@ -8,7 +8,7 @@ import type { SyncStore } from "../changes/sync";
 import { ChangesSync } from "./ChangesSync";
 import { CommitList, FileRow, type CommitRows } from "./CommitList";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { CodeIcon, CopyIcon } from "./icons";
+import { CodeIcon, CopyIcon, TrashIcon } from "./icons";
 
 /// The checkout under the focused pane: branch, its sync with the remote,
 /// changed files, recent commits. Picking a file opens its diff; picking a
@@ -23,6 +23,7 @@ export function ChangesPanel({
   listedCommits,
   onOpen,
   onToggleCommit,
+  onDiscard,
 }: {
   controller: Controller;
   store: ChangesStore;
@@ -32,6 +33,7 @@ export function ChangesPanel({
   listedCommits: MutableRefObject<RecentCommit[]>;
   onOpen: (file: ChangedFile) => void;
   onToggleCommit: (commit: RecentCommit) => void;
+  onDiscard: (file: ChangedFile) => void;
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
@@ -57,6 +59,7 @@ export function ChangesPanel({
         onSelect: () => controller.act(openFile(checkout.path, file.path)),
       });
     }
+    if (sync) items.push({ label: "Discard Changes…", icon: <TrashIcon />, onSelect: () => onDiscard(file) });
     return items;
   };
   const rows = (from: "moving" | "recent"): CommitRows => ({

@@ -10,12 +10,18 @@ export function DiffView({
   file,
   onSelect,
   onClose,
+  onDiscard,
+  covered,
 }: {
   checkout: string;
   files: ChangedFile[];
   file: ChangedFile;
   onSelect: (file: ChangedFile) => void;
   onClose: () => void;
+  /// `null` where this Mac cannot write to the checkout.
+  onDiscard: (() => void) | null;
+  /// A dialog holds the keys; they come back here once it closes.
+  covered: boolean;
 }) {
   const [loaded, setLoaded] = useState<Loaded>({ phase: "loading" });
   const rootRef = useRef<HTMLDivElement>(null);
@@ -31,6 +37,10 @@ export function DiffView({
       current = false;
     };
   }, [checkout, file]);
+
+  useEffect(() => {
+    if (!covered) rootRef.current?.focus();
+  }, [covered]);
 
   const index = files.findIndex((f) => f.path === file.path);
   const step = (by: number) => {
@@ -57,6 +67,11 @@ export function DiffView({
         <span className="diff-position">
           {index + 1} of {files.length}
         </span>
+        {onDiscard && (
+          <button className="diff-discard" title="Discard this file's changes" onClick={onDiscard}>
+            Discard…
+          </button>
+        )}
         <button className="icon-button" aria-label="Previous file" title="Previous file (↑)" disabled={index <= 0} onClick={() => step(-1)}>
           ↑
         </button>

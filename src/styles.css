@@ -458,6 +458,43 @@ body.reordering * {
   color: var(--lantern) !important;
 }
 
+.discard-file {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.discard-file code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.discard-details {
+  max-height: 140px;
+  margin: 0 0 12px;
+  overflow-y: auto;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.4 var(--mono);
+  white-space: pre-wrap;
+}
+
+.diff-discard {
+  padding: 2px 8px;
+  border-radius: 5px;
+  color: var(--muted);
+  font: calc(12px * var(--ui-scale)) var(--sans);
+}
+
+.diff-discard:hover {
+  background: var(--hover);
+  color: var(--blocked);
+}
+
+.diff-discard:focus-visible {
+  outline: 1px solid var(--lantern);
+}
+
 /* A worktree's dot, in a mark's width: filled while it holds work. */
 .card-dot {
   flex: none;

@@ -55,7 +55,7 @@ export function canLand(worktree: Worktree): boolean {
 /// Why an agent stops a land: one at work in the worktree, which may be its
 /// own work in progress. An idle or finished agent does not, or nothing could
 /// land while its session stays open. Only agents in a Herdr pane are known.
-export function agentRefusal(path: string, snapshot: Snapshot | null): string | null {
+export function agentRefusal(path: string, snapshot: Snapshot | null, place = "worktree"): string | null {
   if (!snapshot) return "The window cannot see its agents right now.";
   const panes = new Map(snapshot.panes.map((pane) => [pane.pane_id, pane]));
   const agent = snapshot.agents.find((agent) => {
@@ -63,7 +63,7 @@ export function agentRefusal(path: string, snapshot: Snapshot | null): string | 
     return busy(agent) && [pane?.cwd, pane?.foreground_cwd].some((folder) => folder && inside(folder, path));
   });
   if (!agent) return null;
-  return `${agent.display_agent ?? agent.name ?? "An agent"} is working in this worktree.`;
+  return `${agent.display_agent ?? agent.name ?? "An agent"} is working in this ${place}.`;
 }
 
 /// Whether a repo's land is under way, so nothing else may start there.

@@ -184,3 +184,9 @@ export const RenameIcon = () => (
     <path d="M10.5 3 13 5.5 6 12.5H3.5V10L10.5 3Z" {...LINE} />
   </Icon>
 );
+
+export const TrashIcon = () => (
+  <Icon>
+    <path {...LINE} d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.8 7v3.8M9.2 7v3.8" />
+  </Icon>
+);

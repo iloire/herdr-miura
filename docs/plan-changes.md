@@ -2,8 +2,9 @@
 
 Shows what changed in the checkout you are working in, and the diff of any file, without leaving the app.
 It keeps a branch in step with its remote too: background fetch, push, publish and pull, with the
-commits each would move. It does not stage, commit, discard, stash, merge or rebase. Agents do the
-committing here, and discard or stash could destroy another agent's work.
+commits each would move. You can discard one file's change, which goes to the Trash first and is refused if
+the file moved since you looked ([plan-git-actions.md](plan-git-actions.md)). It does not stage, commit, stash,
+merge or rebase. Agents do the committing here, and a stash could destroy another agent's work.
 
 ## Where the data comes from
 

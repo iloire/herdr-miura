@@ -22,7 +22,8 @@ import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
 import { ChangesStore, type ChangedFile, type CheckoutChanges, type RecentCommit } from "./changes/store";
-import { LandStore } from "./changes/land";
+import { fileAfter } from "./changes/discard";
+import { agentRefusal, LandStore } from "./changes/land";
 import { SyncStore } from "./changes/sync";
 import { commitBeside } from "./changes/commit";
 import { useCommitFiles } from "./changes/useCommitFiles";
@@ -30,6 +31,7 @@ import { ChangesPanel } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
 import { DEV_BRANCH } from "./components/DevBar";
 import { DiffView } from "./components/DiffView";
+import { DiscardDialog } from "./components/Discard";
 import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
@@ -87,6 +89,8 @@ export default function App() {
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const settings = useSettings(controller);
   const [diffFile, setDiffFile] = useState<ChangedFile | null>(null);
+  // The file the discard dialog is open on.
+  const [discarding, setDiscarding] = useState<ChangedFile | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
   const [filePick, setFilePick] = useState<string | null>(null);
   // The workspace whose worktrees the details dialog shows.
@@ -177,9 +181,9 @@ export default function App() {
   const directoriesKey = counted.directories.join("\0");
   const [counts, setCounts] = useState<Map<string, number | null>>(new Map());
   const [worktreeLists, setWorktreeLists] = useState<Map<string, Worktree[] | null>>(new Map());
-  // A land just ended, so the worktrees and counts are stale now, not in 10 s.
-  const [landsEnded, setLandsEnded] = useState(0);
-  const landStore = useMemo(() => new LandStore(() => setLandsEnded((ended) => ended + 1)), []);
+  // A land or a discard just ended, so the worktrees and counts are stale now, not in 10 s.
+  const [writesEnded, setWritesEnded] = useState(0);
+  const landStore = useMemo(() => new LandStore(() => setWritesEnded((ended) => ended + 1)), []);
   useEffect(() => {
     const directories = directoriesKey ? directoriesKey.split("\0") : [];
     if (directories.length === 0) return;
@@ -203,7 +207,7 @@ export default function App() {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [directoriesKey, landsEnded]);
+  }, [directoriesKey, writesEnded]);
   const changedFiles = useMemo(() => {
     const byWorkspace = new Map<string, number>();
     for (const [workspace, directory] of counted.byWorkspace) {
@@ -390,6 +394,22 @@ export default function App() {
     controller.focusTerminal();
   };
 
+  const closeDiscard = () => {
+    setDiscarding(null);
+    if (!shownFile) controller.focusTerminal();
+  };
+
+  // A discard of the file on show moves on to the next, or closes after the last.
+  const discarded = (file: ChangedFile) => {
+    changesStore.reread();
+    setWritesEnded((ended) => ended + 1);
+    setDiscarding(null);
+    if (shownFile?.path !== file.path) return closeDiscard();
+    const next = checkout ? fileAfter(checkout.files, file.path) : null;
+    if (next) setDiffFile(next);
+    else closeDiff();
+  };
+
   const openFile = (file: ChangedFile) => {
     setOpenCommit(null);
     setDiffFile(file);
@@ -528,6 +548,8 @@ export default function App() {
                   file={shownFile}
                   onSelect={setDiffFile}
                   onClose={closeDiff}
+                  onDiscard={local ? () => setDiscarding(shownFile) : null}
+                  covered={discarding !== null}
                 />
               )}
               {shownCommit && checkout && (
@@ -580,10 +602,22 @@ export default function App() {
                 listedCommits={listedCommits}
                 onOpen={openFile}
                 onToggleCommit={toggleCommit}
+                onDiscard={setDiscarding}
               />
             )}
           </div>
         </div>
+        {discarding && checkout && local && (
+          <DiscardDialog
+            key={discarding.path}
+            checkout={checkout.path}
+            branch={checkout.branch}
+            file={discarding}
+            agent={agentRefusal(checkout.path, state.snapshot, "checkout")}
+            onClose={closeDiscard}
+            onDiscarded={discarded}
+          />
+        )}
         {state.palette && <Palette controller={controller} commands={paletteCommands} />}
         {state.library && (
           <PromptPalette

@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:40 — Discard one file from the Changes panel, and row menus
+
+A file row's right-click now has Copy Path, Open in VS Code and Discard Changes…, and a commit row's has Copy SHA. The
+diff header has Discard… too, and moves on to the next file afterwards. A copy of what you throw away goes to the
+Trash first, and if the Trash fails the file stays as it was. The dialog reads the file when it opens, and the discard
+is refused if the file, its staged version or HEAD changed since, so a write from an agent is not lost to a stale
+click. A busy agent in the checkout is a warning. Folders, symlinks, submodules and conflicts are refused, with the
+reason in the dialog. There is no Discard all, and nothing is left staged.
+
 ## 2026-10-31 11:16 — ⌥↑ / ⌥↓ moves between workspaces from a text field
 
 Stepping through the sidebar stopped at any workspace with its Queue panel open, because the panel's prompt box took
