@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 09:49 — Save a prompt, and nothing typed in the library is lost
+
+The prompt library's box could be edited but never saved. Save (⌘S) now writes the text to the file, keeping its
+frontmatter and writing through a link into dotfiles. If the file changed since the edit began it is refused, with
+the edit kept and the file left alone, and a second Save replaces it. Revert throws the edit away.
+
+Text typed in the library used to go whenever it closed. Edits and the new prompt form are now stored as they are
+typed, until saved, sent or thrown away by hand, so Esc, ×, ⌘⇧L, opening the command palette, a reload or quitting
+loses nothing: opening the library brings them back, on the prompt that was edited. A click outside no longer closes
+it while there is unsaved text on screen. In the form Esc is now Back, keeping the draft, and Cancel became Discard.
+
 ## 2026-10-31 09:38 — One pause button for the queue
 
 The running prompt's card no longer has Pause after. It did the same as the pause button in the panel's header, which

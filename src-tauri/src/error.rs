@@ -13,6 +13,8 @@ pub enum Error {
     #[error(transparent)]
     PromptCreate(#[from] crate::prompts::CreateError),
     #[error(transparent)]
+    PromptSave(#[from] crate::prompts::SaveError),
+    #[error(transparent)]
     Queue(#[from] crate::queue::StoreError),
     #[error(transparent)]
     TeamCreate(#[from] crate::team::CreateError),

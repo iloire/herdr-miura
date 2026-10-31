@@ -59,8 +59,9 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
 - **The palette** opens with ⌘⇧L ("Prompt Library"), also from the command palette and the book button at the
   right end of the tab strip, beside Changes, Files and Queue. It searches name,
   description and body; project prompts sort before global ones. The right side shows the selected
-  prompt's text in an editable box: what you send is what the box holds, so a one-off change never
-  touches the file. Three actions on every entry:
+  prompt's text in an editable box: what you send is what the box holds, so a one-off change need
+  not touch the file, and Save (⌘S) writes it there, keeping the frontmatter. Unsaved text survives closing the
+  palette (`app/promptDrafts.ts`). Three actions on every entry:
   - **Send here** (⌘1): to the agent in the focused pane, with `herdr agent prompt <pane> <text> --wait
     --until working --until blocked`. Off when that pane has no agent.
   - **New tab** (⌘2): `queue_open` + `queue_prompt` with an agent named `p<digits>` (the `p` keeps it

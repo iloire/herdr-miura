@@ -20,7 +20,7 @@ rebases onto main, fast-forwards main, then removes the worktree and branch, sto
 what it left. It never forces, stashes or pushes. The check is `.herdr/land.json` (`{ "check": "<shell command>" }`), a
 `check` script in `package.json`, or a `check:` make target; a repo with none is told so in the confirmation.
 Prompts you send often are Claude Code's own command files (`~/.claude/commands/*.md` and a repo's
-`.claude/commands/*.md`): ⌘⇧L opens them in a palette, project ones first, where you can edit the text and
+`.claude/commands/*.md`): ⌘⇧L opens them in a palette, project ones first, where you can edit the text, save it and
 send it to the focused agent, to a fresh Claude in a new tab, or to the queue
 ([docs/plan-prompt-library.md](docs/plan-prompt-library.md)).
 Settings live in `~/.config/herdr/config-tauri.toml`, which the Settings dialog writes as you change

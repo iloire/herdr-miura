@@ -9,6 +9,7 @@ import {
   type RawFile,
   type RawFolder,
   searchPrompts,
+  withBody,
 } from "../promptLibrary";
 
 const text = (path: string, body: string): RawFile => ({ path, text: body, problem: null });
@@ -150,5 +151,31 @@ describe("a new prompt", () => {
 
   it("has no frontmatter without a description", () => {
     expect(promptFile(" ", "Just do it")).toBe("Just do it\n");
+  });
+});
+
+describe("saving an edit", () => {
+  const read = (file: string) => buildLibrary({ global: null, project: folder("/p", [text("a.md", file)]) }).prompts[0];
+
+  it("keeps the frontmatter as written and replaces only the text", () => {
+    const raw = '---\n# why\ndescription: "Land it"\nherdr.run: queue\n---\n\nOld text\n';
+    const saved = withBody(raw, "\nNew\ntext\n\n");
+    expect(saved).toBe('---\n# why\ndescription: "Land it"\nherdr.run: queue\n---\n\nNew\ntext\n');
+    expect(read(saved)).toMatchObject({ description: "Land it", run: "queue", body: "New\ntext", broken: null });
+  });
+
+  it("does not take a --- in the text for the end of the frontmatter", () => {
+    expect(withBody("---\na: b\n---\nOne\n---\nTwo\n", "New")).toBe("---\na: b\n---\n\nNew\n");
+  });
+
+  it("keeps Windows line ends in the frontmatter", () => {
+    expect(withBody("---\r\na: b\r\n---\r\nOld\r\n", "New")).toBe("---\r\na: b\r\n---\r\n\nNew\n");
+  });
+
+  it("takes the box for the whole file when there is no frontmatter, or none that parses", () => {
+    expect(withBody("Old\n", "New")).toBe("New\n");
+    const broken = "---\nno end\n";
+    expect(read(broken).body).toBe(broken);
+    expect(withBody(broken, "---\na: b\n---\n\nFixed")).toBe("---\na: b\n---\n\nFixed\n");
   });
 });

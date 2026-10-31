@@ -48,6 +48,8 @@ export interface Prompt {
   /// `herdr.run`: what Enter does with it.
   run: Action | null;
   body: string;
+  /// The whole file as read; null when it could not be.
+  raw: string | null;
   /// Why it cannot be sent; its actions are off.
   broken: string | null;
   /// A project prompt that hides a global one of its name.
@@ -74,6 +76,7 @@ function parse(scope: Scope, dir: string, file: RawFile): Prompt {
     argumentHint: null,
     run: null,
     body: "",
+    raw: file.text,
     broken: null,
     overrides: false,
   };
@@ -195,8 +198,24 @@ export function promptFile(description: string, text: string): string {
   return `---\ndescription: ${plain ? summary : JSON.stringify(summary)}\n---\n\n${body}`;
 }
 
+/// The file `raw` with `body` for its text: its frontmatter stays as written.
+/// A file whose frontmatter does not parse was edited whole, so `body` is all of it.
+export function withBody(raw: string, body: string): string {
+  const text = `${body.trim()}\n`;
+  const parsed = parseFrontmatter(raw);
+  if ("error" in parsed || !parsed.present) return text;
+  const lines = raw.split("\n");
+  const end = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
+  return `${lines.slice(0, end + 1).join("\n")}\n\n${text}`;
+}
+
 export const createPrompt = (directory: string | null, name: string, text: string) =>
   invoke<void>("prompt_create", { directory, name, text });
+
+/// Replaces the file at `path` in `directory`'s commands folder, or the global
+/// one, refused when it no longer holds `expected`.
+export const savePrompt = (directory: string | null, path: string, expected: string, text: string) =>
+  invoke<void>("prompt_save", { directory, path, expected, text });
 
 export const readLibrary = (directory: string | null) =>
   invoke<RawLibrary>("prompt_library", { directory }).then(buildLibrary);

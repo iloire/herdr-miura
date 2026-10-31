@@ -3,13 +3,14 @@
 //! Each file comes back with its text or why it cannot be used, never left
 //! out, so the palette can show a broken one. What the text means (its
 //! frontmatter, which file wins a name) is the webview's `promptLibrary.ts`.
-//! `create` adds a new file and never touches one that exists.
+//! `create` adds a new file and never touches one that exists. `save` replaces
+//! one, refused when it is no longer the text the edit began from.
 
 use serde::Serialize;
 use std::{
     fs,
     io::{self, Read, Write},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 /// Files read per folder; the listing says when there were more.
@@ -55,6 +56,22 @@ pub enum CreateError {
     Outside,
     #[error("{0} already exists")]
     Exists(String),
+    #[error("could not write {0}: {1}")]
+    Write(String, #[source] io::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SaveError {
+    #[error("“{0}” is not a prompt in the commands folder")]
+    Path(String),
+    #[error("the prompt is over {} KiB", MAX_BYTES >> 10)]
+    TooLarge,
+    #[error("could not find the folder the prompt is in")]
+    NoFolder,
+    #[error("{0} can't be saved: {1}")]
+    Unusable(String, String),
+    #[error("{0} changed on disk after you began editing. Your edit is still here: Save again to replace the file with it")]
+    Changed(String),
     #[error("could not write {0}: {1}")]
     Write(String, #[source] io::Error),
 }
@@ -208,6 +225,47 @@ fn write_new(path: &Path, text: &str) -> Result<(), CreateError> {
     file.write_all(text.as_bytes()).map_err(|error| failed(path, error))
 }
 
+/// Replaces the prompt at `path`, relative to `directory`'s `.claude/commands/`
+/// or the global folder without a `directory`, when it still holds `expected`.
+/// A link is written through, so a prompt in dotfiles stays there, and a
+/// project one that leaves its folder is refused as it is when read. The new
+/// text arrives whole, by rename, so a failed write leaves the old file. Blocking.
+pub fn save(home: Option<&Path>, directory: Option<&str>, path: &str, expected: &str, text: &str) -> Result<(), SaveError> {
+    let relative = Path::new(path);
+    let inside = relative.components().all(|part| matches!(part, Component::Normal(_)));
+    if !inside || relative.extension().is_none_or(|e| e != "md") {
+        return Err(SaveError::Path(path.to_owned()));
+    }
+    if text.len() as u64 > MAX_BYTES {
+        return Err(SaveError::TooLarge);
+    }
+    let root = directory.map(Path::new);
+    if root.is_some_and(|root| !root.is_absolute()) {
+        return Err(SaveError::NoFolder);
+    }
+    let root = root.map(fs::canonicalize).transpose().map_err(|_| SaveError::NoFolder)?;
+    let base = root.clone().or_else(|| home.map(Path::to_path_buf)).ok_or(SaveError::NoFolder)?;
+    let file = base.join(".claude/commands").join(relative);
+    let current = read(&file, root.as_deref()).map_err(|problem| SaveError::Unusable(path.to_owned(), problem))?;
+    if current != expected {
+        return Err(SaveError::Changed(path.to_owned()));
+    }
+    let real = fs::canonicalize(&file).map_err(|error| SaveError::Write(path.to_owned(), error))?;
+    replace(&real, text).map_err(|error| SaveError::Write(real.display().to_string(), error))
+}
+
+/// Writes `text` beside `path`, with its permissions, and renames it over.
+fn replace(path: &Path, text: &str) -> io::Result<()> {
+    let temporary = path.with_extension("md.saving");
+    let written = fs::write(&temporary, text)
+        .and_then(|()| fs::set_permissions(&temporary, fs::metadata(path)?.permissions()))
+        .and_then(|()| fs::rename(&temporary, path));
+    if written.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    written
+}
+
 fn failed(path: &Path, error: io::Error) -> CreateError {
     CreateError::Write(path.display().to_string(), error)
 }
@@ -354,6 +412,67 @@ mod tests {
         std::os::unix::fs::symlink(elsewhere.path(), repo.path().join(".claude/commands")).unwrap();
         assert!(matches!(create(None, repo.path().to_str(), "out", "x"), Err(CreateError::Outside)));
         assert!(!elsewhere.path().join("out.md").exists());
+    }
+
+    #[test]
+    fn saving_replaces_a_prompt_but_not_one_that_changed_since() {
+        let repo = tempfile::tempdir().unwrap();
+        let directory = repo.path().to_str();
+        create(None, directory, "land", "Old").unwrap();
+        let path = repo.path().join(".claude/commands/land.md");
+
+        save(None, directory, "land.md", "Old", "New").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "New");
+
+        assert!(matches!(save(None, directory, "land.md", "Old", "Stale"), Err(SaveError::Changed(_))));
+        assert_eq!(fs::read_to_string(&path).unwrap(), "New");
+        assert_eq!(fs::read_dir(path.parent().unwrap()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn saving_reaches_only_a_prompt_that_is_there() {
+        let repo = tempfile::tempdir().unwrap();
+        let directory = repo.path().to_str();
+        fs::create_dir_all(repo.path().join(".claude/commands")).unwrap();
+        fs::write(repo.path().join("outside.md"), "Secret").unwrap();
+        for path in ["../../outside.md", "/etc/hosts.md", "land.txt"] {
+            assert!(matches!(save(None, directory, path, "Secret", "x"), Err(SaveError::Path(_))), "{path}");
+        }
+        assert!(matches!(save(None, directory, "gone.md", "", "x"), Err(SaveError::Unusable(..))));
+        assert!(!repo.path().join(".claude/commands/gone.md").exists());
+        assert!(matches!(save(None, Some("relative"), "a.md", "", "x"), Err(SaveError::NoFolder)));
+        assert_eq!(fs::read_to_string(repo.path().join("outside.md")).unwrap(), "Secret");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saving_a_global_link_writes_through_it() {
+        let home = tempfile::tempdir().unwrap();
+        let dotfiles = tempfile::tempdir().unwrap();
+        let global = home.path().join(".claude/commands");
+        fs::create_dir_all(&global).unwrap();
+        let real = dotfiles.path().join("remind.md");
+        fs::write(&real, "Old").unwrap();
+        std::os::unix::fs::symlink(&real, global.join("remind.md")).unwrap();
+
+        save(Some(home.path()), None, "remind.md", "Old", "New").unwrap();
+        assert_eq!(fs::read_to_string(&real).unwrap(), "New");
+        assert!(global.join("remind.md").symlink_metadata().unwrap().is_symlink());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saving_a_project_link_out_of_the_folder_is_refused() {
+        let repo = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let target = elsewhere.path().join("secret.md");
+        fs::write(&target, "Secret").unwrap();
+        let project = repo.path().join(".claude/commands");
+        fs::create_dir_all(&project).unwrap();
+        std::os::unix::fs::symlink(&target, project.join("escape.md")).unwrap();
+
+        assert!(matches!(save(None, repo.path().to_str(), "escape.md", "Secret", "x"), Err(SaveError::Unusable(..))));
+        assert_eq!(fs::read_to_string(&target).unwrap(), "Secret");
     }
 
     #[test]

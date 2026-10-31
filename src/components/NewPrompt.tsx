@@ -1,32 +1,44 @@
 import { type KeyboardEvent, useState } from "react";
+import type { NewDraft } from "../app/promptDrafts";
 import { createPrompt, nameTaken, type Prompt, promptFile, promptName, type Scope } from "../app/promptLibrary";
 
 /// The prompt library's form for a new command file, in place of the preview.
-/// It writes `<name>.md` into the chosen folder and never over a file.
+/// It writes `<name>.md` into the chosen folder and never over a file. What is
+/// typed goes to `onChange` as it is typed, so Back and closing keep it.
 export function NewPrompt({
-  name: initial,
+  draft,
   folder,
   prompts,
-  onCancel,
+  onChange,
+  onBack,
+  onDiscard,
   onCreated,
 }: {
-  name: string;
+  draft: NewDraft;
   /// The focused workspace's folder, null when only a global prompt can be made.
   folder: string | null;
   prompts: readonly Prompt[];
-  onCancel: () => void;
+  onChange: (draft: NewDraft) => void;
+  onBack: () => void;
+  onDiscard: () => void;
   onCreated: (scope: Scope, name: string) => Promise<void>;
 }) {
-  const [name, setName] = useState(initial);
-  const [scope, setScope] = useState<Scope>(folder ? "project" : "global");
-  const [description, setDescription] = useState("");
-  const [text, setText] = useState("");
+  const [form, setForm] = useState(draft);
+  const { name, description, text } = form;
+  // A draft for a project can come back where there is no folder to put it in.
+  const scope: Scope = folder ? form.scope : "global";
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
   const taken = name ? nameTaken(prompts, name, scope) : null;
   const overrides = scope === "project" && prompts.some((prompt) => prompt.name === name && prompt.scope === "global");
   const ready = !!name && !!text.trim() && !taken;
+
+  const update = (change: Partial<NewDraft>) => {
+    const next = { ...form, ...change };
+    setForm(next);
+    onChange(next);
+  };
 
   const save = async () => {
     if (!ready || saving) return;
@@ -53,11 +65,11 @@ export function NewPrompt({
         <label className="settings-field">
           <span>Name</span>
           <input
-            autoFocus={!initial}
+            autoFocus={!draft.name}
             value={name}
             placeholder="review-diff"
             spellCheck={false}
-            onChange={(event) => setName(promptName(event.target.value))}
+            onChange={(event) => update({ name: promptName(event.target.value) })}
           />
         </label>
         {folder && (
@@ -65,7 +77,7 @@ export function NewPrompt({
             <span>Where</span>
             <div className="prompt-where">
               {(["project", "global"] as const).map((where) => (
-                <button key={where} type="button" aria-pressed={scope === where} onClick={() => setScope(where)}>
+                <button key={where} type="button" aria-pressed={scope === where} onClick={() => update({ scope: where })}>
                   {where === "project" ? "This project" : "Global"}
                 </button>
               ))}
@@ -74,7 +86,7 @@ export function NewPrompt({
         )}
         <label className="settings-field wide">
           <span>Description (optional)</span>
-          <input value={description} onChange={(event) => setDescription(event.target.value)} />
+          <input value={description} onChange={(event) => update({ description: event.target.value })} />
         </label>
       </div>
       <p className="prompt-path">
@@ -84,16 +96,21 @@ export function NewPrompt({
       </p>
       {(taken || failed) && <p className="prompt-problem">{taken ?? failed}</p>}
       <textarea
-        autoFocus={!!initial}
+        autoFocus={!!draft.name}
         className="prompt-text"
         value={text}
         spellCheck={false}
         placeholder="What the prompt says. $ARGUMENTS takes what follows /name."
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => update({ text: event.target.value })}
       />
       <div className="prompt-actions">
-        <button type="button" onClick={onCancel}>
-          Cancel
+        {(name || description.trim() || text.trim()) && (
+          <button type="button" onClick={onDiscard}>
+            Discard
+          </button>
+        )}
+        <button type="button" onClick={onBack}>
+          Back
           <kbd>esc</kbd>
         </button>
         <button type="button" className="primary" disabled={!ready} onClick={() => void save()}>
