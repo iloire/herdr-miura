@@ -1,0 +1,18 @@
+Herdr Miura
+Copyright 2026 ivan l.
+
+Licensed under the Apache License, Version 2.0. The full license text is in
+LICENSE at the root of this repository.
+
+This product includes code ported and adapted from Herdr UI (herdr-gpui),
+https://github.com/penso/herdr-gpui, Copyright 2026 Fabien Penso, licensed under
+the Apache License, Version 2.0. That covers parts of the UI behavior, Claude
+usage, listening ports, tab moves, the file tree, status icons, cell colors,
+theme palettes and theme parsing. It was rewritten in TypeScript and Rust for
+Tauri; the files concerned say so in their comments. The theme palettes and
+status indicators Herdr UI adapted from Herdr
+(https://github.com/herdrdev/herdr, Apache-2.0) come with them.
+
+src-tauri/src/herdr/ holds files copied from Herdr, Apache-2.0: see NOTICE.md and
+LICENSE-APACHE there. src/themes/ holds theme files under the MIT License: see
+NOTICE.md there.
