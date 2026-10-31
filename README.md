@@ -1,4 +1,4 @@
-# Herdr Miura
+# <img src="src-tauri/icons/128x128@2x.png" width="32" alt=""> Herdr Miura
 
 [![CI](https://github.com/iloire/herdr-miura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/iloire/herdr-miura/actions/workflows/ci.yml)
 
