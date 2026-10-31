@@ -27,7 +27,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `terminal.line_height` | number, 1 to 2 | `1.4` | Row height as a multiple of the size. |
 | `ui.font_size` | number, 10 to 18 | `13` | The chrome's text size (sidebar, tabs, panels, dialogs). Every font size in the stylesheet scales by `size / 13`. |
 | `tabs.wrap` | boolean | `true` | Tabs that do not fit wrap onto more rows. `false` keeps one row, which scrolls sideways with no scrollbar and keeps the open tab and the + in view. |
-| `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell. |
+| `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell, and + turns into an outlined terminal icon while ⌥ is held. |
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"

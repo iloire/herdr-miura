@@ -1191,7 +1191,7 @@ body.reordering * {
    glance. Gold in the sidebar means an agent waits on you, so a disabled one
    keeps its own look, and a panel has one: of the queue's boxes, the first that
    can act, so an open edit outranks the box below it. */
-.tab-rows .icon-button.new-tab,
+.tab-rows .icon-button.new-tab:not(.plain),
 .queue-add:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
 .sync-action.sync-main:not(:disabled) {
   border-color: transparent;
@@ -1199,11 +1199,19 @@ body.reordering * {
   color: var(--ink);
 }
 
-.tab-rows .icon-button.new-tab:hover:not(:disabled),
+.tab-rows .icon-button.new-tab:not(.plain):hover:not(:disabled),
 .queue-add:hover:not(:disabled):not(.queue-track > li:has(.queue-add:not(:disabled)) ~ li .queue-add),
 .sync-action.sync-main:hover:not(:disabled) {
   background: color-mix(in srgb, var(--lantern) 82%, var(--bright));
   color: var(--ink);
+}
+
+/* ⌥ held with `new_tab.command` set: the + opens a plain terminal, which isn't
+   the main action here, so it gives up the gold. The outline is a shadow: a real
+   border would push the icon a pixel over. */
+.tab-rows .icon-button.new-tab.plain {
+  box-shadow: inset 0 0 0 1px var(--rule);
+  color: var(--text);
 }
 
 /* The focus ring is the lantern too, so on these it stands clear of the button. */

@@ -6,10 +6,29 @@ import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { NewTabIcon, PinIcon } from "./icons";
+import { NewTabIcon, PinIcon, TerminalIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
+
+/// Whether ⌥ is down. ⌘-Tab away never delivers the key's release, so losing the
+/// window lets go of it.
+function useOptionHeld(): boolean {
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => setHeld(event.altKey);
+    const onBlur = () => setHeld(false);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, []);
+  return held;
+}
 
 export function TabBar({
   controller,
@@ -17,16 +36,22 @@ export function TabBar({
   pins,
   onPinsChange,
   wrap,
+  newTabCommand,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
   wrap: boolean;
+  newTabCommand: string | null;
 }) {
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+
+  // Without a command the button opens a plain terminal either way, so ⌥ changes nothing.
+  const plainTab = useOptionHeld() && !!newTabCommand;
+  const newTabHint = newTabCommand ? "New tab (⌥-click for a plain terminal)" : "New tab";
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
@@ -158,9 +183,9 @@ export function TabBar({
           );
         })}
         <button
-          className="icon-button new-tab"
-          title="New tab (⌥-click for a plain terminal)"
-          aria-label="New tab"
+          className={plainTab ? "icon-button new-tab plain" : "icon-button new-tab"}
+          title={plainTab ? "Plain terminal" : newTabHint}
+          aria-label={plainTab ? "Plain terminal" : "New tab"}
           disabled={!snapshot?.focused_workspace_id}
           // Typing goes to the tab this opens: the press must not take focus
           // from the terminal, and focus elsewhere is handed back to it.
@@ -171,7 +196,7 @@ export function TabBar({
             controller.focusTerminal();
           }}
         >
-          <NewTabIcon />
+          {plainTab ? <TerminalIcon /> : <NewTabIcon />}
         </button>
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}

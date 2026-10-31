@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 10:48 — Holding ⌥ shows the + will open a plain terminal
+
+With `new_tab.command` set, the gold + does two things. While ⌥ is held it now shows which: an outlined terminal
+icon, with the tooltip and label to match. Without a command ⌥ changes nothing, so neither does the button.
+
 ## 2026-10-31 10:31 — The Team dialog's pills say what they are
 
 Every pill on a role card now has a tooltip. Tools say what they do, with their scope or MCP server when they have
