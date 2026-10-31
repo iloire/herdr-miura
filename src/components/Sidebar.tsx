@@ -4,7 +4,7 @@ import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
-import { agentsByWorkspace, cardAgents, loopTags, workspaceMarks } from "../app/attention";
+import { agentsByWorkspace, cardAgents, loopTags, unseenDone, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
@@ -21,6 +21,7 @@ import { LoopMark } from "./LoopMark";
 import {
   AttentionOrderIcon,
   BranchIcon,
+  CheckIcon,
   ChevronIcon,
   CodeIcon,
   CopyIcon,
@@ -71,6 +72,7 @@ export function Sidebar({
   ports,
   rootOf,
   lands,
+  onMarkSeen,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -95,6 +97,8 @@ export function Sidebar({
   rootOf: (workspace: Workspace) => string | null;
   /// Landing worktrees; `null` on a remote host, whose worktrees are not on this Mac.
   lands: LandStore | null;
+  /// Clears these finished agents' marks in this window.
+  onMarkSeen: (agents: Agent[]) => void;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -249,6 +253,12 @@ export function Sidebar({
                     onSelect: () => setRenaming(workspace.workspace_id),
                   };
                   const items = [rename];
+                  // The agents as they stand now: one that finishes again before
+                  // the pick has a new sequence, so its mark stays.
+                  const finished = unseenDone(own);
+                  if (finished.length > 0) {
+                    items.push({ label: "Mark as Seen", icon: <CheckIcon />, onSelect: () => onMarkSeen(finished) });
+                  }
                   if (path && folder) {
                     const queue: MenuItem = {
                       label: "Add to Queue…",

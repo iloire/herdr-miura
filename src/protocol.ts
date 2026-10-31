@@ -53,6 +53,9 @@ export interface Agent {
   /// The terminal's own title without its leading spinner or activity glyph.
   terminal_title_stripped: string | null;
   agent_status: AgentStatus;
+  /// Moves when the agent runs or finishes again, and stays put when `done` is
+  /// acknowledged and turns idle.
+  state_change_seq: number;
   /// Metadata tokens reported on the agent's pane, e.g. `["attn_loop", "↻ loop 14:32"]`.
   tokens: [string, string][];
   focused: boolean;

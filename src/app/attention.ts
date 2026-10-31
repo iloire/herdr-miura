@@ -4,6 +4,9 @@
 import { clean } from "../changes/diff";
 import type { Agent, AgentStatus, Snapshot, Tab } from "../protocol";
 
+/// What the user marked seen, by pane: the `state_change_seq` each agent was at.
+export type SeenPanes = Readonly<Record<string, number>>;
+
 /// Attention first, then the most recent change (herdr-gpui's `status_priority`).
 export const PRIORITY: Record<AgentStatus, number> = {
   blocked: 4,
@@ -12,6 +15,35 @@ export const PRIORITY: Record<AgentStatus, number> = {
   idle: 1,
   unknown: 0,
 };
+
+/// An agent's status once `seen` is applied. Herdr has no way to mark a pane
+/// seen short of focusing it, so a `done` the user marked seen reads as the idle
+/// Herdr would have turned it into, until its sequence moves. A blocked agent
+/// still waits for you, whatever was marked.
+export function effectiveStatus(agent: Agent, seen: SeenPanes): AgentStatus {
+  return agent.agent_status === "done" && seen[agent.pane_id] === agent.state_change_seq ? "idle" : agent.agent_status;
+}
+
+/// `snapshot` as the user sees it, with `seen` applied to its agents and to the
+/// statuses the daemon rolled up from them for tabs and workspaces. A copy, as
+/// `withoutClosing` makes: the daemon's stays true for whatever acts on it, and
+/// the same object comes back when nothing was marked.
+export function seenSnapshot(snapshot: Snapshot, seen: SeenPanes): Snapshot {
+  const hidden = snapshot.agents.filter((agent) => effectiveStatus(agent, seen) !== agent.agent_status);
+  if (hidden.length === 0) return snapshot;
+  const agents = snapshot.agents.map((agent) => ({ ...agent, agent_status: effectiveStatus(agent, seen) }));
+  const rollUp = <T extends { agent_status: AgentStatus }>(item: T, own: (agent: Agent) => boolean): T => {
+    const statuses = agents.filter(own).map((agent) => agent.agent_status);
+    if (item.agent_status !== "done" || statuses.length === 0) return item;
+    return { ...item, agent_status: statuses.reduce((a, b) => (PRIORITY[b] > PRIORITY[a] ? b : a)) };
+  };
+  return {
+    ...snapshot,
+    agents,
+    tabs: snapshot.tabs.map((tab) => rollUp(tab, (agent) => agent.tab_id === tab.tab_id)),
+    workspaces: snapshot.workspaces.map((workspace) => rollUp(workspace, (agent) => agent.workspace_id === workspace.workspace_id)),
+  };
+}
 
 /// The agents of each workspace, most urgent first, keeping the daemon's
 /// order within a status.
@@ -104,9 +136,15 @@ export function tabVerifiedDone(agents: readonly Agent[]): boolean {
 }
 
 /// Whether an agent wants you: it finished or is waiting for input. Done ones
-/// clear when the daemon marks them seen, blocked ones when their status moves.
+/// clear when the daemon or `seenSnapshot` marks them seen, blocked ones when
+/// their status moves.
 export function wantsYou(agent: Agent): boolean {
   return agent.agent_status === "blocked" || agent.agent_status === "done";
+}
+
+/// The agents Mark as Seen would clear.
+export function unseenDone(agents: readonly Agent[]): Agent[] {
+  return agents.filter((agent) => agent.agent_status === "done");
 }
 
 /// The Dock badge.

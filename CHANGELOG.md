@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:05 — Mark a workspace's finished agents as seen
+
+Right-click a workspace card with finished agents and choose Mark as Seen to clear their marks and lower the Dock badge
+in one go, without visiting each pane. The focused tab and any open file or diff stay as they are, and the card drops
+in the attention sort. Blocked agents are left alone, a verified agent keeps its filled check, and an agent that runs
+or finishes again gets its mark back. Herdr has no such call, so this is this window's own record: the TUI, `herdr
+agent list` and other windows still say `done`.
+
 ## 2026-10-31 11:44 — Diffs are syntax highlighted
 
 The diff view and a commit's view color code as the file view does, in the same theme colors, on top of the green and

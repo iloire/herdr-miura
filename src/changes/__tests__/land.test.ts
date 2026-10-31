@@ -39,6 +39,7 @@ const agent = (agent_status: AgentStatus, tokens: [string, string][] = []): Agen
   title: null,
   terminal_title_stripped: null,
   agent_status,
+  state_change_seq: 1,
   tokens,
   focused: false,
 });

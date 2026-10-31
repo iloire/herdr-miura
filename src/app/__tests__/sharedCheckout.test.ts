@@ -25,6 +25,7 @@ const agent = (id: string, status: AgentStatus = "working"): Agent => ({
   title: null,
   terminal_title_stripped: null,
   agent_status: status,
+  state_change_seq: 1,
   tokens: [],
   focused: false,
 });

@@ -16,6 +16,7 @@ import { fontStack } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
 import { useRoots } from "./app/useRoots";
+import { useSeen } from "./app/useSeen";
 import { paneDirectory, sharedCheckout } from "./app/sharedCheckout";
 import { strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
@@ -154,7 +155,8 @@ export default function App() {
 
   // Agents that finished or wait on you badge the Dock and lead the title,
   // following the daemon's statuses rather than whether the window is in front.
-  const attention = attentionCount(state.snapshot);
+  const { shown: seenAs, markSeen } = useSeen(state.snapshot, state.host);
+  const attention = attentionCount(seenAs);
   const app = DEV_BRANCH ? `Herdr [${DEV_BRANCH}]` : "Herdr";
   const titled = state.title ? `${state.title} — ${app}` : app;
   const windowTitle = attention > 0 ? `(${attention}) ${titled}` : titled;
@@ -501,7 +503,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={state.snapshot} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}
@@ -527,13 +529,13 @@ export default function App() {
             <div className="deck">
               <TabBar
                 controller={controller}
-                snapshot={state.snapshot}
+                snapshot={seenAs}
                 pins={pins}
                 onPinsChange={setPins}
                 wrap={state.settings.tabsWrap}
                 newTabCommand={state.settings.newTabCommand}
               />
-              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">
                 <Terminal
                   controller={controller}

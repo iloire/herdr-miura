@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, loopTag, loopTags, tabVerifiedDone, verifiedDone, workspaceMarks } from "../attention";
+import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../../protocol";
+import { sortWorkspaces } from "../workspaceOrder";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, effectiveStatus, loopTag, loopTags, seenSnapshot, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -13,6 +14,7 @@ function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus,
     title: null,
     terminal_title_stripped: null,
     agent_status,
+    state_change_seq: 1,
     tokens: [],
     focused: false,
     ...over,
@@ -257,5 +259,101 @@ describe("verifiedDone", () => {
     expect(tabVerifiedDone([])).toBe(false);
     expect(tabVerifiedDone([agent("a", "w", "done", verified), agent("b", "w", "done")])).toBe(false);
     expect(tabVerifiedDone([agent("a", "w", "done", verified), agent("b", "w", "idle", verified)])).toBe(true);
+  });
+});
+
+describe("marked seen", () => {
+  const verified = { tokens: [["attn_outcome", "verified"]] as [string, string][] };
+  const tab = (tab_id: string, workspace_id: string, agent_status: AgentStatus): Tab => ({
+    tab_id,
+    workspace_id,
+    number: 1,
+    label: tab_id,
+    custom_label: false,
+    zoomed: false,
+    focused: false,
+    agent_status,
+  });
+  const workspace = (workspace_id: string, agent_status: AgentStatus) =>
+    ({ workspace_id, agent_status }) as Workspace;
+
+  it("hides a done agent at the sequence it was marked", () => {
+    const done = agent("1", "a", "done", { state_change_seq: 7 });
+    expect(effectiveStatus(done, { "1": 7 })).toBe("idle");
+    const [shown] = seenSnapshot(snapshot([done]), { "1": 7 }).agents;
+    expect(wantsYou(shown)).toBe(false);
+    expect(cardAgents([shown])).toEqual([]);
+    expect(unseenDone([shown])).toEqual([]);
+    expect(workspaceMarks([shown], "done")).toEqual([{ status: "idle", count: 1 }]);
+  });
+
+  it("brings the mark back when the sequence moves", () => {
+    const again = agent("1", "a", "done", { state_change_seq: 8 });
+    expect(effectiveStatus(again, { "1": 7 })).toBe("done");
+    expect(seenSnapshot(snapshot([again]), { "1": 7 }).agents[0].agent_status).toBe("done");
+    expect(effectiveStatus(agent("2", "a", "done", { state_change_seq: 7 }), { "1": 7 })).toBe("done");
+  });
+
+  it("never touches a blocked or working agent, even at a marked sequence", () => {
+    const list = [agent("1", "a", "blocked", { state_change_seq: 7 }), agent("2", "a", "working", { state_change_seq: 7 })];
+    expect(list.map((a) => effectiveStatus(a, { "1": 7, "2": 7 }))).toEqual(["blocked", "working"]);
+    expect(attentionRows(seenSnapshot(snapshot(list), { "1": 7, "2": 7 }).agents).rows).toHaveLength(1);
+  });
+
+  it("keeps a verified agent's check", () => {
+    const shown = seenSnapshot(snapshot([agent("1", "a", "done", { state_change_seq: 7, ...verified })]), { "1": 7 });
+    expect(verifiedDone(shown.agents[0])).toBe(true);
+    expect(tabVerifiedDone(shown.agents)).toBe(true);
+  });
+
+  it("lowers the Dock count by the agents seen, and no further", () => {
+    const list = [
+      agent("1", "a", "done", { state_change_seq: 7 }),
+      agent("2", "a", "done", { state_change_seq: 9 }),
+      agent("3", "a", "blocked"),
+    ];
+    expect(attentionCount(snapshot(list))).toBe(3);
+    expect(attentionCount(seenSnapshot(snapshot(list), { "1": 7 }))).toBe(2);
+    expect(attentionCount(seenSnapshot(snapshot(list), { "1": 7, "2": 9 }))).toBe(1);
+  });
+
+  it("recomputes the rolled up status of tabs and workspaces, so a seen card drops in the attention sort", () => {
+    const base = {
+      ...snapshot([
+        agent("1", "a", "done", { state_change_seq: 7, tab_id: "t1" }),
+        agent("2", "a", "working", { tab_id: "t2" }),
+        agent("3", "b", "done", { state_change_seq: 3, tab_id: "t3" }),
+        agent("4", "c", "working", { tab_id: "t4" }),
+      ]),
+      tabs: [tab("t1", "a", "done"), tab("t2", "a", "working"), tab("t3", "b", "done"), tab("t4", "c", "working")],
+      workspaces: [workspace("c", "working"), workspace("a", "done"), workspace("b", "done")],
+    };
+    const order = (shown: Snapshot) => sortWorkspaces(shown.workspaces, "attention").map((w) => w.workspace_id);
+    expect(order(base)).toEqual(["a", "b", "c"]);
+
+    const shown = seenSnapshot(base, { "1": 7, "3": 3 });
+    expect(shown.tabs.map((t) => t.agent_status)).toEqual(["idle", "working", "idle", "working"]);
+    expect(shown.workspaces.map((w) => w.agent_status)).toEqual(["working", "working", "idle"]);
+    expect(order(shown)).toEqual(["c", "a", "b"]);
+  });
+
+  it("keeps the daemon's status for a workspace with no agents, and a done one with another left unseen", () => {
+    const base = {
+      ...snapshot([agent("1", "a", "done", { state_change_seq: 7 }), agent("2", "a", "done", { state_change_seq: 8 })]),
+      workspaces: [workspace("a", "done"), workspace("empty", "done")],
+    };
+    expect(seenSnapshot(base, { "1": 7 }).workspaces.map((w) => w.agent_status)).toEqual(["done", "done"]);
+  });
+
+  it("hands back the daemon's snapshot untouched when nothing applies", () => {
+    const base = snapshot([agent("1", "a", "done", { state_change_seq: 8 })]);
+    expect(seenSnapshot(base, {})).toBe(base);
+    expect(seenSnapshot(base, { "1": 7 })).toBe(base);
+  });
+
+  it("leaves the daemon's snapshot as it was", () => {
+    const base = snapshot([agent("1", "a", "done", { state_change_seq: 8 })]);
+    expect(seenSnapshot(base, { "1": 8 })).not.toBe(base);
+    expect(base.agents[0].agent_status).toBe("done");
   });
 });

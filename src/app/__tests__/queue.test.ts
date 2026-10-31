@@ -47,6 +47,7 @@ function agent(pane_id: string, agent_status: AgentStatus, over: Partial<Agent> 
     title: null,
     terminal_title_stripped: null,
     agent_status,
+    state_change_seq: 1,
     tokens: [],
     focused: false,
     ...over,
