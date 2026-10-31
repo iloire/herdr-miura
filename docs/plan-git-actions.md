@@ -34,7 +34,7 @@ Two commands, as Land has `land_plan` then `land_finish`:
    discard would do, the line counts, and a fingerprint: the file's raw status entry plus
    `git hash-object --no-filters` of the working file. The entry holds the HEAD and index hashes, so the
    fingerprint covers all three versions.~~ ✅
-2. **`discard_file(checkout, path, fingerprint)`** runs on confirm. It takes the checkout's `sync::Running`
+2. ~~**`discard_file(checkout, path, fingerprint)`** runs on confirm. It takes the checkout's `sync::Running`
    claim, makes the same checks as a sync (`current_branch`: same branch, no rebase or merge under way), and
    reads the fingerprint again. If it differs, nothing happens and the dialog says the file changed. An
    overlapping Git operation fails on `index.lock`; Git's reason is shown, with no retry.
@@ -84,7 +84,7 @@ A tick box on each file row, unticked by default and forgotten when the file lea
 a Commit button appear once something is ticked.
 
 `commit_paths(checkout, paths, message, branch)` takes the same claim and checks, then runs:
-
+~~ ✅
 1. `git --literal-pathspecs add -- <the untracked paths>`
 2. `git --literal-pathspecs commit --only -m <message> -- <paths>`, with a rename's old and new paths both
    listed.

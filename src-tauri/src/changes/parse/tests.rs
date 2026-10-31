@@ -23,6 +23,25 @@ fn reads_branch_headers() {
 }
 
 #[test]
+fn keeps_a_renames_old_path_and_each_raw_entry() {
+    let files = status(STATUS).files;
+    let renamed = files.iter().find(|file| file.kind == Kind::Renamed).unwrap();
+    assert_eq!(renamed.old_path.as_deref(), Some("old.rs"));
+    assert_eq!(renamed.entry, "2 R. N... 100644 100644 100644 eeee eeee R100 renamed.rs");
+    assert_eq!(files[0].old_path, None);
+    assert_eq!(files[0].entry, "1 .M N... 100644 100644 100644 aaaa bbbb src/a file.rs");
+    assert_eq!(files[5].entry, "? untracked.txt");
+}
+
+#[test]
+fn a_copy_has_no_old_path_since_its_source_stayed() {
+    let copy = "2 C. N... 100644 100644 100644 eeee eeee C100 copy.rs\0source.rs\0";
+    let files = status(copy).files;
+    assert_eq!(files[0].path, "copy.rs");
+    assert_eq!(files[0].old_path, None);
+}
+
+#[test]
 fn reads_every_kind_of_entry() {
     let files: Vec<_> = status(STATUS)
         .files

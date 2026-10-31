@@ -29,6 +29,11 @@ impl Kind {
 pub struct FileChange {
     pub path: String,
     pub kind: Kind,
+    /// Where a rename came from. A copy has none: its source was not moved.
+    pub old_path: Option<String>,
+    /// The entry as `status` printed it, with its modes and HEAD and index
+    /// hashes. Empty for files that did not come from `status`.
+    pub entry: String,
     /// `None` for untracked and binary files, which have no lines to count.
     pub additions: Option<u64>,
     pub deletions: Option<u64>,
@@ -95,13 +100,17 @@ pub fn status(text: &str) -> Status {
         // Ordinary entries have eight fields before the path, renames nine
         // (and their old path as the next NUL field), conflicts ten. Paths
         // may hold spaces, so the split stops at the path.
+        let mut old_path = None;
         let (kind, path) = match entry.as_bytes().first() {
             Some(b'1') => (
                 entry.split(' ').nth(1).map(kind),
                 entry.splitn(9, ' ').nth(8),
             ),
             Some(b'2') => {
-                fields.next();
+                let source = fields.next();
+                if entry.split(' ').nth(8).is_some_and(|score| score.starts_with('R')) {
+                    old_path = source.map(str::to_owned);
+                }
                 (Some(Kind::Renamed), entry.splitn(10, ' ').nth(9))
             }
             Some(b'u') => (Some(Kind::Conflicted), entry.splitn(11, ' ').nth(10)),
@@ -112,6 +121,8 @@ pub fn status(text: &str) -> Status {
             status.files.push(FileChange {
                 path: path.to_owned(),
                 kind,
+                old_path,
+                entry: entry.to_owned(),
                 additions: None,
                 deletions: None,
             });
@@ -141,6 +152,8 @@ pub fn name_status(text: &str) -> Vec<FileChange> {
             files.push(FileChange {
                 path: path.to_owned(),
                 kind,
+                old_path: None,
+                entry: String::new(),
                 additions: None,
                 deletions: None,
             });
