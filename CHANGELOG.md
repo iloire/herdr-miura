@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 09:34 — The header strip says a tab came from the queue
+
+A queued prompt's tab is now labelled with its title alone and shows the usual status mark, dropping the `⧗ 43 ·`
+prefix left from when the queue's icon was an hourglass. The header strip says where the tab came from instead:
+`From queue #43 · 2 of 4` comes first, with the queue icon, and stays once the prompt has finished or when it went
+to a worktree, without the position. `next:` keeps its place at the right. Tabs already open keep their old label.
+
 ## 2026-10-31 09:50 — A commit opens in the main area
 
 Recent commits now lists 50 instead of 5, each on one line, and picking a commit no longer unfolds it in the

@@ -30,7 +30,7 @@ const MAX_SOURCE: usize = 200;
 const MAX_FOLDER: usize = 4096;
 /// How long Git may take to say where one folder's main checkout is.
 const HOME_DEADLINE: Duration = Duration::from_secs(5);
-/// In bytes: `tabLabel`'s 200 UTF-16 units take up to 600, plus its `⧗ n · `.
+/// In bytes: `tabLabel`'s 200 UTF-16 units take up to 600.
 const MAX_TAB_LABEL: usize = 640;
 /// A copy of the queue file is kept at most this often, and this many are kept.
 const BACKUP_EVERY: Duration = Duration::from_secs(60 * 60);
@@ -782,7 +782,7 @@ mod tests {
 
     #[test]
     fn a_tab_label_fits_the_longest_title_in_any_script() {
-        let label = format!("⧗ 999999999 · {}…", "語".repeat(199));
+        let label = format!("{}…", "語".repeat(199));
         assert!(plain(&label, MAX_TAB_LABEL, false).is_ok());
     }
 
@@ -790,10 +790,10 @@ mod tests {
     fn open_refuses_what_it_would_pass_to_the_cli_unchecked() {
         let dir = std::env::temp_dir();
         let dir = dir.to_str().unwrap();
-        assert!(open("w1", dir, "⧗ 1", "q1", "bash", &[]).is_err());
-        assert!(open("w1", "relative", "⧗ 1", "q1", "claude", &[]).is_err());
-        assert!(open("--w", dir, "⧗ 1", "q1", "claude", &[]).is_err());
-        assert!(open("w1", dir, "⧗ 1", "q1", "claude", &["\u{1b}x".into()]).is_err());
+        assert!(open("w1", dir, "t", "q1", "bash", &[]).is_err());
+        assert!(open("w1", "relative", "t", "q1", "claude", &[]).is_err());
+        assert!(open("--w", dir, "t", "q1", "claude", &[]).is_err());
+        assert!(open("w1", dir, "t", "q1", "claude", &["\u{1b}x".into()]).is_err());
     }
 
     #[test]

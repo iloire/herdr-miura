@@ -301,7 +301,7 @@ describe("text", () => {
 
   it("keeps a whole title in the tab's label, for its tooltip", () => {
     const heading = "Tab strip: show how long an agent has been working on its current prompt";
-    expect(tabLabel({ n: 30, prompt: `${heading}\nthen more` } as Item)).toBe(`⧗ 30 · ${heading}`);
+    expect(tabLabel({ n: 30, prompt: `${heading}\nthen more` } as Item)).toBe(heading);
   });
 
   it("asks for a commit only while that is ticked", () => {
@@ -313,8 +313,15 @@ describe("text", () => {
   it("finds the item a tab runs and where it stands", () => {
     const queue = running(queued("a", "b"));
     const found = itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t1");
-    expect(found).toMatchObject({ item: { n: 1 }, position: 1, total: 2, next: { n: 2 } });
+    expect(found).toMatchObject({ item: { n: 1 }, place: { position: 1, total: 2 }, next: { n: 2 } });
     expect(itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t9")).toBeNull();
+  });
+
+  it("still names the item of a finished tab, which has no place in line", () => {
+    const ended = { n: 1, prompt: "a", state: "done", tabId: "t1" } as Item;
+    const queue = { ...queued("b"), history: [ended] };
+    const found = itemOfTab({ version: 1, seq: 2, queues: { k: queue } }, "t1");
+    expect(found).toEqual({ item: ended, place: null, next: null });
   });
 
   it("spins a running card only while something moves", () => {
@@ -501,7 +508,7 @@ describe("a prompt run in a worktree", () => {
   it("is told apart in the queue's summary and its tab has no place in line", () => {
     const queue = sent("next", "fix it");
     expect(summary(queue)).toBe("1 in a worktree · 1 waiting");
-    expect(itemOfTab({ ...EMPTY_FILE, queues: { [queueKey(FOLDER)]: queue } }, "tw")).toBeNull();
+    expect(itemOfTab({ ...EMPTY_FILE, queues: { [queueKey(FOLDER)]: queue } }, "tw")).toMatchObject({ place: null });
   });
 });
 

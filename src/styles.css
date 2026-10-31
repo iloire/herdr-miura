@@ -2774,6 +2774,28 @@ kbd {
   display: contents;
 }
 
+/* A tab the queue opened looks like any other, so the strip says so, first.
+   On a tight strip it shortens with the agent's facts, so the library stays. */
+.tab-origin {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+}
+
+.tab-origin svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.tab-origin-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .tab-stray {
   display: inline-flex;
   flex: 0 10000 auto;

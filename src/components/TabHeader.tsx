@@ -22,7 +22,7 @@ import type { Controller } from "../app/controller";
 import type { StrayPath } from "../app/workspaceRoot";
 import type { Agent, Snapshot } from "../protocol";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
-import { BranchIcon, FolderIcon, LibraryIcon } from "./icons";
+import { BranchIcon, FolderIcon, LibraryIcon, QueueIcon } from "./icons";
 import { Ports } from "./Ports";
 import { StatusMark } from "./StatusMark";
 
@@ -38,9 +38,10 @@ const STRAY_FLOOR = 16;
 
 const AGE_TITLE = "Time in this status, counted from when the app first saw it, so it restarts with the app";
 
-/// A strip over the focused tab's terminal. At its left where the focused pane
-/// is, when that is not the workspace's root, to catch an agent working in the
-/// wrong place. Then the Git state of its checkout, which the sidebar cannot
+/// A strip over the focused tab's terminal. First, for a tab the queue opened,
+/// that it did: the tab itself looks like any other. Then where the focused
+/// pane is, when that is not the workspace's root, to catch an agent working in
+/// the wrong place. Then the Git state of its checkout, which the sidebar cannot
 /// give: tabs of a workspace can sit in different worktrees. Then the ports of
 /// the servers started in this tab, each opening its page. Then what matters
 /// about each of its agents at all times: status, time in it, model, context,
@@ -68,8 +69,8 @@ export function TabHeader({
   stray: StrayPath | null;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
-  /// The queued prompt this tab runs, where it stands in its queue, and what follows it.
-  queued: { item: Item; position: number; total: number; next: Item | null } | null;
+  /// The queued prompt this tab holds, where it stands in its queue, and what follows it.
+  queued: { item: Item; place: { position: number; total: number } | null; next: Item | null } | null;
   /// The prompt library's palette is open.
   library: boolean;
 }) {
@@ -84,6 +85,15 @@ export function TabHeader({
   const since = windowStart(plan, now);
   return (
     <div className="tab-header" aria-label="This tab's checkout, servers and agents">
+      {queued && (
+        <span className="tab-origin" title={queued.item.prompt}>
+          <QueueIcon />
+          <span className="tab-origin-text">
+            From queue #{queued.item.n}
+            {queued.place && ` · ${queued.place.position} of ${queued.place.total}`}
+          </span>
+        </span>
+      )}
       {stray && <StrayFacts stray={stray} />}
       {git && <GitFacts git={git} />}
       <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
@@ -97,12 +107,7 @@ export function TabHeader({
           now={Math.floor(now / 1000)}
         />
       ))}
-      {queued && (
-        <span className="tab-queue" title={queued.item.prompt}>
-          queue #{queued.item.n} · {queued.position} of {queued.total}
-          {queued.next && <> · next: {title(queued.next.prompt, 40)}</>}
-        </span>
-      )}
+      {queued?.next && <span className="tab-queue">next: {title(queued.next.prompt, 40)}</span>}
       <button
         className="panel-toggle library-toggle"
         title="Prompt library (⌘⇧L)"

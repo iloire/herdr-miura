@@ -30,7 +30,7 @@ context, and no two queued agents ever run at once.
   in the workspace is `working` or `blocked` and none carries a loop tag. Agents you started by hand count
   too, which is the point: the queue never runs beside them.
 - **Each item gets a new tab and a new Claude.** `herdr tab create --workspace <id> --cwd <folder> --label
-  "⧗ 2 · <title>" --no-focus`, then `herdr agent start q2 --kind claude --pane <pane>`, then
+  "<title>" --no-focus`, then `herdr agent start q2 --kind claude --pane <pane>`, then
   `herdr agent prompt q2 <text> --wait --until working`. The tab stays open when the item ends: it holds
   the transcript you will want to read. The status rules that already exist mark it `done` until you
   look at it.
@@ -100,8 +100,8 @@ amber while the queue is paused, and a dot pulses beside it while an item runs.
 
 ### Tab bar and tab header
 
-- A queued item's tab is labelled `⧗ 2 · Persist font size`. Herdr keeps the label, and nothing new is
-  drawn in the tab bar.
+- A queued item's tab is labelled with its title alone, `Persist font size`, and shows the usual status
+  mark. Herdr keeps the label, and nothing new is drawn in the tab bar.
 - `TabHeader` gains one field for a queue tab: `queue #2 of 4 · next: Add pin sort`, the remaining
   items at a glance.
 

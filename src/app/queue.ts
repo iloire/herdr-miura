@@ -151,7 +151,7 @@ export function title(prompt: string, max = 60): string {
 
 /// The tab's label, which is also its tooltip: the pill cuts it short by width,
 /// so only a runaway first line is cut here, within `queue.rs`'s MAX_TAB_LABEL.
-export const tabLabel = (item: Item) => `⧗ ${item.n} · ${title(item.prompt, 200)}`;
+export const tabLabel = (item: Item) => title(item.prompt, 200);
 
 /// What the agent is sent: the prompt, then the commit request when asked for.
 export function promptText(item: Item, queue: Queue): string {
@@ -431,18 +431,21 @@ export function restoreItem(queue: Queue, item: Item, index: number): Queue {
   return { ...queue, items };
 }
 
-/// Which queue item a tab runs, and where it stands in its queue.
+/// Which queue item a tab holds, and where it stands in its queue. A finished
+/// item's tab stays open and a worktree's is out of line, so those have no place.
 export function itemOfTab(
   file: QueueFile | null,
   tabId: string,
-): { item: Item; position: number; total: number; next: Item | null } | null {
+): { item: Item; place: { position: number; total: number } | null; next: Item | null } | null {
   for (const queue of Object.values(file?.queues ?? {})) {
     const index = queue.items.findIndex((i) => i.tabId === tabId && !isAway(i));
     if (index >= 0) {
       const done = queue.history.filter((i) => i.state === "done").length;
       const next = queue.items.find((i) => i.state === "queued") ?? null;
-      return { item: queue.items[index], position: done + 1, total: done + queue.items.length, next };
+      return { item: queue.items[index], place: { position: done + 1, total: done + queue.items.length }, next };
     }
+    const outOfLine = [...queue.items, ...queue.history].find((i) => i.tabId === tabId);
+    if (outOfLine) return { item: outOfLine, place: null, next: null };
   }
   return null;
 }
