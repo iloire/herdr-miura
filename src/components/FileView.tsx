@@ -1,8 +1,10 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { clean } from "../changes/diff";
+import type { Token } from "../files/highlight";
 import { readFile, type FileContents } from "../files/listing";
 import { isMarkdown, renderMarkdown, resolveLink } from "../files/markdown";
+import { highlightOffThread } from "../files/offThread";
 
 type Loaded = { phase: "loading" } | { phase: "ready"; contents: FileContents } | { phase: "failed"; error: string };
 
@@ -13,16 +15,45 @@ function size(bytes: number): string {
 }
 
 /// A file's text with line numbers. File content is untrusted, so each line
-/// goes through the diff view's `clean`.
-function TextBody({ text }: { text: string }) {
+/// goes through the diff view's `clean`, and tokens are drawn as text. The plain
+/// text shows first; tokens replace it inside the same `<pre>`, holding the same
+/// characters, so nothing moves.
+function TextBody({ text, path }: { text: string; path: string }) {
   const lines = useMemo(() => text.replace(/\n$/, "").split("\n").map(clean), [text]);
   const numbers = useMemo(() => lines.map((_, i) => i + 1).join("\n"), [lines]);
+  const code = useMemo(() => lines.join("\n"), [lines]);
+  const [tokens, setTokens] = useState<Token[][] | null>(null);
+
+  useEffect(() => {
+    const stale = new AbortController();
+    setTokens(null);
+    void highlightOffThread(code, path, stale.signal).then((result) => {
+      if (!stale.signal.aborted) setTokens(result);
+    });
+    return () => stale.abort();
+  }, [code, path]);
+
+  const colored = useMemo(
+    () =>
+      tokens?.map((line, i) => (
+        <Fragment key={i}>
+          {i > 0 && "\n"}
+          {line.map((token, j) => (
+            <span key={j} style={{ color: token.color }}>
+              {token.content}
+            </span>
+          ))}
+        </Fragment>
+      )),
+    [tokens],
+  );
+
   return (
     <div className="file-text">
       <pre className="file-numbers" aria-hidden="true">
         {numbers}
       </pre>
-      <pre className="file-code">{lines.join("\n")}</pre>
+      <pre className="file-code">{colored ?? code}</pre>
     </div>
   );
 }
@@ -151,7 +182,7 @@ export function FileView({
           ) : markdown && !source ? (
             <MarkdownBody root={root} path={path} text={contents.text} onOpen={onOpen} />
           ) : (
-            <TextBody text={contents.text} />
+            <TextBody text={contents.text} path={path} />
           ))}
         {contents?.type === "image" && (
           <ImageBody src={`data:${contents.mime};base64,${contents.data}`} alt={path.split("/").pop() ?? path} />

@@ -24,6 +24,17 @@
   --team: #b9a3ff;
   --scrim: rgb(5 8 11 / 0.45);
   --shadow: #000000;
+  /* Syntax colors, from the theme's palette (themes/chrome.ts, files/highlight.ts). */
+  --code-foreground: #d8dee9;
+  --code-token-keyword: #c678dd;
+  --code-token-string: #98c379;
+  --code-token-string-expression: #98c379;
+  --code-token-constant: #e5c07b;
+  --code-token-function: #61afef;
+  --code-token-parameter: #56b6c2;
+  --code-token-comment: #7e838b;
+  --code-token-punctuation: #a6abb5;
+  --code-token-link: #61afef;
   /* The chrome's text size against the default 13 px (ui.font_size). */
   --ui-scale: 1;
   /* The tab row, with its border, which the sidebar and drawer tops match. */

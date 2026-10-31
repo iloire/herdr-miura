@@ -20,6 +20,8 @@ function branch(): string {
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   plugins: [react()],
+  // The highlighter's worker loads each grammar as its own chunk, which needs module workers.
+  worker: { format: "es" },
   // `vite` serving (`tauri dev`) off `main` gets its branch. A built app shows no dev bar, unless
   // it is the Edge channel, which herdr-channels labels with its commit (docs/channels.md).
   define: { __DEV_BRANCH__: JSON.stringify(process.env.HERDR_BUILD_LABEL || (command === "serve" ? branch() : "")) },

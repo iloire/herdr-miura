@@ -13,6 +13,9 @@
     "check": "npm run typecheck && npm test && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
   },
   "dependencies": {
+    "@shikijs/core": "4.5.0",
+    "@shikijs/engine-javascript": "4.5.0",
+    "@shikijs/langs": "4.5.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-clipboard-manager": "^2",
     "@tauri-apps/plugin-opener": "^2",

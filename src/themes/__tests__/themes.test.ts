@@ -88,6 +88,29 @@ describe("builtin themes", () => {
     expect(root).toContain("color-scheme: dark");
   });
 
+  it("keeps every syntax color readable in every theme", () => {
+    const code = TOKENS.filter((token) => token.startsWith("code-"));
+    expect(code.length).toBeGreaterThan(0);
+    for (const name of BUILTIN_NAMES) {
+      const { tokens } = builtinTheme(name)!.chrome;
+      for (const token of code) {
+        expect(ratio(hex(tokens[token]), hex(tokens.ink)), `${name}: ${token}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it("draws syntax in the theme's own colors wherever they read on the background", () => {
+    const slots = { keyword: 5, string: 2, constant: 3, function: 4, parameter: 6 } as const;
+    for (const name of BUILTIN_NAMES) {
+      const { terminal, chrome } = builtinTheme(name)!;
+      for (const [token, slot] of Object.entries(slots) as [keyof typeof slots, number][]) {
+        const color = terminal.palette[slot];
+        if (ratio(color, terminal.background) < 4.5) continue;
+        expect(hex(chrome.tokens[`code-token-${token}`]), `${name}: ${token}`).toBe(color);
+      }
+    }
+  });
+
   it("keeps everything written in the chrome readable in every theme", () => {
     for (const name of BUILTIN_NAMES) {
       const { terminal, chrome } = builtinTheme(name)!;

@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 11:10 — The file view highlights code
+
+Files from the Files panel, and a Markdown file's Source view, now show syntax colors for 22 languages, picked by
+extension or by a well-known name such as `Dockerfile`. The colors come from the active theme's palette, so they change
+with it, including the macOS light/dark switch. The plain text shows at once and the colors replace it without moving
+anything. Shiki runs in a worker, because a grammar's first use held the UI thread for 1.4 s in WKWebView. Files over
+256 KiB stay plain, and a line over 5,000 characters is plain on its own.
+
 ## 2026-10-31 10:48 — Holding ⌥ shows the + will open a plain terminal
 
 With `new_tab.command` set, the gold + does two things. While ⌥ is held it now shows which: an outlined terminal

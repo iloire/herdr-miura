@@ -28,6 +28,17 @@ export const TOKENS = [
   "team",
   "scrim",
   "shadow",
+  // Syntax colors, named as Shiki's CSS variables theme asks for them (files/highlight.ts).
+  "code-foreground",
+  "code-token-keyword",
+  "code-token-string",
+  "code-token-string-expression",
+  "code-token-constant",
+  "code-token-function",
+  "code-token-parameter",
+  "code-token-comment",
+  "code-token-punctuation",
+  "code-token-link",
 ] as const;
 
 export type Token = (typeof TOKENS)[number];
@@ -58,6 +69,26 @@ export function legible(color: number, tokens: Record<Token, string>): number {
 /// Dark when white text would read better on the background than black.
 export function isDark(background: number): boolean {
   return ratio(background, 0xffffff) >= ratio(background, 0x000000);
+}
+
+/// The syntax colors from a theme's palette, moved only as far as reading on
+/// the background needs, which is all code is drawn on. Held to the chrome's
+/// selected row too, Dracula's pink would end up white, the color of its text.
+export function codeTokens(theme: Theme): Record<Extract<Token, `code-${string}`>, string> {
+  const { background: bg, foreground: fg, palette } = theme;
+  const word = (color: number) => css(ink(color, [bg], TEXT_RATIO));
+  return {
+    "code-foreground": css(fg),
+    "code-token-keyword": word(palette[5]),
+    "code-token-string": word(palette[2]),
+    "code-token-string-expression": word(palette[2]),
+    "code-token-constant": word(palette[3]),
+    "code-token-function": word(palette[4]),
+    "code-token-parameter": word(palette[6]),
+    "code-token-comment": word(mix(bg, fg, 55)),
+    "code-token-punctuation": word(mix(bg, fg, 75)),
+    "code-token-link": word(palette[4]),
+  };
 }
 
 /// Every chrome token for `theme`. Terminal colors are only read, never
@@ -100,6 +131,7 @@ export function chromeTokens(theme: Theme): Chrome {
       team: word(palette[5]),
       scrim: `rgb(${(scrim >> 16) & 255} ${(scrim >> 8) & 255} ${scrim & 255} / 0.45)`,
       shadow: "#000000",
+      ...codeTokens(theme),
     },
   };
 }

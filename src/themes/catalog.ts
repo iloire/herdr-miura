@@ -3,7 +3,7 @@
 // this app's own and the default.
 
 import { DEFAULT_THEME, type Theme } from "../terminal/theme";
-import { type Chrome, chromeTokens } from "./chrome";
+import { type Chrome, chromeTokens, codeTokens } from "./chrome";
 import { FALLBACK_THEME, parseGhostty } from "./ghostty";
 
 export interface NamedTheme {
@@ -42,6 +42,7 @@ export const HERDR_NIGHT: NamedTheme = {
       team: "#b9a3ff",
       scrim: "rgb(5 8 11 / 0.45)",
       shadow: "#000000",
+      ...codeTokens(DEFAULT_THEME),
     },
   },
 };

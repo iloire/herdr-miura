@@ -92,8 +92,8 @@ under its own name from a terminal. A hook slower than 60 s is stopped.
 
 ## Later, not in this step
 
-Syntax highlighting (Shiki), side-by-side view, word-level emphasis, staging, commit,
-and pull requests (`herdr-github`).
+Syntax highlighting in the diff views (Shiki, through `files/offThread.ts` as the file view does),
+side-by-side view, word-level emphasis, staging, commit, and pull requests (`herdr-github`).
 
 ## Ideas from codeflow (gimenete/codeflow)
 
