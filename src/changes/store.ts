@@ -114,6 +114,17 @@ export function commitFiles(checkout: string, sha: string): Promise<CommitFiles>
   return invoke<CommitFiles>("commit_files", { checkout, sha });
 }
 
+/// A commit named in a pane's text, and the checkout that names it.
+export interface FoundCommit {
+  checkout: string;
+  commit: RecentCommit;
+}
+
+/// The commit `name` means from `directory`, or null when it means none there.
+export function findCommit(directory: string, name: string): Promise<FoundCommit | null> {
+  return invoke<FoundCommit | null>("find_commit", { directory, name });
+}
+
 /// Which way commits would move between a branch and its upstream.
 export type Direction = "outgoing" | "incoming";
 

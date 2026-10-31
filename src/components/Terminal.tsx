@@ -13,7 +13,7 @@ const BUTTONS: MouseButton[] = ["Left", "Middle", "Right"];
 function sameLink(a: Link | null, b: Link | null): boolean {
   if (!a || !b) return a === b;
   const [ax, bx] = [a.cells[0], b.cells[0]];
-  return a.url === b.url && a.cells.length === b.cells.length && ax.x === bx.x && ax.y === bx.y;
+  return a.url === b.url && a.commit === b.commit && a.cells.length === b.cells.length && ax.x === bx.x && ax.y === bx.y;
 }
 
 function modifiers(event: MouseEvent | WheelEvent): number {
@@ -64,7 +64,8 @@ export function Terminal({
       repaintAll();
     };
 
-    // ⌘ over a URL underlines it and a ⌘-click opens it in the browser.
+    // ⌘ over a URL or commit hash underlines it. A ⌘-click opens a URL in the
+    // browser and a commit in the diff view.
     let pointer: { column: number; row: number } | null = null;
     let commandHeld = false;
     const updateLink = (): Set<number> => {
@@ -150,7 +151,12 @@ export function Terminal({
       const at = cellAt(event);
       if (event.metaKey && event.button === 0 && !grid.popup) {
         const link = linkAt(grid, at.column, at.row);
-        if (link) {
+        const pane = grid.paneAt(at.column, at.row);
+        if (link?.commit && pane) {
+          controller.openCommitLink(link.commit, pane.pane_id);
+          return;
+        }
+        if (link?.url) {
           void openUrl(link.url);
           return;
         }

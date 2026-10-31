@@ -1,3 +1,4 @@
+import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
@@ -8,6 +9,7 @@ import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
+import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
 
 export type Status =
@@ -531,6 +533,25 @@ export class Controller {
 
   /// Opens `panel` in the drawer, or closes it if open: the focus was in the
   /// panel or on its toggle, so closing hands typing back to the terminal.
+  /// Hands App a commit to open, once the Changes panel reaches its checkout.
+  showCommit: (found: FoundCommit) => void = () => {};
+
+  /// Opens the commit a pane's text names, read from that pane's folder: the
+  /// text is only hex digits until Git says otherwise.
+  openCommitLink(name: string, paneId: string): void {
+    const snapshot = this.state.snapshot;
+    const directory = paneDirectory(snapshot?.panes.find((pane) => pane.pane_id === paneId));
+    if (!directory) return;
+    if (paneId !== snapshot?.focused_pane_id) this.request("pane.focus", { pane_id: paneId });
+    this.act(
+      findCommit(directory, name).then((found) => {
+        if (!found) return this.set({ notice: `No commit ${name} in ${directory}` });
+        this.set({ changes: true, files: false, queue: false, queueAuto: false });
+        this.showCommit(found);
+      }),
+    );
+  }
+
   private togglePanel(panel: "changes" | "files" | "queue"): void {
     const open = !this.state[panel];
     this.set({ changes: false, files: false, queue: false, queueAuto: false, [panel]: open });

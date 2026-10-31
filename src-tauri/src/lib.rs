@@ -59,6 +59,7 @@ pub fn run() {
             commands::disconnect,
             commands::commit_files,
             commands::commit_paths,
+            commands::find_commit,
             commands::moving_commits,
             commands::sync_checkout,
             commands::land_plan,

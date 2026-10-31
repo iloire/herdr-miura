@@ -1,12 +1,18 @@
 import type { Grid } from "./grid";
 
-/// A URL found in the grid, with the cells it covers (it may wrap rows).
+/// A URL or commit hash found in the grid, with the cells it covers (it may
+/// wrap rows).
 export interface Link {
-  url: string;
+  url?: string;
+  commit?: string;
   cells: { x: number; y: number }[];
 }
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'`]+|\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0):\d+(?:\/[^\s<>"'`]*)?/g;
+
+/// What could be a commit: a lone run of hex digits, not part of a path, a
+/// file name, a UUID or a color. Only Git can tell whether it is one.
+const COMMIT_PATTERN = /(?<![\w/#=-]|\w\.)[0-9a-f]{7,64}(?![\w/-]|\.\w)/g;
 
 /// Prose punctuation that ends a sentence rather than the URL.
 const TRAILING = /[.,;:!?'"*]+$/;
@@ -22,7 +28,7 @@ function trim(text: string): string {
   return url;
 }
 
-/// The URL under a cell, if any. Text is read only within the pane holding
+/// The URL or commit hash under a cell, if any. Text is read only within the pane holding
 /// the cell, so a neighbouring pane's text never joins it, and a row whose
 /// last column is filled continues onto the next one, as a wrapped URL does.
 export function linkAt(grid: Grid, column: number, row: number): Link | null {
@@ -61,6 +67,10 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
     if (!covered.some((cell) => cell.x === column && cell.y === row)) continue;
     const cells = covered.filter((cell, i) => i === 0 || cell !== covered[i - 1]);
     return { url: url.startsWith("http") ? url : `http://${url}`, cells };
+  }
+  for (const match of text.matchAll(COMMIT_PATTERN)) {
+    const covered = origin.slice(match.index, match.index + match[0].length);
+    if (covered.some((cell) => cell.x === column && cell.y === row)) return { commit: match[0], cells: covered };
   }
   return null;
 }

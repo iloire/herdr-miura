@@ -22,7 +22,7 @@ import { strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
-import { ChangesStore, type ChangedFile, type CheckoutChanges, type RecentCommit } from "./changes/store";
+import { ChangesStore, type ChangedFile, type CheckoutChanges, type FoundCommit, type RecentCommit } from "./changes/store";
 import { fileAfter } from "./changes/discard";
 import { agentRefusal, LandStore } from "./changes/land";
 import { SyncStore } from "./changes/sync";
@@ -369,6 +369,15 @@ export default function App() {
   }, [fetched, syncStore]);
   // A commit opened in one checkout means nothing in the next.
   useEffect(() => setOpenCommit(null), [checkoutPath]);
+  // A commit linked from a pane waits here for the panel to read its checkout.
+  // Opened any sooner, the change of checkout above would close it again.
+  const [linkedCommit, setLinkedCommit] = useState<FoundCommit | null>(null);
+  useEffect(() => {
+    if (!linkedCommit || linkedCommit.checkout !== checkoutPath) return;
+    setLinkedCommit(null);
+    setDiffFile(null);
+    setOpenCommit(linkedCommit.commit);
+  }, [linkedCommit, checkoutPath]);
   const commitFiles = useCommitFiles(checkoutPath, openCommit?.sha ?? null);
 
   // The first checkout read reopens the diff left open in it, if the file is
@@ -463,6 +472,7 @@ export default function App() {
       setOpenCommit(null);
       setFilePick(null);
     };
+    controller.showCommit = setLinkedCommit;
   }, [controller]);
 
   // The dialog closes on its own once the workspace is gone or its last

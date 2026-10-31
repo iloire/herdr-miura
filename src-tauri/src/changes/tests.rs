@@ -134,6 +134,35 @@ fn lists_a_commits_files_with_their_counts() {
 }
 
 #[test]
+fn finds_a_commit_by_its_short_hash_from_inside_the_checkout() {
+    let dir = repo();
+    fs::create_dir(dir.path().join("sub")).unwrap();
+    fs::write(dir.path().join("sub/a.txt"), "one\n").unwrap();
+    git(&dir, &["add", "."]);
+    git(&dir, &["commit", "-m", "first"]);
+    let sha = head(&dir);
+    let inside = dir.path().join("sub").to_str().unwrap().to_owned();
+    let found = find_commit(&inside, &sha[..7]).unwrap().unwrap();
+    assert_eq!(found.commit.sha, sha);
+    assert_eq!(found.commit.subject, "first");
+    assert_eq!(found.checkout, checkout_root(&path(&dir), Instant::now() + DEADLINE).unwrap());
+}
+
+#[test]
+fn a_hash_that_is_no_commit_here_finds_nothing() {
+    let dir = repo();
+    fs::write(dir.path().join("a.txt"), "one\n").unwrap();
+    git(&dir, &["add", "."]);
+    git(&dir, &["commit", "-m", "first"]);
+    let blob = git(&dir, &["rev-parse", "HEAD:a.txt"]);
+    assert!(find_commit(&path(&dir), "0000000").unwrap().is_none());
+    assert!(find_commit(&path(&dir), blob.trim()).unwrap().is_none());
+    let outside = tempfile::tempdir().unwrap();
+    assert!(find_commit(&path(&outside), "abcdef1").unwrap().is_none());
+    assert!(find_commit(&path(&dir), "--all").is_err());
+}
+
+#[test]
 fn reads_a_commits_whole_message() {
     let dir = repo();
     fs::write(dir.path().join("a.txt"), "changed\n").unwrap();

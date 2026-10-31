@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:46 — ⌘-click a commit hash in a terminal to see its diff
+
+A hash in a pane's text now works like a URL: hold ⌘ to underline it and ⌘-click to open that commit in the diff view,
+with the Changes panel beside it. Any lone run of 7 or more hex digits counts, and Git decides when you click, read
+from the folder of the pane holding the text, so a worktree's commits work. A hash that isn't a commit there leaves a
+notice. A hash inside a URL still opens the URL. On a remote host the click is refused, as commits only open on this Mac.
+
 ## 2026-10-31 12:35 — Gold for a finished session that needs you
 
 A session that ends with `herdr-outcome you "<what>"` cannot move on until you act: run a command, make a decision,

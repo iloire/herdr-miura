@@ -67,6 +67,31 @@ describe("linkAt", () => {
     expect(linkAt(g, 5, 0)?.url).toBe("https://a.dev/long/path");
   });
 
+  it("finds a commit hash in prose", () => {
+    const g = grid(["committed as d0de2cf."]);
+    expect(linkAt(g, 15, 0)).toEqual({
+      commit: "d0de2cf",
+      cells: [13, 14, 15, 16, 17, 18, 19].map((x) => ({ x, y: 0 })),
+    });
+    expect(linkAt(g, 20, 0)).toBeNull();
+    expect(linkAt(grid(["0123456789012345678901234567890123456789"]), 3, 0)?.commit).toHaveLength(40);
+    const range = grid(["abc1234..def5678"]);
+    expect(linkAt(range, 2, 0)?.commit).toBe("abc1234");
+    expect(linkAt(range, 12, 0)?.commit).toBe("def5678");
+  });
+
+  it("does not take other hex for a commit", () => {
+    for (const text of ["src/abc1234/x", "/assets/abc1234", "abc1234.js", "#abcdef12", "id=abc1234", "abc1234-5678", "abcdef", "abc1234g", "ABC1234"]) {
+      expect(linkAt(grid([text]), 3, 0)?.commit).toBeUndefined();
+    }
+  });
+
+  it("lets a URL keep a hash inside it", () => {
+    const link = linkAt(grid(["https://a.dev/commit/abc1234 x"]), 24, 0);
+    expect(link?.url).toBe("https://a.dev/commit/abc1234");
+    expect(link?.commit).toBeUndefined();
+  });
+
   it("does not read across into a neighbouring pane", () => {
     const g = grid(["https://a.dev|tail"], [pane(0, 13, 1), pane(13, 5, 1)]);
     expect(linkAt(g, 3, 0)?.url).toBe("https://a.dev");

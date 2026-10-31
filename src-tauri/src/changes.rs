@@ -336,6 +336,39 @@ pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> 
     })
 }
 
+/// A commit named in a pane's text, and the checkout that names it.
+#[derive(Debug, Serialize)]
+pub struct FoundCommit {
+    checkout: String,
+    commit: CommitView,
+}
+
+/// The commit an abbreviated or full hash names from `directory`, if one does.
+/// A hash Git cannot place, because it is another repository's, not a commit
+/// at all, or too short to be one commit, is no match.
+pub fn find_commit(directory: &str, name: &str) -> Result<Option<FoundCommit>, Error> {
+    if !(7..=64).contains(&name.len()) || !name.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::InvalidCommit(name.into()));
+    }
+    let deadline = Instant::now() + DEADLINE;
+    let Ok(checkout) = checkout_root(directory, deadline) else {
+        return Ok(None);
+    };
+    let peeled = format!("{name}^{{commit}}");
+    let Ok(log) = git::text(
+        &checkout,
+        &["log", "--max-count=1", "-z", LOG_FORMAT, &peeled, "--"],
+        "find the commit",
+        deadline,
+    ) else {
+        return Ok(None);
+    };
+    Ok(parse::log(&log).into_iter().next().map(|commit| FoundCommit {
+        checkout,
+        commit: commit.into(),
+    }))
+}
+
 /// The first `count` commits after `since`, newest first, as far as HEAD: what
 /// one queued prompt committed, however many came after it.
 pub fn read_commits_after(checkout: &str, since: &str, count: usize) -> Result<Vec<CommitView>, Error> {

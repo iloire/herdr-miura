@@ -3,7 +3,7 @@
 
 use crate::{
     Error, Result,
-    changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff},
+    changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff, FoundCommit},
     claude_usage,
     connection::Connection,
     files::{self, Contents, Listing},
@@ -180,6 +180,18 @@ pub async fn commit_files(
 ) -> Result<CommitFilesView> {
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&checkout, &sha));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The commit a hash in a pane's text names from that pane's folder.
+#[tauri::command]
+pub async fn find_commit(
+    connection: State<'_, Connection>,
+    directory: String,
+    name: String,
+) -> Result<Option<FoundCommit>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || changes::find_commit(&directory, &name));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
