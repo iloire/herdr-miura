@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 14:05 — Workspace cards that open and close themselves
+
+`workspace_cards.details` has a new value, `auto` (Automatic in Settings): a card is open while one of its agents is
+blocked, needs you, is working or finished unseen, and closes once they are seen or idle. It opens at once and closes
+2 seconds later, so an agent that stops and starts again doesn't make it flicker. The chevron overrides the rule for
+that card until its automatic state next changes. `manual` stays the default, and nothing `auto` does touches the list
+it keeps, so going back restores what you had.
+
 ## 2026-10-31 13:31 — Choose what workspace cards show
 
 Settings has a Workspace cards section: `workspace_cards.git_status`, `agent_status`, `details` (manual, always or

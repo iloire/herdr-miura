@@ -30,7 +30,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `workspace_colors` | table of folder to color | none | A workspace's color, chosen in its right-click menu: each key is a workspace's folder, as a full path (a key with `/` or `.` needs quotes in TOML), and each value is `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`. See below. |
 | `workspace_cards.git_status` | boolean | `true` | Show the Git counts on every card: ↑ to push, ↓ to pull, ± changed files. |
 | `workspace_cards.agent_status` | boolean | `true` | Show the agent status marks and tally on the head of every card. |
-| `workspace_cards.details` | `"manual"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
+| `workspace_cards.details` | `"manual"`, `"auto"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
 | `workspace_cards.compact` | boolean | `false` | Tighter card rows, so more workspaces fit. |
 
 ```toml
@@ -66,9 +66,20 @@ compact = true
 The Workspace cards section of the Settings dialog chooses what the sidebar's cards show. It applies to every card:
 per-workspace choices would make cards harder to compare, so there is nothing for it in a card's menu.
 
-- `details`: `manual` is the chevron. `always` keeps open every card that has something to show, and `never` keeps
-  every card on one line. Neither shows a chevron, which would do nothing, and neither forgets what the chevron chose:
-  going back to `manual` restores it.
+- `details`: `manual` is the chevron, and a card stays open until it is closed. `auto` follows the card's agents, as
+  below. `always` keeps open every card that has something to show, and `never` keeps every card on one line. Neither
+  of those shows a chevron, which would do nothing. None of the three forgets what the chevron chose in `manual`:
+  going back restores it.
+- With `details = "auto"` a card is open while one of its agents is blocked, needs you, is working or finished unseen.
+  It closes once they are all seen or idle, so a finished agent keeps its card open until you look. This reads the
+  agents as they stand, so a card with an unseen finished agent is open from launch, too.
+  - A card opens at once and closes 2 seconds after its agents stop calling for it. An agent that stops and starts
+    again within that doesn't make the card flicker.
+  - The chevron overrides the rule for that card until the automatic state, open or closed, next changes. A card you
+    closed stays closed while its agent goes from working to done, as both mean open, and an agent that blocks then
+    shows its row on the collapsed card as it would in any mode. The next change back to closed ends the override, and
+    so does leaving `auto`.
+  - Nothing here goes into the list `manual` keeps. An override lasts as long as the window does.
 - `git_status` takes away only the counts. An expanded card keeps its branch, and ⑂ stays, as the way to a checkout's
   worktrees.
 - **No setting hides an agent that needs you.** A blocked or needs-you agent keeps its row on a collapsed card and an

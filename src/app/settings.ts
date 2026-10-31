@@ -8,8 +8,9 @@ import { BUILTIN_NAMES, DEFAULT_THEME_NAME, HERDR_NIGHT, type NamedTheme, builti
 import { parseGhostty } from "../themes/ghostty";
 import { HUE_SLOTS, type HueSlot, isHueSlot } from "./hue";
 
-/// How a workspace card's details open: by its chevron, always or never.
-export const CARD_DETAILS = ["manual", "always", "never"] as const;
+/// How a workspace card's details open: by its chevron, by what its agents are
+/// doing, always or never.
+export const CARD_DETAILS = ["manual", "auto", "always", "never"] as const;
 export type CardDetailsMode = (typeof CARD_DETAILS)[number];
 
 const isCardDetails = (value: unknown): value is CardDetailsMode => CARD_DETAILS.includes(value as CardDetailsMode);

@@ -333,7 +333,7 @@ body.reordering * {
   transform: rotate(90deg);
 }
 
-/* `workspace_cards.details` other than manual: no card has a chevron to keep room for. */
+/* `workspace_cards.details` always or never: no card has a chevron to keep room for. */
 .workspace-list.no-chevrons .workspace-main {
   padding-right: 14px;
 }

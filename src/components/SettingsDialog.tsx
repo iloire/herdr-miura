@@ -13,6 +13,7 @@ type Value = string | number | boolean | null;
 
 const DETAILS: Record<CardDetailsMode, { label: string; hint: string }> = {
   manual: { label: "Manual", hint: "Each card's chevron opens and closes its details." },
+  auto: { label: "Automatic", hint: "A card opens while an agent works, needs you or has finished unseen, and closes once it rests. Its chevron holds your choice until that next changes." },
   always: { label: "Always open", hint: "Every card with something to show keeps its details open." },
   never: { label: "Never", hint: "Cards stay on one line with no chevron. An agent that needs you still shows on its card." },
 };

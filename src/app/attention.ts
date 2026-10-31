@@ -194,6 +194,13 @@ export function cardAgents(agents: readonly Agent[]): Agent[] {
   return agents.filter((agent) => shownStatus(agent) !== "idle");
 }
 
+/// Whether a card opens itself under `workspace_cards.details = "auto"`: one of
+/// its agents needs you, is working, or finished and has not been seen. Read
+/// from a `seenSnapshot`, a `done` marked seen is already idle here.
+export function cardWantsOpen(agents: readonly Agent[]): boolean {
+  return agents.some((agent) => wantsYou(agent) || agent.agent_status === "working");
+}
+
 /// How many agents a collapsed workspace card names before it says how many more.
 const ATTENTION_ROWS = 3;
 

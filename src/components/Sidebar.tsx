@@ -4,12 +4,13 @@ import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
-import { agentsByWorkspace, cardAgents, loopTags, unseenDone, workspaceMarks } from "../app/attention";
+import { agentsByWorkspace, cardAgents, cardWantsOpen, loopTags, unseenDone, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
-import { cardOpen, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
+import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import type { Settings } from "../app/settings";
+import { useAutoCards } from "../app/useAutoCards";
 import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
@@ -151,7 +152,12 @@ export function Sidebar({
   };
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
   const [openCards, setOpenCards] = useState(loadOpenCards);
+  const automatic = cards.details === "auto";
+  const autoCards = useAutoCards(
+    new Map(automatic ? workspaces.map((workspace) => [workspace.workspace_id, cardWantsOpen(agents.get(workspace.workspace_id) ?? [])]) : []),
+  );
   const toggleOpen = (workspaceId: string) => {
+    if (automatic) return autoCards.toggle(workspaceId);
     const next = toggleCard(openCards, workspaceId, workspaces.map((workspace) => workspace.workspace_id));
     setOpenCards(next);
     saveOpenCards(next);
@@ -203,7 +209,7 @@ export function Sidebar({
         </button>
       </header>
       <ol
-        className={["workspace-list", cards.compact && "compact", cards.details !== "manual" && "no-chevrons"].filter(Boolean).join(" ")}
+        className={["workspace-list", cards.compact && "compact", !hasChevron(cards.details) && "no-chevrons"].filter(Boolean).join(" ")}
         ref={drag.list}
       >
         {rows.map(({ workspace, parent }, index) => {
@@ -220,7 +226,7 @@ export function Sidebar({
           const openQueue = () => onOpenQueue(workspace.workspace_id);
           // A card with nothing more to show has nothing to open.
           const expandable = listed.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
-          const open = cardOpen(cards.details, expandable, openCards.has(workspace.workspace_id));
+          const open = cardOpen(cards.details, expandable, automatic ? autoCards.shown(workspace.workspace_id) : openCards.has(workspace.workspace_id));
           const focus = () => {
             if (drag.consumeClick()) return;
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
@@ -343,7 +349,7 @@ export function Sidebar({
                 )}
                 {/* Beside the card's button, not in it, as is everything below:
                     a row can be a button of its own. */}
-                {expandable && cards.details === "manual" && (
+                {expandable && hasChevron(cards.details) && (
                   <button
                     className="workspace-chevron"
                     title={open ? "Hide details" : "Show details"}

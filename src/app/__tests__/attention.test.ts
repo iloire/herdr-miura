@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../../protocol";
 import { sortWorkspaces } from "../workspaceOrder";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, effectiveStatus, loopTag, loopTags, needsYouNote, outcomeNeedsYou, seenSnapshot, shownStatus, tabNeedsYou, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, cardWantsOpen, effectiveStatus, loopTag, loopTags, needsYouNote, outcomeNeedsYou, seenSnapshot, shownStatus, tabNeedsYou, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -36,6 +36,36 @@ function snapshot(agents: Agent[]): Snapshot {
     agents,
   };
 }
+
+describe("cardWantsOpen", () => {
+  const seen = (done: Agent) => seenSnapshot(snapshot([done]), { [done.pane_id]: done.state_change_seq }).agents;
+
+  it("opens for a blocked agent, a needs-you one and a working one", () => {
+    expect(cardWantsOpen([agent("1", "a", "blocked")])).toBe(true);
+    expect(cardWantsOpen([agent("1", "a", "working")])).toBe(true);
+    expect(cardWantsOpen([agent("1", "a", "idle", { tokens: [["attn_outcome", "you: run it"]] })])).toBe(true);
+  });
+
+  it("stays open for an unseen finished agent and closes once it is seen", () => {
+    const done = agent("1", "a", "done");
+    expect(cardWantsOpen([done])).toBe(true);
+    expect(cardWantsOpen(seen(done))).toBe(false);
+  });
+
+  it("stays open for a needs-you agent that was marked seen", () => {
+    const done = agent("1", "a", "done", { tokens: [["attn_outcome", "you: run it"]] });
+    expect(cardWantsOpen(seen(done))).toBe(true);
+  });
+
+  it("closes for idle and unknown agents, and with none", () => {
+    expect(cardWantsOpen([agent("1", "a", "idle"), agent("2", "a", "unknown")])).toBe(false);
+    expect(cardWantsOpen([])).toBe(false);
+  });
+
+  it("needs only one agent to want it", () => {
+    expect(cardWantsOpen([agent("1", "a", "idle"), agent("2", "a", "working")])).toBe(true);
+  });
+});
 
 describe("agentTitle", () => {
   const title = (over: Partial<Agent>) => agentTitle(agent("1", "a", "idle", over));

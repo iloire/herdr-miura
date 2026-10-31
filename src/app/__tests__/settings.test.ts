@@ -64,7 +64,7 @@ describe("parseSettings", () => {
   });
 
   it("reads each details mode, and leaves the rest of the cards at their defaults", () => {
-    for (const details of ["manual", "always", "never"]) {
+    for (const details of ["manual", "auto", "always", "never"]) {
       const { settings, warnings } = parseSettings({ workspace_cards: { details } });
       expect(settings.workspaceCards).toEqual({ ...DEFAULT_SETTINGS.workspaceCards, details });
       expect(warnings).toEqual([]);
@@ -75,7 +75,7 @@ describe("parseSettings", () => {
     for (const details of ["sometimes", "Always", "", true, 2, ["never"]]) {
       const { settings, warnings } = parseSettings({ workspace_cards: { details } });
       expect(settings.workspaceCards.details).toBe("manual");
-      expect(warnings).toEqual(['`workspace_cards.details` should be one of manual, always, never; using "manual".']);
+      expect(warnings).toEqual(['`workspace_cards.details` should be one of manual, auto, always, never; using "manual".']);
     }
   });
 
