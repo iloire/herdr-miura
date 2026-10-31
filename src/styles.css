@@ -2752,8 +2752,8 @@ kbd {
 /* The focused tab's agents, over its terminal: one group per agent. */
 .tab-header {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  gap: 5px;
   min-width: 0;
   padding: 5px 12px;
   overflow: hidden;
@@ -2764,10 +2764,20 @@ kbd {
   white-space: nowrap;
 }
 
-/* What gives way on a tight strip, in order: the agents' titles, the stray
-   path and the branch name down to their floors, the queue line, then each
-   agent's rightmost facts. The shared checkout warning, the counts, a rebase
-   or conflicts under way, the ports and the library always stay.
+/* Two lines, whatever they hold: the terminal resizes with the strip, so an
+   empty second line keeps its height. */
+.tab-line {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  min-height: calc(14px * var(--ui-scale));
+}
+
+/* What gives way on a tight line. On the first: the stray path and the branch
+   name down to their floors, then the queue line. The shared checkout warning,
+   a rebase or conflicts under way, the counts, the ports and the library stay.
+   On the second: the agents' titles, then each agent's rightmost facts.
    The titles and the branch can only shrink as items of the strip itself: a
    wrapper's minimum would be its text's full width, and a shrinking agent group
    would clip its facts first. */
@@ -2776,7 +2786,7 @@ kbd {
 }
 
 /* A tab the queue opened looks like any other, so the strip says so, first.
-   On a tight strip it shortens with the agent's facts, so the library stays. */
+   On a tight line it shortens, so the library stays. */
 .tab-origin {
   display: inline-flex;
   flex: 0 1 auto;

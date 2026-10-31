@@ -42,21 +42,23 @@ const STRAY_FLOOR = 16;
 const AGE_TITLE = "Time in this status, counted from when the app first saw it, so it restarts with the app";
 
 /// A strip over the focused tab's terminal, carrying what the terminal does not
-/// show. First, for a tab the queue opened, that it did: the tab itself looks
+/// show, on two lines: the tab and its checkout, then its agents. It is always
+/// both, even with no agent, as a height that came and went would resize the
+/// terminal under whatever runs there. First, for a tab the queue opened, that it did: the tab itself looks
 /// like any other. Then what makes a new prompt risky: a warning when other
 /// agents can write in this checkout, and a rebase, merge or cherry-pick under
 /// way or files in conflict. Then where the focused pane is, when that is not
 /// the workspace's root, to catch an agent working in the wrong place. Then the
 /// Git state of its checkout, which the sidebar cannot give: tabs of a workspace
 /// can sit in different worktrees. Then the ports of the servers started in this
-/// tab, each opening its page. Then what matters about each of its agents at all
-/// times: status, time in it, how long it has been quiet when that is long,
-/// model, context, spend this plan window, the last fifteen minutes' burn, a
-/// loop's next tick, and its title, or its latest prompt when it has none. At its
-/// right end the prompt library, whose prompts go to this tab's agent; for a tab
-/// with nothing else to say the library is all it holds. What is only sometimes
-/// true shows only then, so the strip stays one line. On a tight one the titles
-/// give way first; the warning and the Git state never do.
+/// tab, each opening its page. At the first line's right end the prompt library,
+/// whose prompts go to this tab's agent. The second line holds what matters about
+/// each of its agents at all times: status, time in it, how long it has been quiet
+/// when that is long, model, context, spend this plan window, the last fifteen
+/// minutes' burn, a loop's next tick, and its title, or its latest prompt when it
+/// has none. What is only sometimes true shows only then. On a tight first line
+/// the warning and the Git state outlast the rest; on a tight second one the titles
+/// give way first.
 export function TabHeader({
   controller,
   snapshot,
@@ -98,45 +100,49 @@ export function TabHeader({
   const since = windowStart(plan, now);
   return (
     <div className="tab-header" aria-label="This tab's checkout, servers and agents">
-      {queued && (
-        <span className="tab-origin" title={queued.item.prompt}>
-          <QueueIcon />
-          <span className="tab-origin-text">
-            From queue #{queued.item.n}
-            {queued.place && ` · ${queued.place.position} of ${queued.place.total}`}
+      <div className="tab-line">
+        {queued && (
+          <span className="tab-origin" title={queued.item.prompt}>
+            <QueueIcon />
+            <span className="tab-origin-text">
+              From queue #{queued.item.n}
+              {queued.place && ` · ${queued.place.position} of ${queued.place.total}`}
+            </span>
           </span>
-        </span>
-      )}
-      {shared && (
-        <span className="tab-shared" title={sharedTitle(shared)}>
-          ⚠ {shared.count} agents here
-        </span>
-      )}
-      {git && <GitUnderWay git={git} />}
-      {stray && <StrayFacts stray={stray} />}
-      {git && <GitFacts git={git} />}
-      <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
-      {agents.map((agent) => (
-        <AgentFacts
-          key={agent.pane_id}
-          agent={agent}
-          age={statusAge(statuses.current.get(agent.pane_id), now)}
-          quiet={quietAge(usages.get(sessionOf(agent) ?? "") ?? null, statuses.current.get(agent.pane_id), now)}
-          usage={usages.get(sessionOf(agent) ?? "") ?? null}
-          since={since}
-          now={Math.floor(now / 1000)}
-        />
-      ))}
-      {queued?.next && <span className="tab-queue">next: {title(queued.next.prompt, 40)}</span>}
-      <button
-        className="panel-toggle library-toggle"
-        title="Prompt library (⌘⇧L)"
-        aria-label="Prompt library"
-        aria-pressed={library}
-        onClick={() => controller.run("prompt_library")}
-      >
-        <LibraryIcon />
-      </button>
+        )}
+        {shared && (
+          <span className="tab-shared" title={sharedTitle(shared)}>
+            ⚠ {shared.count} agents here
+          </span>
+        )}
+        {git && <GitUnderWay git={git} />}
+        {stray && <StrayFacts stray={stray} />}
+        {git && <GitFacts git={git} />}
+        <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
+        {queued?.next && <span className="tab-queue">next: {title(queued.next.prompt, 40)}</span>}
+        <button
+          className="panel-toggle library-toggle"
+          title="Prompt library (⌘⇧L)"
+          aria-label="Prompt library"
+          aria-pressed={library}
+          onClick={() => controller.run("prompt_library")}
+        >
+          <LibraryIcon />
+        </button>
+      </div>
+      <div className="tab-line">
+        {agents.map((agent) => (
+          <AgentFacts
+            key={agent.pane_id}
+            agent={agent}
+            age={statusAge(statuses.current.get(agent.pane_id), now)}
+            quiet={quietAge(usages.get(sessionOf(agent) ?? "") ?? null, statuses.current.get(agent.pane_id), now)}
+            usage={usages.get(sessionOf(agent) ?? "") ?? null}
+            since={since}
+            now={Math.floor(now / 1000)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

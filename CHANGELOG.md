@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 10:05 — The tab header is two lines
+
+The strip over the terminal is now two lines tall, 44 px instead of 25. The first holds the warnings, Git state and
+ports, with the prompt library at its right end; the second holds the agents and their titles or prompts, so neither
+pushes the other off a narrow window. The height never changes, so facts coming and going do not resize the terminal.
+A tab without agents keeps its second line empty.
+
 ## 2026-10-31 09:50 — The tab header warns about shared checkouts, quiet agents and rebases
 
 The strip over the terminal now shows four things, each only when it has something to say. `⚠ 2 agents here` means
