@@ -88,8 +88,9 @@ Stable, and an Edge that rebuilds and restarts after every commit on `main` ([ch
 
 ## Status
 
-Working: the core terminal client, a Changes panel with diffs that fetches, pushes and pulls and discards one
-file at a time to the Trash, but never stages, commits, merges, rebases or stashes ([plan](docs/plan-changes.md)),
+Working: the core terminal client, a Changes panel with diffs that fetches, pushes and pulls, discards one file at
+a time to the Trash and commits the files you tick, but never stages, merges, rebases or stashes
+([plan](docs/plan-changes.md)),
 and agent status at a glance: each workspace's agents listed under it with a mark for working, waiting on
 you (with a count), done, or idle, and the Dock badge and window title counting agents that finished or need
 you ([plan](docs/plan-agent-status.md)), plus a ↻ on the tab and workspace card of a Claude session that `/loop`

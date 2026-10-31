@@ -2070,6 +2070,64 @@ body.reordering * {
   text-align: left;
 }
 
+.file-tickable {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+}
+
+.file-tickable .file {
+  flex: 1;
+  min-width: 0;
+  padding-left: 6px;
+}
+
+.file-tick {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--lantern);
+}
+
+.file-tick:focus-visible {
+  outline: 1px solid var(--lantern);
+  outline-offset: 2px;
+}
+
+.commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 16px 0;
+}
+
+.commit-box textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 8px;
+  resize: vertical;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--text);
+  font: calc(12px * var(--ui-scale))/1.4 var(--sans);
+}
+
+.commit-box textarea:focus {
+  outline: none;
+  border-color: var(--lantern);
+}
+
+.commit-box textarea::placeholder {
+  color: var(--muted);
+}
+
+.commit-box .sync-action {
+  align-self: flex-end;
+}
+
 .file:hover {
   background: var(--hover);
 }

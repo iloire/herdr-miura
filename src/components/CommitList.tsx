@@ -16,15 +16,27 @@ export function FileRow({
   current,
   onOpen,
   onMenu,
+  tick,
 }: {
   file: ChangedFile;
   current: boolean;
   onOpen: () => void;
   /// A commit's own files have nothing to act on, so they have no menu.
   onMenu?: (event: MouseEvent) => void;
+  /// The row's tick box, where it can be committed.
+  tick?: { checked: boolean; onChange: () => void };
 }) {
   return (
-    <li>
+    <li className={tick ? "file-tickable" : undefined}>
+      {tick && (
+        <input
+          type="checkbox"
+          className="file-tick"
+          aria-label={`Include ${file.path} in the commit`}
+          checked={tick.checked}
+          onChange={tick.onChange}
+        />
+      )}
       <button
         className="file"
         aria-current={current ? "true" : undefined}

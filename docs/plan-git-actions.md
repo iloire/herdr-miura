@@ -128,7 +128,7 @@ One commit each.
    `ChangesStore` and the sidebar counts. Hidden when `sync` is null, as on a remote host.~~ ✅
 5. ~~**Commit backend.** `commit_paths` with Rust tests: an agent's staged file left alone, a glob-named path, an
    untracked folder, a rename, a hook refusing.~~ ✅
-6. **Commit UI.** Tick boxes, the message box, the failure note.
+6. ~~**Commit UI.** Tick boxes, the message box, the failure note.~~ ✅
 7. **Docs.** Update the opening of plan-changes.md and its "Later" list, the README's "never stages, commits"
    line, `docs/architecture.md`, and CHANGELOG.md. Do this in the same commit as step 4 and again with step 6,
    so `main` never says the panel cannot do what it can.

@@ -6,7 +6,8 @@ import { absolutePath, canOpen } from "../changes/fileActions";
 import type { ChangedFile, ChangesStore, CheckoutChanges, RecentCommit } from "../changes/store";
 import type { SyncStore } from "../changes/sync";
 import { ChangesSync } from "./ChangesSync";
-import { CommitList, FileRow, type CommitRows } from "./CommitList";
+import { ChangedFiles } from "./ChangedFiles";
+import { CommitList, type CommitRows } from "./CommitList";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { CodeIcon, CopyIcon, TrashIcon } from "./icons";
 
@@ -24,6 +25,7 @@ export function ChangesPanel({
   onOpen,
   onToggleCommit,
   onDiscard,
+  onCommitted,
 }: {
   controller: Controller;
   store: ChangesStore;
@@ -34,6 +36,7 @@ export function ChangesPanel({
   onOpen: (file: ChangedFile) => void;
   onToggleCommit: (commit: RecentCommit) => void;
   onDiscard: (file: ChangedFile) => void;
+  onCommitted: () => void;
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
@@ -105,17 +108,15 @@ export function ChangesPanel({
               </span>
             )}
           </h3>
-          <ul className="file-list">
-            {checkout.files.map((file) => (
-              <FileRow
-                key={file.path}
-                file={file}
-                current={selected?.path === file.path}
-                onOpen={() => onOpen(file)}
-                onMenu={(event) => showMenu(event, fileMenu(checkout, file))}
-              />
-            ))}
-          </ul>
+          <ChangedFiles
+            key={checkout.path}
+            checkout={checkout}
+            sync={sync}
+            selected={selected}
+            onOpen={onOpen}
+            onMenu={(event, file) => showMenu(event, fileMenu(checkout, file))}
+            onCommitted={onCommitted}
+          />
           {checkout.total_files > checkout.files.length && (
             <p className="empty">and {checkout.total_files - checkout.files.length} more not listed</p>
           )}

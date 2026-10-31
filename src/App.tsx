@@ -394,6 +394,11 @@ export default function App() {
     controller.focusTerminal();
   };
 
+  const checkoutWritten = () => {
+    changesStore.reread();
+    setWritesEnded((ended) => ended + 1);
+  };
+
   const closeDiscard = () => {
     setDiscarding(null);
     if (!shownFile) controller.focusTerminal();
@@ -401,8 +406,7 @@ export default function App() {
 
   // A discard of the file on show moves on to the next, or closes after the last.
   const discarded = (file: ChangedFile) => {
-    changesStore.reread();
-    setWritesEnded((ended) => ended + 1);
+    checkoutWritten();
     setDiscarding(null);
     if (shownFile?.path !== file.path) return closeDiscard();
     const next = checkout ? fileAfter(checkout.files, file.path) : null;
@@ -603,6 +607,7 @@ export default function App() {
                 onOpen={openFile}
                 onToggleCommit={toggleCommit}
                 onDiscard={setDiscarding}
+                onCommitted={checkoutWritten}
               />
             )}
           </div>

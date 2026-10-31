@@ -3,8 +3,9 @@
 Shows what changed in the checkout you are working in, and the diff of any file, without leaving the app.
 It keeps a branch in step with its remote too: background fetch, push, publish and pull, with the
 commits each would move. You can discard one file's change, which goes to the Trash first and is refused if
-the file moved since you looked ([plan-git-actions.md](plan-git-actions.md)). It does not stage, commit, stash,
-merge or rebase. Agents do the committing here, and a stash could destroy another agent's work.
+the file moved since you looked, and commit the files you tick ([plan-git-actions.md](plan-git-actions.md)). It
+does not stage, stash, merge or rebase. All agents in a checkout share one index, so anything staged here would go
+into the next commit any of them makes, and a stash could destroy another agent's work.
 
 ## Where the data comes from
 
@@ -94,7 +95,8 @@ under its own name from a terminal. A hook slower than 60 s is stopped.
 ## Later, not in this step
 
 Syntax highlighting in the diff views (Shiki, through `files/offThread.ts` as the file view does),
-side-by-side view, word-level emphasis, staging, commit, and pull requests (`herdr-github`).
+side-by-side view, word-level emphasis, and pull requests (`herdr-github`). Acting on changes has its own list in
+[plan-git-actions.md](plan-git-actions.md#later); staging stays out, for the reason above.
 
 ## Ideas from codeflow (gimenete/codeflow)
 

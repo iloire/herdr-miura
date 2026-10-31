@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:55 — Commit ticked files from the Changes panel
+
+Each file row has a tick box. Tick some and a message box and a Commit button appear. The commit takes those paths
+and nothing else: what an agent has staged stays staged and out of it, and the panel leaves nothing staged, since all
+agents in a checkout share one index. New files and folders go in too, and a rename takes both its paths. If a hook
+refuses, the note shows its output, the ticks and message stay, and new files go back to untracked. It is hidden in a
+merge or rebase, on a detached HEAD, on an unborn branch and on a remote host. Push stays a separate click.
+
 ## 2026-10-31 12:40 — Discard one file from the Changes panel, and row menus
 
 A file row's right-click now has Copy Path, Open in VS Code and Discard Changes…, and a commit row's has Copy SHA. The
