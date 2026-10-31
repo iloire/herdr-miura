@@ -7,6 +7,11 @@ Newest first. Times are UTC.
 ⌥←/→ and Next / Previous Tab now step through tabs in the order the strip shows them. They used the daemon's order, so
 they jumped around once a working tab had moved to the front.
 
+## 2026-10-31 16:45 — Screenshots in Gruvbox, and the right-click menus
+
+The README's main screenshots now use the theme and font the app is used with day to day, still on made-up projects,
+and two new ones show the workspace and tab menus.
+
 ## 2026-10-31 16:50 — Herdr Miura
 
 The app and repo are now Herdr Miura, and the binary is `herdr-miura`. The window title stays Herdr. The identifiers and

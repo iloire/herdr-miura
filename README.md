@@ -20,6 +20,16 @@ shows every session's model, context and spend, and warns when two agents share 
 A workspace can name a team of agents in `.herdr/team.json`. The sidebar lists each role with what it is doing, and
 starts the ones not running ([docs/team.md](docs/team.md)).
 
+Right-click a workspace to rename it, pick its color, start a team, queue a prompt or open it in your editor. Tabs have
+a menu too, for pinning one or moving it to another workspace.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/menu-workspace.png" alt="A workspace's right-click menu, with its color swatches and actions, beside the card's agents"></td>
+    <td><img src="docs/screenshots/menu-tab.png" alt="A tab's right-click menu, with New Tab, Rename, Pin, Move to Workspace and Close Tab"></td>
+  </tr>
+</table>
+
 ## Queue up the next jobs
 
 Hand a workspace as many prompts as you like (⌘⇧A). Each one runs in a new tab with a fresh Claude session, and the next
