@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentCountsByTab, loopTags, tabVerifiedDone } from "../app/attention";
+import { agentCountsByTab, loopTags, tabNeedsYou, tabVerifiedDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import { useSteadyStrip } from "../app/useSteadyStrip";
@@ -133,6 +133,8 @@ export function TabBar({
         {tabs.map((tab) => {
           const pinned = isPinned(tab);
           const agents = agentCounts.get(tab.tab_id) ?? 0;
+          const own = snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [];
+          const waiting = tabNeedsYou(own);
           return (
             <div
               key={tab.tab_id}
@@ -171,13 +173,10 @@ export function TabBar({
                     </span>
                   )}
                   <span className="tab-text">{tab.label}</span>
-                  <LoopMark tags={loopTags(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])} />
+                  <LoopMark tags={loopTags(own)} />
                   {agents > 1 && <AgentCount count={agents} />}
                   {tab.zoomed && <span className="tab-zoomed" title="Zoomed">⤢</span>}
-                  <StatusMark
-                    status={tab.agent_status}
-                    verified={tabVerifiedDone(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [])}
-                  />
+                  <StatusMark status={waiting === null ? tab.agent_status : "blocked"} verified={tabVerifiedDone(own)} note={waiting} />
                 </button>
               )}
               <button

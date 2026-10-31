@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../../protocol";
 import { sortWorkspaces } from "../workspaceOrder";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, effectiveStatus, loopTag, loopTags, seenSnapshot, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, effectiveStatus, loopTag, loopTags, needsYouNote, outcomeNeedsYou, seenSnapshot, shownStatus, tabNeedsYou, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -328,7 +328,7 @@ describe("marked seen", () => {
       tabs: [tab("t1", "a", "done"), tab("t2", "a", "working"), tab("t3", "b", "done"), tab("t4", "c", "working")],
       workspaces: [workspace("c", "working"), workspace("a", "done"), workspace("b", "done")],
     };
-    const order = (shown: Snapshot) => sortWorkspaces(shown.workspaces, "attention").map((w) => w.workspace_id);
+    const order = (shown: Snapshot) => sortWorkspaces(shown.workspaces, "attention", shown.agents).map((w) => w.workspace_id);
     expect(order(base)).toEqual(["a", "b", "c"]);
 
     const shown = seenSnapshot(base, { "1": 7, "3": 3 });
@@ -355,5 +355,69 @@ describe("marked seen", () => {
     const base = snapshot([agent("1", "a", "done", { state_change_seq: 8 })]);
     expect(seenSnapshot(base, { "1": 8 })).not.toBe(base);
     expect(base.agents[0].agent_status).toBe("done");
+  });
+});
+
+describe("an outcome that needs you", () => {
+  const outcome = (value: string) => ({ tokens: [["attn_outcome", value]] as [string, string][] });
+  const you = outcome("you: run deploy.sh prod");
+
+  it("is a resting agent's `you:` token, with what to do after the prefix", () => {
+    expect(needsYouNote(agent("p", "w", "done", you))).toBe("run deploy.sh prod");
+    expect(outcomeNeedsYou(agent("p", "w", "idle", you))).toBe(true);
+    expect(outcomeNeedsYou(agent("p", "w", "idle", { tokens: [["$attn_outcome", "you: x"]] }))).toBe(true);
+    expect(outcomeNeedsYou(agent("p", "w", "working", you))).toBe(false);
+    expect(outcomeNeedsYou(agent("p", "w", "blocked", you))).toBe(false);
+    expect(outcomeNeedsYou(agent("p", "w", "idle"))).toBe(false);
+  });
+
+  it("does not take left, unverified, not-started or verified for it", () => {
+    for (const value of ["left: the docs", "unverified: 2 uncommitted files here", "not-started: why", "verified", "your turn"]) {
+      expect(outcomeNeedsYou(agent("p", "w", "done", outcome(value)))).toBe(false);
+      expect(attentionCount(snapshot([agent("p", "w", "idle", outcome(value))]))).toBe(0);
+    }
+  });
+
+  it("counts in the Dock badge once idle, and only once while done", () => {
+    expect(attentionCount(snapshot([agent("1", "a", "idle", you)]))).toBe(1);
+    expect(attentionCount(snapshot([agent("1", "a", "done", you)]))).toBe(1);
+    expect(wantsYou(agent("1", "a", "idle", you))).toBe(true);
+  });
+
+  it("does not fade when seen, and Mark as Seen leaves it", () => {
+    const base = snapshot([agent("1", "a", "done", { ...you, state_change_seq: 7 })]);
+    const shown = seenSnapshot(base, { "1": 7 });
+    expect(shown.agents[0].agent_status).toBe("idle");
+    expect(attentionCount(shown)).toBe(1);
+    expect(unseenDone(base.agents)).toEqual([]);
+  });
+
+  it("ranks and shows with the blocked agents", () => {
+    const list = [agent("1", "a", "done"), agent("2", "a", "working"), agent("3", "a", "idle", you), agent("4", "a", "blocked")];
+    expect(agentsByWorkspace(snapshot(list)).get("a")?.map((a) => a.pane_id)).toEqual(["3", "4", "1", "2"]);
+    expect(shownStatus(list[2])).toBe("blocked");
+    expect(workspaceMarks(list, "done")).toEqual([
+      { status: "blocked", count: 2 },
+      { status: "working", count: 1 },
+      { status: "done", count: 1 },
+    ]);
+    expect(attentionRows(list).rows.map((a) => a.pane_id)).toEqual(["3", "4"]);
+    expect(cardAgents([agent("1", "a", "idle"), list[2]])).toEqual([list[2]]);
+  });
+
+  it("puts its workspace with the blocked ones, whatever the daemon rolled up", () => {
+    const workspaces = [
+      { workspace_id: "busy", agent_status: "done" },
+      { workspace_id: "waiting", agent_status: "idle" },
+    ] as Workspace[];
+    const sorted = sortWorkspaces(workspaces, "attention", [agent("1", "waiting", "idle", you)]);
+    expect(sorted.map((w) => w.workspace_id)).toEqual(["waiting", "busy"]);
+  });
+
+  it("marks a tab if any one agent needs you, with every note", () => {
+    expect(tabNeedsYou([agent("1", "a", "working"), agent("2", "a", "idle")])).toBeNull();
+    expect(tabNeedsYou([agent("1", "a", "working"), agent("2", "a", "idle", you)])).toBe("run deploy.sh prod");
+    expect(tabNeedsYou([agent("1", "a", "idle", you), agent("2", "a", "done", outcome("you: pick one"))])).toBe("run deploy.sh prod; pick one");
+    expect(tabNeedsYou([agent("1", "a", "idle", outcome("you:"))])).toBe("");
   });
 });

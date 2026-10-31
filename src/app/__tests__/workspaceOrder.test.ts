@@ -32,15 +32,15 @@ describe("sortWorkspaces", () => {
   ];
 
   it("keeps the daemon's order by hand", () => {
-    expect(ids(sortWorkspaces(list, "manual"))).toEqual(["a", "b", "c", "d", "e", "f"]);
+    expect(ids(sortWorkspaces(list, "manual", []))).toEqual(["a", "b", "c", "d", "e", "f"]);
   });
 
   it("puts what needs you first, keeping the daemon's order within a status", () => {
-    expect(ids(sortWorkspaces(list, "attention"))).toEqual(["c", "e", "d", "b", "a", "f"]);
+    expect(ids(sortWorkspaces(list, "attention", []))).toEqual(["c", "e", "d", "b", "a", "f"]);
   });
 
   it("does not reorder the snapshot's own list", () => {
-    sortWorkspaces(list, "attention");
+    sortWorkspaces(list, "attention", []);
     expect(ids(list)).toEqual(["a", "b", "c", "d", "e", "f"]);
   });
 });

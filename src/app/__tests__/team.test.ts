@@ -86,4 +86,10 @@ describe("teamRows", () => {
       ["frontend", "absent", null],
     ]);
   });
+
+  it("says a member that finished needing you is waiting on you", () => {
+    const waiting = { ...agent("t1", "idle"), tokens: [["attn_outcome", "you: run it"]] } as Agent;
+    const [cto] = teamRows(members, "w1", snapshot([tab("t1", "w1", "cto")], [waiting]));
+    expect(cto.state).toBe("blocked");
+  });
 });

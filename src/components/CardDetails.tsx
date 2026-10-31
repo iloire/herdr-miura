@@ -1,4 +1,4 @@
-import { agentCountsByTab, agentRowName, attentionRows, verifiedDone, wantsYou } from "../app/attention";
+import { agentCountsByTab, agentRowName, attentionRows, needsYouNote, shownStatus, verifiedDone, wantsYou } from "../app/attention";
 import type { Controller } from "../app/controller";
 import type { ListeningPort } from "../app/ports";
 import { canLand } from "../changes/land";
@@ -12,16 +12,18 @@ import { StatusMark } from "./StatusMark";
 /// you if it does. A click goes to its tab.
 function AgentRow({ controller, snapshot, agent }: { controller: Controller; snapshot: Snapshot; agent: Agent }) {
   const name = agentRowName(agent, snapshot.tabs, agentCountsByTab(snapshot));
+  const status = shownStatus(agent);
+  const note = needsYouNote(agent);
   return (
     <button
       className="card-row"
-      title={name}
+      title={note ? `${name}: ${note}` : name}
       aria-current={agent.focused ? "true" : undefined}
       onClick={() => controller.request("tab.focus", { tab_id: agent.tab_id })}
     >
-      <StatusMark status={agent.agent_status} verified={verifiedDone(agent)} />
+      <StatusMark status={status} verified={verifiedDone(agent)} note={note} />
       <span className="card-row-name">{name}</span>
-      {wantsYou(agent) && <span className="card-row-note">{agent.agent_status === "blocked" ? "Needs you" : verifiedDone(agent) ? "Nothing left" : "Done"}</span>}
+      {wantsYou(agent) && <span className="card-row-note">{status === "blocked" ? "Needs you" : verifiedDone(agent) ? "Nothing left" : "Done"}</span>}
     </button>
   );
 }

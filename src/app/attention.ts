@@ -55,7 +55,7 @@ export function agentsByWorkspace(snapshot: Snapshot): Map<string, Agent[]> {
     byWorkspace.set(agent.workspace_id, list);
   }
   for (const list of byWorkspace.values()) {
-    list.sort((a, b) => PRIORITY[b.agent_status] - PRIORITY[a.agent_status]);
+    list.sort((a, b) => PRIORITY[shownStatus(b)] - PRIORITY[shownStatus(a)]);
   }
   return byWorkspace;
 }
@@ -95,7 +95,7 @@ export function workspaceMarks(
   fallback: AgentStatus,
 ): { status: AgentStatus; count: number }[] {
   if (agents.length === 0) return [{ status: fallback, count: 0 }];
-  const count = (status: AgentStatus) => agents.filter((agent) => agent.agent_status === status).length;
+  const count = (status: AgentStatus) => agents.filter((agent) => shownStatus(agent) === status).length;
   const live = (["blocked", "working", "done"] as const)
     .map((status) => ({ status, count: count(status) }))
     .filter((mark) => mark.count > 0);
@@ -122,12 +122,47 @@ export function loopTags(agents: readonly Agent[]): string[] {
   return agents.map(loopTag).filter((tag) => tag !== null);
 }
 
-/// Whether an agent's task is finished for sure: it said so through dotfiles'
-/// `herdr-outcome` and Git agreed. Herdr's own `done` only says a turn ended.
+/// How a resting agent says its task ended, through dotfiles' `herdr-outcome`.
 /// It outlives `done` turning idle once seen, and the next prompt clears it.
-export function verifiedDone(agent: Agent): boolean {
+function restingOutcome(agent: Agent): string | null {
   const resting = agent.agent_status === "done" || agent.agent_status === "idle";
-  return resting && agentToken(agent, "attn_outcome") === "verified";
+  return resting ? agentToken(agent, "attn_outcome") : null;
+}
+
+/// Whether an agent's task is finished for sure: it said so and Git agreed.
+/// Herdr's own `done` only says a turn ended.
+export function verifiedDone(agent: Agent): boolean {
+  return restingOutcome(agent) === "verified";
+}
+
+const YOU = "you:";
+
+/// What an agent that cannot move on until you act wants done: the text after
+/// `herdr-outcome you`, null for any other agent. `left` and `unverified` ask
+/// nothing of you. Herdr's `blocked` only covers a live prompt, so this session
+/// reads done or idle, and being seen does not clear it: only the token going
+/// does, at your next prompt to it or when it ends.
+export function needsYouNote(agent: Agent): string | null {
+  const outcome = restingOutcome(agent);
+  return outcome?.startsWith(YOU) ? outcome.slice(YOU.length).trim() : null;
+}
+
+/// Whether an agent's outcome needs you.
+export function outcomeNeedsYou(agent: Agent): boolean {
+  return needsYouNote(agent) !== null;
+}
+
+/// The status an agent ranks and shows with: a finished one that needs you
+/// goes with the blocked ones.
+export function shownStatus(agent: Agent): AgentStatus {
+  return outcomeNeedsYou(agent) ? "blocked" : agent.agent_status;
+}
+
+/// What a tab's agents need of you, or null when none does: one needing you is
+/// enough to mark the tab.
+export function tabNeedsYou(agents: readonly Agent[]): string | null {
+  const notes = agents.map(needsYouNote).filter((note) => note !== null);
+  return notes.length > 0 ? notes.filter(Boolean).join("; ") : null;
 }
 
 /// Whether a tab's agents are all finished for sure.
@@ -135,16 +170,17 @@ export function tabVerifiedDone(agents: readonly Agent[]): boolean {
   return agents.length > 0 && agents.every(verifiedDone);
 }
 
-/// Whether an agent wants you: it finished or is waiting for input. Done ones
-/// clear when the daemon or `seenSnapshot` marks them seen, blocked ones when
-/// their status moves.
+/// Whether an agent wants you: it finished, is waiting for input, or finished
+/// needing you. Done ones clear when the daemon or `seenSnapshot` marks them
+/// seen, blocked ones when their status moves, the last when their outcome goes.
 export function wantsYou(agent: Agent): boolean {
-  return agent.agent_status === "blocked" || agent.agent_status === "done";
+  const status = shownStatus(agent);
+  return status === "blocked" || status === "done";
 }
 
-/// The agents Mark as Seen would clear.
+/// The agents Mark as Seen would clear. Not one that needs you, which it cannot.
 export function unseenDone(agents: readonly Agent[]): Agent[] {
-  return agents.filter((agent) => agent.agent_status === "done");
+  return agents.filter((agent) => shownStatus(agent) === "done");
 }
 
 /// The Dock badge.
@@ -155,7 +191,7 @@ export function attentionCount(snapshot: Snapshot | null): number {
 /// The agents an expanded workspace card lists: all but the idle ones, which
 /// want nothing and only pushed the rest down. The tally still counts them.
 export function cardAgents(agents: readonly Agent[]): Agent[] {
-  return agents.filter((agent) => agent.agent_status !== "idle");
+  return agents.filter((agent) => shownStatus(agent) !== "idle");
 }
 
 /// How many agents a collapsed workspace card names before it says how many more.
@@ -165,7 +201,7 @@ const ATTENTION_ROWS = 3;
 /// many it leaves out: only the blocked ones. A finished agent is already
 /// counted in the card's tally, and gets a row once the card is expanded.
 export function attentionRows(agents: readonly Agent[]): { rows: Agent[]; more: number } {
-  const blocked = agents.filter((agent) => agent.agent_status === "blocked");
+  const blocked = agents.filter((agent) => shownStatus(agent) === "blocked");
   return { rows: blocked.slice(0, ATTENTION_ROWS), more: Math.max(0, blocked.length - ATTENTION_ROWS) };
 }
 

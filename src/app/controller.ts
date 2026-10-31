@@ -503,7 +503,7 @@ export class Controller {
       case "previous_workspace": {
         const snapshot = this.state.snapshot;
         const target =
-          snapshot && stepWorkspace(snapshot.workspaces, snapshot.focused_workspace_id, name === "next_workspace" ? 1 : -1);
+          snapshot && stepWorkspace(snapshot.workspaces, snapshot.agents, snapshot.focused_workspace_id, name === "next_workspace" ? 1 : -1);
         if (target) this.request("workspace.focus", { workspace_id: target.workspace_id });
         return;
       }

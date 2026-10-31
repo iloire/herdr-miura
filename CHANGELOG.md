@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:35 — Gold for a finished session that needs you
+
+A session that ends with `herdr-outcome you "<what>"` cannot move on until you act: run a command, make a decision,
+check something. Its tab, tab header and workspace card now go the same gold as a blocked agent, the card's row says
+"Needs you", the tooltip says what to do, and the Dock badge and the attention sort count it. It does not fade when
+seen or with Mark as Seen, and clears at your next prompt to that session or when the session ends. A `!` command does
+not clear it, because Claude Code fires no UserPromptSubmit for one. `left` and `unverified` stay unmarked, and nothing
+is guessed from an agent's last message.
+
 ## 2026-10-31 12:18 — Ask before closing a tab or pane with a working agent
 
 Closing a tab or pane stops its agent and whatever it is running, and a queued prompt's run with it, so one stray

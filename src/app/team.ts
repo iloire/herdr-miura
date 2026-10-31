@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { readFile } from "../files/listing";
 import type { AgentStatus, Snapshot } from "../protocol";
-import { PRIORITY } from "./attention";
+import { PRIORITY, shownStatus } from "./attention";
 
 export const TEAM_FILE = ".herdr/team.json";
 /// As many as `team.rs` starts at once.
@@ -60,7 +60,7 @@ export function teamRows(members: readonly Member[], workspaceId: string, snapsh
   return members.map((member) => {
     const tab = snapshot.tabs.find((t) => t.workspace_id === workspaceId && t.label === member.role);
     if (!tab) return { member, state: "absent", tabId: null };
-    const statuses = snapshot.agents.filter((a) => a.tab_id === tab.tab_id).map((a) => a.agent_status);
+    const statuses = snapshot.agents.filter((a) => a.tab_id === tab.tab_id).map(shownStatus);
     const state = statuses.sort((a, b) => PRIORITY[b] - PRIORITY[a])[0] ?? "shell";
     return { member, state, tabId: tab.tab_id };
   });

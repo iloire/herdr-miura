@@ -3,7 +3,7 @@ import type { Agent, AgentStatus, Snapshot } from "../../protocol";
 import { loadSeen, markSeen, pruneSeen, saveSeen, seenPanes } from "../seen";
 
 const agent = (pane_id: string, agent_status: AgentStatus, state_change_seq: number) =>
-  ({ pane_id, agent_status, state_change_seq }) as Agent;
+  ({ pane_id, agent_status, state_change_seq, tokens: [] }) as Partial<Agent> as Agent;
 
 const snapshot = (boot_id: string, panes: string[], agents: Agent[] = []) =>
   ({ boot_id, panes: panes.map((pane_id) => ({ pane_id })), agents }) as Snapshot;
@@ -17,6 +17,11 @@ describe("markSeen", () => {
   it("records each finished agent's sequence, and no blocked or working one", () => {
     const records = markSeen({}, null, "boot", [agent("1", "done", 7), agent("2", "blocked", 8), agent("3", "working", 9)]);
     expect(seenPanes(records, null, "boot")).toEqual({ "1": 7 });
+  });
+
+  it("leaves an agent whose outcome needs you, which seeing it cannot clear", () => {
+    const waiting = { ...agent("1", "done", 7), tokens: [["attn_outcome", "you: run it"]] } as Agent;
+    expect(seenPanes(markSeen({}, null, "boot", [waiting]), null, "boot")).toEqual({});
   });
 
   it("adds to what the boot already has and replaces a past boot's", () => {

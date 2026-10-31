@@ -105,7 +105,7 @@ export function Sidebar({
   // The team file sits in the workspace's own folder, not wherever its active tab has wandered.
   const folderOf = (workspace: Workspace) => (snapshot && (rootOf(workspace) ?? workspaceFolder(workspace, snapshot))) || null;
   const rows = groupWorktrees(
-    sortWorkspaces(snapshot?.workspaces ?? [], sort),
+    sortWorkspaces(snapshot?.workspaces ?? [], sort, snapshot?.agents ?? []),
     folderOf,
     (workspace) => worktrees.get(workspace.workspace_id) ?? [],
   );

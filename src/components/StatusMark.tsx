@@ -22,8 +22,19 @@ const STROKE = {
 /// An agent's status as a 14 px mark. A blocked mark carries `count`, the
 /// agents waiting on you, when there is more than a single agent behind it.
 /// `verified` takes over from the outlined check: the task is finished for
-/// sure, where that one only says a turn ended.
-export function StatusMark({ status, count, verified }: { status: AgentStatus; count?: number; verified?: boolean }) {
+/// sure, where that one only says a turn ended. `note` says what a blocked
+/// mark wants of you, when the agent told.
+export function StatusMark({
+  status,
+  count,
+  verified,
+  note,
+}: {
+  status: AgentStatus;
+  count?: number;
+  verified?: boolean;
+  note?: string | null;
+}) {
   if (status === "unknown") return null;
   if (verified) {
     return (
@@ -34,7 +45,7 @@ export function StatusMark({ status, count, verified }: { status: AgentStatus; c
       </svg>
     );
   }
-  const label = count && count > 1 ? `${count} need you` : LABEL[status];
+  const label = note ? `Needs you: ${note}` : count && count > 1 ? `${count} need you` : LABEL[status];
   if (status === "blocked") {
     return (
       <span className="mark mark-blocked" title={label} aria-label={label}>

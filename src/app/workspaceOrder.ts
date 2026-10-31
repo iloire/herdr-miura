@@ -2,8 +2,8 @@
 // (rows dragged into place reorder it with `workspace.move`), or by what needs
 // you first. The choice is this window's, kept in its storage.
 
-import type { Workspace } from "../protocol";
-import { PRIORITY } from "./attention";
+import type { Agent, Workspace } from "../protocol";
+import { outcomeNeedsYou, PRIORITY } from "./attention";
 
 export type WorkspaceSort = "manual" | "attention";
 
@@ -26,10 +26,14 @@ export function saveSort(sort: WorkspaceSort, storage: Pick<Storage, "setItem"> 
 }
 
 /// `workspaces` as the sidebar lists them. By attention: blocked, done,
-/// working, idle, each status keeping the daemon's order.
-export function sortWorkspaces(workspaces: readonly Workspace[], sort: WorkspaceSort): Workspace[] {
+/// working, idle, each status keeping the daemon's order. A finished agent that
+/// needs you ranks its workspace with the blocked ones, which the daemon's
+/// status for it cannot say.
+export function sortWorkspaces(workspaces: readonly Workspace[], sort: WorkspaceSort, agents: readonly Agent[]): Workspace[] {
   if (sort === "manual") return [...workspaces];
-  return [...workspaces].sort((a, b) => PRIORITY[b.agent_status] - PRIORITY[a.agent_status]);
+  const waiting = new Set(agents.filter(outcomeNeedsYou).map((agent) => agent.workspace_id));
+  const rank = (workspace: Workspace) => PRIORITY[waiting.has(workspace.workspace_id) ? "blocked" : workspace.agent_status];
+  return [...workspaces].sort((a, b) => rank(b) - rank(a));
 }
 
 /// The gap a pointer at `y` is over, 0 (before the first row) to `rows.length`
