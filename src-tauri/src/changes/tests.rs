@@ -45,6 +45,25 @@ fn outside_git_is_no_checkout() {
 }
 
 #[test]
+fn commits_carry_the_names_that_point_at_them() {
+    let dir = repo();
+    git(&dir, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(&dir, &["update-ref", "refs/remotes/origin/HEAD", "HEAD"]);
+    git(&dir, &["tag", "v1"]);
+    fs::write(dir.path().join("a.txt"), "changed\n").unwrap();
+    git(&dir, &["commit", "-q", "-am", "second"]);
+    let view = read_checkout(&path(&dir)).unwrap().unwrap();
+    let refs = |index: usize| -> Vec<&str> {
+        let mut names: Vec<_> = view.commits[index].refs.iter().map(|name| name.name.as_str()).collect();
+        names.sort_unstable();
+        names
+    };
+    assert_eq!(refs(0), ["main"]);
+    assert!(view.commits[0].refs[0].current);
+    assert_eq!(refs(1), ["origin/main", "v1"]);
+}
+
+#[test]
 fn lists_changed_and_untracked_files() {
     let dir = repo();
     fs::write(dir.path().join("a.txt"), "one\nTWO\nthree\n").unwrap();

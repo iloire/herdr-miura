@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 15:20 — Branches and tags on the commit list
+
+Commit rows in the Changes panel now show the names pointing at them, before the subject: branches, remote branches and
+tags, with the current branch in gold. A branch and its remote on one commit share a label, `main origin`, a remote's
+own HEAD is left out, and a row shows two labels and a count. The tooltip lists them all. Only commits in the list get
+labels, so a branch that has diverged from this one doesn't appear.
+
 ## 2026-10-31 14:05 — Workspace cards that open and close themselves
 
 `workspace_cards.details` has a new value, `auto` (Automatic in Settings): a card is open while one of its agents is

@@ -15,7 +15,7 @@ const { Controller } = await import("../controller");
 
 const FOUND: FoundCommit = {
   checkout: "/repo",
-  commit: { sha: "d0de2cf".padEnd(40, "0"), short: "d0de2cf", subject: "s", author: "a", time: 0 },
+  commit: { sha: "d0de2cf".padEnd(40, "0"), short: "d0de2cf", subject: "s", author: "a", time: 0, refs: [] },
 };
 
 function snapshot(): Snapshot {

@@ -89,7 +89,7 @@ fn numstat_counts_land_on_their_files_and_renames() {
 #[test]
 fn log_splits_records_and_fields() {
     let commits =
-        log("aaa\x1f100\x1fAda\x1ffirst\0\nbbb\x1f200\x1fBo\x1fsecond: with \x1f in it\0");
+        log("aaa\x1f100\x1fAda\x1f\x1ffirst\0\nbbb\x1f200\x1fBo\x1f\x1fsecond: with \x1f in it\0");
     assert_eq!(commits.len(), 2);
     assert_eq!(
         commits[0],
@@ -97,10 +97,37 @@ fn log_splits_records_and_fields() {
             sha: "aaa".into(),
             time: 100,
             author: "Ada".into(),
-            subject: "first".into()
+            subject: "first".into(),
+            refs: Vec::new(),
         }
     );
     assert_eq!(commits[1].subject, "second: with \x1f in it");
+}
+
+#[test]
+fn log_reads_the_names_on_a_commit() {
+    let refs = |text: &str| {
+        let record = format!("aaa\x1f100\x1fAda\x1f{text}\x1fsubject\0");
+        log(&record).remove(0).refs
+    };
+    let current = refs("HEAD -> refs/heads/main, refs/remotes/origin/main, refs/remotes/origin/HEAD, tag: refs/tags/v1");
+    assert_eq!(
+        current,
+        [
+            CommitRef { kind: RefKind::Branch, name: "main".into(), current: true },
+            CommitRef { kind: RefKind::Remote, name: "origin/main".into(), current: false },
+            CommitRef { kind: RefKind::Tag, name: "v1".into(), current: false },
+        ]
+    );
+    assert_eq!(
+        refs("HEAD, refs/heads/origin/x"),
+        [
+            CommitRef { kind: RefKind::Head, name: "HEAD".into(), current: false },
+            CommitRef { kind: RefKind::Branch, name: "origin/x".into(), current: false },
+        ],
+        "a detached HEAD, and a local branch that only looks remote"
+    );
+    assert_eq!(refs("refs/stash"), [], "a stash names nothing to look for");
 }
 
 #[test]

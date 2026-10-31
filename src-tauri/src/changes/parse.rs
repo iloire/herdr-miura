@@ -1,6 +1,8 @@
 //! Git's machine-readable output, parsed: `status --porcelain=v2 --branch -z`,
 //! `diff --numstat -z`, and `log -z` with fields split by 0x1f.
 
+use serde::Serialize;
+
 /// What `git status --short` would mark a file with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -60,6 +62,26 @@ pub struct Commit {
     pub author: String,
     /// Committer time, in seconds since the Unix epoch.
     pub time: i64,
+    pub refs: Vec<CommitRef>,
+}
+
+/// A name that points at a commit.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct CommitRef {
+    pub kind: RefKind,
+    pub name: String,
+    /// The branch HEAD is on.
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RefKind {
+    /// HEAD itself, when detached.
+    Head,
+    Branch,
+    Remote,
+    Tag,
 }
 
 /// `XY` from porcelain v2 as one kind, staged and unstaged together.
@@ -189,20 +211,53 @@ pub fn apply_numstat(files: &mut [FileChange], text: &str) {
     }
 }
 
-/// `log -z --format=%H%x1f%ct%x1f%an%x1f%s`.
+/// `log -z --decorate=full --format=%H%x1f%ct%x1f%an%x1f%D%x1f%s`.
 pub fn log(text: &str) -> Vec<Commit> {
     text.split('\0')
         .filter_map(|record| {
-            let mut parts = record.trim_start_matches('\n').splitn(4, '\x1f');
+            let mut parts = record.trim_start_matches('\n').splitn(5, '\x1f');
             let sha = parts.next()?.to_owned();
             let time = parts.next()?.parse().ok()?;
             let author = parts.next()?.to_owned();
+            let refs = parse_refs(parts.next()?);
             let subject = parts.next()?.to_owned();
             (!sha.is_empty()).then_some(Commit {
                 sha,
                 subject,
                 author,
                 time,
+                refs,
+            })
+        })
+        .collect()
+}
+
+/// `%D` under `--decorate=full`: `HEAD -> refs/heads/main, refs/remotes/origin/main`.
+/// A remote's own HEAD only repeats its default branch, and refs outside these
+/// namespaces, such as the stash, name nothing to look for.
+fn parse_refs(text: &str) -> Vec<CommitRef> {
+    text.split(", ")
+        .filter_map(|entry| {
+            if entry == "HEAD" {
+                return Some(CommitRef {
+                    kind: RefKind::Head,
+                    name: entry.to_owned(),
+                    current: false,
+                });
+            }
+            let on_head = entry.strip_prefix("HEAD -> ");
+            let name = on_head.unwrap_or(entry);
+            let (kind, name) = if let Some(name) = name.strip_prefix("refs/heads/") {
+                (RefKind::Branch, name)
+            } else if let Some(name) = name.strip_prefix("refs/remotes/") {
+                (RefKind::Remote, name)
+            } else {
+                (RefKind::Tag, name.strip_prefix("tag: refs/tags/")?)
+            };
+            (kind != RefKind::Remote || !name.ends_with("/HEAD")).then(|| CommitRef {
+                kind,
+                name: name.to_owned(),
+                current: on_head.is_some(),
             })
         })
         .collect()

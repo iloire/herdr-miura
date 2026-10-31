@@ -9,6 +9,14 @@ export interface ChangedFile {
   deletions: number | null;
 }
 
+/// A name that points at a commit, as `git log` reads it.
+export interface CommitRef {
+  kind: "head" | "branch" | "remote" | "tag";
+  name: string;
+  /// The branch HEAD is on.
+  current: boolean;
+}
+
 export interface RecentCommit {
   sha: string;
   short: string;
@@ -16,6 +24,7 @@ export interface RecentCommit {
   author: string;
   /// Seconds since the Unix epoch.
   time: number;
+  refs: CommitRef[];
 }
 
 export interface CheckoutChanges {

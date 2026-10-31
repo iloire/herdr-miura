@@ -1,6 +1,7 @@
 import { useEffect, useRef, type MouseEvent, type MutableRefObject } from "react";
 import type { ChangedFile, RecentCommit } from "../changes/store";
 import { relativeTime } from "../app/time";
+import { MAX_REF_LABELS, refLabels } from "../changes/refLabels";
 
 const MARK_LABEL: Record<string, string> = {
   "?": "Untracked",
@@ -82,6 +83,8 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
     <ul className="commit-list">
       {commits.map((commit) => {
         const open = openCommit === commit.sha;
+        const labels = refLabels(commit.refs);
+        const hidden = labels.slice(MAX_REF_LABELS);
         return (
           <li key={commit.sha}>
             <button
@@ -90,10 +93,23 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
               aria-current={open ? "true" : undefined}
               onClick={() => onToggle(commit)}
               onContextMenu={(event) => onMenu(commit, event)}
-              title={`${commit.sha}\n${commit.author}`}
+              title={[commit.sha, commit.author, ...commit.refs.map((ref) => ref.name)].join("\n")}
             >
               <span className="sha">{commit.short}</span>
-              <span className="subject">{commit.subject}</span>
+              <span className="subject">
+                {labels.slice(0, MAX_REF_LABELS).map((label) => (
+                  <span key={label.name} className={`commit-ref commit-ref-${label.kind}`} data-current={label.current}>
+                    {label.name}
+                    {label.remotes.map((remote) => (
+                      <span key={remote} className="commit-ref-also">
+                        {remote}
+                      </span>
+                    ))}
+                  </span>
+                ))}
+                {hidden.length > 0 && <span className="commit-ref">+{hidden.length}</span>}
+                {commit.subject}
+              </span>
               <span className="when">{relativeTime(commit.time)}</span>
             </button>
           </li>

@@ -5,7 +5,7 @@
 pub(crate) mod parse;
 
 use crate::git;
-use parse::{Commit, FileChange, Kind};
+use parse::{Commit, CommitRef, FileChange, Kind};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -29,7 +29,9 @@ const MAX_COMMIT_FILES: usize = 300;
 /// Commits listed per direction of a push or pull; the panel counts the rest.
 const MAX_MOVING: usize = 500;
 /// One commit as `parse::log` reads it.
-const LOG_FORMAT: &str = "--format=%H%x1f%ct%x1f%an%x1f%s";
+const LOG_FORMAT: &str = "--format=%H%x1f%ct%x1f%an%x1f%D%x1f%s";
+/// Spells out each name in `%D`, where `origin/x` could otherwise be a local branch.
+const FULL_REFS: &str = "--decorate=full";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -90,6 +92,7 @@ pub struct CommitView {
     subject: String,
     author: String,
     time: i64,
+    refs: Vec<CommitRef>,
 }
 
 impl From<FileChange> for FileView {
@@ -111,6 +114,7 @@ impl From<Commit> for CommitView {
             subject: commit.subject,
             author: commit.author,
             time: commit.time,
+            refs: commit.refs,
         }
     }
 }
@@ -156,7 +160,7 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         let format = format!("--max-count={MAX_COMMITS}");
         commits = parse::log(&git::text(
             &path,
-            &["log", &format, "-z", LOG_FORMAT],
+            &["log", &format, "-z", FULL_REFS, LOG_FORMAT],
             "read recent commits",
             deadline,
         )?);
@@ -357,7 +361,7 @@ pub fn find_commit(directory: &str, name: &str) -> Result<Option<FoundCommit>, E
     let peeled = format!("{name}^{{commit}}");
     let Ok(log) = git::text(
         &checkout,
-        &["log", "--max-count=1", "-z", LOG_FORMAT, &peeled, "--"],
+        &["log", "--max-count=1", "-z", FULL_REFS, LOG_FORMAT, &peeled, "--"],
         "find the commit",
         deadline,
     ) else {
@@ -376,7 +380,7 @@ pub fn read_commits_after(checkout: &str, since: &str, count: usize) -> Result<V
     let range = format!("{since}..HEAD");
     let log = git::text(
         checkout,
-        &["log", "-z", LOG_FORMAT, &range],
+        &["log", "-z", FULL_REFS, LOG_FORMAT, &range],
         "read the commits",
         Instant::now() + DEADLINE,
     )?;
@@ -403,7 +407,7 @@ pub fn read_moving(checkout: &str, direction: Direction) -> Result<Vec<CommitVie
     let limit = format!("--max-count={MAX_MOVING}");
     let log = git::text(
         checkout,
-        &["log", &limit, "-z", LOG_FORMAT, range],
+        &["log", &limit, "-z", FULL_REFS, LOG_FORMAT, range],
         "read the commits that would move",
         Instant::now() + DEADLINE,
     )?;
