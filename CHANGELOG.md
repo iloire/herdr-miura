@@ -2,12 +2,20 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 18:20 — The docs checked against the code
+
+A review of every doc found drift in `docs/architecture.md`: the commands that block, Land's lock, the queue's prompt
+options, contrast ratios, a team mark and a card's ports that are gone, and the tab menu's new items. It gains rows for
+`TabBar`, `StatusBar`, the two panels and `process.rs`. Each plan that has moved on from its design now says so at the
+top, and points to the doc that wins. CLAUDE.md, the README, `settings.md` and `ssh.md` had smaller fixes: a dev window
+on `main` can run the daily queue when Stable is closed, Node needs 20.19 or 22.12, and teams and more are this Mac's only.
+
 ## 2026-10-31 18:00 — A tab's right-click menu in groups
 
 The tab menu now opens on Rename, Pin and Mark as Seen, then Add to Queue, Folder and Move to Workspace, with New Tab and
 Close Tab last, and writes each shortcut beside its row. Mark as Seen clears one tab's finished agents, and Folder opens
 the tab's own folder, which can differ from its workspace's. New Tab in the menu now does what the + does, where it used
-to open a plain terminal whatever `new_tab_command` said. A pinned tab has no × any more and its menu's Close Tab is
+to open a plain terminal whatever `new_tab.command` said. A pinned tab has no × any more and its menu's Close Tab is
 disabled until it is unpinned; ⌘⇧W still closes it.
 
 ## 2026-10-31 17:01 — One sync line in the Changes panel

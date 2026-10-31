@@ -11,12 +11,11 @@ into the next commit any of them makes, and a stash could destroy another agent'
 
 - **Which checkout**: the focused pane's `foreground_cwd` (falling back to `cwd`) from the daemon snapshot.
   The panel follows you as you move between panes and workspaces.
-- **Backend**: our own Git reads (`src-tauri/src/git.rs`, `changes.rs`); originally `herdr-vcs` from herdr-gpui.
-  - `changes::locate` + `changes::read` give the branch, upstream, ahead/behind, commits the default branch
-    lacks, up to 50 changed files with line counts, and the latest 50 commits.
-  - `Session::git_bytes` runs `git diff HEAD -- <file>` with a 1 MiB cap. An untracked file is read with
-    `Session::read_text`, which is capped at 1 MiB and refuses binaries and symlinks, and is shown as all
-    added.
+- **Backend**: our own Git reads (`src-tauri/src/git.rs`, `changes.rs`).
+  - `checkout_changes` gives the branch, upstream, ahead/behind, commits the default branch lacks, up to 50
+    changed files with line counts, and the latest 50 commits.
+  - `file_diff` runs `git diff HEAD -- <file>` with a 1 MiB cap. An untracked file is read as text, under the same
+    cap, and shown as all added.
 - All Git runs on Tauri's blocking pool. Each read has a 5 s deadline and `changes.rs` contacts no remote;
   everything that does is in `sync.rs`, with a 60 s limit (see [Remote sync](#remote-sync)).
 
@@ -29,7 +28,7 @@ into the next commit any of them makes, and a stash could destroy another agent'
 3. ~~TS `changes/store.ts`: follows the focused directory, reloads when it changes, when the window regains
    focus, and every 5 s while the panel is open, and never runs two reads at once.~~ ✅
 4. ~~Changes panel: a right-hand drawer that slides in and out, toggled by the catalog's `review_changes`
-   shortcut and a tab-bar button. It shows the branch line, files with their status letter and +/-, and
+   command and the panel switch. It shows the branch line, files with their status letter and +/-, and
    recent commits.~~ ✅
 5. ~~Diff view: covers the terminal area (the terminal stays mounted, so the daemon sees no resize), shows
    the diff inline with old and new line numbers, steps through files with ↑/↓, and closes with Esc.~~ ✅

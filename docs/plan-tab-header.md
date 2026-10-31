@@ -23,7 +23,8 @@ plan's 5-hour window, the one the status bar's meter shows.
 2. ~~`session_usage.rs`: find each session's transcript, read it on from the last poll, count each response
    once (its last copy), add subagents, bucket by minute. Rust tests, one proven able to fail.~~ ✅
 3. ~~Header over the focused tab: per agent its status, model, context, spend this window, a 15-minute burn
-   chart and the loop tag. Hidden for a tab without agents. Checked live against a jq recount.~~ ✅
+   chart and the loop tag. Checked live against a jq recount.~~ ✅ It has since grown to two lines of Git and agent
+   facts, and a tab without agents keeps the first line.
 4. Burn colors: the header turns amber, then red, past a burn rate you set, so a costly loop in a background tab
    is hard to miss. Thresholds in a file you edit, not in code.
 5. Loops: cost per tick and projected per day on the loop line, and a warning when each tick rewrites the

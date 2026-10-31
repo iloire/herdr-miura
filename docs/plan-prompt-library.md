@@ -17,8 +17,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   <name> <text> --wait --until working`. Agent names must be `q<digits>` today. `herdr agent prompt`
   also takes a pane id as its target (`w49:p1S`), so the same call can reach the agent in the focused
   pane, whatever it is named or if it has no name.
-- **The queue is kept by workspace folder** (`workspaceFolder` in `app/queue.ts`: herdr's folder for
-  the workspace, else the one most of its tabs are in), and `useQueue`'s `actions.add(folder, prompt,
+- **The queue is kept by main checkout** (`queueFolder` in `app/workspaceRoot.ts`), and `useQueue`'s `actions.add(folder, prompt,
   front)` adds to it as the panel does.
 - **Reads stay inside a folder.** `files.rs`'s `inside(root, path)` resolves a path through symlinks and
   refuses one that leaves the root; `read_file` and `open_file` both go through it.
@@ -36,7 +35,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   `.claude/commands/*.md` file, so the same file is `/name` inside Claude and an entry in Herdr's palette.
   Writing one is writing a file, in any editor; dotfiles and git already carry them between machines.
 - **Two folders, project over global.** The palette reads `~/.claude/commands/` and the focused
-  workspace's `<folder>/.claude/commands/` (the queue's folder). A project prompt hides a global one of
+  workspace's `<folder>/.claude/commands/`. A project prompt hides a global one of
   the same name, which the palette marks ("overrides global"). Subfolders are read too; as in Claude Code
   the name is the file's, and the subfolder is shown beside it. Two files with one name in the same scope:
   the first by path is used and the other is shown as broken, naming the one it clashes with.
@@ -56,7 +55,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   palette's entries: parse frontmatter, apply the override, mark the broken ones, sort and filter. Vitest
   covers it. The frontmatter reader moves out of `agentFile.ts` into `app/frontmatter.ts`, shared by both.
 - **The palette** opens with ⌘⇧L ("Prompt Library"), also from the command palette and the book button at the
-  right end of the tab strip, beside Changes, Files and Queue. It searches name,
+  right end of the tab header. It searches name,
   description and body; project prompts sort before global ones. The right side shows the selected
   prompt's text in an editable box: what you send is what the box holds, so a one-off change need
   not touch the file, and Save (⌘S) writes it there, keeping the frontmatter. Unsaved text survives closing the

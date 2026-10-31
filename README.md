@@ -21,7 +21,7 @@ A workspace can name a team of agents in `.herdr/team.json`. The sidebar lists e
 starts the ones not running ([docs/team.md](docs/team.md)).
 
 Right-click a workspace to rename it, pick its color, start a team, queue a prompt or open it in your editor. Tabs have
-a menu too, for pinning one or moving it to another workspace.
+a menu too, for pinning one, marking it seen, queueing a prompt, opening its folder or moving it to another workspace.
 
 <table>
   <tr>
@@ -97,7 +97,7 @@ Eight built-in themes, any Ghostty theme, or a light and dark pair that follows 
 
 ## Run it
 
-Needs Node 20+, Rust (the pinned toolchain installs itself through `rustup`) and a running Herdr daemon.
+Needs Node 20.19+ or 22.12+, Rust (the pinned toolchain installs itself through `rustup`) and a running Herdr daemon.
 
 ```sh
 npm install
@@ -150,4 +150,4 @@ Text selection and copy in the terminal, find, terminal graphics, GitHub pull re
 key bindings.
 
 More support for SSH remote hosts is coming soon. Terminals and agents work there today, but the Changes panel, the
-queue, the prompt library and the file browser only work on this Mac ([docs/ssh.md](docs/ssh.md)).
+queue, teams, the prompt library and the file browser only work on this Mac ([docs/ssh.md](docs/ssh.md)).

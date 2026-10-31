@@ -6,6 +6,16 @@ A queue lets you hand prompts to the workspace now. The window starts each one i
 when the one before it has finished, one at a time, on the workspace's own checkout. Every prompt gets a new
 context, and no two queued agents ever run at once.
 
+**Status: built, and moved on from this design.** This file records what was decided. The `app/queue.ts` row of
+[architecture.md](architecture.md) describes the code, and wins where they differ. The main changes:
+
+- A queue belongs to a main checkout, not a workspace. A linked worktree's workspace shares it, and **Run in a
+  Worktree Now** takes a prompt out of line.
+- It is a panel in the right-hand drawer, not a dialog, with Pause in its header and **Leave queue, keep running** on
+  the running card. "The Queue dialog" below is the first design: there is no "Stop after this" and no dragging.
+- The file's times are numbers, an item keeps its start commit as `head`, and each queue carries its own
+  `commitSuffix` and `requireClean`.
+
 ## Where we start from
 
 - **Herdr 0.9.5 can start an agent and prompt it.** `agent.start` (name, `kind: "claude"`, pane, timeout)
@@ -171,7 +181,8 @@ notification when a queue empties or pauses belongs with the `notifications` set
 
 ## Settings
 
-These wait for [plan-settings.md](plan-settings.md). Until then they are constants in `app/queue.ts`:
+None of these became settings. The suffix and the clean-tree guard are ticks in the panel, kept per queue in the
+file; the rest are constants in `app/queue.ts`. These keys were the plan:
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -197,8 +208,7 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
    right-click item, the card and status bar chip, the tab header field.
    Reordering is ↑ ↓ only; dragging is left out. Checked live on a scratch repo: two prompts ran one after
    the other, each committed once, and an untrusted folder held the first one in `waiting` until answered.
-   The dialog itself is still to be tried by hand.
-6. ~~Docs.~~ ✅ README, architecture. A screenshot of the dialog waits for that first hand check.
+6. ~~Docs.~~ ✅ README, with a screenshot of the panel, and architecture.
 
 ## Later, not in this step
 
@@ -222,8 +232,8 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
     points to it.
   - A failed save leaves the files in the inbox, so a later launch may add one twice: a duplicate rather
     than a lost prompt.
-- **Other agents** (`codex`, `opencode`): the `kind` setting already allows them, but only Claude is
-  tested.
+- **Other agents** (`codex`, `opencode`): `queue_open` already takes a `kind`, but the window only sends `claude`,
+  and only Claude is tested.
 - **Remote hosts**: run the CLI over the SSH connection the window already holds.
 - **Close finished tabs** after you have seen them, behind a setting.
 

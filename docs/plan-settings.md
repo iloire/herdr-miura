@@ -1,7 +1,12 @@
 # Plan: Settings, starting with themes
 
 A settings file you can edit and provision, a Settings dialog (⌘,) that writes the same file, and themes
-as the first thing it controls. The README's roadmap already lists "the config file and themes".
+as the first thing it controls.
+
+**Status: built, and moved on from this design.** [settings.md](settings.md) is the schema and wins where they
+differ. The main changes: eight built-in themes rather than herdr-gpui's 28, `confirm_close_tab` on by default
+and only for a close that would stop an agent mid-task, status colors held to 4.5:1 as text rather than 3:1, no
+"Open settings file" button, and no message when the file changes on disk (it is read when the window comes back).
 
 ## Where we start from
 

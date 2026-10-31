@@ -12,6 +12,9 @@ name, status) are already in `protocol.ts`. Nothing new crosses the bridge.
 
 ## The marks
 
+The first set, still drawn this way. [architecture.md](architecture.md) (`app/attention.ts`) has what came after: a filled
+check for work verified done, gold for a finished agent that needs you, and those agents in the Dock count.
+
 Ported from herdr-gpui's default `outline` icons (Apache-2.0), drawn as inline SVG in `currentColor`:
 
 | Status | Mark | Color |
