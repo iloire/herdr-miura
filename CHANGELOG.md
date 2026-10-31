@@ -9,6 +9,13 @@ ports, with the prompt library at its right end; the second holds the agents and
 pushes the other off a narrow window. The height never changes, so facts coming and going do not resize the terminal.
 A tab without agents keeps its second line empty.
 
+## 2026-10-31 09:54 — A new workspace's card follows its shell
+
+A workspace opens in the folder of the one it came from, and its root was fixed there before you could `cd` away. So
+Venturi's card showed herdr-tauri's ±17 until that checkout's commit landed, while its Changes panel said there was
+nothing to commit. Its queue pointed at herdr-tauri too. A workspace that is still one shell with no agent now follows
+that shell, and an agent or a second pane fixes the root. Workspaces already on the wrong root correct themselves.
+
 ## 2026-10-31 09:50 — The tab header warns about shared checkouts, quiet agents and rebases
 
 The strip over the terminal now shows four things, each only when it has something to say. `⚠ 2 agents here` means

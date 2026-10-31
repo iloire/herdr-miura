@@ -44,8 +44,17 @@ export function saveRoots(roots: Roots, storage: Pick<Storage, "setItem"> | unde
   }
 }
 
-/// `roots` for this snapshot: a known workspace keeps its folder wherever its
-/// panes go, and a new one starts on the folder most of its tabs are in, which
+/// A workspace in use: a lone shell is not yet, as a new one starts in the
+/// folder of the workspace it came from and is `cd`'d to where it belongs.
+function settled(id: string, snapshot: Snapshot): boolean {
+  return (
+    snapshot.agents.some((agent) => agent.workspace_id === id) ||
+    snapshot.panes.filter((pane) => pane.workspace_id === id).length > 1
+  );
+}
+
+/// `roots` for this snapshot: a known workspace in use keeps its folder wherever
+/// its panes go, and any other takes the folder most of its tabs are in, which
 /// for a workspace just opened is the folder it was opened on. Closed
 /// workspaces drop out. The same object comes back when nothing changed.
 export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
@@ -53,7 +62,8 @@ export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
   const folders: Record<string, string> = {};
   for (const workspace of snapshot.workspaces) {
     const id = workspace.workspace_id;
-    const folder = (sameBoot ? roots.folders[id] : undefined) ?? tabsFolder(workspace, snapshot);
+    const known = sameBoot ? roots.folders[id] : undefined;
+    const folder = known !== undefined && settled(id, snapshot) ? known : (tabsFolder(workspace, snapshot) ?? known);
     if (folder) folders[id] = folder;
   }
   const ids = Object.keys(folders);
@@ -62,7 +72,7 @@ export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
   const unchanged =
     sameBoot &&
     ids.length === Object.keys(roots.folders).length &&
-    ids.every((id) => id in roots.folders) &&
+    ids.every((id) => folders[id] === roots.folders[id]) &&
     Object.keys(homes).length === Object.keys(roots.homes).length;
   return unchanged ? roots : { bootId: snapshot.boot_id, folders, homes };
 }

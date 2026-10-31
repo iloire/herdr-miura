@@ -73,15 +73,16 @@ describe("strayPath", () => {
   });
 });
 
-function snapshot(boot_id: string, tabs: Record<string, string[]>): Snapshot {
+function snapshot(boot_id: string, tabs: Record<string, string[]>, agentsIn: string[] = []): Snapshot {
   const ids = Object.keys(tabs);
   return {
     boot_id,
     workspaces: ids.map((workspace_id) => ({ workspace_id, new_workspace_cwd: "/follows/the/focus" })),
     tabs: ids.flatMap((w) => tabs[w].map((_, i) => ({ tab_id: `${w}:${i}`, workspace_id: w, number: i + 1 }))),
     panes: ids.flatMap((w) =>
-      tabs[w].map((cwd, i) => ({ pane_id: `${w}:p${i}`, tab_id: `${w}:${i}`, cwd, foreground_cwd: cwd })),
+      tabs[w].map((cwd, i) => ({ pane_id: `${w}:p${i}`, workspace_id: w, tab_id: `${w}:${i}`, cwd, foreground_cwd: cwd })),
     ),
+    agents: agentsIn.map((workspace_id) => ({ workspace_id })),
   } as unknown as Snapshot;
 }
 
@@ -93,15 +94,35 @@ describe("nextRoots", () => {
     expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {} });
   });
 
-  it("keeps a workspace's root when its only pane moves", () => {
-    const first = nextRoots(none, snapshot("boot", { w1: ["/app"] }));
-    const moved = nextRoots(first, snapshot("boot", { w1: ["/app/.claude/worktrees/foo"] }));
+  it("keeps a workspace's root when an agent's only pane moves", () => {
+    const first = nextRoots(none, snapshot("boot", { w1: ["/app"] }, ["w1"]));
+    const moved = nextRoots(first, snapshot("boot", { w1: ["/app/.claude/worktrees/foo"] }, ["w1"]));
     expect(moved).toBe(first);
+  });
+
+  it("keeps a workspace's root when a tab of several moves", () => {
+    const first = nextRoots(none, snapshot("boot", { w1: ["/app", "/app"] }));
+    expect(nextRoots(first, snapshot("boot", { w1: ["/app", "/other"] }))).toBe(first);
+  });
+
+  it("follows the one shell of a new workspace to where it was cd'd", () => {
+    const opened = nextRoots(none, snapshot("boot", { w1: ["/source"] }));
+    const moved = nextRoots(opened, snapshot("boot", { w1: ["/venturi"] }));
+    expect(moved.folders).toEqual({ w1: "/venturi" });
+  });
+
+  it("stays where the shell was when an agent or a second tab starts there", () => {
+    const opened = nextRoots(none, snapshot("boot", { w1: ["/source"] }));
+    const moved = nextRoots(opened, snapshot("boot", { w1: ["/venturi"] }));
+    const agent = nextRoots(moved, snapshot("boot", { w1: ["/elsewhere"] }, ["w1"]));
+    expect(agent.folders).toEqual({ w1: "/venturi" });
+    const tab = nextRoots(moved, snapshot("boot", { w1: ["/elsewhere", "/venturi"] }));
+    expect(tab.folders).toEqual({ w1: "/venturi" });
   });
 
   it("gives a workspace opened later its own folder and drops a closed one", () => {
     const first = nextRoots(none, snapshot("boot", { w1: ["/a"], w2: ["/b"] }));
-    expect(nextRoots(first, snapshot("boot", { w2: ["/moved"], w3: ["/c"] })).folders).toEqual({ w2: "/b", w3: "/c" });
+    expect(nextRoots(first, snapshot("boot", { w2: ["/moved"], w3: ["/c"] }, ["w2"])).folders).toEqual({ w2: "/b", w3: "/c" });
   });
 
   it("starts over on a new boot, whose ids mean other workspaces", () => {
