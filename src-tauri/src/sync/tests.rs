@@ -344,7 +344,11 @@ fn stop_in_a_merge(dir: &Path) {
     git(dir, &["checkout", "-q", "-b", "side", "HEAD~1"]);
     fs::write(dir.join("a.txt"), "side\n").unwrap();
     git(dir, &["commit", "-qam", "side"]);
-    let merge = Command::new("git").args(["merge", "main"]).current_dir(dir).output().unwrap();
+    let merge = Command::new("git")
+        .args(["-c", "user.name=t", "-c", "user.email=t@t", "merge", "main"])
+        .current_dir(dir)
+        .output()
+        .unwrap();
     assert!(!merge.status.success(), "{merge:?}");
 }
 

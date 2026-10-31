@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 16:55 — CI is green again
+
+The tests that commit, merge or rebase no longer lean on the machine's Git identity, which a CI runner doesn't have. A
+Land check that ends with `exit` under Bash no longer finishes its reason with a stray `logout`.
+
 ## 2026-10-31 16:51 — A logo of its own
 
 The Tauri logo is gone. The app icon is now a terminal window with horns and a gold cursor, on a dark tile for Stable, a

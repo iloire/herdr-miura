@@ -30,6 +30,9 @@ impl World {
     fn new() -> Self {
         let root = tempfile::tempdir().unwrap();
         git(root.path(), &["init", "-q", "-b", "main"]);
+        // The app's own commit reads this, as it would a person's.
+        git(root.path(), &["config", "user.name", "t"]);
+        git(root.path(), &["config", "user.email", "t@t"]);
         let world = Self {
             root,
             bin: tempfile::tempdir().unwrap(),

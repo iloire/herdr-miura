@@ -183,8 +183,18 @@ pub fn shell(
     Ok(Finished {
         success: done.success,
         stdout: after_start(done.stdout),
-        stderr: after_start(done.stderr),
+        stderr: without_logout(after_start(done.stderr)),
     })
+}
+
+/// `stderr` without the `logout` Bash adds when a script's `exit` ends a login
+/// shell, which would otherwise close every failure's reason.
+fn without_logout(stderr: String) -> String {
+    match stderr.strip_suffix("logout") {
+        Some("") => String::new(),
+        Some(rest) if rest.ends_with('\n') => rest.trim_end().to_owned(),
+        _ => stderr,
+    }
 }
 
 /// `text` after [`STARTED`], or all of it if the start was cut off.

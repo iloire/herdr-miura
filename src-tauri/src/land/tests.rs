@@ -36,6 +36,9 @@ impl World {
         let world = Self { _root: root, base, tree };
         let main = world.main();
         git(&main, &["init", "-q", "-b", "main"]);
+        // The app's own rebase and merge read this, as they would a person's.
+        git(&main, &["config", "user.name", "t"]);
+        git(&main, &["config", "user.email", "t@t"]);
         world.commit(&main, "a.txt", "one\n", "first");
         git(&main, &["worktree", "add", "-q", "-b", "feat/x", world.tree_str()]);
         world.commit(&world.tree(), "b.txt", "work\n", "the work");

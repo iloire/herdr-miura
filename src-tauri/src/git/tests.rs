@@ -149,6 +149,14 @@ fn shell_keeps_the_script_output_and_its_failure() {
 }
 
 #[test]
+fn the_logout_a_login_shell_adds_is_dropped() {
+    assert_eq!(without_logout("err\nlogout".to_owned()), "err");
+    assert_eq!(without_logout("logout".to_owned()), "");
+    assert_eq!(without_logout("blogout".to_owned()), "blogout");
+    assert_eq!(without_logout("logout failed\n".to_owned()), "logout failed\n");
+}
+
+#[test]
 fn what_startup_files_print_is_dropped() {
     let printed = format!("welcome banner\n{STARTED}\nthe reason\n");
     assert_eq!(after_start(printed), "the reason");
