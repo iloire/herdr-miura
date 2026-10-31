@@ -65,6 +65,11 @@ export function TabBar({
   );
   const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
 
+  // Stepping through tabs follows the order they are drawn in.
+  useEffect(() => {
+    controller.stripTabs = tabs.map((tab) => tab.tab_id);
+  });
+
   // On one row the open tab can sit past the edge, so it is scrolled to.
   const rows = useRef<HTMLDivElement>(null);
   const focusedTab = tabs.find((tab) => tab.focused)?.tab_id;

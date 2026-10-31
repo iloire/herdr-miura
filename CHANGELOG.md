@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 16:30 — ⌥←/→ follow the strip
+
+⌥←/→ and Next / Previous Tab now step through tabs in the order the strip shows them. They used the daemon's order, so
+they jumped around once a working tab had moved to the front.
+
 ## 2026-10-31 16:50 — Herdr Miura
 
 The app and repo are now Herdr Miura, and the binary is `herdr-miura`. The window title stays Herdr. The identifiers and

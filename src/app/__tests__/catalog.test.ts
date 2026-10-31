@@ -107,6 +107,26 @@ describe("requestFor", () => {
     expect(requestFor("next_pane", snapshot({ focused_pane_id: "p2" }))?.params).toEqual({ pane_id: "p1" });
   });
 
+  it("steps through tabs in the order the strip shows them", () => {
+    // t2 has an agent working, so the strip draws it first.
+    const strip = ["t2", "t1", "t3"];
+    const step = (name: string, focused_tab_id: string) =>
+      requestFor(name, snapshot({ focused_tab_id, focused_pane_id: null }), strip)?.params;
+    expect(step("next_tab", "t2")).toEqual({ tab_id: "t1" });
+    expect(step("next_tab", "t1")).toEqual({ tab_id: "t3" });
+    expect(step("next_tab", "t3")).toEqual({ tab_id: "t2" });
+    expect(step("previous_tab", "t2")).toEqual({ tab_id: "t3" });
+    expect(step("previous_tab", "t3")).toEqual({ tab_id: "t1" });
+  });
+
+  it("still reaches a tab the strip has not drawn yet", () => {
+    // Another workspace's strip, a moment after a switch.
+    const stale = ["y1", "y2"];
+    expect(requestFor("next_tab", snapshot(), stale)?.params).toEqual({ tab_id: "t2" });
+    // t3 was just opened.
+    expect(requestFor("next_tab", snapshot(), ["t2", "t1"])?.params).toEqual({ tab_id: "t3" });
+  });
+
   it("moves a tab as Herdr's TUI does, wrapping from either end", () => {
     const move = (name: string, focused_tab_id: string) => requestFor(name, snapshot({ focused_tab_id, focused_pane_id: null }))?.params;
     expect(move("move_tab_next", "t1")).toEqual({ tab_id: "t1", insert_index: 2 });

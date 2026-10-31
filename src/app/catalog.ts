@@ -37,9 +37,11 @@ export interface Focus {
   workspace: Snapshot["workspaces"][number] | undefined;
   tab: Snapshot["tabs"][number] | undefined;
   pane: Snapshot["panes"][number] | undefined;
+  /// Tab IDs as the strip draws them. See `Controller.stripTabs`.
+  strip: readonly string[];
 }
 
-export function focusOf(snapshot: Snapshot): Focus {
+export function focusOf(snapshot: Snapshot, strip: readonly string[] = []): Focus {
   const workspace = snapshot.workspaces.find((w) => w.workspace_id === snapshot.focused_workspace_id);
   const tab =
     workspace &&
@@ -49,7 +51,7 @@ export function focusOf(snapshot: Snapshot): Focus {
     snapshot.panes.find(
       (p) => p.pane_id === snapshot.focused_pane_id && p.tab_id === tab.tab_id && p.workspace_id === tab.workspace_id,
     );
-  return { snapshot, workspace, tab, pane };
+  return { snapshot, workspace, tab, pane, strip };
 }
 
 /// Index `step` places from `index` in a cycle of `length`.
@@ -74,10 +76,20 @@ function directional(prefix: string, method: string, label: string, mac: string[
   );
 }
 
+/// `tabs` in the strip's order, which puts working tabs first without moving
+/// them in the daemon. Any it hasn't drawn yet go last, in the daemon's order.
+function inStripOrder<T extends { tab_id: string }>(tabs: T[], strip: readonly string[]): T[] {
+  const place = (tab: T) => {
+    const index = strip.indexOf(tab.tab_id);
+    return index < 0 ? strip.length : index;
+  };
+  return tabs.sort((a, b) => place(a) - place(b));
+}
+
 function stepTab(step: number) {
-  return ({ snapshot, workspace }: Focus): Request | null => {
+  return ({ snapshot, workspace, strip }: Focus): Request | null => {
     if (!workspace) return null;
-    const tabs = snapshot.tabs.filter((t) => t.workspace_id === workspace.workspace_id);
+    const tabs = inStripOrder(snapshot.tabs.filter((t) => t.workspace_id === workspace.workspace_id), strip);
     const index = tabs.findIndex((t) => t.tab_id === snapshot.focused_tab_id);
     if (index < 0) return null;
     return { method: "tab.focus", params: { tab_id: tabs[cycle(index, step, tabs.length)].tab_id } };
@@ -236,11 +248,12 @@ export function isWindowCommand(name: string): boolean {
 }
 
 /// The request `name` sends against `snapshot`, or `null` for a window
-/// command, an unknown name, or nothing focused to act on.
-export function requestFor(name: string, snapshot: Snapshot): Request | null {
+/// command, an unknown name, or nothing focused to act on. `strip` is the tab
+/// strip's order, for the commands that step along it.
+export function requestFor(name: string, snapshot: Snapshot, strip: readonly string[] = []): Request | null {
   const action = BY_NAME.get(name)?.action;
   if (!action || action === "window") return null;
-  return action(focusOf(snapshot));
+  return action(focusOf(snapshot, strip));
 }
 
 export const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);

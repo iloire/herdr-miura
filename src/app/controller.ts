@@ -517,13 +517,17 @@ export class Controller {
         return;
     }
     const snapshot = this.state.snapshot;
-    const request = snapshot && requestFor(name, snapshot);
+    const request = snapshot && requestFor(name, snapshot, this.stripTabs);
     if (request) this.request(request.method, request.params);
   }
 
   isWindowCommand(name: string): boolean {
     return isWindowCommand(name);
   }
+
+  /// Set by the tab strip, the only place that knows the order it draws: pins
+  /// and the working set it holds still under the pointer both decide it.
+  stripTabs: readonly string[] = [];
 
   /// Set by the terminal view, so closing an overlay hands typing back to it.
   focusTerminal: () => void = () => {};
