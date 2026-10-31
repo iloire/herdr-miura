@@ -35,6 +35,7 @@ describe("parseSettings", () => {
       ui: { fontSize: 13 },
       confirmCloseTab: true,
       newTabCommand: null,
+      workspaceCards: { gitStatus: true, agentStatus: true, details: "manual", compact: false },
     });
   });
 
@@ -47,6 +48,7 @@ describe("parseSettings", () => {
       new_tab: { command: " claude " },
       tabs: { wrap: false },
       workspace_colors: { "/code/notes": "cyan" },
+      workspace_cards: { git_status: false, agent_status: false, details: "never", compact: true },
     });
     expect(warnings).toEqual([]);
     expect(settings).toEqual({
@@ -57,7 +59,41 @@ describe("parseSettings", () => {
       tabsWrap: false,
       newTabCommand: "claude",
       workspaceColors: { "/code/notes": "cyan" },
+      workspaceCards: { gitStatus: false, agentStatus: false, details: "never", compact: true },
     });
+  });
+
+  it("reads each details mode, and leaves the rest of the cards at their defaults", () => {
+    for (const details of ["manual", "always", "never"]) {
+      const { settings, warnings } = parseSettings({ workspace_cards: { details } });
+      expect(settings.workspaceCards).toEqual({ ...DEFAULT_SETTINGS.workspaceCards, details });
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  it("keeps manual for a details value it does not know", () => {
+    for (const details of ["sometimes", "Always", "", true, 2, ["never"]]) {
+      const { settings, warnings } = parseSettings({ workspace_cards: { details } });
+      expect(settings.workspaceCards.details).toBe("manual");
+      expect(warnings).toEqual(['`workspace_cards.details` should be one of manual, always, never; using "manual".']);
+    }
+  });
+
+  it("keeps each card flag's default for a bad value and says which key", () => {
+    const { settings, warnings } = parseSettings({ workspace_cards: { git_status: "no", agent_status: 0, compact: "yes" } });
+    expect(settings.workspaceCards).toEqual(DEFAULT_SETTINGS.workspaceCards);
+    expect(warnings).toEqual([
+      "`workspace_cards.git_status` should be true or false; using true.",
+      "`workspace_cards.agent_status` should be true or false; using true.",
+      "`workspace_cards.compact` should be true or false; using false.",
+    ]);
+  });
+
+  it("warns about an unknown card key, and when workspace_cards is not a table", () => {
+    expect(parseSettings({ workspace_cards: { gitstatus: false } }).warnings).toEqual(["`workspace_cards.gitstatus` is not a setting, so it does nothing."]);
+    const { settings, warnings } = parseSettings({ workspace_cards: "compact" });
+    expect(settings.workspaceCards).toEqual(DEFAULT_SETTINGS.workspaceCards);
+    expect(warnings).toEqual(["`workspace_cards` should be a [workspace_cards] table; its settings are at their defaults."]);
   });
 
   it("keeps the default for a bad value and says which key", () => {

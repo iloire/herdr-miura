@@ -40,16 +40,17 @@ export function AttentionRows({
   controller: Controller;
   snapshot: Snapshot;
   agents: Agent[];
-  onExpand: () => void;
+  /// What `+N more` does; `null` on a card that cannot expand, which lists them all.
+  onExpand: (() => void) | null;
 }) {
-  const { rows, more } = attentionRows(agents);
+  const { rows, more } = attentionRows(agents, onExpand === null);
   if (rows.length === 0) return null;
   return (
     <div className="card-rows">
       {rows.map((agent) => (
         <AgentRow key={agent.pane_id} controller={controller} snapshot={snapshot} agent={agent} />
       ))}
-      {more > 0 && (
+      {more > 0 && onExpand && (
         <button className="card-row card-row-more" onClick={onExpand}>
           +{more} more
         </button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadOpenCards, saveOpenCards, toggleCard } from "../openCards";
+import { cardOpen, loadOpenCards, saveOpenCards, toggleCard } from "../openCards";
 
 function memory(initial: string | null = null) {
   let value = initial;
@@ -36,5 +36,16 @@ describe("open cards", () => {
 
   it("forgets workspaces that are gone", () => {
     expect(toggleCard(new Set(["gone", "w1"]), "w2", ["w1", "w2"])).toEqual(new Set(["w1", "w2"]));
+  });
+
+  it("follows the chevron in manual, and overrides it otherwise", () => {
+    expect(cardOpen("manual", true, true)).toBe(true);
+    expect(cardOpen("manual", true, false)).toBe(false);
+    expect(cardOpen("always", true, false)).toBe(true);
+    expect(cardOpen("never", true, true)).toBe(false);
+  });
+
+  it("never opens a card with nothing to show", () => {
+    for (const mode of ["manual", "always", "never"] as const) expect(cardOpen(mode, false, true)).toBe(false);
   });
 });

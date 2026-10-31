@@ -8,7 +8,8 @@ import { agentsByWorkspace, cardAgents, loopTags, unseenDone, workspaceMarks } f
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
-import { loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
+import { cardOpen, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
+import type { Settings } from "../app/settings";
 import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
@@ -88,6 +89,7 @@ export function Sidebar({
   onMarkSeen,
   slots,
   onChooseColor,
+  cards,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -118,6 +120,8 @@ export function Sidebar({
   slots: ReadonlyMap<string, HueSlot>;
   /// Chooses the color of the workspace on this folder; `null` is automatic.
   onChooseColor: (folder: string, slot: HueSlot | null) => void;
+  /// What every card shows.
+  cards: Settings["workspaceCards"];
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -198,7 +202,10 @@ export function Sidebar({
           +
         </button>
       </header>
-      <ol className="workspace-list" ref={drag.list}>
+      <ol
+        className={["workspace-list", cards.compact && "compact", cards.details !== "manual" && "no-chevrons"].filter(Boolean).join(" ")}
+        ref={drag.list}
+      >
         {rows.map(({ workspace, parent }, index) => {
           const own = agents.get(workspace.workspace_id) ?? [];
           const listed = cardAgents(own);
@@ -213,7 +220,7 @@ export function Sidebar({
           const openQueue = () => onOpenQueue(workspace.workspace_id);
           // A card with nothing more to show has nothing to open.
           const expandable = listed.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
-          const open = expandable && openCards.has(workspace.workspace_id);
+          const open = cardOpen(cards.details, expandable, openCards.has(workspace.workspace_id));
           const focus = () => {
             if (drag.consumeClick()) return;
             controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
@@ -232,8 +239,8 @@ export function Sidebar({
             <WorkspaceGit
               // A collapsed card is one line, so its branch waits in the name's tooltip.
               branch={open ? workspace.branch : null}
-              aheadBehind={workspace.git_ahead_behind}
-              changed={changedFiles.get(workspace.workspace_id) ?? 0}
+              aheadBehind={cards.gitStatus ? workspace.git_ahead_behind : null}
+              changed={cards.gitStatus ? (changedFiles.get(workspace.workspace_id) ?? 0) : 0}
               worktrees={trees}
               onOpenWorktrees={openWorktrees}
             />
@@ -250,7 +257,7 @@ export function Sidebar({
                   <LoopMark tags={loopTags(own)} />
                 </>
               )}
-              <AgentTally agents={own} marks={marks} />
+              {cards.agentStatus && <AgentTally agents={own} marks={marks} />}
             </>
           );
           return (
@@ -336,7 +343,7 @@ export function Sidebar({
                 )}
                 {/* Beside the card's button, not in it, as is everything below:
                     a row can be a button of its own. */}
-                {expandable && (
+                {expandable && cards.details === "manual" && (
                   <button
                     className="workspace-chevron"
                     title={open ? "Hide details" : "Show details"}
@@ -371,7 +378,7 @@ export function Sidebar({
                       controller={controller}
                       snapshot={snapshot}
                       agents={own}
-                      onExpand={() => toggleOpen(workspace.workspace_id)}
+                      onExpand={cards.details === "never" ? null : () => toggleOpen(workspace.workspace_id)}
                     />
                   ))}
                 {landed && <LandNote land={landed[1]} onDismiss={() => lands?.dismiss(landed[0])} />}

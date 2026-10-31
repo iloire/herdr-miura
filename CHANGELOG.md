@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 13:31 — Choose what workspace cards show
+
+Settings has a Workspace cards section: `workspace_cards.git_status`, `agent_status`, `details` (manual, always or
+never) and `compact`, for every card at once, all defaulting to today's look. No setting hides an agent that needs
+you: with details on never, a card lists every blocked agent, since `+N more` would have nowhere to open. Neither
+always nor never shows a chevron, and both leave what the chevron chose for when you go back to manual. The dialog's
+sections are now Appearance, Tabs and Workspace cards.
+
 ## 2026-10-31 13:25 — Choose a workspace's color from its menu
 
 A workspace's right-click menu has a row of swatches below Mark as Seen: Automatic and the six palette colors. A chosen

@@ -203,6 +203,13 @@ describe("agentRowName", () => {
 });
 
 describe("attentionRows", () => {
+  it("names every blocked agent, leaving none out, when asked for all", () => {
+    const list = [...["1", "2", "3", "4", "5"].map((id) => agent(id, "a", "blocked")), agent("6", "a", "working")];
+    const { rows, more } = attentionRows(list, true);
+    expect(rows.map((row) => row.pane_id)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(more).toBe(0);
+  });
+
   const ids = (agents: Agent[]) => agents.map((a) => a.pane_id);
 
   it("names only the blocked agents, in order", () => {

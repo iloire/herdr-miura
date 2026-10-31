@@ -333,6 +333,38 @@ body.reordering * {
   transform: rotate(90deg);
 }
 
+/* `workspace_cards.details` other than manual: no card has a chevron to keep room for. */
+.workspace-list.no-chevrons .workspace-main {
+  padding-right: 14px;
+}
+
+/* `workspace_cards.compact`: tighter rows, so more workspaces fit. */
+.workspace-list.compact .workspace {
+  margin-bottom: 1px;
+}
+
+.workspace-list.compact .workspace-main {
+  padding-block: 3px;
+}
+
+.workspace-list.compact .workspace-chevron {
+  top: 2px;
+}
+
+.workspace-list.compact .workspace-tray {
+  margin-top: 0;
+  padding-bottom: 4px;
+}
+
+.workspace-list.compact .card-rows,
+.workspace-list.compact .card-details {
+  padding-bottom: 3px;
+}
+
+.workspace-list.compact .card-rows {
+  margin-top: 0;
+}
+
 /* Rows on a card: the agents that want you, and the details' lists. */
 .card-rows,
 .card-details {
@@ -4580,6 +4612,10 @@ kbd {
   grid-column: 1 / -1;
 }
 
+.settings-field .segmented {
+  align-self: flex-start;
+}
+
 .settings-field > span {
   color: var(--muted);
   font-size: calc(12px * var(--ui-scale));
@@ -4615,6 +4651,10 @@ kbd {
   align-items: flex-start;
   gap: 10px;
   cursor: pointer;
+}
+
+.settings-check + .settings-check {
+  margin-top: 10px;
 }
 
 .settings-check input {

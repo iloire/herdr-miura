@@ -1,6 +1,6 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
-import { LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
+import { CARD_DETAILS, type CardDetailsMode, LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
 import type { SettingsView } from "../app/useSettings";
 import { css } from "../terminal/theme";
 import { BUILTIN_NAMES, type NamedTheme, builtinTheme, parseThemeName } from "../themes/catalog";
@@ -10,6 +10,12 @@ const BUILTIN = new Set(BUILTIN_NAMES);
 const LIGHT = "(prefers-color-scheme: light)";
 
 type Value = string | number | boolean | null;
+
+const DETAILS: Record<CardDetailsMode, { label: string; hint: string }> = {
+  manual: { label: "Manual", hint: "Each card's chevron opens and closes its details." },
+  always: { label: "Always open", hint: "Every card with something to show keeps its details open." },
+  never: { label: "Never", hint: "Cards stay on one line with no chevron. An agent that needs you still shows on its card." },
+};
 
 /// ⌘, : every setting the file holds, applied and written as it changes. There
 /// is no Save: each change goes straight to config-tauri.toml, comments kept.
@@ -25,6 +31,9 @@ export function SettingsDialog({
   onClose: () => void;
 }) {
   const save = (key: string, value: Value) => controller.act(saveSetting(key, value).then(view.reload));
+  /// Saves a checkbox; its default removes the key.
+  const saveFlag = (key: string, fallback: boolean) => (on: boolean) => save(key, on === fallback ? null : on);
+  const cards = settings.workspaceCards;
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
     event.stopPropagation();
@@ -77,29 +86,19 @@ export function SettingsDialog({
             </div>
           </section>
           <section>
-            <h3>Behavior</h3>
-            <label className="settings-check">
-              <input
-                type="checkbox"
-                checked={settings.confirmCloseTab}
-                onChange={(event) => save("confirm_close_tab", event.target.checked ? null : false)}
-              />
-              <span>
-                Ask before closing a tab or pane with a working agent
-                <small>Closing stops the agent and anything it is running. Idle or finished agents, shells and servers close at once.</small>
-              </span>
-            </label>
-            <label className="settings-check">
-              <input
-                type="checkbox"
-                checked={settings.tabsWrap}
-                onChange={(event) => save("tabs.wrap", event.target.checked ? null : false)}
-              />
-              <span>
-                Wrap tabs onto more rows
-                <small>Off keeps one row of tabs, which scrolls sideways when they do not fit.</small>
-              </span>
-            </label>
+            <h3>Tabs</h3>
+            <Check
+              label="Ask before closing a tab or pane with a working agent"
+              hint="Closing stops the agent and anything it is running. Idle or finished agents, shells and servers close at once."
+              checked={settings.confirmCloseTab}
+              onChange={saveFlag("confirm_close_tab", true)}
+            />
+            <Check
+              label="Wrap tabs onto more rows"
+              hint="Off keeps one row of tabs, which scrolls sideways when they do not fit."
+              checked={settings.tabsWrap}
+              onChange={saveFlag("tabs.wrap", true)}
+            />
             <div className="settings-grid">
               <TextField
                 label="New tab command"
@@ -109,6 +108,40 @@ export function SettingsDialog({
                 hint="Typed into the tab the strip's + or ⌘⇧T opens, e.g. claude. ⌥-click on + or ⌘T opens a plain tab."
                 onCommit={(value) => save("new_tab.command", value || null)}
               />
+            </div>
+          </section>
+          <section>
+            <h3>Workspace cards</h3>
+            <Check
+              label="Show Git status"
+              hint="Commits to push and pull and changed files, such as ↑27 ±1."
+              checked={cards.gitStatus}
+              onChange={saveFlag("workspace_cards.git_status", true)}
+            />
+            <Check
+              label="Show agent status"
+              hint="The status marks and tally beside the name. An agent that needs you still shows on its card."
+              checked={cards.agentStatus}
+              onChange={saveFlag("workspace_cards.agent_status", true)}
+            />
+            <Check
+              label="Compact cards"
+              hint="Tighter rows, so more workspaces fit."
+              checked={cards.compact}
+              onChange={saveFlag("workspace_cards.compact", false)}
+            />
+            <div className="settings-grid">
+              <div className="settings-field wide">
+                <span id="settings-card-details">Details</span>
+                <div className="segmented" role="radiogroup" aria-labelledby="settings-card-details">
+                  {CARD_DETAILS.map((mode) => (
+                    <button key={mode} role="radio" aria-checked={cards.details === mode} onClick={() => save("workspace_cards.details", mode === "manual" ? null : mode)}>
+                      {DETAILS[mode].label}
+                    </button>
+                  ))}
+                </div>
+                <small>{DETAILS[cards.details].hint}</small>
+              </div>
             </div>
           </section>
         </div>
@@ -268,6 +301,19 @@ function ThemePreview({ theme }: { theme: NamedTheme }) {
         <span className="preview-cursor" style={{ background: css(cursor) }} />
       </pre>
     </div>
+  );
+}
+
+/// A setting that is on or off, with what it means under its label.
+function Check({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="settings-check">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>
+        {label}
+        <small>{hint}</small>
+      </span>
+    </label>
   );
 }
 

@@ -200,8 +200,10 @@ const ATTENTION_ROWS = 3;
 /// The agents a collapsed workspace card names, keeping their order, and how
 /// many it leaves out: only the blocked ones. A finished agent is already
 /// counted in the card's tally, and gets a row once the card is expanded.
-export function attentionRows(agents: readonly Agent[]): { rows: Agent[]; more: number } {
+/// `all` is for a card that cannot expand: `+N more` would have nowhere to go.
+export function attentionRows(agents: readonly Agent[], all = false): { rows: Agent[]; more: number } {
   const blocked = agents.filter((agent) => shownStatus(agent) === "blocked");
-  return { rows: blocked.slice(0, ATTENTION_ROWS), more: Math.max(0, blocked.length - ATTENTION_ROWS) };
+  const rows = all ? blocked : blocked.slice(0, ATTENTION_ROWS);
+  return { rows, more: blocked.length - rows.length };
 }
 

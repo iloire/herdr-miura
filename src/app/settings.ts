@@ -8,6 +8,12 @@ import { BUILTIN_NAMES, DEFAULT_THEME_NAME, HERDR_NIGHT, type NamedTheme, builti
 import { parseGhostty } from "../themes/ghostty";
 import { HUE_SLOTS, type HueSlot, isHueSlot } from "./hue";
 
+/// How a workspace card's details open: by its chevron, always or never.
+export const CARD_DETAILS = ["manual", "always", "never"] as const;
+export type CardDetailsMode = (typeof CARD_DETAILS)[number];
+
+const isCardDetails = (value: unknown): value is CardDetailsMode => CARD_DETAILS.includes(value as CardDetailsMode);
+
 export interface Settings {
   /// A theme name, path, or `light:…,dark:…` pair.
   theme: string;
@@ -28,6 +34,16 @@ export interface Settings {
   newTabCommand: string | null;
   /// The palette slot chosen for a workspace, by its folder.
   workspaceColors: Record<string, HueSlot>;
+  /// What every workspace card shows. Nothing here may hide an agent that needs you.
+  workspaceCards: {
+    /// The Git counts: to push, to pull, changed files.
+    gitStatus: boolean;
+    /// The status marks and tally on the card's head.
+    agentStatus: boolean;
+    details: CardDetailsMode;
+    /// Tighter rows, so more workspaces fit.
+    compact: boolean;
+  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tabsWrap: true,
   newTabCommand: null,
   workspaceColors: {},
+  workspaceCards: { gitStatus: true, agentStatus: true, details: "manual", compact: false },
 };
 
 /// The ranges a number setting accepts.
@@ -119,6 +136,13 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   } else if (colors !== undefined) {
     warnings.push("`workspace_colors` should be a [workspace_colors] table of folders; every workspace keeps its automatic color.");
   }
+  const cards = settings.workspaceCards;
+  cards.gitStatus = flag("workspace_cards.git_status", cards.gitStatus);
+  cards.agentStatus = flag("workspace_cards.agent_status", cards.agentStatus);
+  cards.compact = flag("workspace_cards.compact", cards.compact);
+  const details = get("workspace_cards.details");
+  if (isCardDetails(details)) cards.details = details;
+  else if (details !== undefined) wrong("workspace_cards.details", `one of ${CARD_DETAILS.join(", ")}`, cards.details);
 
   // Every key the file holds that nothing above read.
   const unknown = (key: string) => warnings.push(`\`${key}\` is not a setting, so it does nothing.`);

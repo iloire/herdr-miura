@@ -28,6 +28,10 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `tabs.wrap` | boolean | `true` | Tabs that do not fit wrap onto more rows. `false` keeps one row, which scrolls sideways with no scrollbar and keeps the open tab and the + in view. |
 | `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell, and + turns into an outlined terminal icon while ⌥ is held. |
 | `workspace_colors` | table of folder to color | none | A workspace's color, chosen in its right-click menu: each key is a workspace's folder, as a full path (a key with `/` or `.` needs quotes in TOML), and each value is `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`. See below. |
+| `workspace_cards.git_status` | boolean | `true` | Show the Git counts on every card: ↑ to push, ↓ to pull, ± changed files. |
+| `workspace_cards.agent_status` | boolean | `true` | Show the agent status marks and tally on the head of every card. |
+| `workspace_cards.details` | `"manual"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
+| `workspace_cards.compact` | boolean | `false` | Tighter card rows, so more workspaces fit. |
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"
@@ -49,7 +53,29 @@ command = "claude"
 
 [workspace_colors]
 "/Users/me/code/notes" = "cyan"
+
+[workspace_cards]
+git_status = false
+agent_status = false
+details = "never"
+compact = true
 ```
+
+## Workspace cards
+
+The Workspace cards section of the Settings dialog chooses what the sidebar's cards show. It applies to every card:
+per-workspace choices would make cards harder to compare, so there is nothing for it in a card's menu.
+
+- `details`: `manual` is the chevron. `always` keeps open every card that has something to show, and `never` keeps
+  every card on one line. Neither shows a chevron, which would do nothing, and neither forgets what the chevron chose:
+  going back to `manual` restores it.
+- `git_status` takes away only the counts. An expanded card keeps its branch, and ⑂ stays, as the way to a checkout's
+  worktrees.
+- **No setting hides an agent that needs you.** A blocked or needs-you agent keeps its row on a collapsed card and an
+  expanded card lists it, and the card keeps its gold, the Dock badge its count. With `details = "never"` there is nothing to
+  expand, so the card lists all of them instead of three and `+N more`.
+- With `agent_status` off a finished agent has no mark on a collapsed card, as the tally was its only one. It is still
+  in the Dock badge, and has a row on an expanded card.
 
 ## Workspace colors
 
