@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 18:24 — Tab menu and theme screenshots retaken
+
+`menu-tab.png` shows the regrouped tab menu, and `theme.png` replaces the white `light.png` with the app in Catppuccin
+Mocha, as the other shots are in Gruvbox Material Dark and `themes.png` already covers the rest.
+
 ## 2026-10-31 18:16 — One gold button in the Changes panel
 
 Once a commit has its files and message, Commit is the panel's only gold button: Push, Pull and Publish drop to their

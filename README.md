@@ -26,7 +26,7 @@ a menu too, for pinning one, marking it seen, queueing a prompt, opening its fol
 <table>
   <tr>
     <td><img src="docs/screenshots/menu-workspace.png" alt="A workspace's right-click menu, with its color swatches and actions, beside the card's agents"></td>
-    <td><img src="docs/screenshots/menu-tab.png" alt="A tab's right-click menu, with New Tab, Rename, Pin, Move to Workspace and Close Tab"></td>
+    <td><img src="docs/screenshots/menu-tab.png" alt="A tab's right-click menu: Rename, Pin and Mark as Seen; Add to Queue, Folder and Move to Workspace; New Tab and Close Tab, with shortcuts beside the rows"></td>
   </tr>
 </table>
 
@@ -78,7 +78,7 @@ Eight built-in themes, any Ghostty theme, or a light and dark pair that follows 
 `~/.config/herdr/config-tauri.toml` as you change things: the theme, the fonts and what a new tab runs
 ([docs/settings.md](docs/settings.md)).
 
-![Herdr Miura in the GitHub Light Default theme](docs/screenshots/light.png)
+![Herdr Miura in the Catppuccin Mocha theme](docs/screenshots/theme.png)
 
 <table>
   <tr>
