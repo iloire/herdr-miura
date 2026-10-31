@@ -58,6 +58,7 @@ pub fn run() {
             commands::discard_plan,
             commands::disconnect,
             commands::commit_files,
+            commands::commit_paths,
             commands::moving_commits,
             commands::sync_checkout,
             commands::land_plan,

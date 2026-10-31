@@ -21,7 +21,7 @@ pub const MAX_DIFF_BYTES: usize = 1024 * 1024;
 /// An untracked file's bytes shown at most.
 const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 /// Files listed per checkout; the rest are only counted.
-const MAX_FILES: usize = 50;
+pub const MAX_FILES: usize = 50;
 /// Commits listed per checkout.
 const MAX_COMMITS: usize = 50;
 /// Files listed per commit; the rest are only counted.

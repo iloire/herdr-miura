@@ -236,6 +236,29 @@ pub async fn discard_file(
     Ok(run.await.map_err(changes::Error::Worker)?)
 }
 
+/// Commits `paths` and nothing else, on the branch on show.
+#[tauri::command]
+pub async fn commit_paths(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    paths: Vec<String>,
+    message: String,
+    branch: Option<String>,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        worktree_ops::commit_paths(
+            &app.state::<sync::Running>(),
+            &checkout,
+            &paths,
+            &message,
+            branch.as_deref(),
+        )
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
 #[tauri::command]
 pub async fn sync_checkout(
     app: AppHandle,

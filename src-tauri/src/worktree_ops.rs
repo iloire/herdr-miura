@@ -1,13 +1,18 @@
 //! The Changes panel's writes to the working tree. `changes.rs` promises it
 //! never writes and `sync.rs` is for what crosses the network, so discarding a
-//! file is here. It runs under the same one-operation-per-checkout claim and
-//! the same check of the branch as a sync.
+//! file and committing ticked files are here. Both run under the same
+//! one-operation-per-checkout claim and the same check of the branch as a sync.
 //!
 //! A discard is two calls, as a land is: [`discard_plan`] reads what it would
 //! do and a fingerprint of the file, and [`discard_file`] refuses if the file
 //! no longer matches it, since an agent may have written to it while the
 //! dialog was open. What is thrown away goes to the Trash first, which is the
 //! only undo there is, so a failure there stops the discard.
+//!
+//! A commit takes its paths on the command line, so it never touches what an
+//! agent has staged, and leaves nothing staged itself. All agents in a checkout
+//! share one index: anything staged from the panel would go into the next
+//! commit any of them makes.
 //!
 //! Every path Git reads here is literal: `*` is a legal filename character,
 //! and without `--literal-pathspecs` a file named `a*` takes `abc` with it.
@@ -34,6 +39,10 @@ const ABSENT: &str = "-";
 /// A Git file mode that is not a plain file.
 const SYMLINK_MODE: &str = "120000";
 const SUBMODULE_MODE: &str = "160000";
+/// Files one commit may name: as many as the panel lists.
+const MAX_COMMIT_PATHS: usize = changes::MAX_FILES;
+/// Before every Git command that takes paths from a person.
+const LITERAL: &str = "--literal-pathspecs";
 
 /// What a discard does to a file, for the dialog to say.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -215,7 +224,7 @@ fn drops_staged(file: &FileChange) -> bool {
 /// Line counts are a nicety: a failure keeps the plan without them.
 fn counted(mut found: Found, root: &str, deadline: Instant) -> Found {
     if found.born && found.file.kind != Kind::Untracked {
-        let start = ["--literal-pathspecs", "diff", "--numstat", "-z", "-M", "HEAD", "--"];
+        let start = [LITERAL, "diff", "--numstat", "-z", "-M", "HEAD", "--"];
         let args = [&start[..], &found.paths()].concat();
         if let Ok(numstat) = git::text(root, &args, "count changed lines", deadline) {
             parse::apply_numstat(std::slice::from_mut(&mut found.file), &numstat);
@@ -335,7 +344,7 @@ fn discard_into(
             return not_trashed(path, error);
         }
     }
-    let start = ["--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--"];
+    let start = [LITERAL, "restore", "--source=HEAD", "--staged", "--worktree", "--"];
     let args = [&start[..], &found.paths()].concat();
     match git::supervised(&root, &args, "discard the change", Instant::now() + sync::LIMIT) {
         Ok(done) if done.success => Outcome::Done,
@@ -354,6 +363,131 @@ fn not_trashed(path: &str, error: String) -> Outcome {
         format!("{path} could not go to the Trash, so it was left as it was."),
         error,
     )
+}
+
+/// What `paths` name in the status, each file checked: the file must still be
+/// changed, and a folder may not hold a repository of its own, which `git add`
+/// would turn into a gitlink.
+fn commit_files(root: &str, paths: &[String], deadline: Instant) -> Result<Vec<FileChange>, String> {
+    let status = changes::read_status(root, deadline).map_err(|error| error.to_string())?;
+    if !status.born {
+        return Err("This branch has no commits yet. Make the first one in a terminal.".to_owned());
+    }
+    let mut files = Vec::new();
+    for path in paths {
+        if !changes::stays_inside(path) {
+            return Err(format!("{path} is not a path inside the checkout."));
+        }
+        let file = status
+            .files
+            .iter()
+            .find(|file| file.path == *path)
+            .ok_or_else(|| format!("{path} has no changes any more."))?;
+        if file.kind == Kind::Conflicted {
+            return Err(format!("{path} has a conflict. Resolve it first."));
+        }
+        if file.kind == Kind::Untracked && path.ends_with('/') && holds_repository(root, path, deadline)? {
+            return Err(format!("{path} holds another Git repository, so it can't be committed here."));
+        }
+        files.push(file.clone());
+    }
+    Ok(files)
+}
+
+/// With every untracked file listed, the only folders left are repositories.
+fn holds_repository(root: &str, folder: &str, deadline: Instant) -> Result<bool, String> {
+    let args = [LITERAL, "status", "--porcelain=v2", "-z", "--untracked-files=all", "--", folder];
+    let status = git::text(root, &args, "read the folder", deadline).map_err(|error| error.to_string())?;
+    Ok(parse::status(&status).files.iter().any(|file| file.path.ends_with('/')))
+}
+
+/// Git's reason, wherever it put it: a hook's output is on stderr, and
+/// "nothing to commit" on stdout.
+fn printed(done: git::Finished) -> String {
+    if done.stderr.is_empty() { done.stdout } else { done.stderr }
+}
+
+/// Takes `paths` back out of the index, so nothing stays staged for
+/// the next commit an agent makes. `None` when it worked.
+fn unstage(root: &str, paths: &[&str]) -> Option<String> {
+    if paths.is_empty() {
+        return None;
+    }
+    let args = [&[LITERAL, "restore", "--staged", "--"], paths].concat();
+    match git::supervised(root, &args, "unstage the files", Instant::now() + sync::LIMIT) {
+        Ok(done) if done.success => None,
+        Ok(done) => Some(printed(done)),
+        Err(error) => Some(error.to_string()),
+    }
+}
+
+/// Commits `paths` as they are on disk, and nothing else. A hook runs, and
+/// signing follows the user's config. See the module's opening for why it
+/// takes paths.
+pub fn commit_paths(
+    running: &sync::Running,
+    checkout: &str,
+    paths: &[String],
+    message: &str,
+    branch: Option<&str>,
+) -> Outcome {
+    if message.trim().is_empty() {
+        return Outcome::other("Write a commit message first.");
+    }
+    if paths.is_empty() || paths.len() > MAX_COMMIT_PATHS {
+        return Outcome::other(format!("A commit names 1 to {MAX_COMMIT_PATHS} files."));
+    }
+    let checks = Instant::now() + CHECKS;
+    let (root, _claim) = match sync::claim_checkout(running, checkout, checks) {
+        Ok(claimed) => claimed,
+        Err(refused) => return refused,
+    };
+    if let Err(refused) = sync::current_branch(&root, branch, checks) {
+        return refused;
+    }
+    let files = match commit_files(&root, paths, checks) {
+        Ok(files) => files,
+        Err(message) => return Outcome::other(message),
+    };
+    let untracked: Vec<&str> = files
+        .iter()
+        .filter(|file| file.kind == Kind::Untracked)
+        .map(|file| file.path.as_str())
+        .collect();
+    // `commit --only` refuses an untracked file until it is added.
+    if !untracked.is_empty() {
+        let args = [&[LITERAL, "add", "--"], untracked.as_slice()].concat();
+        let added = git::supervised(&root, &args, "add the new files", Instant::now() + sync::LIMIT);
+        match added {
+            Ok(done) if done.success => {}
+            Ok(done) => return not_committed(&root, &untracked, printed(done)),
+            Err(error) => return not_committed(&root, &untracked, error.to_string()),
+        }
+    }
+    // A rename's old path goes too, or the commit keeps the file under both names.
+    let named: Vec<&str> = files
+        .iter()
+        .flat_map(|file| std::iter::once(file.path.as_str()).chain(file.old_path.as_deref()))
+        .collect();
+    let args = [&[LITERAL, "commit", "--only", "-m", message, "--"], named.as_slice()].concat();
+    match git::supervised(&root, &args, "commit", Instant::now() + sync::LIMIT) {
+        Ok(done) if done.success => Outcome::Done,
+        Ok(done) => not_committed(&root, &untracked, printed(done)),
+        Err(error) => not_committed(&root, &untracked, error.to_string()),
+    }
+}
+
+/// A commit that stopped leaves what was added for it staged, so that goes
+/// back first.
+fn not_committed(root: &str, added: &[&str], details: String) -> Outcome {
+    match unstage(root, added) {
+        None => Outcome::failed(Reason::Other, "The commit did not happen.", details),
+        Some(left) => Outcome::failed(
+            Reason::Other,
+            "The commit did not happen, and new files it added are still staged.",
+            format!("{details}\n{left}"),
+        ),
+    }
 }
 
 #[cfg(test)]

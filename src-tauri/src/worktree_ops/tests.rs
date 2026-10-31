@@ -544,3 +544,230 @@ fn a_running_operation_turns_the_discard_away() {
     assert!(matches!(outcome, Outcome::Failed { reason: Reason::Busy, .. }), "{outcome:?}");
     assert_eq!(text(&world, "a.txt"), "edited\n");
 }
+
+impl World {
+    fn commit(&self, paths: &[&str], message: &str) -> Outcome {
+        let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+        commit_paths(&self.running, &self.checkout(), &paths, message, Some("main"))
+    }
+
+    /// The paths the last commit changed, sorted.
+    fn last_commit(&self) -> Vec<String> {
+        let names = self.git(&["show", "--format=", "--name-only", "--no-renames", "-z", "HEAD"]);
+        let mut names: Vec<_> = names.split('\0').filter(|name| !name.is_empty()).map(str::to_owned).collect();
+        names.sort();
+        names
+    }
+
+    fn subject(&self) -> String {
+        self.git(&["log", "-1", "--format=%s"])
+    }
+
+    fn hook(&self, script: &str) {
+        let hook = self.path().join(".git/hooks/pre-commit");
+        fs::create_dir_all(hook.parent().unwrap()).unwrap();
+        fs::write(&hook, format!("#!/bin/sh\n{script}\n")).unwrap();
+        Command::new("chmod").args(["+x", &hook.to_string_lossy()]).status().unwrap();
+    }
+}
+
+#[test]
+fn a_commit_takes_the_ticked_files_and_leaves_nothing_staged() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    world.write("dir/b.txt", "edited b\n");
+    assert_eq!(world.commit(&["a.txt"], "edit a"), Outcome::Done);
+    assert_eq!(world.subject(), "edit a");
+    assert_eq!(world.last_commit(), ["a.txt"]);
+    assert_eq!(world.short(), "M dir/b.txt");
+}
+
+#[test]
+fn an_agents_staged_file_stays_staged_and_out_of_the_commit() {
+    let world = World::new();
+    world.write("dir/b.txt", "agent's\n");
+    world.git(&["add", "dir/b.txt"]);
+    world.write("a.txt", "yours\n");
+    assert_eq!(world.commit(&["a.txt"], "edit a"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["a.txt"]);
+    assert_eq!(world.short(), "M  dir/b.txt");
+}
+
+#[test]
+fn a_glob_named_path_commits_only_itself() {
+    let world = World::new();
+    for name in ["abc", "adef", "a*"] {
+        world.write(name, "committed\n");
+    }
+    world.git(&["add", "."]);
+    world.git(&["commit", "-q", "-m", "more"]);
+    for name in ["abc", "adef", "a*"] {
+        world.write(name, "edited\n");
+    }
+    assert_eq!(world.commit(&["a*"], "glob"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["a*"]);
+    assert_eq!(world.short(), "M abc\n M adef");
+}
+
+#[test]
+fn an_untracked_glob_named_file_adds_only_itself() {
+    let world = World::new();
+    for name in ["n*", "nab", "ncd"] {
+        world.write(name, "new\n");
+    }
+    assert_eq!(world.commit(&["n*"], "glob"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["n*"]);
+    assert_eq!(world.short(), "?? nab\n?? ncd");
+}
+
+#[test]
+fn an_untracked_file_and_folder_are_added_and_committed() {
+    let world = World::new();
+    world.write("new.txt", "new\n");
+    world.write("folder/one.txt", "one\n");
+    world.write("folder/deep/two.txt", "two\n");
+    assert_eq!(world.commit(&["new.txt", "folder/"], "new things"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["folder/deep/two.txt", "folder/one.txt", "new.txt"]);
+    assert_eq!(world.short(), "");
+}
+
+#[test]
+fn a_folder_holding_a_repository_is_refused() {
+    let world = World::new();
+    world.write("folder/one.txt", "one\n");
+    fs::create_dir_all(world.path().join("folder/nested")).unwrap();
+    git(&world.path().join("folder/nested"), &["init", "-q"]);
+    world.write("folder/nested/inner.txt", "inner\n");
+    git(&world.path().join("folder/nested"), &["add", "."]);
+    git(&world.path().join("folder/nested"), &["commit", "-q", "-m", "inner"]);
+    assert!(failure(world.commit(&["folder/"], "nope")).contains("another Git repository"));
+    assert_eq!(world.subject(), "first");
+    assert_eq!(world.short(), "?? folder/");
+}
+
+#[test]
+fn a_rename_commits_both_paths() {
+    let world = World::new();
+    world.git(&["mv", "a.txt", "moved.txt"]);
+    assert_eq!(world.commit(&["moved.txt"], "rename"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["a.txt", "moved.txt"]);
+    assert_eq!(world.short(), "");
+    assert!(world.git(&["ls-files"]).lines().all(|name| name != "a.txt"));
+}
+
+#[test]
+fn a_deletion_is_committed_staged_or_not() {
+    let world = World::new();
+    fs::remove_file(world.path().join("a.txt")).unwrap();
+    world.git(&["rm", "-q", "dir/b.txt"]);
+    assert_eq!(world.commit(&["a.txt", "dir/b.txt"], "remove"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["a.txt", "dir/b.txt"]);
+    assert_eq!(world.short(), "");
+}
+
+#[test]
+fn a_hook_refusing_leaves_the_files_as_they_were_and_says_why() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    world.write("new.txt", "new\n");
+    world.write("folder/one.txt", "one\n");
+    world.hook("echo lint found 3 problems >&2\nexit 1");
+    let before = world.short();
+    let outcome = world.commit(&["a.txt", "new.txt", "folder/"], "nope");
+    let Outcome::Failed { message, details, .. } = outcome else { panic!("it committed") };
+    assert!(message.contains("did not happen"));
+    assert!(details.contains("lint found 3 problems"), "{details}");
+    assert_eq!(world.subject(), "first");
+    assert_eq!(world.short(), before);
+}
+
+#[test]
+fn a_hook_refusing_leaves_an_agents_staged_file_staged() {
+    let world = World::new();
+    world.write("dir/b.txt", "agent's\n");
+    world.git(&["add", "dir/b.txt"]);
+    world.write("new.txt", "new\n");
+    world.hook("exit 1");
+    let _ = failure(world.commit(&["new.txt"], "nope"));
+    assert_eq!(world.short(), "M  dir/b.txt\n?? new.txt");
+}
+
+#[test]
+fn a_message_that_looks_like_an_option_is_only_a_message() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    assert_eq!(world.commit(&["a.txt"], "--amend"), Outcome::Done);
+    assert_eq!(world.subject(), "--amend");
+    assert_eq!(world.git(&["rev-list", "--count", "HEAD"]), "2");
+}
+
+#[test]
+fn a_path_that_looks_like_an_option_is_only_a_path() {
+    let world = World::new();
+    world.write("--all", "new\n");
+    world.write("a.txt", "edited\n");
+    assert_eq!(world.commit(&["--all"], "odd name"), Outcome::Done);
+    assert_eq!(world.last_commit(), ["--all"]);
+    assert_eq!(world.short(), "M a.txt");
+}
+
+#[test]
+fn a_file_with_no_changes_left_refuses_the_commit() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    assert!(failure(world.commit(&["a.txt", "dir/b.txt"], "stale")).contains("no changes"));
+    assert_eq!(world.subject(), "first");
+    assert_eq!(world.short(), "M a.txt");
+}
+
+#[test]
+fn an_empty_message_or_no_files_is_refused() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    assert!(failure(world.commit(&["a.txt"], "  \n")).contains("message"));
+    assert!(failure(world.commit(&[], "x")).contains("files"));
+    assert_eq!(world.subject(), "first");
+}
+
+#[test]
+fn a_path_that_leaves_the_checkout_is_refused() {
+    let world = World::new();
+    assert!(failure(world.commit(&["../x"], "x")).contains("not a path inside"));
+}
+
+#[test]
+fn a_rebase_under_way_refuses_the_commit() {
+    let world = World::new();
+    world.git(&["checkout", "-q", "-b", "other"]);
+    world.write("a.txt", "theirs\n");
+    world.git(&["commit", "-qam", "theirs"]);
+    world.git(&["checkout", "-q", "main"]);
+    world.write("a.txt", "ours\n");
+    world.git(&["commit", "-qam", "ours"]);
+    world.git(&["checkout", "-q", "other"]);
+    assert!(!run_git(world.path(), &["rebase", "main"]).status.success());
+    let paths = ["a.txt".to_owned()];
+    let outcome = commit_paths(&world.running, &world.checkout(), &paths, "x", None);
+    assert!(failure(outcome).contains("rebase"));
+}
+
+#[test]
+fn a_detached_head_and_a_moved_branch_are_refused() {
+    let world = World::new();
+    world.write("a.txt", "edited\n");
+    world.git(&["checkout", "-q", "-b", "elsewhere"]);
+    assert!(failure(world.commit(&["a.txt"], "x")).contains("moved"));
+    world.git(&["checkout", "-q", "--detach"]);
+    assert!(failure(world.commit(&["a.txt"], "x")).contains("detached"));
+}
+
+#[test]
+fn an_unborn_branch_is_refused() {
+    let root = tempfile::tempdir().unwrap();
+    git(root.path(), &["init", "-q", "-b", "main"]);
+    fs::write(root.path().join("a.txt"), "x\n").unwrap();
+    let running = sync::Running::default();
+    let paths = ["a.txt".to_owned()];
+    let outcome = commit_paths(&running, &root.path().to_string_lossy(), &paths, "x", Some("main"));
+    assert!(failure(outcome).contains("no commits"));
+}
