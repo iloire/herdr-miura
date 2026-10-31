@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 11:44 — Diffs are syntax highlighted
+
+The diff view and a commit's view color code as the file view does, in the same theme colors, on top of the green and
+red line backgrounds. Plain text shows first and colors arrive without moving anything. Old and new lines are colored
+separately, each hunk on its own. A diff over 256 KiB, or in a language Herdr does not know, stays plain.
+
 ## 2026-10-31 11:41 — Tabs hold still under the pointer
 
 A tab jumps ahead when its agent starts working, so a × aimed at one tab could close another that had just moved

@@ -94,8 +94,7 @@ under its own name from a terminal. A hook slower than 60 s is stopped.
 
 ## Later, not in this step
 
-Syntax highlighting in the diff views (Shiki, through `files/offThread.ts` as the file view does),
-side-by-side view, word-level emphasis, and pull requests (`herdr-github`). Acting on changes has its own list in
+Side-by-side view, word-level emphasis, and pull requests (`herdr-github`). Acting on changes has its own list in
 [plan-git-actions.md](plan-git-actions.md#later); staging stays out, for the reason above.
 
 ## Ideas from codeflow (gimenete/codeflow)

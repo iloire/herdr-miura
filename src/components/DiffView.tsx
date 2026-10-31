@@ -89,7 +89,7 @@ export function DiffView({
         </button>
       </header>
       <div className="diff-body">
-        <DiffBody loaded={loaded} />
+        <DiffBody loaded={loaded} path={file.path} />
       </div>
     </div>
   );

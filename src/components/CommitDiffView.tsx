@@ -176,7 +176,7 @@ export function CommitDiffView({
                 </span>
               )}
             </header>
-            <DiffBody loaded={diffs.get(file.path) ?? { phase: "loading" }} />
+            <DiffBody loaded={diffs.get(file.path) ?? { phase: "loading" }} path={file.path} />
           </section>
         ))}
         {state?.phase === "ready" && state.total_files > files.length && (

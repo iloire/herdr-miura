@@ -5,6 +5,7 @@ import type { Token } from "../files/highlight";
 import { readFile, type FileContents } from "../files/listing";
 import { isMarkdown, renderMarkdown, resolveLink } from "../files/markdown";
 import { highlightOffThread } from "../files/offThread";
+import { TokenSpans } from "./TokenSpans";
 
 type Loaded = { phase: "loading" } | { phase: "ready"; contents: FileContents } | { phase: "failed"; error: string };
 
@@ -38,11 +39,7 @@ function TextBody({ text, path }: { text: string; path: string }) {
       tokens?.map((line, i) => (
         <Fragment key={i}>
           {i > 0 && "\n"}
-          {line.map((token, j) => (
-            <span key={j} style={{ color: token.color }}>
-              {token.content}
-            </span>
-          ))}
+          <TokenSpans tokens={line} />
         </Fragment>
       )),
     [tokens],
