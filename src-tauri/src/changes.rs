@@ -23,7 +23,7 @@ const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 /// Files listed per checkout; the rest are only counted.
 const MAX_FILES: usize = 50;
 /// Commits listed per checkout.
-const MAX_COMMITS: usize = 5;
+const MAX_COMMITS: usize = 50;
 /// Files listed per commit; the rest are only counted.
 const MAX_COMMIT_FILES: usize = 300;
 /// Commits listed per direction of a push or pull; the panel counts the rest.
@@ -111,9 +111,10 @@ impl From<Commit> for CommitView {
     }
 }
 
-/// The files one commit changed, against its first parent.
+/// One commit's whole message and the files it changed, against its first parent.
 #[derive(Debug, Serialize)]
 pub struct CommitFilesView {
+    message: String,
     files: Vec<FileView>,
     total_files: usize,
 }
@@ -264,10 +265,17 @@ fn commit_name(sha: &str) -> Result<&str, Error> {
 /// a root commit with the empty tree.
 const SHOW: [&str; 4] = ["show", "--format=", "-M", "--diff-merges=first-parent"];
 
-/// The files `sha` changed in the checkout at `checkout`, with their counts.
+/// The message of `sha` in the checkout at `checkout` and the files it
+/// changed, with their counts.
 pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> {
     let sha = commit_name(sha)?;
     let deadline = Instant::now() + DEADLINE;
+    let message = git::text(
+        checkout,
+        &["show", "--no-patch", "--format=%B", sha],
+        "read the commit's message",
+        deadline,
+    )?;
     let mut files = parse::name_status(&git::text(
         checkout,
         &[&SHOW[..], &["-z", "--name-status", sha]].concat(),
@@ -286,6 +294,7 @@ pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> 
     let total_files = files.len();
     files.truncate(MAX_COMMIT_FILES);
     Ok(CommitFilesView {
+        message,
         files: files.into_iter().map(FileView::from).collect(),
         total_files,
     })

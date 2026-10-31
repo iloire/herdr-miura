@@ -20,11 +20,12 @@ import { strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
 import { readWorktrees, type Worktree } from "./changes/worktrees";
-import { ChangesStore, type CheckoutChanges, type RecentCommit } from "./changes/store";
+import { ChangesStore, type ChangedFile, type CheckoutChanges, type RecentCommit } from "./changes/store";
 import { LandStore } from "./changes/land";
 import { SyncStore } from "./changes/sync";
+import { commitBeside } from "./changes/commit";
 import { useCommitFiles } from "./changes/useCommitFiles";
-import { ChangesPanel, type DiffPick } from "./components/ChangesPanel";
+import { ChangesPanel } from "./components/ChangesPanel";
 import { CommitDiffView } from "./components/CommitDiffView";
 import { DEV_BRANCH } from "./components/DevBar";
 import { DiffView } from "./components/DiffView";
@@ -79,7 +80,7 @@ export default function App() {
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const settings = useSettings(controller);
-  const [diffPick, setDiffPick] = useState<DiffPick | null>(null);
+  const [diffFile, setDiffFile] = useState<ChangedFile | null>(null);
   const [openCommit, setOpenCommit] = useState<RecentCommit | null>(null);
   const [filePick, setFilePick] = useState<string | null>(null);
   // The workspace whose worktrees the details dialog shows.
@@ -354,37 +355,41 @@ export default function App() {
     const saved = restore.current?.changesFile;
     if (!saved || !checkout) return;
     const file = saved.root === checkout.path ? checkout.files.find((f) => f.path === saved.path) : undefined;
-    if (file) setDiffPick({ file, commit: null });
+    if (file) setDiffFile(file);
     restore.current = { ...restore.current!, changesFile: null };
   }, [checkout]);
   useEffect(() => {
     if (restore.current?.changesFile) return;
-    const changesFile = checkoutPath && diffPick?.commit === null ? { root: checkoutPath, path: diffPick.file.path } : null;
+    const changesFile = checkoutPath && diffFile ? { root: checkoutPath, path: diffFile.path } : null;
     saveLayout({ changesFile });
-  }, [checkoutPath, diffPick]);
+  }, [checkoutPath, diffFile]);
 
-  // A diff stays open only while what it shows is still listed: the file in
-  // the checkout, or the commit still open in the panel.
-  const diffCommit = diffPick?.commit && diffPick.commit === openCommit?.sha ? openCommit : null;
-  const shownFile =
-    state.changes && diffPick?.commit === null ? checkout?.files.find((f) => f.path === diffPick.file.path) : undefined;
-  const shownCommit = state.changes && checkout ? diffCommit : null;
-  const shownDiff = Boolean(shownFile || shownCommit);
+  // A file's diff stays open only while the checkout still lists the file.
+  const shownFile = state.changes && diffFile ? checkout?.files.find((f) => f.path === diffFile.path) : undefined;
+  const shownCommit = state.changes && checkout ? openCommit : null;
 
   const closeDiff = () => {
-    setDiffPick(null);
+    setDiffFile(null);
+    setOpenCommit(null);
     controller.focusTerminal();
   };
 
-  // Picking a commit opens its diff; picking it again closes both.
+  const openFile = (file: ChangedFile) => {
+    setOpenCommit(null);
+    setDiffFile(file);
+  };
+
+  // Picking a commit opens it; picking it again closes it.
   const toggleCommit = (commit: RecentCommit) => {
-    if (openCommit?.sha === commit.sha) {
-      setOpenCommit(null);
-      if (diffPick?.commit === commit.sha) closeDiff();
-    } else {
-      setOpenCommit(commit);
-      setDiffPick({ file: null, commit: commit.sha });
-    }
+    if (openCommit?.sha === commit.sha) return closeDiff();
+    setDiffFile(null);
+    setOpenCommit(commit);
+  };
+
+  const listedCommits = useRef<RecentCommit[]>([]);
+  const stepCommit = (by: number) => {
+    const next = openCommit && commitBeside(listedCommits.current, openCommit.sha, by);
+    if (next) setOpenCommit(next);
   };
 
   const listing = useListing(directory, state.files);
@@ -412,7 +417,8 @@ export default function App() {
   // Going to a tab shows it, even the one already focused under the diff.
   useEffect(() => {
     controller.closeViews = () => {
-      setDiffPick(null);
+      setDiffFile(null);
+      setOpenCommit(null);
       setFilePick(null);
     };
   }, [controller]);
@@ -503,7 +509,7 @@ export default function App() {
                   checkout={checkout.path}
                   files={checkout.files}
                   file={shownFile}
-                  onSelect={(file) => setDiffPick({ file, commit: null })}
+                  onSelect={setDiffFile}
                   onClose={closeDiff}
                 />
               )}
@@ -512,7 +518,7 @@ export default function App() {
                   checkout={checkout.path}
                   commit={shownCommit}
                   state={commitFiles}
-                  focus={diffPick?.file ?? null}
+                  onStep={stepCommit}
                   onClose={closeDiff}
                 />
               )}
@@ -551,10 +557,10 @@ export default function App() {
               <ChangesPanel
                 store={changesStore}
                 sync={local ? syncStore : null}
-                selected={shownDiff ? diffPick : null}
+                selected={shownFile ?? null}
                 openCommit={openCommit?.sha ?? null}
-                commitFiles={commitFiles}
-                onOpen={setDiffPick}
+                listedCommits={listedCommits}
+                onOpen={openFile}
                 onToggleCommit={toggleCommit}
               />
             )}

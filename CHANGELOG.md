@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 09:50 — A commit opens in the main area
+
+Recent commits now lists 50 instead of 5, each on one line, and picking a commit no longer unfolds it in the
+narrow panel. The main area shows the commit instead: its title, whole message, author, date and full name, a
+compact list of its files that jumps to each one, and then the diffs. ↑ and ↓ step through the commits from
+there, j and k through the files, and Space and Page Up/Down scroll. The same goes for the commits a push or
+pull would move. Older commits that kept everything on one line, in the `type: what - details` form, show a
+title and a paragraph. Holding an arrow key reads only the commit it stops on, and going back to a recent commit
+is immediate. Closing a commit now clears its row.
+
 ## 2026-10-31 00:25 — Claude usage opens into a dialog with charts
 
 Clicking the Claude usage in the status bar opens everything known about it. Each limit gets a meter whose tick marks how

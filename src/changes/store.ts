@@ -38,8 +38,9 @@ export interface CheckoutChanges {
   commits: RecentCommit[];
 }
 
-/// The files one commit changed, against its first parent.
+/// One commit's whole message and the files it changed, against its first parent.
 export interface CommitFiles {
+  message: string;
   files: ChangedFile[];
   total_files: number;
 }

@@ -11,7 +11,7 @@ committing here, and discard or stash could destroy another agent's work.
   The panel follows you as you move between panes and workspaces.
 - **Backend**: our own Git reads (`src-tauri/src/git.rs`, `changes.rs`); originally `herdr-vcs` from herdr-gpui.
   - `changes::locate` + `changes::read` give the branch, upstream, ahead/behind, commits the default branch
-    lacks, up to 50 changed files with line counts, and the latest 5 commits.
+    lacks, up to 50 changed files with line counts, and the latest 50 commits.
   - `Session::git_bytes` runs `git diff HEAD -- <file>` with a 1 MiB cap. An untracked file is read with
     `Session::read_text`, which is capped at 1 MiB and refuses binaries and symlinks, and is shown as all
     added.
@@ -39,6 +39,9 @@ committing here, and discard or stash could destroy another agent's work.
    after another under a sticky file name, so a commit reads without opening each file. Its files
    still list under it in the panel, and picking one scrolls the diff to it; ↑/↓ jump between files.~~ ✅
 9. ~~Remote sync: background fetch, Push, Publish, Pull, and the commits that would move.~~ ✅
+10. ~~The commit in the main area: rows stay one line and the list grows to 50, and the whole message,
+    author, date, full name and files sit above the diffs. ↑/↓ step through the commits from there, k/j
+    through the files.~~ ✅
 
 ## Remote sync
 

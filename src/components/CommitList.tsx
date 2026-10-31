@@ -1,5 +1,5 @@
+import { useEffect, useRef, type MutableRefObject } from "react";
 import type { ChangedFile, RecentCommit } from "../changes/store";
-import type { CommitFilesState } from "../changes/useCommitFiles";
 import { relativeTime } from "../app/time";
 
 const MARK_LABEL: Record<string, string> = {
@@ -10,10 +10,6 @@ const MARK_LABEL: Record<string, string> = {
   R: "Renamed",
   U: "Conflicted",
 };
-
-/// What the diff shows: a file's uncommitted change, or with `commit` (a
-/// full name), every file that commit changed, scrolled to `file` if set.
-export type DiffPick = { file: ChangedFile; commit: null } | { file: ChangedFile | null; commit: string };
 
 export function FileRow({ file, current, onOpen }: { file: ChangedFile; current: boolean; onOpen: () => void }) {
   return (
@@ -39,19 +35,24 @@ export function FileRow({ file, current, onOpen }: { file: ChangedFile; current:
   );
 }
 
-/// What every list of commits shares: the one open, its files, and the picks.
+/// What every list of commits shares: the one open, and the pick. `listed`
+/// holds the list it was picked from, for stepping along it.
 export interface CommitRows {
   openCommit: string | null;
-  commitFiles: CommitFilesState | null;
-  isSelected: (file: ChangedFile, commit: string | null) => boolean;
-  onOpen: (pick: DiffPick) => void;
+  listed: MutableRefObject<RecentCommit[]>;
   onToggle: (commit: RecentCommit) => void;
 }
 
-/// Commits as rows. Picking one opens its whole diff and lists its files
-/// under it, each jumping to its part of the diff.
+/// Commits as one-line rows. Picking one opens it in the main area.
 export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: CommitRows }) {
-  const { openCommit, commitFiles, isSelected, onOpen, onToggle } = rows;
+  const { openCommit, listed, onToggle } = rows;
+  const openRow = useRef<HTMLButtonElement>(null);
+  const holdsOpen = commits.some((commit) => commit.sha === openCommit);
+  useEffect(() => {
+    if (holdsOpen) listed.current = commits;
+  }, [holdsOpen, commits, listed]);
+  // Arrow keys step from the main area, so the row must follow them here.
+  useEffect(() => openRow.current?.scrollIntoView({ block: "nearest" }), [openCommit]);
   return (
     <ul className="commit-list">
       {commits.map((commit) => {
@@ -59,8 +60,9 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
         return (
           <li key={commit.sha}>
             <button
+              ref={open ? openRow : undefined}
               className="commit"
-              aria-expanded={open}
+              aria-current={open ? "true" : undefined}
               onClick={() => onToggle(commit)}
               title={`${commit.sha}\n${commit.author}`}
             >
@@ -68,33 +70,6 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
               <span className="subject">{commit.subject}</span>
               <span className="when">{relativeTime(commit.time)}</span>
             </button>
-            {open && (
-              <div className="commit-detail">
-                <p className="commit-subject">{commit.subject}</p>
-                <p className="commit-author">{commit.author}</p>
-                {commitFiles?.phase === "loading" && <p className="empty">Reading the commit…</p>}
-                {commitFiles?.phase === "failed" && (
-                  <p className="empty error">Could not read the commit: {commitFiles.error}</p>
-                )}
-                {commitFiles?.phase === "ready" && (
-                  <>
-                    <ul className="file-list">
-                      {commitFiles.files.map((file) => (
-                        <FileRow
-                          key={file.path}
-                          file={file}
-                          current={isSelected(file, commit.sha)}
-                          onOpen={() => onOpen({ file, commit: commit.sha })}
-                        />
-                      ))}
-                    </ul>
-                    {commitFiles.total_files > commitFiles.files.length && (
-                      <p className="empty">and {commitFiles.total_files - commitFiles.files.length} more not listed</p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
           </li>
         );
       })}

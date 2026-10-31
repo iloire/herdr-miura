@@ -1,46 +1,38 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, type MutableRefObject } from "react";
 import type { ChangedFile, ChangesStore, RecentCommit } from "../changes/store";
 import type { SyncStore } from "../changes/sync";
-import type { CommitFilesState } from "../changes/useCommitFiles";
 import { ChangesSync } from "./ChangesSync";
-import { CommitList, FileRow, type CommitRows, type DiffPick } from "./CommitList";
-
-export type { DiffPick };
+import { CommitList, FileRow, type CommitRows } from "./CommitList";
 
 /// The checkout under the focused pane: branch, its sync with the remote,
 /// changed files, recent commits. Picking a file opens its diff; picking a
-/// commit opens its whole diff and lists its files under it, each jumping to
-/// its part of the diff. `sync` is null on a remote host, where the panel has
+/// commit opens it in the main area. `sync` is null on a remote host, where the panel has
 /// no checkout to sync, so nothing of it shows there.
 export function ChangesPanel({
   store,
   sync,
   selected,
   openCommit,
-  commitFiles,
+  listedCommits,
   onOpen,
   onToggleCommit,
 }: {
   store: ChangesStore;
   sync: SyncStore | null;
-  selected: DiffPick | null;
+  selected: ChangedFile | null;
   openCommit: string | null;
-  commitFiles: CommitFilesState | null;
-  onOpen: (pick: DiffPick) => void;
+  listedCommits: MutableRefObject<RecentCommit[]>;
+  onOpen: (file: ChangedFile) => void;
   onToggleCommit: (commit: RecentCommit) => void;
 }) {
   const state = useSyncExternalStore(store.subscribe, store.getState);
   const checkout = state.phase === "ready" ? state.checkout : null;
-  const isSelected = (file: ChangedFile, commit: string | null) =>
-    selected?.file?.path === file.path && selected.commit === commit;
   // A commit can be listed twice, as outgoing and as recent. Only the list it
-  // was opened from unfolds it.
+  // was opened from marks it.
   const [openedFrom, setOpenedFrom] = useState<"moving" | "recent">("recent");
   const rows = (from: "moving" | "recent"): CommitRows => ({
     openCommit: openedFrom === from ? openCommit : null,
-    commitFiles,
-    isSelected,
-    onOpen,
+    listed: listedCommits,
     onToggle: (commit) => {
       setOpenedFrom(from);
       onToggleCommit(commit);
@@ -84,8 +76,8 @@ export function ChangesPanel({
               <FileRow
                 key={file.path}
                 file={file}
-                current={isSelected(file, null)}
-                onOpen={() => onOpen({ file, commit: null })}
+                current={selected?.path === file.path}
+                onOpen={() => onOpen(file)}
               />
             ))}
           </ul>

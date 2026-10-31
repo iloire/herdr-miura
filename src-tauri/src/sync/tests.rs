@@ -467,15 +467,15 @@ fn the_lists_hold_exactly_what_would_move() {
 }
 
 #[test]
-fn the_outgoing_list_goes_past_the_recent_five() {
+fn the_outgoing_list_goes_past_the_recent_commits() {
     let world = World::new();
     let mine = world.mine();
-    for index in 0..27 {
+    for index in 0..55 {
         git(&mine, &["commit", "-q", "--allow-empty", "-m", &format!("c{index}")]);
     }
     let directory = mine.to_string_lossy();
     let outgoing = changes::read_moving(&directory, changes::Direction::Outgoing).unwrap();
-    assert_eq!(outgoing.len(), 27);
+    assert_eq!(outgoing.len(), 55);
 }
 
 #[test]

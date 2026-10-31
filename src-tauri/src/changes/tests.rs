@@ -134,6 +134,15 @@ fn lists_a_commits_files_with_their_counts() {
 }
 
 #[test]
+fn reads_a_commits_whole_message() {
+    let dir = repo();
+    fs::write(dir.path().join("a.txt"), "changed\n").unwrap();
+    git(&dir, &["commit", "-qam", "title", "-m", "first paragraph\n\nsecond paragraph"]);
+    let view = read_commit(&path(&dir), &head(&dir)).unwrap();
+    assert_eq!(view.message, "title\n\nfirst paragraph\n\nsecond paragraph");
+}
+
+#[test]
 fn a_root_commit_adds_its_files() {
     let dir = repo();
     let view = read_commit(&path(&dir), &head(&dir)).unwrap();

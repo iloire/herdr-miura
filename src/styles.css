@@ -2084,33 +2084,8 @@ body.reordering * {
   background: var(--hover);
 }
 
-.commit[aria-expanded="true"] {
+.commit[aria-current="true"] {
   background: var(--active);
-}
-
-/* An open commit: its whole subject, then its files, indented under the row. */
-.commit-detail {
-  margin: 2px 0 8px 10px;
-  padding-left: 6px;
-  border-left: 1px solid var(--rule);
-}
-
-.commit-subject,
-.commit-author {
-  margin: 0;
-  padding: 4px 10px 0;
-  overflow-wrap: anywhere;
-}
-
-.commit-author {
-  padding-top: 0;
-  margin-bottom: 4px;
-  color: var(--muted);
-  font: calc(11px * var(--ui-scale))/1.4 var(--mono);
-}
-
-.commit-detail .file-list {
-  padding: 0;
 }
 
 .commit-list .subject {
@@ -2171,6 +2146,52 @@ body.reordering * {
    while its lines scroll under it. */
 .commit-diff {
   position: relative;
+}
+
+/* What the commit says, above its diffs and scrolling away with them. */
+.commit-info {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.commit-title {
+  margin: 0;
+  max-width: 80ch;
+  font-size: calc(15px * var(--ui-scale));
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.commit-body {
+  margin: 8px 0 0;
+  max-width: 80ch;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.commit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.5 var(--mono);
+}
+
+/* In columns and capped, so a large commit's files leave its diffs in reach. */
+.commit-info .file-list {
+  columns: 2 320px;
+  column-gap: 16px;
+  max-height: 30vh;
+  margin-top: 10px;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.commit-info .file-list li {
+  break-inside: avoid;
 }
 
 .commit-file + .commit-file {
