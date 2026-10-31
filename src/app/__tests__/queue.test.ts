@@ -7,6 +7,7 @@ import {
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
+  foldSplitQueues,
   type InboxEntry,
   type Item,
   INBOX_MAX_AGE_MS,
@@ -15,12 +16,14 @@ import {
   moveItem,
   promptText,
   type Queue,
+  queueDirectory,
   queueKey,
   recover,
   removeItem,
   restoreItem,
   runningState,
   sendAway,
+  splitQueueFolder,
   step,
   summary,
   takeInbox,
@@ -528,5 +531,62 @@ describe("removing a worktree does not reach the queue", () => {
   it("still uses a worktree's workspace when it is the only one open", () => {
     const seen = viewOf(queue, { ...snapshot, workspaces: [tree] }, 5, () => FOLDER, () => "/elsewhere");
     expect(step(queue, seen).effect).toMatchObject({ kind: "open", workspaceId: "wt" });
+  });
+});
+
+describe("a split workspace's queue", () => {
+  const OWN = splitQueueFolder(FOLDER, "w9");
+  const closed = () => false;
+  const withPrompts = (...prompts: string[]) =>
+    prompts.reduce((file, prompt) => addItem(file, OWN, prompt, false, 1), addItem(EMPTY_FILE, FOLDER, "theirs", false, 1));
+
+  it("is apart from the folder's queue, on the same folder on disk", () => {
+    const file = withPrompts("mine");
+    expect(file.queues[queueKey(FOLDER)].items.map((item) => item.prompt)).toEqual(["theirs"]);
+    expect(file.queues[queueKey(OWN)].items.map((item) => item.prompt)).toEqual(["mine"]);
+    expect(queueDirectory(OWN)).toBe(FOLDER);
+    expect(queueDirectory(FOLDER)).toBe(FOLDER);
+    expect(queueDirectory("/code/a#split-b/c")).toBe("/code/a#split-b/c");
+  });
+
+  it("stays while its workspace is open", () => {
+    const file = withPrompts("mine");
+    expect(foldSplitQueues(file, () => true)).toBe(file);
+  });
+
+  it("hands what waits to the folder's queue once its workspace closes", () => {
+    const home = foldSplitQueues(withPrompts("mine", "more"), closed);
+    expect(home.queues[queueKey(OWN)]).toBeUndefined();
+    const queue = home.queues[queueKey(FOLDER)];
+    expect(queue.items.map((item) => [item.n, item.prompt])).toEqual([
+      [1, "theirs"],
+      [2, "mine"],
+      [3, "more"],
+    ]);
+    expect(queue.nextN).toBe(4);
+  });
+
+  it("makes the folder's queue if it has none", () => {
+    const home = foldSplitQueues(addItem(EMPTY_FILE, OWN, "mine", false, 1), closed);
+    expect(home.queues[queueKey(FOLDER)].folder).toBe(FOLDER);
+    expect(home.queues[queueKey(FOLDER)].items.map((item) => item.prompt)).toEqual(["mine"]);
+  });
+
+  it("leaves nothing behind when it was empty", () => {
+    const file = { ...EMPTY_FILE, queues: { [queueKey(OWN)]: emptyQueue(OWN) } };
+    expect(foldSplitQueues(file, closed).queues).toEqual({});
+  });
+
+  it("waits for an item in progress to end", () => {
+    const file = withPrompts("mine");
+    const queue = file.queues[queueKey(OWN)];
+    const busy = { ...queue, items: [{ ...queue.items[0], state: "running" as const }] };
+    const held = { ...file, queues: { ...file.queues, [queueKey(OWN)]: busy } };
+    expect(foldSplitQueues(held, closed)).toBe(held);
+  });
+
+  it("leaves other queues alone", () => {
+    const file = addItem(EMPTY_FILE, FOLDER, "theirs", false, 1);
+    expect(foldSplitQueues(file, closed)).toBe(file);
   });
 });

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { agentCountsByTab, loopTags, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
+import { moveChoices, splitName, tabMove } from "../app/moveTab";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import { tabDirectory } from "../app/sharedCheckout";
 import { useSteadyStrip } from "../app/useSteadyStrip";
@@ -43,6 +44,7 @@ export function TabBar({
   newTabCommand,
   onMarkSeen,
   onOpenQueue,
+  onSplit,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
@@ -52,9 +54,12 @@ export function TabBar({
   newTabCommand: string | null;
   onMarkSeen: (agents: Agent[]) => void;
   onOpenQueue: (workspaceId: string) => void;
+  /// A tab that was in `folder` now has the new workspace `workspaceId` to itself.
+  onSplit: (workspaceId: string, folder: string) => void;
 }) {
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [splitting, setSplitting] = useState<string | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
 
   // Without a command the button opens a plain terminal either way, so ⌥ changes nothing.
@@ -101,16 +106,26 @@ export function TabBar({
   };
 
   const moveTo = (tab: Tab, workspaceId: string) => {
-    const panes = snapshot?.panes.filter((pane) => pane.tab_id === tab.tab_id).map((pane) => pane.pane_id) ?? [];
+    if (!snapshot) return;
+    const { panes, label } = tabMove(tab, snapshot);
+    controller.act(invoke("move_tab", { panes, workspaceId, label }));
+  };
+
+  /// Looks again at the tabs, which may have changed while the name was typed.
+  const splitOff = (tab: Tab, name: string) => {
+    if (!snapshot || !moveChoices(tab, snapshot).canSplit) return;
+    const { panes, label, folder } = tabMove(tab, snapshot);
     controller.act(
-      invoke("move_tab", { panes, workspaceId, label: tab.custom_label ? tab.label : null }),
+      invoke<string>("move_tab_to_new_workspace", { panes, name, label }).then((workspaceId) => {
+        if (folder) onSplit(workspaceId, folder);
+      }),
     );
   };
 
   /// The tab menu. It opens on the tab's own actions, so Enter never makes a
   /// new tab, and ends with the ones that add or remove a tab.
   const tabMenu = (tab: Tab): MenuItem[][] => {
-    const others = snapshot?.workspaces.filter((workspace) => workspace.workspace_id !== tab.workspace_id) ?? [];
+    const { others, canSplit } = moveChoices(tab, snapshot);
     const pinned = isPinned(tab);
     const folder = snapshot && tabDirectory(tab, snapshot);
     // The agents as they stand now: one that finishes again before the pick
@@ -142,11 +157,21 @@ export function TabBar({
           : []),
         {
           label: "Move to Workspace",
-          disabled: others.length === 0,
-          items: others.map((workspace) => ({
-            label: workspace.label,
-            onSelect: () => moveTo(tab, workspace.workspace_id),
-          })),
+          disabled: !canSplit && others.length === 0,
+          items: [
+            [
+              {
+                label: "New Workspace…",
+                hint: canSplit ? undefined : "Only tab here",
+                disabled: !canSplit,
+                onSelect: () => setSplitting(tab.tab_id),
+              },
+            ],
+            others.map((workspace) => ({
+              label: workspace.label,
+              onSelect: () => moveTo(tab, workspace.workspace_id),
+            })),
+          ],
         },
       ],
       [
@@ -204,6 +229,20 @@ export function TabBar({
                     if (label !== null) controller.request("tab.rename", { tab_id: tab.tab_id, label });
                   }}
                 />
+              ) : splitting === tab.tab_id ? (
+                <>
+                  <span className="tab-split-hint">New workspace</span>
+                  <RenameField
+                    className="tab-rename"
+                    label="New workspace name"
+                    initial={splitName(tab)}
+                    onDone={(name) => {
+                      setSplitting(null);
+                      controller.focusTerminal();
+                      if (name !== null) splitOff(tab, name);
+                    }}
+                  />
+                </>
               ) : (
                 <button
                   className="tab-label"

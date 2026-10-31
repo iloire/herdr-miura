@@ -34,12 +34,15 @@ export function PromptPalette({
   controller,
   snapshot,
   folder,
+  queueFolder,
   queue,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
-  /// The focused workspace's folder (the queue's), null when it is not on this Mac.
+  /// The focused workspace's folder, null when it is not on this Mac.
   folder: string | null;
+  /// Where its queue is kept, which a workspace split off a tab has of its own.
+  queueFolder: string | null;
   /// The queue's actions, null when this window does not own the queue.
   queue: QueueActions | null;
 }) {
@@ -107,8 +110,8 @@ export function PromptPalette({
     const sent = () => void changeDrafts((current) => setEdit(current, key, null));
     if (action === "here" && pane) controller.act(sendPrompt(pane, body).then(sent));
     else if (action === "new-tab" && folder && workspaceId) controller.act(startInNewTab(workspaceId, folder, prompt, body).then(sent));
-    else if (action === "queue" && folder && queue) {
-      queue.add(folder, body, false);
+    else if (action === "queue" && queueFolder && queue) {
+      queue.add(queueFolder, body, false);
       sent();
       controller.openQueue();
     }

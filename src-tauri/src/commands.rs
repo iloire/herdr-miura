@@ -13,6 +13,7 @@ use crate::{
     settings,
     ssh_hosts,
     sync,
+    tab_move::Destination,
     worktree_ops,
     worktrees,
 };
@@ -441,10 +442,26 @@ pub async fn move_tab(
     panes: Vec<String>,
     workspace_id: String,
     label: Option<String>,
-) -> Result<()> {
+) -> Result<String> {
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || {
-        crate::tab_move::move_tab(&panes, &workspace_id, label.as_deref())
+        let to = Destination::Workspace(&workspace_id);
+        crate::tab_move::move_tab(&panes, to, label.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// As `move_tab`, into a new workspace called `name`, whose id it returns.
+#[tauri::command]
+pub async fn move_tab_to_new_workspace(
+    connection: State<'_, Connection>,
+    panes: Vec<String>,
+    name: String,
+    label: Option<String>,
+) -> Result<String> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        crate::tab_move::move_tab(&panes, Destination::New(&name), label.as_deref())
     });
     Ok(run.await.map_err(changes::Error::Worker)??)
 }

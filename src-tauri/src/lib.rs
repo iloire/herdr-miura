@@ -69,6 +69,7 @@ pub fn run() {
             commands::listening_ports,
             commands::list_files,
             commands::move_tab,
+            commands::move_tab_to_new_workspace,
             commands::open_file,
             commands::open_folder,
             commands::prompt_create,

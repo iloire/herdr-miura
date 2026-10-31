@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { CheckoutChanges, ChangesState } from "../../changes/store";
 import type { Snapshot, Workspace } from "../../protocol";
-import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, workspaceRoot } from "../workspaceRoot";
+import { queueDirectory, splitQueueFolder } from "../queue";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, withSplit, workspaceRoot } from "../workspaceRoot";
 
 const HOME = "/Users/me";
 const ROOT = "/Users/me/code/app";
@@ -87,11 +88,11 @@ function snapshot(boot_id: string, tabs: Record<string, string[]>, agentsIn: str
 }
 
 describe("nextRoots", () => {
-  const none: Roots = { bootId: "", folders: {}, homes: {} };
+  const none: Roots = { bootId: "", folders: {}, homes: {}, split: {} };
 
   it("starts a workspace on the folder most of its tabs are in, not the focus", () => {
     const roots = nextRoots(none, snapshot("boot", { w1: ["/app", "/elsewhere", "/app"] }));
-    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {} });
+    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {}, split: {} });
   });
 
   it("keeps a workspace's root when an agent's only pane moves", () => {
@@ -127,7 +128,7 @@ describe("nextRoots", () => {
 
   it("starts over on a new boot, whose ids mean other workspaces", () => {
     const first = nextRoots(none, snapshot("old", { w1: ["/a"] }));
-    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" }, homes: {} });
+    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" }, homes: {}, split: {} });
   });
 
   it("waits for a workspace's panes before fixing its root", () => {
@@ -141,7 +142,7 @@ describe("roots storage", () => {
 
   it("round-trips", () => {
     let saved: string | null = null;
-    const roots = { bootId: "boot", folders: { w1: "/a" }, homes: { "/a": "/a" } };
+    const roots = { bootId: "boot", folders: { w1: "/a" }, homes: { "/a": "/a" }, split: {} };
     saveRoots(roots, { setItem: (_, value) => (saved = value) });
     expect(loadRoots(store(saved))).toEqual(roots);
   });
@@ -177,13 +178,14 @@ const rootedOn = (folder: string, homes: Record<string, string> = {}): Roots => 
   bootId: "boot",
   folders: { w1: folder },
   homes,
+  split: {},
 });
 
 describe("workspaceRoot", () => {
   it("is the fixed root wherever the tabs are, and nothing before one is fixed", () => {
     const { snapshot, workspace } = shot("/elsewhere");
     expect(workspaceRoot(rootedOn(MAIN), workspace, snapshot)).toBe(MAIN);
-    expect(workspaceRoot({ bootId: "boot", folders: {}, homes: {} }, workspace, snapshot)).toBeNull();
+    expect(workspaceRoot({ bootId: "boot", folders: {}, homes: {}, split: {} }, workspace, snapshot)).toBeNull();
   });
 
   it("ignores roots saved under another boot, whose ids name other workspaces", () => {
@@ -217,6 +219,63 @@ describe("queueFolder", () => {
   it("is unknown until Git has answered, never the worktree itself", () => {
     const { snapshot, workspace } = shot(TREE);
     expect(queueFolder(rootedOn(TREE), workspace, snapshot)).toBeNull();
+  });
+});
+
+describe("a workspace split off a tab", () => {
+  const SPLIT_ROOT = "/code/app/packages/docs";
+  // An agent keeps the root once fixed; the first tab of the workspace is elsewhere.
+  const settled = (snapshot: Snapshot) =>
+    ({ ...snapshot, agents: [{ pane_id: "p0", workspace_id: "w1", tab_id: "t0" }] }) as unknown as Snapshot;
+
+  it("has a queue of its own though it shares its source's folder", () => {
+    const { snapshot, workspace } = shot(MAIN);
+    const source = rootedOn(MAIN, { [MAIN]: MAIN });
+    expect(queueFolder(source, workspace, snapshot)).toBe(MAIN);
+    const split = withSplit(source, "w1", MAIN);
+    expect(queueFolder(split, workspace, snapshot)).toBe(splitQueueFolder(MAIN, "w1"));
+    expect(queueDirectory(queueFolder(split, workspace, snapshot) ?? "")).toBe(MAIN);
+  });
+
+  it("keeps the tab's folder as its root, not the folder of its first pane", () => {
+    const { snapshot } = shot(MAIN);
+    const next = nextRoots(withSplit(rootedOn(MAIN), "w1", SPLIT_ROOT), settled(snapshot));
+    expect(next.folders.w1).toBe(SPLIT_ROOT);
+  });
+
+  it("survives a snapshot from before the workspace showed", () => {
+    const { snapshot } = shot(MAIN);
+    const early = nextRoots(withSplit(rootedOn(MAIN), "w2", SPLIT_ROOT), snapshot);
+    expect(early.folders.w2).toBeUndefined();
+    const workspace = { workspace_id: "w2", new_workspace_cwd: "", active_tab_id: "t9" } as Workspace;
+    const shown = {
+      ...snapshot,
+      workspaces: [...snapshot.workspaces, workspace],
+      tabs: [...snapshot.tabs, { tab_id: "t9", workspace_id: "w2", number: 1 }],
+      panes: [...snapshot.panes, { pane_id: "p9", workspace_id: "w2", tab_id: "t9", cwd: MAIN }],
+      agents: [{ pane_id: "p9", workspace_id: "w2", tab_id: "t9" }],
+    } as unknown as Snapshot;
+    const next = nextRoots(early, shown);
+    expect(next.folders.w2).toBe(SPLIT_ROOT);
+    expect(isOpenSplit(next, "w2", shown)).toBe(true);
+  });
+
+  it("ends with the daemon's boot, or when it closes", () => {
+    const { snapshot, workspace } = shot(MAIN);
+    const split = withSplit(rootedOn(MAIN, { [MAIN]: MAIN }), "w1", MAIN);
+    expect(isOpenSplit(split, "w1", snapshot)).toBe(true);
+    expect(isOpenSplit(split, "w1", { ...snapshot, workspaces: [] })).toBe(false);
+    const reborn = { ...snapshot, boot_id: "new" };
+    expect(isOpenSplit(split, "w1", reborn)).toBe(false);
+    expect(queueFolder(split, workspace, reborn)).toBe(MAIN);
+    expect(nextRoots(split, reborn).split).toEqual({});
+  });
+
+  it("is remembered across launches, and missing from what older builds saved", () => {
+    const store = (value: string) => ({ getItem: () => value });
+    const split = withSplit(rootedOn(MAIN), "w1", MAIN);
+    expect(loadRoots(store(JSON.stringify(split))).split).toEqual({ w1: MAIN });
+    expect(loadRoots(store('{"bootId":"boot","folders":{}}')).split).toEqual({});
   });
 });
 

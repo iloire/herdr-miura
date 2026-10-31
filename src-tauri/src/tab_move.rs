@@ -5,6 +5,10 @@
 //! app inherited (`HERDR_SESSION`, `HERDR_SOCKET_PATH`). The first pane opens
 //! a new tab in the destination; the others join it on its right, and a tab
 //! that was named keeps its name. The snapshot that follows shows the result.
+//!
+//! A new workspace comes from that first move, so there is never one without
+//! the tab in it, and no shell of its own to close. It takes its folder from
+//! the pane, and the pane's process carries on untouched.
 
 use serde::Deserialize;
 use std::{
@@ -106,6 +110,15 @@ struct Outcome {
 #[derive(Deserialize)]
 struct Moved {
     tab_id: String,
+    workspace_id: String,
+}
+
+/// Where a tab goes.
+#[derive(Clone, Copy)]
+pub enum Destination<'a> {
+    Workspace(&'a str),
+    /// A new workspace with this name.
+    New(&'a str),
 }
 
 /// Runs `herdr args…` and returns its result, or Herdr's own error message,
@@ -139,8 +152,8 @@ pub(crate) fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error>
     }
 }
 
-/// The tab a move left the pane in.
-fn moved_to(result: serde_json::Value) -> Result<String, Error> {
+/// The tab a move left the pane in, and its workspace.
+fn moved_to(result: serde_json::Value) -> Result<Moved, Error> {
     let outcome = serde_json::from_value::<MoveResult>(result)
         .map_err(Error::Decode)?
         .move_result;
@@ -150,36 +163,45 @@ fn moved_to(result: serde_json::Value) -> Result<String, Error> {
     outcome
         .created_tab
         .or(outcome.pane)
-        .map(|moved| moved.tab_id)
         .ok_or(Error::Unchanged)
 }
 
-/// Moves `panes`, a tab's panes in order, into a new tab of `workspace`, and
-/// names it `label` when the tab had been named. Blocking: run off the main thread.
-pub fn move_tab(panes: &[String], workspace: &str, label: Option<&str>) -> Result<(), Error> {
-    let (first, rest) = panes.split_first().ok_or(Error::Empty)?;
-    for id in panes.iter().map(String::as_str).chain([workspace]) {
-        checked(id)?;
-    }
-    let label = label.map(str::trim).filter(|label| !label.is_empty());
-    if let Some(label) = label
-        && label.chars().any(char::is_control)
-    {
+/// A name the CLI takes as one argument, trimmed; `None` for a blank one.
+fn named(label: &str) -> Result<Option<&str>, Error> {
+    let label = label.trim();
+    if label.chars().any(char::is_control) {
         return Err(Error::InvalidId(label.into()));
     }
+    Ok(Some(label).filter(|label| !label.is_empty()))
+}
+
+/// The command that moves a tab's first pane to `to`.
+fn first_move<'a>(pane: &'a str, to: Destination<'a>) -> Vec<&'a str> {
+    let target = match to {
+        Destination::Workspace(workspace) => ["--new-tab", "--workspace", workspace],
+        Destination::New(name) => ["--new-workspace", "--label", name],
+    };
+    [&["pane", "move", pane], &target[..], &["--focus"]].concat()
+}
+
+/// Moves `panes`, a tab's panes in order, into a new tab at `to`, names it
+/// `label` when the tab had been named, and returns the workspace it landed
+/// in. Blocking: run off the main thread.
+pub fn move_tab(panes: &[String], to: Destination, label: Option<&str>) -> Result<String, Error> {
+    let (first, rest) = panes.split_first().ok_or(Error::Empty)?;
+    for id in panes {
+        checked(id)?;
+    }
+    let to = match to {
+        Destination::Workspace(workspace) => Destination::Workspace(checked(workspace)?),
+        Destination::New(name) => Destination::New(
+            named(name)?.ok_or_else(|| Error::InvalidId(name.into()))?,
+        ),
+    };
+    let label = label.map(named).transpose()?.flatten();
     let cli = herdr()?;
-    let tab = moved_to(run(
-        &cli,
-        &[
-            "pane",
-            "move",
-            first,
-            "--new-tab",
-            "--workspace",
-            workspace,
-            "--focus",
-        ],
-    )?)?;
+    let moved = moved_to(run(&cli, &first_move(first, to))?)?;
+    let tab = moved.tab_id;
     for pane in rest {
         run(
             &cli,
@@ -196,7 +218,7 @@ pub fn move_tab(panes: &[String], workspace: &str, label: Option<&str>) -> Resul
     if let Some(label) = label {
         run(&cli, &["tab", "rename", &tab, label])?;
     }
-    Ok(())
+    Ok(moved.workspace_id)
 }
 
 #[cfg(test)]
@@ -214,16 +236,41 @@ mod tests {
 
     #[test]
     fn a_move_reports_the_tab_it_created_or_joined() {
-        let created = json!({"move_result": {"changed": true, "created_tab": {"tab_id": "w2:t9"}, "pane": {"tab_id": "w2:t9"}}});
-        assert_eq!(moved_to(created).ok().as_deref(), Some("w2:t9"));
-        let joined = json!({"move_result": {"changed": true, "pane": {"tab_id": "w2:t9"}}});
-        assert_eq!(moved_to(joined).ok().as_deref(), Some("w2:t9"));
+        let at = json!({"tab_id": "w2:t9", "workspace_id": "w2"});
+        let tab = |result| moved_to(result).ok().map(|moved| (moved.tab_id, moved.workspace_id));
+        let expected = Some(("w2:t9".to_owned(), "w2".to_owned()));
+        let created = json!({"move_result": {"changed": true, "created_tab": at, "pane": at}});
+        assert_eq!(tab(created), expected);
+        let joined = json!({"move_result": {"changed": true, "pane": at}});
+        assert_eq!(tab(joined), expected);
         let unchanged = json!({"move_result": {"changed": false, "reason": "same_tab"}});
         assert!(matches!(moved_to(unchanged), Err(Error::Unchanged)));
     }
 
     #[test]
     fn a_tab_without_panes_does_not_move() {
-        assert!(matches!(move_tab(&[], "w2", None), Err(Error::Empty)));
+        let to = Destination::Workspace("w2");
+        assert!(matches!(move_tab(&[], to, None), Err(Error::Empty)));
+    }
+
+    #[test]
+    fn the_first_move_opens_a_tab_or_a_workspace() {
+        assert_eq!(
+            first_move("w1:p2", Destination::Workspace("w2")),
+            ["pane", "move", "w1:p2", "--new-tab", "--workspace", "w2", "--focus"],
+        );
+        assert_eq!(
+            first_move("w1:p2", Destination::New("Docs")),
+            ["pane", "move", "w1:p2", "--new-workspace", "--label", "Docs", "--focus"],
+        );
+    }
+
+    #[test]
+    fn a_new_workspace_needs_a_name_it_can_pass_on() {
+        let panes = ["w1:p2".to_owned()];
+        for bad in ["", "  ", "two\nlines"] {
+            let moved = move_tab(&panes, Destination::New(bad), None);
+            assert!(matches!(moved, Err(Error::InvalidId(_))), "{bad:?}");
+        }
     }
 }

@@ -1255,6 +1255,13 @@ body.reordering * {
   outline: none;
 }
 
+.tab-split-hint {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
 .tab-close:hover {
   opacity: 1;
   background: var(--raised);

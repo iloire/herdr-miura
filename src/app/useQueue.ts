@@ -18,6 +18,7 @@ import {
   emptyQueue,
   end,
   type FolderOf,
+  foldSplitQueues,
   holdBack,
   type Item,
   loadQueue,
@@ -29,6 +30,7 @@ import {
   promptItem,
   type Queue,
   type QueueFile,
+  queueDirectory,
   queueKey,
   readInbox,
   recover,
@@ -83,12 +85,13 @@ export function useQueue(
   local: boolean,
   folderOf: FolderOf,
   rootOf: FolderOf,
+  isOpenSplit: (workspaceId: string) => boolean,
 ): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
-  const latest = useRef({ snapshot, local, folderOf, rootOf });
-  latest.current = { snapshot, local, folderOf, rootOf };
+  const latest = useRef({ snapshot, local, folderOf, rootOf, isOpenSplit });
+  latest.current = { snapshot, local, folderOf, rootOf, isOpenSplit };
 
   /// Inbox files added but not yet deleted, so a slow save never adds one twice.
   const taken = useRef(new Set<string>());
@@ -190,10 +193,11 @@ export function useQueue(
     async (folder: string, effect: Effect) => {
       const { item } = effect;
       const queue = () => current.current?.queues[queueKey(folder)] ?? emptyQueue(folder);
+      const directory = queueDirectory(folder);
       switch (effect.kind) {
         case "open": {
           if (queue().requireClean) {
-            const changed = (await readCounts([folder]).catch(() => null))?.get(folder) ?? 0;
+            const changed = (await readCounts([directory]).catch(() => null))?.get(directory) ?? 0;
             if (changed > 0) {
               const files = changed === 1 ? "file" : "files";
               update(folder, (q) => holdBack(q, item.id, `The checkout has ${changed} uncommitted ${files}.`));
@@ -201,7 +205,7 @@ export function useQueue(
             }
           }
           try {
-            await started(folder, item, await openItem(effect.workspaceId, item, folder));
+            await started(folder, item, await openItem(effect.workspaceId, item, directory));
           } catch (error) {
             update(folder, (q) => end(q, item.id, "failed", Date.now(), `could not start: ${error}`));
           }
@@ -212,7 +216,7 @@ export function useQueue(
         case "finished": {
           if (!item.head) return;
           // A worktree already removed has nothing left to count.
-          const commits = await countCommits(item.worktree ?? folder, item.head).catch(() => undefined);
+          const commits = await countCommits(item.worktree ?? directory, item.head).catch(() => undefined);
           update(folder, (q) => ({
             ...q,
             history: q.history.map((i) => (i.id === item.id ? { ...i, commits } : i)),
@@ -224,9 +228,9 @@ export function useQueue(
   );
 
   const tick = useCallback(() => {
-    const file = current.current;
-    const { snapshot, local, folderOf, rootOf } = latest.current;
-    if (!file || !snapshot || !local) return;
+    const { snapshot, local, folderOf, rootOf, isOpenSplit } = latest.current;
+    if (!current.current || !snapshot || !local) return;
+    const file = foldSplitQueues(current.current, isOpenSplit);
     const now = Date.now();
     const queues = { ...file.queues };
     const effects: [string, Effect][] = [];
@@ -235,7 +239,7 @@ export function useQueue(
       queues[key] = result.queue;
       if (result.effect) effects.push([queue.folder, result.effect]);
     }
-    if (Object.keys(queues).some((key) => queues[key] !== file.queues[key])) commit({ ...file, queues });
+    if (file !== current.current || Object.keys(queues).some((key) => queues[key] !== file.queues[key])) commit({ ...file, queues });
     for (const [folder, effect] of effects) void carryOut(folder, effect);
   }, [carryOut, commit]);
 
@@ -301,9 +305,10 @@ export function useQueue(
         const queue = current.current?.queues[queueKey(folder)];
         const item = queue?.items.find((i) => i.id === id && i.state === "queued");
         if (!item) return;
-        const path = worktreePath(folder, item);
+        const directory = queueDirectory(folder);
+        const path = worktreePath(directory, item);
         update(folder, (q) => sendAway(q, id, Date.now(), path));
-        openWorktree(item, folder, path)
+        openWorktree(item, directory, path)
           .then((opened) => started(folder, { ...item, state: "starting", worktree: path }, opened))
           .catch((error) => {
             update(folder, (q) => bringBack(q, id));

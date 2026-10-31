@@ -10,7 +10,7 @@ import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
-import { isActive, itemOfTab, type Queue, queueKey, workspaceFolder } from "./app/queue";
+import { isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { fontStack, saveWorkspaceColor } from "./app/settings";
 import { useHome } from "./app/useHome";
@@ -172,7 +172,7 @@ export default function App() {
   }, [attention]);
 
   const local = state.status.phase === "connected" && state.host === null;
-  const { roots, rootOf, queueFolderOf } = useRoots(state.snapshot, local);
+  const { roots, rootOf, queueFolderOf, isOpenSplitOf, markSplit } = useRoots(state.snapshot, local);
   // Every workspace's changed-file count, one `git status` per folder, and
   // its checkout's linked worktrees, never two rounds at once. A workspace
   // with a fixed root reads that, not its active tab's folder. Reread on a
@@ -245,7 +245,7 @@ export default function App() {
     controller.act(saveWorkspaceColor(folder, slot).then(settings.reload));
 
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf);
+  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;
@@ -563,6 +563,7 @@ export default function App() {
                 newTabCommand={state.settings.newTabCommand}
                 onMarkSeen={markSeen}
                 onOpenQueue={openQueue}
+                onSplit={markSplit}
               />
               <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">
@@ -660,7 +661,8 @@ export default function App() {
           <PromptPalette
             controller={controller}
             snapshot={state.snapshot}
-            folder={local ? queueFolder : null}
+            folder={local && queueFolder ? queueDirectory(queueFolder) : null}
+            queueFolder={local ? queueFolder : null}
             queue={local && queueAccess.kind === "ready" ? queueActions : null}
           />
         )}

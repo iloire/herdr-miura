@@ -87,7 +87,7 @@ describe("groupWorktrees on the card's lookups", () => {
       tabs: workspaces.map((w) => ({ tab_id: w.active_tab_id, workspace_id: w.workspace_id, number: 1 })),
       panes: workspaces.map((w) => ({ pane_id: `${w.label}:p`, tab_id: w.active_tab_id, cwd: w.new_workspace_cwd })),
     } as unknown as Snapshot;
-    const roots: Roots = { bootId: "boot", folders: rooted, homes: {} };
+    const roots: Roots = { bootId: "boot", folders: rooted, homes: {}, split: {} };
     const rootOf = (w: Workspace) => workspaceRoot(roots, w, snapshot);
     const { byWorkspace } = countedDirectories(snapshot, rootOf);
     return groupWorktrees(

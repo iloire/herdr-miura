@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot, Workspace } from "../protocol";
 import { readHomes } from "./queue";
-import { homelessFolders, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, workspaceRoot } from "./workspaceRoot";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, withSplit, workspaceRoot } from "./workspaceRoot";
 
 export function useRoots(
   snapshot: Snapshot | null,
@@ -16,6 +16,10 @@ export function useRoots(
   /// whose workspaces are never given one.
   rootOf: (workspace: Workspace) => string | null;
   queueFolderOf: (workspace: Workspace) => string | null;
+  /// Whether a workspace split off a tab is still open.
+  isOpenSplitOf: (workspaceId: string) => boolean;
+  /// Notes a workspace just split off a tab that was in `folder`.
+  markSplit: (workspaceId: string, folder: string) => void;
 } {
   const [roots, setRoots] = useState(loadRoots);
   const asked = useRef(new Set<string>());
@@ -57,5 +61,16 @@ export function useRoots(
     (workspace: Workspace) => (snapshot ? queueFolder(roots, workspace, snapshot) : null),
     [roots, snapshot],
   );
-  return { roots, rootOf, queueFolderOf };
+  const isOpenSplitOf = useCallback(
+    (workspaceId: string) => !!snapshot && isOpenSplit(roots, workspaceId, snapshot),
+    [roots, snapshot],
+  );
+  const markSplit = useCallback((workspaceId: string, folder: string) => {
+    setRoots((current) => {
+      const next = withSplit(current, workspaceId, folder);
+      saveRoots(next);
+      return next;
+    });
+  }, []);
+  return { roots, rootOf, queueFolderOf, isOpenSplitOf, markSplit };
 }

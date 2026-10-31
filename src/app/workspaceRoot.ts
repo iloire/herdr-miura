@@ -12,7 +12,7 @@
 import type { ChangesState } from "../changes/store";
 import type { Snapshot, Workspace } from "../protocol";
 import { tildePath } from "./folder";
-import { tabsFolder } from "./queue";
+import { splitQueueFolder, tabsFolder } from "./queue";
 import { inside } from "./worktreeGroups";
 
 const KEY = "workspace-roots";
@@ -23,14 +23,19 @@ export interface Roots {
   folders: Record<string, string>;
   /// The queue's folder for each folder in use, as `queue_homes` answered.
   homes: Record<string, string>;
+  /// Workspaces split off a tab, by id, with the folder that tab was in. Their
+  /// root starts there and each has a queue of its own. Kept for the whole
+  /// boot, as ids are not reused: the id arrives from the CLI, and the snapshot
+  /// showing that workspace can come either side of it.
+  split: Record<string, string>;
 }
 
-const NO_ROOTS: Roots = { bootId: "", folders: {}, homes: {} };
+const NO_ROOTS: Roots = { bootId: "", folders: {}, homes: {}, split: {} };
 
 export function loadRoots(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): Roots {
   try {
     const saved = JSON.parse(storage?.getItem(KEY) ?? "null") as Partial<Roots> | null;
-    return typeof saved?.bootId === "string" && saved.folders ? { bootId: saved.bootId, folders: saved.folders, homes: saved.homes ?? {} } : NO_ROOTS;
+    return typeof saved?.bootId === "string" && saved.folders ? { bootId: saved.bootId, folders: saved.folders, homes: saved.homes ?? {}, split: saved.split ?? {} } : NO_ROOTS;
   } catch {
     return NO_ROOTS;
   }
@@ -62,7 +67,7 @@ export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
   const folders: Record<string, string> = {};
   for (const workspace of snapshot.workspaces) {
     const id = workspace.workspace_id;
-    const known = sameBoot ? roots.folders[id] : undefined;
+    const known = sameBoot ? (roots.folders[id] ?? roots.split[id]) : undefined;
     const folder = known !== undefined && settled(id, snapshot) ? known : (tabsFolder(workspace, snapshot) ?? known);
     if (folder) folders[id] = folder;
   }
@@ -74,7 +79,25 @@ export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
     ids.length === Object.keys(roots.folders).length &&
     ids.every((id) => folders[id] === roots.folders[id]) &&
     Object.keys(homes).length === Object.keys(roots.homes).length;
-  return unchanged ? roots : { bootId: snapshot.boot_id, folders, homes };
+  return unchanged ? roots : { bootId: snapshot.boot_id, folders, homes, split: sameBoot ? roots.split : {} };
+}
+
+/// `roots` with `workspaceId`, just split off a tab in `folder`.
+export function withSplit(roots: Roots, workspaceId: string, folder: string): Roots {
+  return {
+    ...roots,
+    folders: { ...roots.folders, [workspaceId]: folder },
+    split: { ...roots.split, [workspaceId]: folder },
+  };
+}
+
+/// Whether `workspaceId` is split off and still open in this boot.
+export function isOpenSplit(roots: Roots, workspaceId: string, snapshot: Snapshot): boolean {
+  return (
+    roots.bootId === snapshot.boot_id &&
+    workspaceId in roots.split &&
+    snapshot.workspaces.some((workspace) => workspace.workspace_id === workspaceId)
+  );
 }
 
 function foldersInUse(folders: Record<string, string>, snapshot: Snapshot): Set<string> {
@@ -105,13 +128,15 @@ export function workspaceRoot(roots: Roots, workspace: Workspace, snapshot: Snap
 
 /// The folder a workspace's queue is kept on: its root's main checkout, wherever
 /// its tabs go. A root deleted before its home was asked has none, so the
-/// folder most of its tabs are in stands in. Null until `homes` answers.
+/// folder most of its tabs are in stands in. Null until `homes` answers. A
+/// workspace split off a tab has a queue of its own there.
 export function queueFolder(roots: Roots, workspace: Workspace, snapshot: Snapshot): string | null {
-  const root = roots.folders[workspace.workspace_id];
-  const home = root === undefined ? undefined : roots.homes[root];
-  if (home !== undefined) return home;
+  const id = workspace.workspace_id;
+  const root = roots.folders[id];
   const tabs = tabsFolder(workspace, snapshot);
-  return tabs === null ? null : (roots.homes[tabs] ?? null);
+  const home = (root === undefined ? undefined : roots.homes[root]) ?? (tabs === null ? undefined : roots.homes[tabs]);
+  if (home === undefined) return null;
+  return roots.bootId === snapshot.boot_id && id in roots.split ? splitQueueFolder(home, id) : home;
 }
 
 export interface StrayPath {

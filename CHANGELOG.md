@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 23:06 — Move a tab to a new workspace
+
+The tab menu's Move to Workspace now opens on New Workspace…, so a tab can get a workspace of its own in one step. The
+name starts as the tab's title, Enter takes it, and focus follows. The tab keeps its folder, its label and its running
+process. It is off for a workspace's last tab, and the Move to Workspace row stays on whenever it has something to offer.
+
+The new workspace has a prompt queue of its own, though it shares a folder with the one it left, so neither holds the
+other back. Prompts still waiting when it closes join the folder's queue.
+
 ## 2026-10-31 22:58 — Tick every changed file at once
 
 The Changes panel's count now has a tick box above the rows' boxes. It ticks every file, or unticks them once all are

@@ -3,7 +3,7 @@ import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import { formatSpan } from "../app/time";
 import { useHome } from "../app/useHome";
-import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, runningState, title, worktreeBranch } from "../app/queue";
+import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, queueDirectory, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
@@ -115,6 +115,7 @@ function QueueBody({
   focusComposer: boolean;
 }) {
   const home = useHome();
+  const directory = queueDirectory(folder);
   const [draft, setDraft] = useState("");
   const [removed, setRemoved] = useState<{ title: string; undo: () => void } | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -157,9 +158,9 @@ function QueueBody({
     <aside className="changes queue-panel" aria-label="Queue" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">
         <span className="queue-head-title">
-          Queue <b title={folder}>{workspace.label}</b>
+          Queue <b title={directory}>{workspace.label}</b>
           <span className="queue-head-folder" title="This workspace's queue is kept for this folder, whichever tab is focused">
-            {tildePath(folder, home)}
+            {tildePath(directory, home)}
           </span>
         </span>
         <button
@@ -313,7 +314,7 @@ function QueueBody({
       {opened && (
         <QueueItemDialog
           item={opened}
-          folder={folder}
+          folder={directory}
           hue={hue}
           onGo={
             hasTab(opened)

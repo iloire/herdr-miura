@@ -100,6 +100,18 @@ export const isInLine = (item: Item) => isActive(item) && !isAway(item);
 /// Queues are this Mac's: the CLI that starts agents runs here.
 export const queueKey = (folder: string) => `local:${folder}`;
 
+const SPLIT = "#split-";
+const SPLIT_END = /#split-([^/]*)$/;
+
+/// Where the queue of a workspace split off a tab is kept. Sharing a folder
+/// with the workspace it left would give it that queue, so the workspace gets
+/// a place of its own in the file. Everything that keeps queues by folder takes
+/// this as it would a folder; what reads the disk goes through `queueDirectory`.
+export const splitQueueFolder = (home: string, workspaceId: string) => `${home}${SPLIT}${workspaceId}`;
+
+/// The folder on disk a queue's folder stands for.
+export const queueDirectory = (folder: string) => folder.replace(SPLIT_END, "");
+
 /// The folder a workspace's queue is kept on; null until it is known.
 export type FolderOf = (workspace: Workspace) => string | null;
 
@@ -334,6 +346,28 @@ export function recover(file: QueueFile, now: number): QueueFile {
     queues[key] = next;
   }
   return { ...file, queues };
+}
+
+/// Hands the prompts waiting in a split workspace's queue to its folder's queue
+/// once the workspace has gone, so a closed one strands nothing. `isOpen` says
+/// whether a split workspace is still there. Its history goes with it. A queue
+/// with an item in progress waits for `step` to end that item.
+export function foldSplitQueues(file: QueueFile, isOpen: (workspaceId: string) => boolean): QueueFile {
+  let next = file;
+  for (const [key, queue] of Object.entries(file.queues)) {
+    const workspaceId = queue.folder.match(SPLIT_END)?.[1];
+    if (workspaceId === undefined || isOpen(workspaceId) || queue.items.some(isActive)) continue;
+    const { [key]: _gone, ...queues } = next.queues;
+    next = { ...next, queues };
+    const folder = queueDirectory(queue.folder);
+    const home = queueKey(folder);
+    const target = next.queues[home] ?? emptyQueue(folder);
+    const items = queue.items.map((item, index) => ({ ...item, n: target.nextN + index }));
+    if (items.length === 0) continue;
+    const joined = { ...target, nextN: target.nextN + items.length, items: [...target.items, ...items] };
+    next = { ...next, queues: { ...next.queues, [home]: joined } };
+  }
+  return next;
 }
 
 /// Adds a prompt at the end, or at the front of what is waiting.
