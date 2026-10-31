@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 10:08 — Esc closes the Team dialog wherever you clicked
+
+A click on a card's text, a pill or the header moved focus out of the dialog, and Esc then did nothing. The dialog now
+keeps focus, as the prompt dialog does.
+
 ## 2026-10-31 10:05 — The tab header is two lines
 
 The strip over the terminal is now two lines tall, 44 px instead of 25. The first holds the warnings, Git state and

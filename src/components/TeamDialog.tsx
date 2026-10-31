@@ -57,6 +57,8 @@ export function TeamDialog({
         className="palette worktrees-dialog team-dialog"
         role="dialog"
         aria-labelledby="team-title"
+        // A click on the text must leave focus inside, for Escape.
+        tabIndex={-1}
         style={{ "--hue": hueColor(workspace.label) } as CSSProperties}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && onClose()}
