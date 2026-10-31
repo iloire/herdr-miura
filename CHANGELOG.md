@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 10:17 — Workspace rails are one quiet color, and gold means needs-you
+
+The rails colored by a hash of the name had drifted into near-identical olives that blended with the green status marks.
+Every card now has the same neutral rail, the selected card a thicker white one, and only a card that needs you is gold.
+The selected card's rail no longer matches its tab. The tab, status bar, dialogs and team roles keep their hues.
+
 ## 2026-10-31 10:30 — The running prompt's card says what its buttons do
 
 A click anywhere on the card opens its tab, so the Open tab button is gone. The × read like a kill switch, though it

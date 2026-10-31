@@ -1,4 +1,4 @@
-import { type CSSProperties, type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
 import type { Controller } from "../app/controller";
 import { copyPath, openFolder } from "../app/folder";
 import { workspaceDirectory } from "../changes/counts";
@@ -6,7 +6,6 @@ import { agentRefusal, type Land, type LandStore, landing } from "../changes/lan
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, cardAgents, loopTags, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
-import { hueColor } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
@@ -235,11 +234,10 @@ export function Sidebar({
               key={workspace.workspace_id}
               className={[drag.rowClass(index, workspaces.length), parent && "worktree-child"].filter(Boolean).join(" ") || undefined}
             >
-              {/* A worktree hangs off its main checkout's card, on that card's rail color. */}
+              {/* A worktree hangs off its main checkout's card. */}
               {parent && <span className="worktree-link" aria-hidden="true" />}
               <div
                 className={["workspace", workspace.focused && "current", needsYou && "needs-you"].filter(Boolean).join(" ")}
-                style={{ "--rail": hueColor((parent ?? workspace).label) } as CSSProperties}
                 title={parent ? `A worktree of ${parent.label}` : undefined}
                 {...drag.handlers(index)}
                 onContextMenu={(event) => {

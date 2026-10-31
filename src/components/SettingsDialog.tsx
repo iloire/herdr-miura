@@ -1,11 +1,10 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
-import { hue } from "../app/hue";
 import { LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
 import type { SettingsView } from "../app/useSettings";
 import { css } from "../terminal/theme";
 import { BUILTIN_NAMES, type NamedTheme, builtinTheme, parseThemeName } from "../themes/catalog";
-import { TOKENS, legible } from "../themes/chrome";
+import { TOKENS } from "../themes/chrome";
 
 const BUILTIN = new Set(BUILTIN_NAMES);
 const LIGHT = "(prefers-color-scheme: light)";
@@ -245,7 +244,7 @@ function ThemePreview({ theme }: { theme: NamedTheme }) {
   const fg = (slot: number) => ({ color: css(palette[slot]) });
   return (
     <div className="theme-preview" style={{ ...style, colorScheme: theme.chrome.scheme }} aria-label={`Preview of ${theme.name}`}>
-      <div className="preview-card" style={{ "--rail": css(legible(palette[hue("herdr-tauri")], theme.chrome.tokens)) } as CSSProperties}>
+      <div className="preview-card">
         <span className="preview-card-name">herdr-tauri</span>
         <span className="preview-card-path">~/code/herdr-tauri</span>
         <span className="preview-card-marks">

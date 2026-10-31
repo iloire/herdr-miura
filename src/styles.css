@@ -247,13 +247,13 @@ body.reordering * {
   user-select: none;
 }
 
-/* Each workspace hangs on a rail in its own hue (herdr-gpui's folder edge
-   bar), set inline from its name. Collapsed, the card is one line, the name
-   with its Git facts and agents' tally, plus a row for each agent that wants
-   you. Expanded, the Git facts take a line of their own, then a tray of chips,
-   then what else it has going on. */
+/* Every workspace hangs on the same quiet rail, so the lantern on a card that
+   needs you is the one thing that stands out. Collapsed, the card is one line,
+   the name with its Git facts and agents' tally, plus a row for each agent that
+   wants you. Expanded, the Git facts take a line of their own, then a tray of
+   chips, then what else it has going on. */
 .workspace {
-  --rail: transparent;
+  --rail: var(--elbow);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -487,13 +487,13 @@ body.reordering * {
   height: 12px;
 }
 
-/* The name being edited, in its place and on the card's rail color. */
+/* The name being edited, in its place. */
 .workspace-rename {
   flex: 1;
   min-width: 0;
   margin: -3px 0 -3px -7px;
   padding: 2px 6px;
-  border: 1px solid var(--rail);
+  border: 1px solid var(--faint);
   border-radius: 4px;
   background: var(--ink);
   color: var(--bright);
@@ -561,9 +561,9 @@ body.reordering * {
   background: var(--hover);
 }
 
-/* The picked card takes a thicker rail in its own hue, the same hue the tab
-   bar's selected tab carries, over a gray wash whatever that hue is. */
+/* The picked card takes a thicker, brighter rail over a gray wash. */
 .workspace.current {
+  --rail: var(--bright);
   background: linear-gradient(90deg, color-mix(in srgb, var(--bright) 8%, var(--active)), var(--active));
   box-shadow: inset 4px 0 0 var(--rail);
 }
@@ -3315,7 +3315,7 @@ kbd {
 }
 
 /* A workspace on a linked worktree sits indented under its main checkout's
-   card, joined to it by an elbow, and hangs on that card's rail color. */
+   card, joined to it by an elbow. */
 .workspace-list > li.worktree-child {
   padding-left: 18px;
 }
@@ -4608,9 +4608,9 @@ kbd {
 .preview-card {
   display: flex;
   flex-direction: column;
-  padding: 7px 10px 8px 12px;
+  padding: 7px 10px 8px 11px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--bright) 8%, var(--active)), var(--active));
-  border-left: 3px solid var(--rail);
+  border-left: 4px solid var(--bright);
   border-radius: 4px;
 }
 
