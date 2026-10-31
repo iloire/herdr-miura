@@ -6,6 +6,7 @@ import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
 import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
+import { CloseDialog } from "./CloseDialog";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { NewTabIcon, PinIcon, TerminalIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
@@ -208,6 +209,7 @@ export function TabBar({
         </button>
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
+      <CloseDialog controller={controller} />
     </div>
   );
 }

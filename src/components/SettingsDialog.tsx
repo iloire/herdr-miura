@@ -82,11 +82,11 @@ export function SettingsDialog({
               <input
                 type="checkbox"
                 checked={settings.confirmCloseTab}
-                onChange={(event) => save("confirm_close_tab", event.target.checked || null)}
+                onChange={(event) => save("confirm_close_tab", event.target.checked ? null : false)}
               />
               <span>
-                Ask before closing a tab with an agent in it
-                <small>Herdr reports agents, not other processes, so a tab with only a shell or a server closes at once.</small>
+                Ask before closing a tab or pane with a working agent
+                <small>Closing stops the agent and anything it is running. Idle or finished agents, shells and servers close at once.</small>
               </span>
             </label>
             <label className="settings-check">

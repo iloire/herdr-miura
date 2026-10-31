@@ -21,7 +21,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | Key | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `theme` | string | `"Herdr Night"` | The theme: a name, a path, or a light and dark pair (below). |
-| `confirm_close_tab` | boolean | `false` | Ask before closing a tab an agent runs in. Herdr reports agents, not other processes, so a tab with only a shell or a server closes without asking. |
+| `confirm_close_tab` | boolean | `true` | Ask before closing a tab or pane would stop an agent mid-task: one working, blocked or looping. Set `false` to close at once. Idle and finished agents close without asking, and so does a shell or a server, as Herdr reports agents, not other processes. |
 | `terminal.font_family` | string | `"JetBrains Mono"` | The terminal's face, followed by `"SF Mono", Menlo, "DejaVu Sans Mono", monospace`. A value with a comma is used as a whole CSS font list. |
 | `terminal.font_size` | number, 8 to 32 | `13` | The terminal's size in points. ⌘+ / ⌘- / ⌘0 write it, so the size survives a relaunch; ⌘0 removes the key. |
 | `terminal.line_height` | number, 1 to 2 | `1.4` | Row height as a multiple of the size. |
@@ -31,7 +31,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"
-confirm_close_tab = true
+confirm_close_tab = false
 
 [terminal]
 font_family = "Iosevka"

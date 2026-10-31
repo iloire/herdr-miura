@@ -19,6 +19,7 @@ export interface Settings {
   ui: {
     fontSize: number;
   };
+  /// Ask before closing a tab or pane stops an agent mid-task.
   confirmCloseTab: boolean;
   /// Tabs that do not fit wrap onto more rows; off keeps one row that scrolls.
   tabsWrap: boolean;
@@ -30,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_NAME,
   terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
   ui: { fontSize: 13 },
-  confirmCloseTab: false,
+  confirmCloseTab: true,
   tabsWrap: true,
   newTabCommand: null,
 };

@@ -6,7 +6,7 @@ import { HERDR_NIGHT, type NamedTheme } from "../themes/catalog";
 import { DEFAULT_SETTINGS, type Settings, saveSetting } from "./settings";
 import { parseShortcut, type KeyLike, matches, type Shortcut } from "../terminal/keys";
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
-import { focusAfterClose, withoutClosing } from "./closing";
+import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
 import { stepWorkspace } from "./step";
 
@@ -54,6 +54,8 @@ export interface State {
   hosts: string[];
   /// A host key waiting for the user to approve or decline it.
   hostKey: HostKey | null;
+  /// A close waiting for the user to answer, as it would stop an agent mid-task.
+  closeAsk: CloseAsk | null;
   snapshot: Snapshot | null;
   /// The latest local failure, such as a command the daemon refused. Never
   /// hides a disconnection: the status line shows `status` first.
@@ -132,6 +134,7 @@ export class Controller {
     host: savedHost(),
     hosts: [],
     hostKey: null,
+    closeAsk: null,
     snapshot: null,
     notice: null,
     title: null,
@@ -244,7 +247,7 @@ export class Controller {
     this.daemonSnapshot = null;
     this.closing.clear();
     this.closeRequests.clear();
-    this.set({ status: { phase: "connecting" }, snapshot: null, notice: null });
+    this.set({ status: { phase: "connecting" }, snapshot: null, notice: null, closeAsk: null });
     try {
       await this.daemon.connect(this.surface, this.state.host);
     } catch (error) {
@@ -388,11 +391,23 @@ export class Controller {
   }
 
   request(method: string, params: Record<string, unknown>): void {
-    if (method === "tab.close") {
-      const tabId = String(params.tab_id);
-      if (this.state.settings.confirmCloseTab && !this.confirmClose(tabId)) return;
-      return this.closeTab(tabId);
-    }
+    const snapshot = this.state.snapshot;
+    const ask = snapshot && this.state.settings.confirmCloseTab ? closeAsk(snapshot, method, params) : null;
+    if (ask) return this.set({ closeAsk: ask });
+    this.perform(method, params);
+  }
+
+  /// The answer to `closeAsk`. Typing goes back to the terminal either way.
+  answerClose(close: boolean): void {
+    const ask = this.state.closeAsk;
+    if (!ask) return;
+    this.set({ closeAsk: null });
+    this.focusTerminal();
+    if (close) this.perform(ask.method, ask.params);
+  }
+
+  private perform(method: string, params: Record<string, unknown>): void {
+    if (method === "tab.close") return this.closeTab(String(params.tab_id));
     void this.send(method, params);
     // However the move was asked for (a key, the palette, a card, the strip),
     // the view over the terminal closes and typing goes to the tab, workspace
@@ -411,17 +426,6 @@ export class Controller {
       this.notice(error);
       return null;
     });
-  }
-
-  /// Asks before closing a tab an agent is running in (Herdr reports agents,
-  /// not other processes). Any other tab closes without asking.
-  private confirmClose(tabId: string): boolean {
-    const snapshot = this.state.snapshot;
-    const agents = snapshot?.agents.filter((agent) => agent.tab_id === tabId) ?? [];
-    if (!agents.length) return true;
-    const tab = snapshot?.tabs.find((t) => t.tab_id === tabId);
-    const names = agents.map((agent) => agent.display_agent ?? agent.agent ?? "an agent").join(", ");
-    return window.confirm(`Close ${tab?.label ?? "this tab"}? ${names} is still running in it.`);
   }
 
   /// Hides the tab at once and, if it is the focused one, focuses the tab
@@ -464,6 +468,9 @@ export class Controller {
   shortcut(event: KeyLike): boolean {
     const command = this.state.commands.find((c) => c.parsed.some((s) => matches(s, event)));
     if (!command || (IS_MAC && MENU_COMMANDS.has(command.name))) return false;
+    // The close dialog holds the focus: a move would hand it to the terminal,
+    // where the Esc meant for the dialog would interrupt the agent.
+    if (this.state.closeAsk) return true;
     this.run(command.name);
     return true;
   }

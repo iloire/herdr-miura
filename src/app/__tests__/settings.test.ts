@@ -10,7 +10,7 @@ describe("parseSettings", () => {
       theme: "Herdr Night",
       terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
       ui: { fontSize: 13 },
-      confirmCloseTab: false,
+      confirmCloseTab: true,
       newTabCommand: null,
     });
   });
@@ -20,7 +20,7 @@ describe("parseSettings", () => {
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { font_family: "Menlo", font_size: 15, line_height: 1.2 },
       ui: { font_size: 14 },
-      confirm_close_tab: true,
+      confirm_close_tab: false,
       new_tab: { command: " claude " },
       tabs: { wrap: false },
     });
@@ -29,7 +29,7 @@ describe("parseSettings", () => {
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { fontFamily: "Menlo", fontSize: 15, lineHeight: 1.2 },
       ui: { fontSize: 14 },
-      confirmCloseTab: true,
+      confirmCloseTab: false,
       tabsWrap: false,
       newTabCommand: "claude",
     });

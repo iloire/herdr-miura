@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 12:18 — Ask before closing a tab or pane with a working agent
+
+Closing a tab or pane stops its agent and whatever it is running, and a queued prompt's run with it, so one stray
+click on a × could lose work. A dialog now asks first, by default, when an agent there is working, blocked or looping.
+The ×, middle click, the tab menu, ⌘⇧W and ⌘W all go through it, and ⌘W counts only that pane's agent. Idle and
+finished agents, shells and servers close at once, and Esc or Cancel leaves everything running. `confirm_close_tab`
+is now on by default and is the way to turn this off: Settings' checkbox could not do that before. The old prompt used
+`window.confirm`, which WKWebView answers with Cancel when no handler is set, so it is gone.
+
 ## 2026-10-31 12:05 — Mark a workspace's finished agents as seen
 
 Right-click a workspace card with finished agents and choose Mark as Seen to clear their marks and lower the Dock badge
