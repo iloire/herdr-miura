@@ -16,14 +16,25 @@ const tab = (tab_id: string, workspace_id = "w", agent_status: Tab["agent_status
 describe("stripOrder", () => {
   it("puts pinned tabs first and keeps the daemon's order within each group", () => {
     const pinned = new Set(["c", "a"]);
-    const order = stripOrder([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id));
+    const order = stripOrder([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id), () => false);
     expect(order.map((t) => t.tab_id)).toEqual(["a", "c", "b", "d"]);
   });
 
-  it("puts tabs with an agent working right after the pinned ones", () => {
-    const tabs = [tab("a"), tab("b", "w", "done"), tab("c", "w", "working"), tab("d", "w", "working"), tab("e", "w", "working")];
-    const order = stripOrder(tabs, (t) => t.tab_id === "e" || t.tab_id === "a");
+  it("puts the working tabs right after the pinned ones", () => {
+    const working = new Set(["c", "d", "e"]);
+    const order = stripOrder(
+      [tab("a"), tab("b"), tab("c"), tab("d"), tab("e")],
+      (t) => t.tab_id === "e" || t.tab_id === "a",
+      (t) => working.has(t.tab_id),
+    );
     expect(order.map((t) => t.tab_id)).toEqual(["a", "e", "c", "d", "b"]);
+  });
+
+  it("orders by the working set it is given, not by the tab's status now", () => {
+    const tabs = [tab("a", "w", "working"), tab("b", "w", "idle")];
+    const held = new Set(["b"]);
+    const order = stripOrder(tabs, () => false, (t) => held.has(t.tab_id));
+    expect(order.map((t) => t.tab_id)).toEqual(["b", "a"]);
   });
 });
 

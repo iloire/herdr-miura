@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { agentCountsByTab, loopTags, tabVerifiedDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
+import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -55,9 +56,11 @@ export function TabBar({
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
+  const strip = useSteadyStrip(snapshot?.tabs ?? [], snapshot?.focused_workspace_id ?? null);
   const tabs = stripOrder(
     snapshot?.tabs.filter((tab) => tab.workspace_id === snapshot.focused_workspace_id) ?? [],
     isPinned,
+    (tab) => strip.working.has(tab.tab_id),
   );
   const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
 
@@ -68,6 +71,11 @@ export function TabBar({
     if (wrap) return;
     rows.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [wrap, focusedTab, tabs.length]);
+
+  /// A click on a tab that only just moved was aimed at another one, so it does nothing.
+  const closeByPointer = (tab: Tab) => {
+    if (strip.settled()) controller.request("tab.close", { tab_id: tab.tab_id });
+  };
 
   const togglePin = (tab: Tab) => {
     if (!snapshot) return;
@@ -114,6 +122,8 @@ export function TabBar({
         role="tablist"
         aria-label="Tabs"
         data-tauri-drag-region
+        onPointerEnter={strip.hold}
+        onPointerLeave={strip.release}
         // A mouse wheel only scrolls up and down, and the row only goes sideways.
         onWheel={(event) => {
           if (!wrap) event.currentTarget.scrollLeft += event.deltaY;
@@ -152,9 +162,7 @@ export function TabBar({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
                   onDoubleClick={() => setRenaming(tab.tab_id)}
-                  onAuxClick={(event) =>
-                    event.button === 1 && !pinned && controller.request("tab.close", { tab_id: tab.tab_id })
-                  }
+                  onAuxClick={(event) => event.button === 1 && !pinned && closeByPointer(tab)}
                 >
                   {pinned && (
                     <span className="tab-pin" title="Pinned" aria-label="Pinned">
@@ -175,7 +183,7 @@ export function TabBar({
                 className="tab-close"
                 aria-label={`Close ${tab.label}`}
                 title="Close tab"
-                onClick={() => controller.request("tab.close", { tab_id: tab.tab_id })}
+                onClick={() => closeByPointer(tab)}
               >
                 ×
               </button>

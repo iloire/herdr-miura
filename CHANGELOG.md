@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 11:41 — Tabs hold still under the pointer
+
+A tab jumps ahead when its agent starts working, so a × aimed at one tab could close another that had just moved
+under the pointer. The strip now keeps its order while the pointer is over it and for a moment after it leaves, then
+catches up. A × or middle click within half a second of a move is ignored, for a move that came just before the
+pointer arrived. New and closed tabs and pins still show at once.
+
 ## 2026-10-31 12:55 — Commit ticked files from the Changes panel
 
 Each file row has a tick box. Tick some and a message box and a Commit button appear. The commit takes those paths
