@@ -6,7 +6,8 @@
 //! records its `usage`. Subagents write
 //! theirs beside it, in `<session>/subagents/*.jsonl`, and count toward the
 //! session. Files are read from where the last read stopped, so polling is
-//! cheap once a transcript has been read whole.
+//! cheap once a transcript has been read whole. A session's use also carries
+//! the last time any of those files was written, and its latest prompt.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -25,6 +26,11 @@ const WEEK_SECONDS: i64 = 8 * 86_400;
 /// The grain of [`Cache::history`]: fine enough for the 5-hour chart, coarse
 /// enough to send a week of it every poll.
 const BUCKET_SECONDS: i64 = 5 * 60;
+
+/// Characters of a prompt kept, for the tab header's tooltip: all of one you
+/// typed, and only the start of a pasted wall of text, which would otherwise
+/// travel to the webview every poll.
+const MAX_PROMPT_CHARS: usize = 500;
 
 /// Tokens by kind, as the API's `usage` reports them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -77,6 +83,11 @@ pub struct SessionUsage {
     pub context: u64,
     /// Its tokens, subagents included, by minute over the last six hours.
     pub minutes: Vec<Minute>,
+    /// When its transcript or a subagent's last changed, in Unix seconds. A
+    /// session busy in a subagent leaves its own file alone.
+    pub written_at: Option<i64>,
+    /// Its latest prompt, cut to [`MAX_PROMPT_CHARS`].
+    pub prompt: Option<String>,
 }
 
 /// A project's use over the last week, in five-minute buckets.
@@ -98,6 +109,8 @@ struct FileState {
     context: u64,
     /// Where it started: the session may `cd` into a subfolder later.
     cwd: Option<String>,
+    /// The latest prompt typed or pasted into it.
+    prompt: Option<String>,
 }
 
 impl FileState {
@@ -127,6 +140,14 @@ impl FileState {
     }
 
     fn line(&mut self, line: &[u8]) {
+        // JSON escapes a quote inside a string, so these cannot match text. It
+        // spares parsing the tool results, by far the largest lines.
+        if contains(line, b"\"kind\":\"human\"")
+            && let Ok(value) = serde_json::from_slice::<Value>(line)
+            && let Some(prompt) = prompt(&value)
+        {
+            self.prompt = Some(prompt);
+        }
         // Most lines are not responses; skip them before parsing.
         if !contains(line, b"\"usage\"") {
             return;
@@ -208,6 +229,67 @@ impl Response {
                 .unwrap_or(false),
         })
     }
+}
+
+/// The prompt of a transcript line someone typed or pasted. Claude Code marks
+/// those `origin: {kind: human}`, and only those: tool results, hook output,
+/// task notifications, skill text, interruptions, compaction summaries and
+/// `/exit`'s wrapper have no such origin or another kind. A command's wrapper is
+/// refused by its tag too, in case another command or version marks it human.
+fn prompt(value: &Value) -> Option<String> {
+    let flag = |key: &str| value.get(key).and_then(Value::as_bool).unwrap_or(false);
+    if value.get("type")?.as_str()? != "user" || flag("isSidechain") || flag("isMeta") {
+        return None;
+    }
+    if value.get("origin")?.get("kind")?.as_str()? != "human" {
+        return None;
+    }
+    let text = match value.get("message")?.get("content")? {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter(|block| block.get("type").and_then(Value::as_str) == Some("text"))
+            .filter_map(|block| block.get("text")?.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => return None,
+    };
+    let text = without_paste_tags(&text);
+    let text = text.trim();
+    let wrapper = ["<command-", "<local-command-", "<bash-"]
+        .iter()
+        .any(|tag| text.starts_with(tag));
+    if text.is_empty() || wrapper {
+        return None;
+    }
+    Some(match text.char_indices().nth(MAX_PROMPT_CHARS) {
+        Some((end, _)) => format!("{}…", text[..end].trim_end()),
+        None => text.to_owned(),
+    })
+}
+
+/// `text` without the `<pasted_content id="…">` tags around a paste, in which
+/// a queued prompt arrives whole.
+fn without_paste_tags(text: &str) -> String {
+    const NAME: &str = "pasted_content";
+    let mut kept = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(NAME) {
+        let before = &rest[..at];
+        let open = before.strip_suffix("</").or(before.strip_suffix('<'));
+        match (open, rest[at..].find('>')) {
+            (Some(before), Some(close)) => {
+                kept.push_str(before);
+                rest = &rest[at + close + 1..];
+            }
+            _ => {
+                kept.push_str(&rest[..at + NAME.len()]);
+                rest = &rest[at + NAME.len()..];
+            }
+        }
+    }
+    kept.push_str(rest);
+    kept
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
@@ -319,13 +401,7 @@ fn recent_transcripts(projects: &Path, since: i64) -> Vec<PathBuf> {
             .filter_map(|entry| entry.ok().map(|entry| entry.path()))
             .collect::<Vec<_>>()
     };
-    let written_since = |path: &PathBuf| {
-        std::fs::metadata(path)
-            .and_then(|metadata| metadata.modified())
-            .ok()
-            .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
-            .is_some_and(|age| age.as_secs() as i64 >= since)
-    };
+    let written_since = |path: &PathBuf| written_at(path).is_some_and(|written| written >= since);
     let mut paths: Vec<_> = children(projects)
         .iter()
         .flat_map(|project| children(project))
@@ -342,6 +418,12 @@ fn recent_transcripts(projects: &Path, since: i64) -> Vec<PathBuf> {
         .collect();
     paths.sort();
     paths
+}
+
+/// When a file last changed, in Unix seconds.
+fn written_at(path: &Path) -> Option<i64> {
+    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+    Some(modified.duration_since(UNIX_EPOCH).ok()?.as_secs() as i64)
 }
 
 /// The folder a project goes by: a worktree counts as its main checkout.
@@ -387,9 +469,11 @@ fn session(
 ) -> Option<SessionUsage> {
     let main = files.entry(transcript.to_owned()).or_default();
     main.update(transcript).ok()?;
-    let (model, context) = (main.model.clone(), main.context);
+    let (model, context, prompt) = (main.model.clone(), main.context, main.prompt.clone());
     let mut minutes = main.minutes.clone();
+    let mut written = written_at(transcript);
     for path in subagents(transcript) {
+        written = written.max(written_at(&path));
         let state = files.entry(path.clone()).or_default();
         if state.update(&path).is_ok() {
             for (at, tokens) in &state.minutes {
@@ -409,6 +493,8 @@ fn session(
                 tokens: *tokens,
             })
             .collect(),
+        written_at: written,
+        prompt,
     })
 }
 

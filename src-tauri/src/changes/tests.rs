@@ -202,3 +202,103 @@ fn commits_after_stop_at_the_count_and_ignore_what_came_later() {
     assert_eq!(subjects(9).len(), 3);
     assert!(read_commits_after(path, "HEAD", 1).is_err());
 }
+
+/// Two branches that both change `a.txt`, `work` checked out with `count`
+/// commits on top of `main`'s conflicting one. The first conflicts.
+fn diverged(dir: &tempfile::TempDir, count: u32) {
+    git(dir, &["switch", "-q", "-c", "work"]);
+    for step in 1..=count {
+        fs::write(dir.path().join("a.txt"), format!("work {step}\n")).unwrap();
+        git(dir, &["commit", "-qam", "work"]);
+    }
+    git(dir, &["switch", "-q", "main"]);
+    fs::write(dir.path().join("a.txt"), "main\n").unwrap();
+    git(dir, &["commit", "-qam", "main"]);
+    git(dir, &["switch", "-q", "work"]);
+}
+
+/// Runs Git expecting it to stop on a conflict.
+fn stops(dir: &Path, args: &[&str]) {
+    let status = Command::new("git")
+        .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"])
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap()
+        .status;
+    assert!(!status.success(), "{args:?}");
+}
+
+#[test]
+fn a_clean_checkout_has_no_operation() {
+    let view = read_checkout(&path(&repo())).unwrap().unwrap();
+    assert_eq!((view.operation, view.operation_step, view.conflicts), (None, None, 0));
+}
+
+#[test]
+fn a_stopped_rebase_says_its_step_and_conflict() {
+    let dir = repo();
+    diverged(&dir, 3);
+    stops(dir.path(), &["rebase", "main"]);
+    let view = read_checkout(&path(&dir)).unwrap().unwrap();
+    assert_eq!(view.operation, Some("rebase"));
+    assert_eq!(view.operation_step, Some((1, 3)));
+    assert_eq!(view.conflicts, 1);
+}
+
+#[test]
+fn a_rebase_in_a_linked_worktree_is_found_through_its_git_dir() {
+    let dir = repo();
+    diverged(&dir, 2);
+    git(&dir, &["switch", "-q", "main"]);
+    let parent = tempfile::tempdir().unwrap();
+    let linked = parent.path().join("linked");
+    git(&dir, &["worktree", "add", "-q", linked.to_str().unwrap(), "work"]);
+    stops(&linked, &["rebase", "main"]);
+    let view = read_checkout(linked.to_str().unwrap()).unwrap().unwrap();
+    assert_eq!(view.operation, Some("rebase"));
+    assert_eq!(view.operation_step, Some((1, 2)));
+    // The rebase is the worktree's: the checkout it came from has none.
+    assert_eq!(read_checkout(&path(&dir)).unwrap().unwrap().operation, None);
+}
+
+#[test]
+fn a_merge_has_no_step() {
+    let dir = repo();
+    diverged(&dir, 1);
+    stops(dir.path(), &["merge", "main"]);
+    let view = read_checkout(&path(&dir)).unwrap().unwrap();
+    assert_eq!((view.operation, view.operation_step), (Some("merge"), None));
+    assert_eq!(view.conflicts, 1);
+}
+
+#[test]
+fn a_cherry_pick_is_an_operation() {
+    let dir = repo();
+    diverged(&dir, 1);
+    stops(dir.path(), &["cherry-pick", "main"]);
+    let view = read_checkout(&path(&dir)).unwrap().unwrap();
+    assert_eq!((view.operation, view.conflicts), (Some("cherry-pick"), 1));
+}
+
+#[test]
+fn counts_conflicts_past_the_files_it_lists() {
+    let dir = repo();
+    let names: Vec<String> = (0..MAX_FILES + 5).map(|n| format!("file{n}.txt")).collect();
+    let write = |text: &str| {
+        for name in &names {
+            fs::write(dir.path().join(name), text).unwrap();
+        }
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-qm", "write"]);
+    };
+    write("base\n");
+    git(&dir, &["switch", "-q", "-c", "work"]);
+    write("work\n");
+    git(&dir, &["switch", "-q", "main"]);
+    write("main\n");
+    stops(dir.path(), &["merge", "work"]);
+    let view = read_checkout(&path(&dir)).unwrap().unwrap();
+    assert_eq!(view.files.len(), MAX_FILES);
+    assert_eq!(view.conflicts, MAX_FILES + 5);
+}

@@ -16,6 +16,7 @@ import { fontStack } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
 import { useRoots } from "./app/useRoots";
+import { paneDirectory, sharedCheckout } from "./app/sharedCheckout";
 import { strayPath } from "./app/workspaceRoot";
 import { Controller } from "./app/controller";
 import { countedDirectories, readCounts } from "./changes/counts";
@@ -70,7 +71,7 @@ const SESSIONS_POLL_MS = 15_000;
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
   const pane = snapshot?.panes.find((p) => p.pane_id === snapshot.focused_pane_id);
-  return pane?.foreground_cwd ?? pane?.cwd ?? null;
+  return paneDirectory(pane);
 }
 
 export default function App() {
@@ -321,6 +322,11 @@ export default function App() {
     };
   }, [changesPoll, directory, changesStore]);
   const git = local ? tabGit(changes, directory) : null;
+  const shared = useMemo(() => {
+    if (!local || !state.snapshot) return null;
+    const linked = [...worktreeLists.values()].flatMap((list) => list ?? []).map((worktree) => worktree.path);
+    return sharedCheckout(state.snapshot, changes, directory, linked);
+  }, [local, state.snapshot, changes, directory, worktreeLists]);
   const home = useHome();
   const stray = local ? strayPath(changes, directory, roots.folders[focusedWorkspace?.workspace_id ?? ""] ?? null, home) : null;
 
@@ -492,7 +498,7 @@ export default function App() {
                 onPinsChange={setPins}
                 wrap={state.settings.tabsWrap}
               />
-              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} stray={stray} ports={focusedPorts} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={state.snapshot} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
               <div className="stage">
                 <Terminal
                   controller={controller}

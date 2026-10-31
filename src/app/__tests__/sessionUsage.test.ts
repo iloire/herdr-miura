@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeUsage } from "../claudeUsage";
-import { burn, contextLevel, formatTokens, type Minute, type SessionUsage, tokensSince, weighted, windowStart } from "../sessionUsage";
+import { burn, contextLevel, formatTokens, type Minute, QUIET_AFTER_MS, quietAge, type SessionUsage, tokensSince, weighted, windowStart } from "../sessionUsage";
 
 function minute(at: number, over: Partial<Minute> = {}): Minute {
   return { at, input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0, ...over };
 }
 
 function session(minutes: Minute[]): SessionUsage {
-  return { model: "claude-opus-5-5", context: 0, minutes };
+  return { model: "claude-opus-5-5", context: 0, minutes, written_at: null, prompt: null };
 }
 
 describe("weighted", () => {
@@ -61,5 +61,39 @@ describe("formatTokens", () => {
 describe("contextLevel", () => {
   it("marks a context from 150k as high and from 300k as over", () => {
     expect([149_999, 150_000, 299_999, 300_000, 900_000].map(contextLevel)).toEqual(["ok", "high", "high", "over", "over"]);
+  });
+});
+
+describe("quietAge", () => {
+  const now = 1_800_000_000_000;
+  const writtenAgo = (ms: number) => ({ ...session([]), written_at: (now - ms) / 1000 });
+  const working = { status: "working", since: 0 } as const;
+
+  it("shows nothing below the threshold and minutes from it", () => {
+    expect(quietAge(writtenAgo(QUIET_AFTER_MS - 1000), working, now)).toBeNull();
+    expect(quietAge(writtenAgo(QUIET_AFTER_MS), working, now)).toBe("5m");
+    expect(quietAge(writtenAgo(6.9 * 60_000), working, now)).toBe("6m");
+  });
+
+  it("shows nothing unless working", () => {
+    expect(quietAge(writtenAgo(3_600_000), { status: "blocked", since: 0 }, now)).toBeNull();
+    expect(quietAge(writtenAgo(3_600_000), { status: "idle", since: 0 }, now)).toBeNull();
+    expect(quietAge(writtenAgo(3_600_000), undefined, now)).toBeNull();
+  });
+
+  it("shows nothing without usage or a known write", () => {
+    expect(quietAge(null, working, now)).toBeNull();
+    expect(quietAge(session([]), working, now)).toBeNull();
+  });
+
+  it("counts from when work started, so a new prompt in an old session is not quiet", () => {
+    const justStarted = { status: "working", since: now - 10_000 } as const;
+    expect(quietAge(writtenAgo(3_600_000), justStarted, now)).toBeNull();
+    const startedLongAgo = { status: "working", since: now - 8 * 60_000 } as const;
+    expect(quietAge(writtenAgo(3_600_000), startedLongAgo, now)).toBe("8m");
+  });
+
+  it("shows nothing for a write stamped ahead of the clock", () => {
+    expect(quietAge(writtenAgo(-60_000), working, now)).toBeNull();
   });
 });

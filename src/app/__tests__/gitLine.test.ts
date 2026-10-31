@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChangesState, CheckoutChanges } from "../../changes/store";
-import { hasGitLine, shownBranch, tabGit } from "../gitLine";
+import { hasGitLine, operationLabel, shownBranch, tabGit } from "../gitLine";
 
 const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   path: "/repo",
@@ -11,6 +11,8 @@ const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   behind: 0,
   born: true,
   operation: null,
+  operation_step: null,
+  conflicts: 0,
   remotes: ["origin"],
   unmerged: null,
   files: [],
@@ -80,6 +82,8 @@ describe("tabGit", () => {
       ahead: 2,
       behind: 0,
       unmerged: null,
+      operation: null,
+      conflicts: 0,
     });
   });
 
@@ -95,6 +99,8 @@ describe("tabGit", () => {
       ahead: 0,
       behind: 0,
       unmerged: null,
+      operation: null,
+      conflicts: 0,
     });
   });
 
@@ -126,5 +132,37 @@ describe("tabGit", () => {
 
   it("says nothing on a clean detached HEAD", () => {
     expect(tabGit(ready({ branch: null, upstream: null }), "/repo")).toBeNull();
+  });
+});
+
+describe("operationLabel", () => {
+  it("names what is under way, with a rebase's step", () => {
+    expect(operationLabel({ operation: "rebase", operation_step: [3, 7] })).toBe("rebasing 3/7");
+    expect(operationLabel({ operation: "rebase", operation_step: null })).toBe("rebasing");
+    expect(operationLabel({ operation: "merge", operation_step: null })).toBe("merging");
+    expect(operationLabel({ operation: "cherry-pick", operation_step: null })).toBe("cherry-picking");
+  });
+
+  it("is null with nothing under way", () => {
+    expect(operationLabel({ operation: null, operation_step: null })).toBeNull();
+  });
+});
+
+describe("tabGit, mid-operation", () => {
+  it("speaks for a rebase on a detached HEAD with nothing else to say", () => {
+    const git = tabGit(ready({ branch: null, operation: "rebase", operation_step: [3, 7] }), "/repo");
+    expect(git).toMatchObject({ branch: null, operation: "rebasing 3/7", conflicts: 0 });
+  });
+
+  it("speaks for conflicts with no operation, as a popped stash leaves them", () => {
+    expect(tabGit(ready({ conflicts: 2 }), "/repo")).toMatchObject({ operation: null, conflicts: 2 });
+  });
+
+  it("is quiet on a clean main", () => {
+    expect(tabGit(ready(), "/repo")).toBeNull();
+  });
+
+  it("ignores another directory's rebase", () => {
+    expect(tabGit(ready({ operation: "rebase", conflicts: 1 }, "/elsewhere"), "/repo")).toBeNull();
   });
 });

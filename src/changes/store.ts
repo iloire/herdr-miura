@@ -28,7 +28,11 @@ export interface CheckoutChanges {
   behind: number;
   /// HEAD has a commit.
   born: boolean;
-  operation: "rebase" | "merge" | null;
+  operation: "rebase" | "merge" | "cherry-pick" | null;
+  /// A rebase's step and its steps in all.
+  operation_step: [number, number] | null;
+  /// Files with unresolved conflicts, all of them though `files` stops short.
+  conflicts: number;
   remotes: string[];
   unmerged: [string, number] | null;
   files: ChangedFile[];

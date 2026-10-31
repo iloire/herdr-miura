@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 09:50 — The tab header warns about shared checkouts, quiet agents and rebases
+
+The strip over the terminal now shows four things, each only when it has something to say. `⚠ 2 agents here` means
+more than one agent can write in this checkout; the tooltip names the others. Subfolders count as one checkout, a
+linked worktree as its own, and idle or finished agents do not count. `quiet 6m` means an agent says it is working but
+its transcript, subagents included, has not moved for five minutes, so it may be hung. With no title to show, the
+strip shows the session's latest prompt, as `▸ Fix the sidebar contrast…`, with the text in the tooltip. And
+`rebasing 3/7`, `merging`, `cherry-picking` and `2 conflicts` say a new prompt would land badly. The warning and the
+Git state outlast everything else on a tight strip. Push, pull and Land now also refuse during a cherry-pick.
+
 ## 2026-10-31 09:49 — Save a prompt, and nothing typed in the library is lost
 
 The prompt library's box could be edited but never saved. Save (⌘S) now writes the text to the file, keeping its

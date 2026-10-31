@@ -2766,7 +2766,8 @@ kbd {
 
 /* What gives way on a tight strip, in order: the agents' titles, the stray
    path and the branch name down to their floors, the queue line, then each
-   agent's rightmost facts. The counts, the ports and the library always stay.
+   agent's rightmost facts. The shared checkout warning, the counts, a rebase
+   or conflicts under way, the ports and the library always stay.
    The titles and the branch can only shrink as items of the strip itself: a
    wrapper's minimum would be its text's full width, and a shrinking agent group
    would clip its facts first. */
@@ -2794,6 +2795,12 @@ kbd {
 .tab-origin-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Other agents in this checkout. It never shrinks, unlike the path beside it. */
+.tab-shared {
+  flex: none;
+  color: var(--lantern);
 }
 
 .tab-stray {
@@ -2851,6 +2858,14 @@ kbd {
   color: var(--done);
 }
 
+.tab-git-operation {
+  color: var(--lantern);
+}
+
+.tab-git-conflicts {
+  color: var(--blocked);
+}
+
 /* The status bar's ports, at the strip's line height so they add none. They do
    not shrink, as a number cut short is no use, but a tab with very many stops at
    half the strip, the rest in the status bar, so the library stays. */
@@ -2902,6 +2917,12 @@ kbd {
 .tab-fact.age-blocked,
 .tab-fact.age-blocked b {
   color: var(--blocked);
+}
+
+/* Working, but its transcript has stopped moving. */
+.tab-fact.tab-quiet,
+.tab-fact.tab-quiet b {
+  color: var(--lantern);
 }
 
 .tab-burn {

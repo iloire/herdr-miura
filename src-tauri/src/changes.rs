@@ -5,12 +5,12 @@
 mod parse;
 
 use crate::git;
-use parse::{Commit, FileChange};
+use parse::{Commit, FileChange, Kind};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::Read,
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
 
@@ -58,8 +58,12 @@ pub struct CheckoutView {
     behind: u32,
     /// HEAD has a commit.
     born: bool,
-    /// `rebase` or `merge` while one is under way.
+    /// `rebase`, `merge` or `cherry-pick` while one is under way.
     operation: Option<&'static str>,
+    /// A rebase's step and its steps in all.
+    operation_step: Option<(u32, u32)>,
+    /// Files with unresolved conflicts, all of them though `files` stops at [`MAX_FILES`].
+    conflicts: usize,
     remotes: Vec<String>,
     /// Commits the remote's default branch lacks, and that branch.
     unmerged: Option<(String, u32)>,
@@ -191,11 +195,12 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
             });
     }
     // Neither is worth losing the panel for: without them it offers less.
-    let operation = operation_in_progress(&path, deadline);
+    let under_way = find_operation(&path, deadline);
     let remotes = git::text(&path, &["remote"], "list the remotes", deadline)
         .map(|remotes| remotes.lines().map(str::to_owned).collect())
         .unwrap_or_default();
     let total_files = files.len();
+    let conflicts = files.iter().filter(|file| file.kind == Kind::Conflicted).count();
     files.truncate(MAX_FILES);
     let (added, removed) = files.iter().fold((0, 0), |(added, removed), file| {
         (
@@ -211,7 +216,9 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         ahead: status.ahead,
         behind: status.behind,
         born: status.born,
-        operation,
+        operation: under_way.as_ref().map(|(operation, _)| *operation),
+        operation_step: under_way.as_ref().and_then(|(_, state)| rebase_step(state)),
+        conflicts,
         remotes,
         unmerged,
         files: files.into_iter().map(FileView::from).collect(),
@@ -222,9 +229,16 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     }))
 }
 
-/// `rebase` or `merge` while one is under way. Asked of Git, since these
-/// live under `.git/worktrees/<name>` in a linked worktree, where `.git` is a file.
+/// `rebase`, `merge` or `cherry-pick` while one is under way.
 pub fn operation_in_progress(checkout: &str, deadline: Instant) -> Option<&'static str> {
+    find_operation(checkout, deadline).map(|(operation, _)| operation)
+}
+
+/// The operation under way and where Git keeps its state. Asked of Git, since
+/// these live under `.git/worktrees/<name>` in a linked worktree, where `.git`
+/// is a file. A rebase comes first: stopped on a commit, it also has the head
+/// file of the pick or merge it was replaying.
+fn find_operation(checkout: &str, deadline: Instant) -> Option<(&'static str, PathBuf)> {
     let paths = git::text(
         checkout,
         &[
@@ -236,6 +250,8 @@ pub fn operation_in_progress(checkout: &str, deadline: Instant) -> Option<&'stat
             "rebase-apply",
             "--git-path",
             "MERGE_HEAD",
+            "--git-path",
+            "CHERRY_PICK_HEAD",
         ],
         "look for a rebase or merge",
         deadline,
@@ -243,9 +259,18 @@ pub fn operation_in_progress(checkout: &str, deadline: Instant) -> Option<&'stat
     .ok()?;
     paths
         .lines()
-        .zip(["rebase", "rebase", "merge"])
+        .zip(["rebase", "rebase", "merge", "cherry-pick"])
         .find(|(path, _)| Path::new(path).exists())
-        .map(|(_, operation)| operation)
+        .map(|(path, operation)| (operation, PathBuf::from(path)))
+}
+
+/// A rebase's step and total from its state folder: `msgnum` and `end` for the
+/// merge backend, `next` and `last` for the apply one. `None` for anything else.
+fn rebase_step(state: &Path) -> Option<(u32, u32)> {
+    let number = |name: &str| fs::read_to_string(state.join(name)).ok()?.trim().parse::<u32>().ok();
+    number("msgnum")
+        .zip(number("end"))
+        .or_else(|| number("next").zip(number("last")))
 }
 
 /// A commit's full name, as the webview sends it back: 40 lowercase hex

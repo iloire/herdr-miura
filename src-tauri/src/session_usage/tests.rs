@@ -274,3 +274,122 @@ fn history_includes_subagents_and_leaves_out_the_old() {
     let history = Cache::default().history(&fixture.projects, NOW);
     assert_eq!(outputs(&history[0]), 3);
 }
+
+/// A user line, as Claude Code writes one you typed.
+fn human(content: &str) -> String {
+    format!(
+        r#"{{"parentUuid":null,"isSidechain":false,"type":"user","message":{{"role":"user","content":{content}}},"origin":{{"kind":"human"}},"timestamp":"2026-10-29T09:33:17.123Z"}}"#
+    ) + "\n"
+}
+
+fn latest_prompt(fixture: &Fixture) -> Option<String> {
+    read(&Cache::default(), fixture).unwrap().prompt
+}
+
+#[test]
+fn the_prompt_is_the_last_one_typed_past_a_tool_result() {
+    let fixture = fixture();
+    append(&fixture.transcript, &human(r#""first""#));
+    append(&fixture.transcript, &human(r#""Fix the sidebar contrast""#));
+    append(
+        &fixture.transcript,
+        concat!(
+            r#"{"type":"user","message":{"role":"user","content":[{"tool_use_id":"t","type":"tool_result","content":"Exit code 1"}]},"toolUseResult":"Error","sourceToolAssistantUUID":"a"}"#,
+            "\n"
+        ),
+    );
+    assert_eq!(latest_prompt(&fixture).as_deref(), Some("Fix the sidebar contrast"));
+}
+
+#[test]
+fn the_prompt_skips_everything_nobody_typed() {
+    let fixture = fixture();
+    append(&fixture.transcript, &human(r#""the real one""#));
+    for line in [
+        // Skill text, an image's note and a hook's reminder.
+        r#"{"type":"user","isMeta":true,"message":{"content":"Base directory for this skill: /x"}}"#,
+        r#"{"type":"user","isMeta":true,"origin":{"kind":"human"},"message":{"content":"hook output"}}"#,
+        // A task finishing in the background.
+        r#"{"type":"user","origin":{"kind":"task-notification"},"message":{"content":"<task-notification>"}}"#,
+        // A slash command's wrapper and its output, without an origin and with one.
+        r#"{"type":"user","message":{"content":"<command-name>/exit</command-name>"}}"#,
+        r#"{"type":"user","origin":{"kind":"human"},"message":{"content":"<command-name>/queue</command-name>"}}"#,
+        r#"{"type":"user","origin":{"kind":"human"},"message":{"content":"<local-command-stdout>Goodbye!</local-command-stdout>"}}"#,
+        r#"{"type":"user","message":{"content":[{"type":"text","text":"[Request interrupted by user]"}]}}"#,
+        r#"{"type":"user","isCompactSummary":true,"message":{"content":"This session is being continued"}}"#,
+        // A subagent's prompt, had it landed in the main file.
+        r#"{"type":"user","isSidechain":true,"origin":{"kind":"human"},"message":{"content":"a subagent's brief"}}"#,
+        // The marker somewhere other than the line's origin.
+        r#"{"type":"user","toolUseResult":{"kind":"human"},"message":{"content":"a tool's text"}}"#,
+        // An assistant line quoting the marker in its text is escaped, so is no prompt.
+        r#"{"type":"assistant","message":{"content":"\"kind\":\"human\""}}"#,
+    ] {
+        append(&fixture.transcript, &format!("{line}\n"));
+    }
+    assert_eq!(latest_prompt(&fixture).as_deref(), Some("the real one"));
+}
+
+#[test]
+fn the_prompt_ignores_a_subagents_file() {
+    let fixture = fixture();
+    append(&fixture.transcript, &human(r#""main thread""#));
+    let subagents = fixture.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&subagents).unwrap();
+    append(&subagents.join("agent-a.jsonl"), &human(r#""subagent""#));
+    assert_eq!(latest_prompt(&fixture).as_deref(), Some("main thread"));
+}
+
+#[test]
+fn the_prompt_reads_text_blocks_and_unwraps_a_paste() {
+    let fixture = fixture();
+    append(
+        &fixture.transcript,
+        &human(r#"[{"type":"text","text":"[Image #1] look"},{"type":"image","source":{}}]"#),
+    );
+    assert_eq!(latest_prompt(&fixture).as_deref(), Some("[Image #1] look"));
+    append(
+        &fixture.transcript,
+        &human(r#""\n\n<pasted_content id=\"2985\">\nRedesign the toggles\n</pasted_content id=\"2985\">\n""#),
+    );
+    assert_eq!(latest_prompt(&fixture).as_deref(), Some("Redesign the toggles"));
+}
+
+#[test]
+fn paste_tags_go_but_the_words_stay() {
+    assert_eq!(
+        without_paste_tags("the pasted_content rule <pasted_content id=\"1\">x</pasted_content id=\"1\">"),
+        "the pasted_content rule x"
+    );
+}
+
+#[test]
+fn a_wall_of_text_is_cut_on_a_character() {
+    let fixture = fixture();
+    append(&fixture.transcript, &human(&format!("\"{}\"", "é".repeat(5000))));
+    let prompt = latest_prompt(&fixture).unwrap();
+    assert_eq!(prompt.chars().count(), MAX_PROMPT_CHARS + 1);
+    assert!(prompt.ends_with('…'));
+}
+
+#[test]
+fn the_last_write_counts_a_subagents_file() {
+    let fixture = fixture();
+    append(&fixture.transcript, &response("a", "2026-10-29T09:33:17.123Z", 1, 0, false));
+    let set = |path: &Path, at: i64| {
+        let time = UNIX_EPOCH + std::time::Duration::from_secs(at as u64);
+        File::options().write(true).open(path).unwrap().set_modified(time).unwrap();
+    };
+    set(&fixture.transcript, MINUTE);
+    let written = |fixture: &Fixture| read(&Cache::default(), fixture).unwrap().written_at;
+    assert_eq!(written(&fixture), Some(MINUTE));
+
+    let subagents = fixture.transcript.with_extension("").join("subagents");
+    std::fs::create_dir_all(&subagents).unwrap();
+    let agent = subagents.join("agent-a.jsonl");
+    append(&agent, &response("b", "2026-10-29T09:33:17.123Z", 1, 0, true));
+    set(&agent, MINUTE + 300);
+    assert_eq!(written(&fixture), Some(MINUTE + 300));
+    // An old subagent does not move it back.
+    set(&agent, MINUTE - 300);
+    assert_eq!(written(&fixture), Some(MINUTE));
+}

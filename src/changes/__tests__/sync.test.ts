@@ -14,6 +14,8 @@ const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   behind: 0,
   born: true,
   operation: null,
+  operation_step: null,
+  conflicts: 0,
   remotes: ["origin"],
   unmerged: null,
   files: [],
@@ -59,7 +61,7 @@ describe("syncOffer", () => {
   });
 
   it("offers nothing during a rebase or a merge, and says why", () => {
-    for (const operation of ["rebase", "merge"] as const) {
+    for (const operation of ["rebase", "merge", "cherry-pick"] as const) {
       const offer = syncOffer(checkout({ operation, ahead: 2 }));
       expect(offer.tracked || offer.publish).toBe(false);
       expect(offer.note).toContain(operation);

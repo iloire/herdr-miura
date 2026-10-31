@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Agent } from "../protocol";
+import type { StatusSince } from "./agentAge";
 import { agentToken } from "./attention";
 import { type ClaudeUsage, resetTime } from "./claudeUsage";
+import { formatMinutes } from "./time";
 
 // Token use of each Claude Code session, read from its transcript by
 // `session_usage`. The session's id is the `claude_session` token dotfiles'
@@ -28,6 +30,10 @@ export interface SessionUsage {
   context: number;
   /// Subagents included, by minute over the last six hours.
   minutes: Minute[];
+  /// When its transcript or a subagent's last changed, in Unix seconds.
+  written_at: number | null;
+  /// Its latest prompt, the start of it when long.
+  prompt: string | null;
 }
 
 /// Anything that keeps its tokens over time.
@@ -114,6 +120,33 @@ export function contextTitle(context: number): string {
   if (level === "over") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.over)}: worth a /compact or a fresh session`;
   if (level === "high") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.high)}: getting large`;
   return what;
+}
+
+/// How long a working session's transcript may sit unwritten before the header
+/// says so. Measured over this repo's 133 transcripts: of 3,700 tool calls the
+/// slowest 1% passed 78 s and 9 passed 5 minutes, 7 of those running into Bash's
+/// own 10-minute limit, and the slowest of 3,600 model replies took 249 s. So a
+/// healthy session rarely goes this long, while waiting for Bash's limit would
+/// leave a hung one unnoticed for 10 minutes. A subagent's writes count, so
+/// delegating is not quiet. A build this long earns a misplaced `quiet`, which
+/// says what was seen rather than that the agent is hung.
+export const QUIET_AFTER_MS = 5 * 60_000;
+
+/// How long a working session has gone without writing to its transcript, from
+/// `QUIET_AFTER_MS` on: `6m`. Counted from when it started working if that is
+/// later, as a session idle for an hour has an hour-old transcript the moment a
+/// prompt arrives, up to a whole poll before the read sees that prompt's write.
+/// Sessions are read every 15 s and each read redraws the strip, so the figure
+/// is at most that late, well under the minutes it counts.
+export function quietAge(usage: SessionUsage | null, status: StatusSince | undefined, now: number): string | null {
+  if (status?.status !== "working" || usage?.written_at == null) return null;
+  const quiet = now - Math.max(usage.written_at * 1000, status.since);
+  return quiet < QUIET_AFTER_MS ? null : formatMinutes(Math.floor(quiet / 60_000));
+}
+
+/// The quiet figure's tooltip.
+export function quietTitle(age: string): string {
+  return `Working, but nothing written to its transcript for ${age}: a long tool call, or it may be hung`;
 }
 
 /// `950`, `14k`, `1.8M`.

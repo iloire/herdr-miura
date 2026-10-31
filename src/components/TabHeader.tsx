@@ -9,6 +9,8 @@ import {
   contextLevel,
   contextTitle,
   formatTokens,
+  quietAge,
+  quietTitle,
   type SessionUsage,
   sessionOf,
   shortModel,
@@ -19,6 +21,7 @@ import {
 } from "../app/sessionUsage";
 import { type Item, title } from "../app/queue";
 import type { Controller } from "../app/controller";
+import { type SharedCheckout, sharedTitle } from "../app/sharedCheckout";
 import type { StrayPath } from "../app/workspaceRoot";
 import type { Agent, Snapshot } from "../protocol";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
@@ -38,22 +41,29 @@ const STRAY_FLOOR = 16;
 
 const AGE_TITLE = "Time in this status, counted from when the app first saw it, so it restarts with the app";
 
-/// A strip over the focused tab's terminal. First, for a tab the queue opened,
-/// that it did: the tab itself looks like any other. Then where the focused
-/// pane is, when that is not the workspace's root, to catch an agent working in
-/// the wrong place. Then the Git state of its checkout, which the sidebar cannot
-/// give: tabs of a workspace can sit in different worktrees. Then the ports of
-/// the servers started in this tab, each opening its page. Then what matters
-/// about each of its agents at all times: status, time in it, model, context,
-/// spend this plan window, the last fifteen minutes' burn, a loop's next tick,
-/// and its title. At its right end the prompt library, whose prompts go to this tab's
-/// agent; for a tab with nothing else to say the library is all it holds.
+/// A strip over the focused tab's terminal, carrying what the terminal does not
+/// show. First, for a tab the queue opened, that it did: the tab itself looks
+/// like any other. Then what makes a new prompt risky: a warning when other
+/// agents can write in this checkout, and a rebase, merge or cherry-pick under
+/// way or files in conflict. Then where the focused pane is, when that is not
+/// the workspace's root, to catch an agent working in the wrong place. Then the
+/// Git state of its checkout, which the sidebar cannot give: tabs of a workspace
+/// can sit in different worktrees. Then the ports of the servers started in this
+/// tab, each opening its page. Then what matters about each of its agents at all
+/// times: status, time in it, how long it has been quiet when that is long,
+/// model, context, spend this plan window, the last fifteen minutes' burn, a
+/// loop's next tick, and its title, or its latest prompt when it has none. At its
+/// right end the prompt library, whose prompts go to this tab's agent; for a tab
+/// with nothing else to say the library is all it holds. What is only sometimes
+/// true shows only then, so the strip stays one line. On a tight one the titles
+/// give way first; the warning and the Git state never do.
 export function TabHeader({
   controller,
   snapshot,
   usages,
   plan,
   git,
+  shared,
   stray,
   ports,
   queued,
@@ -65,6 +75,8 @@ export function TabHeader({
   plan: ClaudeUsage | null;
   /// The focused pane's checkout, null with nothing to say.
   git: TabGit | null;
+  /// Other agents that can write in the focused pane's checkout.
+  shared: SharedCheckout | null;
   /// Where the focused pane is, when that is not the workspace's root.
   stray: StrayPath | null;
   /// The focused workspace's listening ports.
@@ -76,7 +88,8 @@ export function TabHeader({
 }) {
   // Every agent's, not just this tab's, so a background tab has the right time
   // when it comes up. No snapshot means reconnecting, which is not every agent
-  // leaving. The minute poll in App redraws the strip, so no timer is needed.
+  // leaving. App's polls redraw the strip, its 15 s session reads whenever a
+  // session has usage and its minute poll otherwise, so no timer is needed.
   const statuses = useRef(new Map<string, StatusSince>());
   const now = Date.now();
   if (snapshot) statuses.current = trackStatus(statuses.current, snapshot.agents, now);
@@ -94,6 +107,12 @@ export function TabHeader({
           </span>
         </span>
       )}
+      {shared && (
+        <span className="tab-shared" title={sharedTitle(shared)}>
+          ⚠ {shared.count} agents here
+        </span>
+      )}
+      {git && <GitUnderWay git={git} />}
       {stray && <StrayFacts stray={stray} />}
       {git && <GitFacts git={git} />}
       <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
@@ -102,6 +121,7 @@ export function TabHeader({
           key={agent.pane_id}
           agent={agent}
           age={statusAge(statuses.current.get(agent.pane_id), now)}
+          quiet={quietAge(usages.get(sessionOf(agent) ?? "") ?? null, statuses.current.get(agent.pane_id), now)}
           usage={usages.get(sessionOf(agent) ?? "") ?? null}
           since={since}
           now={Math.floor(now / 1000)}
@@ -134,6 +154,26 @@ function StrayFacts({ stray }: { stray: StrayPath }) {
   );
 }
 
+/// A rebase, merge or cherry-pick under way, and conflicts. Ahead of the path
+/// and the branch, whose floors would otherwise push them off a tight strip.
+function GitUnderWay({ git }: { git: TabGit }) {
+  if (!git.operation && git.conflicts === 0) return null;
+  return (
+    <span className="tab-git">
+      {git.operation && (
+        <span className="tab-git-operation" title="Under way in this checkout: a new prompt would land in the middle of it">
+          {git.operation}
+        </span>
+      )}
+      {git.conflicts > 0 && (
+        <span className="tab-git-conflicts" title="Files with unresolved conflicts">
+          {git.conflicts} {git.conflicts === 1 ? "conflict" : "conflicts"}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function GitFacts({ git }: { git: TabGit }) {
   return (
     <span className="tab-git">
@@ -162,12 +202,14 @@ function GitFacts({ git }: { git: TabGit }) {
 function AgentFacts({
   agent,
   age,
+  quiet,
   usage,
   since,
   now,
 }: {
   agent: Agent;
   age: string | null;
+  quiet: string | null;
   usage: SessionUsage | null;
   since: number;
   now: number;
@@ -175,6 +217,7 @@ function AgentFacts({
   const loop = loopTag(agent);
   const spent = usage && tokensSince([usage], since);
   const title = agentTitle(agent);
+  const prompt = title ? null : (usage?.prompt ?? null);
   return (
     <>
       <span className="tab-agent">
@@ -191,6 +234,11 @@ function AgentFacts({
             {agent.agent_status} <b>{age}</b>
           </span>
         )}
+        {quiet && (
+          <span className="tab-fact tab-quiet" title={quietTitle(quiet)}>
+            quiet <b>{quiet}</b>
+          </span>
+        )}
         {usage && spent && (
           <>
             <span className={`tab-fact ctx-${contextLevel(usage.context)}`} title={contextTitle(usage.context)}>
@@ -204,9 +252,9 @@ function AgentFacts({
         )}
         {loop && <span className="tab-agent-loop">{loop}</span>}
       </span>
-      {title && (
-        <span className="tab-agent-title" title={title}>
-          {title}
+      {(title || prompt) && (
+        <span className="tab-agent-title" title={title ?? prompt ?? undefined}>
+          {title ?? `▸ ${prompt}`}
         </span>
       )}
     </>
