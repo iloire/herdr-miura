@@ -59,7 +59,8 @@ npm run tauri dev       # hot-reloading app, attached to your default Herdr sess
 
 It finds the daemon by Herdr's own rules. `HERDR_SOCKET_PATH`, `HERDR_CLIENT_SOCKET_PATH`, and
 `HERDR_SESSION` override that. A shell inside a Herdr pane already has `HERDR_SOCKET_PATH` set, so to try it
-against a throwaway daemon, set both socket variables.
+against a throwaway daemon, set both socket variables, and start that daemon with its own `HOME`. With the same
+`HOME` a second `herdr server` restores a copy of your saved session and shares its state folder.
 
 A dev window on any branch but `main` has a colored strip along its foot naming its branch (`DEV · feat/x`), and the branch in its
 title, so it can't be mistaken for the app you use every day. To run a branch beside the one you already

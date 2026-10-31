@@ -129,11 +129,21 @@ One commit each.
 5. ~~**Commit backend.** `commit_paths` with Rust tests: an agent's staged file left alone, a glob-named path, an
    untracked folder, a rename, a hook refusing.~~ ✅
 6. ~~**Commit UI.** Tick boxes, the message box, the failure note.~~ ✅
-7. **Docs.** Update the opening of plan-changes.md and its "Later" list, the README's "never stages, commits"
+7. ~~**Docs.** Update the opening of plan-changes.md and its "Later" list, the README's "never stages, commits"
    line, `docs/architecture.md`, and CHANGELOG.md. Do this in the same commit as step 4 and again with step 6,
-   so `main` never says the panel cannot do what it can.
-8. **Try it in a dev window** against a demo repo with an agent writing to it, with the `qa` agent: discard each
-   kind of file, find the copies in the Trash, and watch a stale discard get refused.
+   so `main` never says the panel cannot do what it can.~~ ✅
+8. ~~**Try it in a dev window** against a demo repo with an agent writing to it, with the `qa` agent: discard each
+   kind of file, find the copies in the Trash, and watch a stale discard get refused.~~ ✅
+
+Step 8 ran on 2026-10-31 in a dev window, against a demo repo with a script writing to it and a daemon with its
+own `HOME`. Each kind of file was discarded from the row's menu and its copy found in `~/.Trash`; a deleted file had
+no copy, as expected. `qa*` left the other `qa-` files alone. The symlink and the folder were refused with the reason
+in the dialog. A file written while the dialog was open was refused, kept its text and sent nothing to the Trash. The
+diff header moved on to the next file and closed after the last. A commit from ticks left an agent's staged file
+staged and out of it, and a hook's refusal showed its output and kept the ticks and message, with the new files back
+to untracked, until a retry worked. It found one bug, now fixed: a refusal after the click took the Discard button
+and the focus away, so Esc did nothing. The busy-agent warning was not seen in the app, as no agent ran in that
+daemon; `agentRefusal` has unit tests.
 
 Each write test must be seen to fail once: remove `--literal-pathspecs` and the fingerprint check, and watch the
 tests go red.
@@ -148,6 +158,7 @@ tests go red.
 
 ## Known limits
 
+- The ticks and the message live in the panel, so they are lost when it closes or moves to another checkout.
 - The moment between the fingerprint check and the restore is unguarded. It lasts milliseconds, but a write in
   that moment is lost: the copy in the Trash holds the file as it was checked.
 - Only agents in a Herdr pane can trigger the warning.

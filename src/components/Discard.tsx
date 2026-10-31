@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clean } from "../changes/diff";
 import { discardFile, discardPlan, discardSummary, promisesCopy, type DiscardPlan } from "../changes/discard";
@@ -45,6 +45,13 @@ export function DiscardDialog({
     };
   }, [checkout, file.path, branch]);
 
+  // A refusal takes the Discard button away, and the focus with it if it was there.
+  const dismiss = useRef<HTMLButtonElement>(null);
+  const refused = phase.name === "refused";
+  useEffect(() => {
+    if (refused) dismiss.current?.focus();
+  }, [refused]);
+
   const running = phase.name === "running";
   const cancel = () => {
     if (!running) onClose();
@@ -71,7 +78,7 @@ export function DiscardDialog({
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && cancel()}
       >
-        <h2 id="discard-title">{phase.name === "refused" ? "Nothing was discarded" : "Discard this change?"}</h2>
+        <h2 id="discard-title">{refused ? "Nothing was discarded" : "Discard this change?"}</h2>
         <p className="discard-file">
           <code>{path}</code>
           {plan?.additions !== null && plan?.additions !== undefined && (
@@ -96,10 +103,10 @@ export function DiscardDialog({
           </>
         )}
         <div className="host-key-actions">
-          <button autoFocus className="host-key-button" disabled={running} onClick={cancel}>
-            {phase.name === "refused" ? "Close" : "Cancel"}
+          <button ref={dismiss} autoFocus className="host-key-button" disabled={running} onClick={cancel}>
+            {refused ? "Close" : "Cancel"}
           </button>
-          {phase.name !== "refused" && (
+          {!refused && (
             <button
               className="host-key-button primary"
               disabled={phase.name !== "asking"}
