@@ -2501,6 +2501,13 @@ kbd {
   opacity: 0.6;
 }
 
+.context-menu-divider {
+  height: 1px;
+  margin: 4px 9px;
+  /* Not --rule: a menu's background is nearly that colour. */
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+
 .context-menu-icon {
   display: inline-flex;
   width: 16px;

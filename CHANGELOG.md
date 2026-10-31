@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 13:00 — Dividers in the workspace right-click menu
+
+The workspace card's menu now has three groups with a thin line between them: Rename… and Mark as Seen; New Team and
+Add to Queue…; then the folder actions. Mark as Seen stays when nothing is unseen, greyed out, so the rows below it
+don't jump. A workspace with no local folder shows the first group alone. A menu can now be a list of groups, and any
+empty group is dropped, so it never leaves a stray line. Menus with one flat list look as they did.
+
 ## 2026-10-31 12:46 — ⌘-click a commit hash in a terminal to see its diff
 
 A hash in a pane's text now works like a URL: hold ⌘ to underline it and ⌘-click to open that commit in the diff view,

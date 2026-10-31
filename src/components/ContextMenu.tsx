@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { type Grouped, menuGroups } from "../app/menuGroups";
 
 export interface MenuItem {
   label: string;
@@ -6,14 +7,14 @@ export interface MenuItem {
   /// Runs, then the menu closes.
   onSelect?: () => void;
   /// A page of choices shown in place of this menu, with a way back.
-  items?: MenuItem[];
+  items?: Grouped<MenuItem>;
   disabled?: boolean;
 }
 
 export interface MenuAt {
   x: number;
   y: number;
-  items: MenuItem[];
+  items: Grouped<MenuItem>;
 }
 
 const EDGE = 8;
@@ -23,7 +24,7 @@ const EDGE = 8;
 /// where it was (usually the terminal).
 export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pages, setPages] = useState<{ title: string; items: MenuItem[] }[]>([{ title: "", items: menu.items }]);
+  const [pages, setPages] = useState<{ title: string; items: Grouped<MenuItem> }[]>([{ title: "", items: menu.items }]);
   const [position, setPosition] = useState({ left: menu.x, top: menu.y });
   const page = pages[pages.length - 1];
 
@@ -89,14 +90,19 @@ export function ContextMenu({ menu, onClose }: { menu: MenuAt; onClose: () => vo
           ‹ {page.title}
         </button>
       )}
-      {page.items.map((item) => (
-        <button key={item.label} role="menuitem" disabled={item.disabled} onClick={() => pick(item)}>
-          <span className="context-menu-icon" aria-hidden="true">
-            {item.icon}
-          </span>
-          <span className="context-menu-label">{item.label}</span>
-          {item.items && <span className="context-menu-more">›</span>}
-        </button>
+      {menuGroups(page.items).map((group, index) => (
+        <Fragment key={index}>
+          {index > 0 && <div className="context-menu-divider" role="separator" />}
+          {group.map((item) => (
+            <button key={item.label} role="menuitem" disabled={item.disabled} onClick={() => pick(item)}>
+              <span className="context-menu-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className="context-menu-label">{item.label}</span>
+              {item.items && <span className="context-menu-more">›</span>}
+            </button>
+          ))}
+        </Fragment>
       ))}
     </div>
   );

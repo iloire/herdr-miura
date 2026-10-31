@@ -252,20 +252,24 @@ export function Sidebar({
                     icon: <RenameIcon />,
                     onSelect: () => setRenaming(workspace.workspace_id),
                   };
-                  const items = [rename];
                   // The agents as they stand now: one that finishes again before
                   // the pick has a new sequence, so its mark stays.
                   const finished = unseenDone(own);
-                  if (finished.length > 0) {
-                    items.push({ label: "Mark as Seen", icon: <CheckIcon />, onSelect: () => onMarkSeen(finished) });
-                  }
+                  const markSeen: MenuItem = {
+                    label: "Mark as Seen",
+                    icon: <CheckIcon />,
+                    // Stays when there is nothing to mark, so the rows below don't jump.
+                    disabled: finished.length === 0,
+                    onSelect: () => onMarkSeen(finished),
+                  };
+                  const items = [[rename, markSeen]];
                   if (path && folder) {
                     const queue: MenuItem = {
                       label: "Add to Queue…",
                       icon: <QueueIcon />,
                       onSelect: () => onOpenQueue(workspace.workspace_id),
                     };
-                    items.push(...folderMenu(controller, path), newTeam(workspace.workspace_id, folder), queue);
+                    items.push([newTeam(workspace.workspace_id, folder), queue], folderMenu(controller, path));
                   }
                   setMenu({ x: event.clientX, y: event.clientY, items });
                 }}
