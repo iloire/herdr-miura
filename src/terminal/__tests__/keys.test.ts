@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyInput, matches, parseShortcut, type KeyLike } from "../keys";
+import { fieldPassesChord, keyInput, matches, parseShortcut, type KeyLike } from "../keys";
 
 const key = (over: Partial<KeyLike>): KeyLike => ({
   key: "",
@@ -50,6 +50,35 @@ describe("keyInput", () => {
 
   it("marks held keys as repeats", () => {
     expect(code(keyInput(key({ key: "Backspace", repeat: true })))?.kind).toBe("Repeat");
+  });
+});
+
+describe("fieldPassesChord", () => {
+  it("lets Option-Up and Option-Down leave a text field", () => {
+    expect(fieldPassesChord(key({ key: "ArrowUp", altKey: true }), false)).toBe(true);
+    expect(fieldPassesChord(key({ key: "ArrowDown", altKey: true }), false)).toBe(true);
+  });
+
+  it("leaves the field's own Option chords with it", () => {
+    expect(fieldPassesChord(key({ key: "ArrowLeft", altKey: true }), false)).toBe(false);
+    expect(fieldPassesChord(key({ key: "ArrowRight", altKey: true }), false)).toBe(false);
+    expect(fieldPassesChord(key({ key: "Backspace", altKey: true }), false)).toBe(false);
+    expect(fieldPassesChord(key({ key: "π", code: "KeyP", altKey: true }), false)).toBe(false);
+  });
+
+  it("leaves Option-Shift-Up, which selects, with the field", () => {
+    expect(fieldPassesChord(key({ key: "ArrowUp", altKey: true, shiftKey: true }), false)).toBe(false);
+  });
+
+  it("holds Option-Up and Option-Down back where a field keeps them", () => {
+    expect(fieldPassesChord(key({ key: "ArrowUp", altKey: true }), true)).toBe(false);
+    expect(fieldPassesChord(key({ key: "ArrowDown", altKey: true }), true)).toBe(false);
+  });
+
+  it("passes Cmd and Ctrl chords, wherever the field is", () => {
+    expect(fieldPassesChord(key({ key: "k", code: "KeyK", metaKey: true }), false)).toBe(true);
+    expect(fieldPassesChord(key({ key: "k", code: "KeyK", ctrlKey: true }), true)).toBe(true);
+    expect(fieldPassesChord(key({ key: "ArrowUp", altKey: true, metaKey: true }), true)).toBe(true);
   });
 });
 

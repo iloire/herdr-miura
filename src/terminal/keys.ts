@@ -139,6 +139,17 @@ export function matches(shortcut: Shortcut, event: KeyLike): boolean {
   );
 }
 
+/// Whether a chord pressed in a text field goes on to the app's shortcuts. Cmd
+/// and Ctrl chords do. Option alone stays with the field (⌥←/→, ⌥⌫, and ⌥-letter's
+/// special characters), but for ⌥↑/↓: moving between workspaces matters more than
+/// macOS's jump to the paragraph's end. `keepsArrows` holds those back too, for a
+/// field that moving away would hide or lose.
+export function fieldPassesChord(event: KeyLike, keepsArrows: boolean): boolean {
+  if (event.metaKey || event.ctrlKey) return true;
+  const vertical = event.key === "ArrowUp" || event.key === "ArrowDown";
+  return vertical && event.altKey && !event.shiftKey && !keepsArrows;
+}
+
 /// A shortcut as the menus show it on macOS: `⌘⇧D`.
 export function shortcutLabel(shortcut: Shortcut): string {
   const key = shortcut.key.length === 1 ? shortcut.key.toUpperCase() : shortcut.key;

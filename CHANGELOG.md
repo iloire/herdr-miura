@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 11:16 — ⌥↑ / ⌥↓ moves between workspaces from a text field
+
+Stepping through the sidebar stopped at any workspace with its Queue panel open, because the panel's prompt box took
+focus and kept the keys. They now work from any text field, which gives up macOS's jump to the paragraph's end there.
+Every other Option chord stays with the field. A field in a dialog keeps them, as do a rename and the edit of a queued
+prompt, so nothing moves behind a dialog or drops an edit, and so does an IME composition.
+
 ## 2026-10-31 11:10 — The file view highlights code
 
 Files from the Files panel, and a Markdown file's Source view, now show syntax colors for 22 languages, picked by

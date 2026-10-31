@@ -49,6 +49,7 @@ import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { useListing } from "./files/listing";
 import type { Snapshot } from "./protocol";
+import { fieldPassesChord } from "./terminal/keys";
 
 /// How often an open Changes panel rereads its checkout.
 const CHANGES_POLL_MS = 5000;
@@ -67,6 +68,10 @@ const USAGE_POLL_MS = 60_000;
 /// How often each Claude session's transcript is reread for the tab header;
 /// only what was appended since is read.
 const SESSIONS_POLL_MS = 15_000;
+
+/// Text fields ⌥↑/↓ does not leave: a workspace switch would land behind an open
+/// dialog, or throw away the edit of a queued prompt.
+const KEEPS_ARROWS = ".palette-backdrop, .queue-edit";
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -124,9 +129,14 @@ export default function App() {
     // Shortcuts work wherever focus is, not only in the terminal.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || !(event.metaKey || event.ctrlKey || event.altKey)) return;
-      // Option alone moves by word in a text field, such as a rename.
-      const field = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-      if (field && !(event.metaKey || event.ctrlKey)) return;
+      // Option alone stays with a text field, but for ⌥↑/↓, which leave it unless
+      // that would hide what is in it or break an IME composition. A rename never
+      // gets here: RenameField stops its keys.
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        const keepsArrows = event.isComposing || target.closest(KEEPS_ARROWS) !== null;
+        if (!fieldPassesChord(event, keepsArrows)) return;
+      }
       if (controller.shortcut(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
