@@ -1,4 +1,4 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, type MouseEvent, type MutableRefObject } from "react";
 import type { ChangedFile, RecentCommit } from "../changes/store";
 import { relativeTime } from "../app/time";
 
@@ -11,13 +11,25 @@ const MARK_LABEL: Record<string, string> = {
   U: "Conflicted",
 };
 
-export function FileRow({ file, current, onOpen }: { file: ChangedFile; current: boolean; onOpen: () => void }) {
+export function FileRow({
+  file,
+  current,
+  onOpen,
+  onMenu,
+}: {
+  file: ChangedFile;
+  current: boolean;
+  onOpen: () => void;
+  /// A commit's own files have nothing to act on, so they have no menu.
+  onMenu?: (event: MouseEvent) => void;
+}) {
   return (
     <li>
       <button
         className="file"
         aria-current={current ? "true" : undefined}
         onClick={onOpen}
+        onContextMenu={onMenu}
         title={`${MARK_LABEL[file.mark] ?? file.mark}: ${file.path}`}
       >
         <span className={`mark mark-${file.mark === "?" ? "untracked" : file.mark}`}>{file.mark}</span>
@@ -41,11 +53,12 @@ export interface CommitRows {
   openCommit: string | null;
   listed: MutableRefObject<RecentCommit[]>;
   onToggle: (commit: RecentCommit) => void;
+  onMenu: (commit: RecentCommit, event: MouseEvent) => void;
 }
 
 /// Commits as one-line rows. Picking one opens it in the main area.
 export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: CommitRows }) {
-  const { openCommit, listed, onToggle } = rows;
+  const { openCommit, listed, onToggle, onMenu } = rows;
   const openRow = useRef<HTMLButtonElement>(null);
   const holdsOpen = commits.some((commit) => commit.sha === openCommit);
   useEffect(() => {
@@ -64,6 +77,7 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
               className="commit"
               aria-current={open ? "true" : undefined}
               onClick={() => onToggle(commit)}
+              onContextMenu={(event) => onMenu(commit, event)}
               title={`${commit.sha}\n${commit.author}`}
             >
               <span className="sha">{commit.short}</span>

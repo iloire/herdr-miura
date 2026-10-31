@@ -572,6 +572,7 @@ export default function App() {
               />
             ) : (
               <ChangesPanel
+                controller={controller}
                 store={changesStore}
                 sync={local ? syncStore : null}
                 selected={shownFile ?? null}

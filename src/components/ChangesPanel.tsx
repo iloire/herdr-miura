@@ -1,14 +1,21 @@
-import { useState, useSyncExternalStore, type MutableRefObject } from "react";
-import type { ChangedFile, ChangesStore, RecentCommit } from "../changes/store";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { useCallback, useState, useSyncExternalStore, type MouseEvent, type MutableRefObject } from "react";
+import { openFile } from "../app/agentFile";
+import type { Controller } from "../app/controller";
+import { absolutePath, canOpen } from "../changes/fileActions";
+import type { ChangedFile, ChangesStore, CheckoutChanges, RecentCommit } from "../changes/store";
 import type { SyncStore } from "../changes/sync";
 import { ChangesSync } from "./ChangesSync";
 import { CommitList, FileRow, type CommitRows } from "./CommitList";
+import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
+import { CodeIcon, CopyIcon } from "./icons";
 
 /// The checkout under the focused pane: branch, its sync with the remote,
 /// changed files, recent commits. Picking a file opens its diff; picking a
 /// commit opens it in the main area. `sync` is null on a remote host, where the panel has
 /// no checkout to sync, so nothing of it shows there.
 export function ChangesPanel({
+  controller,
   store,
   sync,
   selected,
@@ -17,6 +24,7 @@ export function ChangesPanel({
   onOpen,
   onToggleCommit,
 }: {
+  controller: Controller;
   store: ChangesStore;
   sync: SyncStore | null;
   selected: ChangedFile | null;
@@ -30,6 +38,27 @@ export function ChangesPanel({
   // A commit can be listed twice, as outgoing and as recent. Only the list it
   // was opened from marks it.
   const [openedFrom, setOpenedFrom] = useState<"moving" | "recent">("recent");
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const showMenu = (event: MouseEvent, items: MenuItem[]) => {
+    event.preventDefault();
+    setMenu({ x: event.clientX, y: event.clientY, items });
+  };
+  const copy = (text: string) => controller.act(writeText(text));
+  // Opening needs this Mac, so a checkout read before moving to a remote host offers only the copy.
+  const fileMenu = (checkout: CheckoutChanges, file: ChangedFile): MenuItem[] => {
+    const items: MenuItem[] = [
+      { label: "Copy Path", icon: <CopyIcon />, onSelect: () => copy(absolutePath(checkout.path, file.path)) },
+    ];
+    if (sync && canOpen(file)) {
+      items.push({
+        label: "Open in VS Code",
+        icon: <CodeIcon />,
+        onSelect: () => controller.act(openFile(checkout.path, file.path)),
+      });
+    }
+    return items;
+  };
   const rows = (from: "moving" | "recent"): CommitRows => ({
     openCommit: openedFrom === from ? openCommit : null,
     listed: listedCommits,
@@ -37,6 +66,8 @@ export function ChangesPanel({
       setOpenedFrom(from);
       onToggleCommit(commit);
     },
+    onMenu: (commit, event) =>
+      showMenu(event, [{ label: "Copy SHA", icon: <CopyIcon />, onSelect: () => copy(commit.sha) }]),
   });
   return (
     <aside className="changes" aria-label="Changes">
@@ -78,6 +109,7 @@ export function ChangesPanel({
                 file={file}
                 current={selected?.path === file.path}
                 onOpen={() => onOpen(file)}
+                onMenu={(event) => showMenu(event, fileMenu(checkout, file))}
               />
             ))}
           </ul>
@@ -92,6 +124,7 @@ export function ChangesPanel({
           )}
         </>
       )}
+      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </aside>
   );
 }
