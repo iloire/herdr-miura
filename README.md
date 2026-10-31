@@ -136,5 +136,8 @@ code. [docs/architecture.md](docs/architecture.md) covers the data flow, the IPC
 
 ## Not yet
 
-Text selection and copy in the terminal, find, terminal graphics, GitHub pull requests, system notifications, custom
-key bindings, and the Changes panel on remote machines.
+Text selection and copy in the terminal, find, terminal graphics, GitHub pull requests, system notifications and custom
+key bindings.
+
+More support for SSH remote hosts is coming soon. Terminals and agents work there today, but the Changes panel, the
+queue, the prompt library and the file browser only work on this Mac ([docs/ssh.md](docs/ssh.md)).
