@@ -1,6 +1,6 @@
-# Herdr Tauri
+# Herdr Miura
 
-[![CI](https://github.com/iloire/herdr-tauri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/iloire/herdr-tauri/actions/workflows/ci.yml)
+[![CI](https://github.com/iloire/herdr-miura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/iloire/herdr-miura/actions/workflows/ci.yml)
 
 A desktop home for running many coding agents at once. See which agent needs you, review what it changed, and line
 up its next jobs, all in one window.
@@ -68,7 +68,7 @@ Eight built-in themes, any Ghostty theme, or a light and dark pair that follows 
 `~/.config/herdr/config-tauri.toml` as you change things: the theme, the fonts and what a new tab runs
 ([docs/settings.md](docs/settings.md)).
 
-![Herdr Tauri in the GitHub Light Default theme](docs/screenshots/light.png)
+![Herdr Miura in the GitHub Light Default theme](docs/screenshots/light.png)
 
 <table>
   <tr>

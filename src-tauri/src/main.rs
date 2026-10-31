@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    herdr_tauri_lib::run()
+    herdr_miura_lib::run()
 }

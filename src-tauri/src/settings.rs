@@ -507,7 +507,7 @@ mod tests {
     fn setting_a_key_keeps_every_comment_and_the_rest_of_the_file() {
         let dir = temp();
         let path = dir.path().join("config-tauri.toml");
-        let original = "# Herdr Tauri settings\ntheme = \"Nord\" # the dark one\n\n[terminal]\n# Points.\nfont_size = 13\n# line_height = 1.4\n";
+        let original = "# Herdr Miura settings\ntheme = \"Nord\" # the dark one\n\n[terminal]\n# Points.\nfont_size = 13\n# line_height = 1.4\n";
         put(&path, original);
         set_in(&path, "terminal.font_size", &json!(15)).unwrap_or_else(|error| panic!("{error}"));
         set_in(
@@ -518,7 +518,7 @@ mod tests {
         .unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(
             read(&path),
-            "# Herdr Tauri settings\ntheme = \"light:GitHub Light Default,dark:Herdr Night\" # the dark one\n\n[terminal]\n# Points.\nfont_size = 15\n# line_height = 1.4\n"
+            "# Herdr Miura settings\ntheme = \"light:GitHub Light Default,dark:Herdr Night\" # the dark one\n\n[terminal]\n# Points.\nfont_size = 15\n# line_height = 1.4\n"
         );
     }
 
@@ -547,21 +547,21 @@ mod tests {
     fn keys_added_to_a_file_of_comments_land_below_them_and_keep_them_when_removed() {
         let dir = temp();
         let path = dir.path().join("config-tauri.toml");
-        put(&path, "# Herdr Tauri\n# theme = \"Herdr Night\"\n");
+        put(&path, "# Herdr Miura\n# theme = \"Herdr Night\"\n");
         set_in(&path, "theme", &json!("Nord")).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(
             read(&path),
-            "# Herdr Tauri\n# theme = \"Herdr Night\"\ntheme = \"Nord\"\n"
+            "# Herdr Miura\n# theme = \"Herdr Night\"\ntheme = \"Nord\"\n"
         );
         set_in(&path, "terminal.font_size", &json!(14)).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(
             read(&path),
-            "# Herdr Tauri\n# theme = \"Herdr Night\"\ntheme = \"Nord\"\n\n[terminal]\nfont_size = 14\n"
+            "# Herdr Miura\n# theme = \"Herdr Night\"\ntheme = \"Nord\"\n\n[terminal]\nfont_size = 14\n"
         );
         set_in(&path, "theme", &Value::Null).unwrap_or_else(|error| panic!("{error}"));
         set_in(&path, "terminal.font_size", &Value::Null).unwrap_or_else(|error| panic!("{error}"));
         assert!(
-            read(&path).starts_with("# Herdr Tauri\n# theme = \"Herdr Night\"\n"),
+            read(&path).starts_with("# Herdr Miura\n# theme = \"Herdr Night\"\n"),
             "{}",
             read(&path)
         );

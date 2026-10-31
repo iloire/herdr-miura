@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Herdr Tauri",
+  "productName": "Herdr Miura",
   "version": "0.1.0",
   "identifier": "com.herdr.tauri",
   "build": {

@@ -124,7 +124,7 @@ impl Connection {
             live.remote = remote;
         }
         thread::Builder::new()
-            .name("herdr-tauri-events".into())
+            .name("herdr-miura-events".into())
             .spawn(move || pump(&client.events, &events, &app))
             .map_err(Error::Pump)?;
         Ok(())

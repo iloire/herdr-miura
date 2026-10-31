@@ -19,7 +19,7 @@ use std::{
 /// a login banner or shell noise before it is skipped, not decoded.
 pub const READY_MARKER: &str = "herdr-remote-output-ready:1";
 /// What the remote script prints to stderr when it finds no `herdr`.
-const NOT_FOUND: &str = "herdr-tauri: no herdr executable on this host";
+const NOT_FOUND: &str = "herdr-miura: no herdr executable on this host";
 /// Preamble bytes skipped at most before the marker.
 const MAX_PREAMBLE: usize = 64 * 1024;
 /// Stderr kept to explain a failure.
@@ -122,7 +122,7 @@ pub fn command(target: &str, control_dir: Option<&Path>) -> Command {
     command
 }
 
-/// A private directory for ssh's shared-login sockets: `/tmp/herdr-tauri-<uid>`,
+/// A private directory for ssh's shared-login sockets: `/tmp/herdr-miura-<uid>`,
 /// short enough for a socket path. It must be a real directory this user
 /// owns with no access for anyone else; another user could otherwise plant a
 /// socket there and receive the session. `None` turns sharing off.
@@ -130,7 +130,7 @@ pub fn command(target: &str, control_dir: Option<&Path>) -> Command {
 pub fn control_dir() -> Option<PathBuf> {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
     let uid = std::fs::metadata(std::env::var_os("HOME")?).ok()?.uid();
-    let dir = PathBuf::from(format!("/tmp/herdr-tauri-{uid}"));
+    let dir = PathBuf::from(format!("/tmp/herdr-miura-{uid}"));
     let _ = std::fs::DirBuilder::new().mode(0o700).create(&dir);
     let meta = std::fs::symlink_metadata(&dir).ok()?;
     (meta.is_dir() && meta.uid() == uid && meta.permissions().mode() & 0o077 == 0).then_some(dir)

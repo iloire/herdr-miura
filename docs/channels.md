@@ -15,6 +15,9 @@ Both are ordinary `tauri build`s, made by a script kept outside this repo from a
 never see uncommitted work. A commit that fails to build leaves the last good Edge running. The panes live in the
 daemon, so a restart costs the window state and nothing else.
 
+The app was called Herdr Tauri. Names kept on disk did not change with it, since a new one would strand what is
+there: the `com.herdr.tauri` identifiers, `config-tauri.toml`, `queue-tauri.json` and the `herdr-tauri.host` key.
+
 `HERDR_BUILD_LABEL` at build time sets the dev strip in a built app (`vite.config.ts`). Both channels
 share `~/.config/herdr/config-tauri.toml`; only the app data folder is Edge's own.
 

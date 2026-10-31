@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 16:50 — Herdr Miura
+
+The app and repo are now Herdr Miura, and the binary is `herdr-miura`. The window title stays Herdr. The identifiers and
+the files and keys already on disk keep their names, so settings, queues and data carry over.
+
 ## 2026-10-31 15:20 — Branches and tags on the commit list
 
 Commit rows in the Changes panel now show the names pointing at them, before the subject: branches, remote branches and

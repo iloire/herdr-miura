@@ -1,4 +1,4 @@
-//! The Rust half of Herdr Tauri: a thin bridge from the webview to
+//! The Rust half of Herdr Miura: a thin bridge from the webview to
 //! `herdr-client`. Everything the user sees is TypeScript in `src/`; this side
 //! owns the socket and the wire format and exposes them as Tauri commands.
 
@@ -107,7 +107,7 @@ pub fn run() {
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {
-        eprintln!("herdr-tauri: {error}");
+        eprintln!("herdr-miura: {error}");
         std::process::exit(1);
     }
 }

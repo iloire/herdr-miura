@@ -1,6 +1,6 @@
 # Settings
 
-Herdr Tauri reads `~/.config/herdr/config-tauri.toml` (`$XDG_CONFIG_HOME/herdr/` when that is set), beside
+Herdr Miura reads `~/.config/herdr/config-tauri.toml` (`$XDG_CONFIG_HOME/herdr/` when that is set), beside
 Herdr's `config.toml` and herdr-gpui's `config-gpui*.toml`. It is this app's own file, so it never trips
 herdr-gpui's unknown-key warning.
 

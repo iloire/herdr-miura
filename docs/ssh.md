@@ -17,7 +17,7 @@ machine's Herdr, until you pick another or **This Mac**. The choice is remembere
 One `ssh` child per connection, with Herdr's non-interactive policy (`src-tauri/src/herdr/ssh.rs`):
 keys or an agent only (`BatchMode=yes`, no password prompts), `StrictHostKeyChecking=yes`, a 10 s
 connect timeout, keepalives, and no forwarding. Logins to one host share a master connection for
-ten minutes, its socket in a private `/tmp/herdr-tauri-<uid>` directory. Login banners before
+ten minutes, its socket in a private `/tmp/herdr-miura-<uid>` directory. Login banners before
 Herdr's ready marker are skipped. The session pings the daemon after 5 s of quiet and drops a link
 that does not answer in 10 s, or in 3 s after the window comes back to the front.
 

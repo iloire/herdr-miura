@@ -1,5 +1,5 @@
 [package]
-name = "herdr-tauri"
+name = "herdr-miura"
 version = "0.1.0"
 description = "Herdr UI in TypeScript on Tauri"
 authors = ["ivan l."]
@@ -9,7 +9,7 @@ rust-version = "1.96"
 [lib]
 # The `_lib` suffix keeps the lib name distinct from the bin name on Windows
 # (https://github.com/rust-lang/cargo/issues/8519).
-name = "herdr_tauri_lib"
+name = "herdr_miura_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

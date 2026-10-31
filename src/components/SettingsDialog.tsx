@@ -56,7 +56,7 @@ export function SettingsDialog({
       >
         <header className="worktrees-head">
           <div className="worktrees-heading">
-            <span className="worktrees-eyebrow">Herdr Tauri</span>
+            <span className="worktrees-eyebrow">Herdr Miura</span>
             <h2 id="settings-title">Settings</h2>
           </div>
           <button className="worktrees-close" aria-label="Close" title="Close (Esc)" onClick={onClose}>
@@ -279,8 +279,8 @@ function ThemePreview({ theme }: { theme: NamedTheme }) {
   return (
     <div className="theme-preview" style={{ ...style, colorScheme: theme.chrome.scheme }} aria-label={`Preview of ${theme.name}`}>
       <div className="preview-card">
-        <span className="preview-card-name">herdr-tauri</span>
-        <span className="preview-card-path">~/code/herdr-tauri</span>
+        <span className="preview-card-name">herdr-miura</span>
+        <span className="preview-card-path">~/code/herdr-miura</span>
         <span className="preview-card-marks">
           <i style={{ background: "var(--working)" }} /> working
           <i style={{ background: "var(--blocked)" }} /> 1
@@ -288,7 +288,7 @@ function ThemePreview({ theme }: { theme: NamedTheme }) {
         </span>
       </div>
       <pre className="preview-terminal" style={{ background: css(background), color: css(foreground) }}>
-        <span style={fg(2)}>➜</span> <span style={fg(6)}>herdr-tauri</span> <span style={fg(4)}>git:(</span>
+        <span style={fg(2)}>➜</span> <span style={fg(6)}>herdr-miura</span> <span style={fg(4)}>git:(</span>
         <span style={fg(1)}>main</span>
         <span style={fg(4)}>)</span> npm test{"\n"}
         <span style={fg(2)}> ✓</span> 161 passed <span style={fg(3)}>(2 skipped)</span>
