@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 13:14 — A README that shows the app at work
+
+The README now opens with two sentences and a large screenshot, then gives each main feature a short section and a
+picture, with the setup and architecture notes after them. The stale roadmap became a short list of what isn't built
+yet. All the screenshots are new, taken from a clean copy of `main` on a throwaway daemon with made-up projects, at a
+busy day's load: 12 workspaces, 20 agents and 16 queued prompts.
+
 ## 2026-10-31 13:00 — Dividers in the workspace right-click menu
 
 The workspace card's menu now has three groups with a thin line between them: Rename… and Mark as Seen; New Team and
