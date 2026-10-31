@@ -353,7 +353,7 @@ scrolled into view whenever it changes.
 
 All three showed the same icon, so the Dock could not tell them apart. Stable keeps the yellow and cyan, Edge is
 violet, and a `tauri dev` window or a build made by hand is red. `tauri.conf.json` names the red icon, because Tauri
-reads a dev run's Dock icon from there and offers no other way to set it, and `herdr-channels` passes Stable and
+reads a dev run's Dock icon from there and offers no other way to set it, and the channel builds pass Stable and
 Edge their own with `--config`.
 
 ## 2026-10-30 17:18 — An expanded card lists three ports, then `+N more`
@@ -702,7 +702,7 @@ scheme may not allow.
 ## 2026-10-29 14:10 — A workspace's queue stays on one folder
 
 Queues are kept by folder, and a workspace that herdr names no folder for took the focused tab's, so focusing
-a tab in another checkout (an agent started in `~/dotfiles`, say), or a restart that focused one, showed that
+a tab in another checkout (an agent started in another repo, say), or a restart that focused one, showed that
 folder's empty queue in place of the real one. Nothing was lost, but it looked lost. Such a workspace's folder
 is now the one most of its tabs are in, whichever tab is focused, and the panel's header shows it. A window
 that does not own the queue (another window holds `queue.lock`) says so instead of showing an empty queue
@@ -745,9 +745,8 @@ branches and worktrees still do.
 
 ## 2026-10-29 12:43 — Provisioned settings file
 
-- `~/.config/herdr/config-tauri.toml` is a symlink into dotfiles (`herdr/config-tauri.toml`, every key commented
-  out at its default), made by ansible-recipes' `herdr_config` role. A write from the Settings dialog lands in the
-  dotfiles copy, below its comments, with the link intact.
+- `~/.config/herdr/config-tauri.toml` can be a symlink, with every key commented out at its default. A write from the
+  Settings dialog lands in the linked file, below its comments, with the link intact.
 - Fixed: the read on launch and a read after a write could answer out of order and leave the older settings on
   screen. Only the latest read is applied now.
 

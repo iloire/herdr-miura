@@ -2,7 +2,7 @@
 
 ## Dev windows
 
-The app Ivan uses every day is not built from this checkout: Stable and Edge run from their own clone
+The app in daily use is not built from this checkout: Stable and Edge run from their own clone
 ([docs/channels.md](docs/channels.md)), and Edge rebuilds itself when a commit lands on `main`.
 
 - Run a dev window on its own port so it doesn't collide with another on 1420. Use 1430, 1440, … and

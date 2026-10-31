@@ -7,7 +7,7 @@ import type { Workspace } from "../../protocol";
 
 describe("hue", () => {
   it("matches herdr-gpui's slots for the same names", () => {
-    expect(["herdr-gpui", "notes", "dotfiles", "lanzarote3d", "herdr-tauri"].map(hue)).toEqual([1, 6, 1, 2, 3]);
+    expect(["herdr-gpui", "notes", "dotfiles", "web-app", "herdr-tauri"].map(hue)).toEqual([1, 6, 1, 2, 3]);
   });
 
   it("keeps every name on a red-to-cyan slot and spreads names across them", () => {

@@ -31,8 +31,6 @@ as the first thing it controls. The README's roadmap already lists "the config f
   default, and reports unknown keys or bad values as a dismissible warning instead of failing the load.
 - **Reload on change**: re-read when the window regains focus (the pattern `files/listing.ts` already
   uses). A `notify` file watcher only if that proves too slow.
-- **Provisioned**: the file lives in `~/dotfiles/herdr/config-tauri.toml`, and ansible-recipes'
-  `herdr_config` role symlinks it into place, so the dialog's writes land in dotfiles as a reviewable diff.
 - **No settings in `localStorage`.** Moving window state into the file is not part of this.
 
 ## Themes
@@ -104,8 +102,7 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
 5. ~~TS `app/settings.ts`: parse into `Settings` with defaults and warnings, reload on window focus, wire
    each starting setting through. Tests for defaults, bad values and unknown keys.~~ ✅
 6. ~~Settings dialog and ⌘,.~~ ✅
-7. ~~Provision: `~/dotfiles/herdr/config-tauri.toml` with the starting keys commented, the symlink in
-   ansible-recipes `herdr_config`, applied here and checked through the dialog.~~ ✅
+7. ~~A starting file with its keys commented, checked through the dialog.~~ ✅
 8. ~~Docs: the file's keys in a `docs/settings.md` (the schema, next to nothing else), README status, the
    architecture table, CHANGELOG, and a screenshot with a light theme.~~ ✅
 

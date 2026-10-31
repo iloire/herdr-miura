@@ -122,8 +122,8 @@ CI runs the same checks and then `tauri build` on every push to `main` and on ev
 npm run tauri build     # release bundle in src-tauri/target/release/bundle/
 ```
 
-Nothing deploys yet. Builds are local and unsigned. [docs/channels.md](docs/channels.md) describes the two builds that
-run side by side here: a pinned Stable, and an Edge that rebuilds after every commit on `main`.
+Nothing deploys yet. Builds are local and unsigned. [docs/channels.md](docs/channels.md) describes two builds that can
+run side by side: a pinned Stable, and an Edge that rebuilds after every commit on `main`.
 
 ## How it is split
 

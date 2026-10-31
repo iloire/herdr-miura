@@ -11,8 +11,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   `~/.claude/commands/` (global) or `<repo>/.claude/commands/` (that project) runs as `/<name>` inside
   Claude. Frontmatter is optional (`description`, `argument-hint`, `allowed-tools`, `model`), and
   `$ARGUMENTS` in the body takes what follows the command. Subfolders organise files without changing
-  the command's name. Ours are deployed from `~/dotfiles/claude/commands`, each file symlinked into
-  `~/.claude/commands` by ansible-recipes' `claude` role.
+  the command's name.
 - **The queue already starts a fresh Claude in a new tab.** `queue_open` runs `herdr tab create
   --no-focus`, then `herdr agent start <name> --kind claude`; `queue_prompt` runs `herdr agent prompt
   <name> <text> --wait --until working`. Agent names must be `q<digits>` today. `herdr agent prompt`
@@ -52,7 +51,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
 - **Reads are bounded.** Rust lists the two folders (at most 500 files each, three folders deep, `.md`
   only) and returns each file's text or why it could not be read. A project file is resolved through
   symlinks and refused when it leaves the workspace folder, as `read_file` does. Global files may be links
-  into `~/dotfiles`, so those are followed. This Mac only, like the queue: the files and the CLI are here.
+  into a dotfiles repo, so those are followed. This Mac only, like the queue: the files and the CLI are here.
 - **TypeScript decides, in a pure module.** `app/promptLibrary.ts` turns the two raw listings into the
   palette's entries: parse frontmatter, apply the override, mark the broken ones, sort and filter. Vitest
   covers it. The frontmatter reader moves out of `agentFile.ts` into `app/frontmatter.ts`, shared by both.
@@ -74,7 +73,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
   text. It writes one new file and never over an existing one, a name its own scope already has is refused
   before saving, and so is a global name a project prompt would hide; a project prompt may take a global
   name, as overriding is what that is for. When `~/.claude/commands` holds links, the new global file goes
-  beside what they point at (`~/dotfiles/claude/commands`) and is linked in too, so dotfiles carry it like
+  beside what they point at (a dotfiles repo) and is linked in too, so dotfiles carry it like
   the others. Saving does not commit it there.
 - **`$ARGUMENTS` is left alone.** Herdr substitutes nothing in this slice. The preview shows the text
   as it is, so you replace `$ARGUMENTS` yourself before sending, or leave it for a prompt that is meant to

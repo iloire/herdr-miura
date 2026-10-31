@@ -58,7 +58,7 @@ state, not settings, so it does not go in dotfiles. It is written whole, atomica
 {
   "version": 1,
   "queues": {
-    "local:/Users/ivan/code/herdr-tauri": {
+    "local:/Users/you/code/herdr-tauri": {
       "paused": null,
       "items": [
         { "id": "q7", "n": 2, "prompt": "…", "state": "running", "pane_id": "p_31", "tab_id": "t_12",
@@ -212,16 +212,14 @@ These wait for [plan-settings.md](plan-settings.md). Until then they are constan
     `queue-inbox/taken/`, kept 30 days (`queue_inbox_settle`). Only the window that owns the queue's lock
     (`queue.lock`) drains it: two windows sharing the data folder once lost each other's prompts. A file that fails the checks, or whose workspace has not opened within 24 h,
     moves to `queue-inbox/rejected/` with a `.reason.txt`. Its card reads "Queued from an agent".
-  - **`herdr-queue add [--front] [--workspace ID | --folder PATH]`** in `~/dotfiles/bin` reads the prompt
+  - **`herdr-queue add [--front] [--workspace ID | --folder PATH]`** reads the prompt
     on stdin and writes that file. It names the workspace from `$HERDR_WORKSPACE_ID`, which every Herdr
     pane exports, else the git checkout of the current directory, so an agent never has to work one out.
-  - **A `/queue` skill** in `~/dotfiles/claude/skills/queue`. The queued run starts in a fresh session
+  - **A `/queue` skill.** The queued run starts in a fresh session
     that knows nothing of this one, so the skill has the agent first rewrite "this" as a prompt that
     stands on its own (the goal, the files, what is decided, how to check it), one task per prompt,
     show it, and then pipe it into `herdr-queue add` through a quoted heredoc. The global CLAUDE.md
     points to it.
-  - Deployed by ansible-recipes' `claude` role, which links each `dotfiles/claude/skills/*` folder into
-    `~/.claude/skills` (`queue` on macOS only); `herdr-queue` rides the dotfiles checkout's `bin/` on PATH.
   - A failed save leaves the files in the inbox, so a later launch may add one twice: a duplicate rather
     than a lost prompt.
 - **Other agents** (`codex`, `opencode`): the `kind` setting already allows them, but only Claude is

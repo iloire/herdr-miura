@@ -2,8 +2,7 @@
 
 Herdr Tauri reads `~/.config/herdr/config-tauri.toml` (`$XDG_CONFIG_HOME/herdr/` when that is set), beside
 Herdr's `config.toml` and herdr-gpui's `config-gpui*.toml`. It is this app's own file, so it never trips
-herdr-gpui's unknown-key warning. On this Mac it is a symlink into dotfiles (`~/dotfiles/herdr/config-tauri.toml`,
-linked by ansible-recipes' `herdr_config` role), which lists every key commented out at its default.
+herdr-gpui's unknown-key warning.
 
 - **Every key is optional.** A missing key, or a missing file, is its default.
 - **Nothing fails the load.** A bad value keeps its default, and a key that is not a setting does nothing.
