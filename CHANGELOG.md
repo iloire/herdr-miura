@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-10-31 17:01 — One sync line in the Changes panel
+
+Moving between checkouts left the last one's sync line behind, with its Push button, its count and its note, stacked
+above the current one's. A leftover Push still pushed the checkout it came from, not the one the panel showed. Each
+sync line and file list shared a React key, so the old line was never removed; they now share one keyed parent.
+
 ## 2026-10-31 16:55 — CI is green again
 
 The tests that commit, merge or rebase no longer lean on the machine's Git identity, which a CI runner doesn't have. A

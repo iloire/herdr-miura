@@ -1,5 +1,5 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useCallback, useState, useSyncExternalStore, type MouseEvent, type MutableRefObject } from "react";
+import { Fragment, useCallback, useState, useSyncExternalStore, type MouseEvent, type MutableRefObject } from "react";
 import { openFile } from "../app/agentFile";
 import type { Controller } from "../app/controller";
 import { absolutePath, canOpen } from "../changes/fileActions";
@@ -84,8 +84,9 @@ export function ChangesPanel({
       {state.phase === "loading" && <p className="empty">Reading the checkout…</p>}
       {state.phase === "failed" && <p className="empty error">Could not read the checkout: {state.error}</p>}
       {state.phase === "ready" && !checkout && <p className="empty">{state.directory} is not in a Git checkout.</p>}
+      {/* One key for everything of a checkout, so another checkout starts clean. */}
       {checkout && (
-        <>
+        <Fragment key={checkout.path}>
           <div className="branch-line">
             <span className="branch">{checkout.branch ?? "detached HEAD"}</span>
             {checkout.unmerged && checkout.unmerged[1] > 0 && (
@@ -99,7 +100,7 @@ export function ChangesPanel({
           <div className="checkout-path" title={checkout.path}>
             <bdi>{checkout.path}</bdi>
           </div>
-          {sync && <ChangesSync key={checkout.path} store={sync} checkout={checkout} rows={rows("moving")} />}
+          {sync && <ChangesSync store={sync} checkout={checkout} rows={rows("moving")} />}
           <h3 className="changes-section">
             {checkout.total_files === 0 ? "No uncommitted changes" : `${checkout.total_files} changed`}
             {checkout.total_files > 0 && (
@@ -109,7 +110,6 @@ export function ChangesPanel({
             )}
           </h3>
           <ChangedFiles
-            key={checkout.path}
             checkout={checkout}
             sync={sync}
             selected={selected}
@@ -126,7 +126,7 @@ export function ChangesPanel({
               <CommitList commits={checkout.commits} rows={rows("recent")} />
             </>
           )}
-        </>
+        </Fragment>
       )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </aside>
