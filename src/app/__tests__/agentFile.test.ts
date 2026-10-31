@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentIssues, parseAgentFile, promptPreview } from "../agentFile";
+import { agentIssues, parseAgentFile, promptPreview, toolTooltip } from "../agentFile";
 
 const member = { role: "qa", agent: "qa" };
 
@@ -85,6 +85,27 @@ describe("agentIssues", () => {
     ]);
     expect(read("nothing")).toEqual([expect.stringContaining("skips .claude/agents/qa.md: it does not start")]);
     expect(agentIssues(member, { phase: "not_text" })).toEqual([expect.stringContaining("not a text file")]);
+  });
+});
+
+describe("toolTooltip", () => {
+  it("says what a known tool does", () => {
+    expect(toolTooltip("Read")).toBe("Tool this agent may use: reads files");
+  });
+
+  it("looks a scoped tool up by its name and shows the scope", () => {
+    expect(toolTooltip("Bash(git:*)")).toBe("Tool this agent may use: runs shell commands, limited to git:*");
+  });
+
+  it("falls back on a name it does not know, even one an object would have", () => {
+    expect(toolTooltip("Frobnicate")).toBe("Tool this agent may use");
+    expect(toolTooltip("constructor")).toBe("Tool this agent may use");
+    expect(toolTooltip("Frobnicate(x)")).toBe("Tool this agent may use, limited to x");
+  });
+
+  it("names the server of an MCP tool", () => {
+    expect(toolTooltip("mcp__github__create_issue")).toBe("Tool this agent may use: comes from the MCP server github");
+    expect(toolTooltip("mcp__github")).toBe("Tool this agent may use: comes from the MCP server github");
   });
 });
 

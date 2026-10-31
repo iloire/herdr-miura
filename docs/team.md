@@ -12,7 +12,8 @@ You still route the work between them. Nothing here passes messages from one age
 Click the Team section's header (**TEAM 3**) to see the team in full. There is one card per role: its
 letter in the role's hue, the agent it runs when that isn't the role's name, its state, and what its agent
 file says: the description, pills for the model, the tools and the skills, and the first three lines of
-the prompt. The files are read when the dialog opens and again whenever the window comes back to the
+the prompt. Hover a pill to see what it is: tools say what they do, including their scope and MCP server
+(`toolTooltip` in `agentFile.ts` holds the built-in tools' sentences). The files are read when the dialog opens and again whenever the window comes back to the
 front, so an edit made in VS Code shows up when you switch back.
 
 The dialog is read-only. **Edit** opens the role's agent file in VS Code, and **Open team.json** opens the

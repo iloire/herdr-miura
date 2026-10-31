@@ -59,6 +59,31 @@ export function agentIssues(member: Member, read: AgentRead): string[] {
   return issues;
 }
 
+/// What each built-in Claude Code tool does, finishing "Tool this agent may use: …".
+const TOOL_WORK = new Map([
+  ["Read", "reads files"],
+  ["Write", "creates files or overwrites them"],
+  ["Edit", "changes text in existing files"],
+  ["Grep", "searches inside files"],
+  ["Glob", "finds files by name pattern"],
+  ["Bash", "runs shell commands"],
+  ["Agent", "starts subagents"],
+  ["WebFetch", "fetches a web page"],
+  ["WebSearch", "searches the web"],
+  ["NotebookEdit", "edits Jupyter notebook cells"],
+]);
+
+/// The tooltip of a `tools:` entry: `Read`, a scoped `Bash(git:*)`, an MCP
+/// `mcp__server__name`, or a name it does not know.
+export function toolTooltip(tool: string): string {
+  const open = tool.indexOf("(");
+  const name = open < 0 ? tool : tool.slice(0, open);
+  const scope = open < 0 ? "" : tool.slice(open + 1).replace(/\)$/, "");
+  const server = /^mcp__(.+?)(?:__|$)/.exec(name)?.[1];
+  const work = TOOL_WORK.get(name) ?? (server && `comes from the MCP server ${server}`);
+  return `Tool this agent may use${work ? `: ${work}` : ""}${scope ? `, limited to ${scope}` : ""}`;
+}
+
 /// The start of a prompt as flowing text: the file's hard-wrapped lines
 /// joined, keeping its paragraphs, list items and headings on lines of their
 /// own. The dialog clamps it to a few lines.

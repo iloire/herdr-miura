@@ -8,6 +8,7 @@ import {
   openFile,
   parseAgentFile,
   promptPreview,
+  toolTooltip,
   useAgentFiles,
 } from "../app/agentFile";
 import type { Controller } from "../app/controller";
@@ -158,20 +159,28 @@ function RoleCard({
       {file?.description && <p className="team-description">{file.description}</p>}
       {file && (
         <div className="team-pills">
-          {file.model && <span className="team-pill model">{file.model}</span>}
+          {file.model && (
+            <span className="team-pill model" title="Claude model this agent runs on, set by model: in its agent file">
+              {file.model}
+            </span>
+          )}
           {file.tools.length > 0 ? (
             file.tools.map((tool) => (
-              <span key={`t:${tool}`} className="team-pill">
+              <span key={`t:${tool}`} className="team-pill" title={toolTooltip(tool)}>
                 {tool}
               </span>
             ))
           ) : (
-            <span className="team-pill quiet" title="No tools field: the agent can use every tool">
+            <span className="team-pill quiet" title="No tools field: this agent may use every tool">
               all tools
             </span>
           )}
           {file.skills.map((skill) => (
-            <span key={`s:${skill}`} className="team-pill skill" title="Skill loaded at start">
+            <span
+              key={`s:${skill}`}
+              className="team-pill skill"
+              title="Skill loaded at start: instructions this agent reads before working"
+            >
               {skill}
             </span>
           ))}
