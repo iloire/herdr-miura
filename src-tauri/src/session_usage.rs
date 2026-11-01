@@ -90,6 +90,8 @@ pub struct SessionUsage {
     /// When its transcript or a subagent's last changed, in Unix seconds. A
     /// session busy in a subagent leaves its own file alone.
     pub written_at: Option<i64>,
+    /// When it began: its transcript's first timestamp, in Unix seconds.
+    pub started_at: Option<i64>,
     /// Its latest prompt, cut to [`MAX_PROMPT_CHARS`].
     pub prompt: Option<String>,
     /// The folders it has worked in, latest first, each once. Entering a
@@ -115,6 +117,8 @@ struct FileState {
     minutes: BTreeMap<i64, Tokens>,
     model: Option<String>,
     context: u64,
+    /// See [`SessionUsage::started_at`].
+    started_at: Option<i64>,
     /// Where it started: the session may `cd` into a subfolder later.
     cwd: Option<String>,
     /// The latest prompt typed or pasted into it.
@@ -150,6 +154,16 @@ impl FileState {
     }
 
     fn line(&mut self, line: &[u8]) {
+        // A transcript opens with a few short lines that carry no time, and a
+        // snapshot's sits deeper down, so this parses little and never again.
+        if self.started_at.is_none()
+            && let Ok(value) = serde_json::from_slice::<Value>(line)
+        {
+            self.started_at = value
+                .get("timestamp")
+                .and_then(Value::as_str)
+                .and_then(unix_seconds);
+        }
         // JSON escapes a quote inside a string, so these cannot match text. It
         // spares parsing the tool results, by far the largest lines.
         if contains(line, b"\"kind\":\"human\"")
@@ -492,6 +506,7 @@ fn session(
     let main = files.entry(transcript.to_owned()).or_default();
     main.update(transcript).ok()?;
     let (model, context, prompt) = (main.model.clone(), main.context, main.prompt.clone());
+    let started_at = main.started_at;
     let cwds = main.cwds.clone();
     let mut minutes = main.minutes.clone();
     let mut written = written_at(transcript);
@@ -517,6 +532,7 @@ fn session(
             })
             .collect(),
         written_at: written,
+        started_at,
         prompt,
         cwds,
     })

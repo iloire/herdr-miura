@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 10:37 — Show when a session started, and mark old ones
+
+The tab header gives each agent's session its start after the model: the time today, the date before, with the exact
+moment and age on hover. It comes from the transcript, so it survives a restart. From four hours back it turns amber, and
+red once it is also from an earlier day, so old sessions don't read like current work. A session from before midnight
+stays plain for its first four hours.
+
 ## 2026-11-01 10:31 — Sort a workspace's tabs by what needs you
 
 Sort Tabs on a tab's right-click offers Needs You First: tabs waiting on you, then finished ones, then working, then

@@ -3221,12 +3221,16 @@ kbd {
 
 /* A context large enough to be worth noticing, then worth compacting. */
 .tab-fact.ctx-high,
-.tab-fact.ctx-high b {
+.tab-fact.ctx-high b,
+.tab-fact.started-old,
+.tab-fact.started-old b {
   color: var(--lantern);
 }
 
 .tab-fact.ctx-over,
 .tab-fact.ctx-over b,
+.tab-fact.started-very-old,
+.tab-fact.started-very-old b,
 .tab-fact.age-blocked,
 .tab-fact.age-blocked b {
   color: var(--blocked);

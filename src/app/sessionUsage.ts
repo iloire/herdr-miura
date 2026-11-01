@@ -3,7 +3,7 @@ import type { Agent } from "../protocol";
 import type { StatusSince } from "./agentAge";
 import { agentToken } from "./attention";
 import { type ClaudeUsage, resetTime } from "./claudeUsage";
-import { formatMinutes } from "./time";
+import { formatMinutes, formatMoment, formatSpan } from "./time";
 
 // Token use of each Claude Code session, read from its transcript by
 // `session_usage`. The session's id is the `claude_session` token dotfiles'
@@ -32,6 +32,8 @@ export interface SessionUsage {
   minutes: Minute[];
   /// When its transcript or a subagent's last changed, in Unix seconds.
   written_at: number | null;
+  /// When it began, in Unix seconds.
+  started_at: number | null;
   /// Its latest prompt, the start of it when long.
   prompt: string | null;
   /// The folders it has worked in, latest first, each once.
@@ -149,6 +151,36 @@ export function quietAge(usage: SessionUsage | null, status: StatusSince | undef
 /// The quiet figure's tooltip.
 export function quietTitle(age: string): string {
   return `Working, but nothing written to its transcript for ${age}: a long tool call, or it may be hung`;
+}
+
+/// From this age a session is no longer the current work.
+export const OLD_AFTER_MS = 4 * 3600_000;
+
+export type StartedLevel = "recent" | "old" | "very-old";
+
+function midnight(now: number): number {
+  return new Date(now).setHours(0, 0, 0, 0);
+}
+
+/// How far a session's start lies behind the work of the moment: `old` from
+/// `OLD_AFTER_MS`, `very-old` once that also makes it yesterday's or earlier.
+/// The age comes first, as one started at 11 PM is current work at 1 AM.
+export function startedLevel(started: number, now: number): StartedLevel {
+  if (now - started < OLD_AFTER_MS) return "recent";
+  return started < midnight(now) ? "very-old" : "old";
+}
+
+/// `9:14 AM` today, `Oct 29` before that. Milliseconds in.
+export function startedLabel(started: number, now: number): string {
+  const date = new Date(started);
+  return started < midnight(now)
+    ? date.toLocaleDateString([], { month: "short", day: "numeric" })
+    : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/// The start's tooltip: `Started Oct 29, 9:14 AM, 3d 2h ago`.
+export function startedTitle(started: number, now: number): string {
+  return `Started ${formatMoment(started)}, ${formatSpan(now - started)} ago`;
 }
 
 /// `950`, `14k`, `1.8M`.

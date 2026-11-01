@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeUsage } from "../claudeUsage";
-import { burn, contextLevel, formatTokens, type Minute, QUIET_AFTER_MS, quietAge, type SessionUsage, tokensSince, weighted, windowStart } from "../sessionUsage";
+import { burn, contextLevel, formatTokens, type Minute, OLD_AFTER_MS, QUIET_AFTER_MS, quietAge, type SessionUsage, startedLabel, startedLevel, tokensSince, weighted, windowStart } from "../sessionUsage";
 
 function minute(at: number, over: Partial<Minute> = {}): Minute {
   return { at, input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0, ...over };
 }
 
 function session(minutes: Minute[]): SessionUsage {
-  return { model: "claude-opus-5-5", context: 0, minutes, written_at: null, prompt: null, cwds: [] };
+  return { model: "claude-opus-5-5", context: 0, minutes, written_at: null, started_at: null, prompt: null, cwds: [] };
 }
 
 describe("weighted", () => {
@@ -61,6 +61,38 @@ describe("formatTokens", () => {
 describe("contextLevel", () => {
   it("marks a context from 150k as high and from 300k as over", () => {
     expect([149_999, 150_000, 299_999, 300_000, 900_000].map(contextLevel)).toEqual(["ok", "high", "high", "over", "over"]);
+  });
+});
+
+describe("startedLevel", () => {
+  const at = (hour: number, minute = 0, day = 15) => new Date(2026, 9, day, hour, minute).getTime();
+
+  it("keeps the last four hours plain", () => {
+    expect(startedLevel(at(12) - OLD_AFTER_MS + 1, at(12))).toBe("recent");
+    expect(startedLevel(at(12), at(12))).toBe("recent");
+  });
+
+  it("marks four hours back as old, the same day", () => {
+    expect(startedLevel(at(12) - OLD_AFTER_MS, at(12))).toBe("old");
+    expect(startedLevel(at(0, 30), at(23))).toBe("old");
+  });
+
+  it("marks yesterday's as very old once it is four hours back", () => {
+    expect(startedLevel(at(19, 0, 14), at(1))).toBe("very-old");
+    expect(startedLevel(at(9, 0, 3), at(12))).toBe("very-old");
+  });
+
+  it("does not call a session from before midnight old at 1 AM", () => {
+    expect(startedLevel(at(23, 0, 14), at(1))).toBe("recent");
+  });
+});
+
+describe("startedLabel", () => {
+  const now = new Date(2026, 9, 15, 12).getTime();
+
+  it("gives the time today and the date before", () => {
+    expect(startedLabel(new Date(2026, 9, 15, 9, 14).getTime(), now)).toMatch(/9:14/);
+    expect(startedLabel(new Date(2026, 9, 14, 23, 59).getTime(), now)).toMatch(/Oct 14/);
   });
 });
 

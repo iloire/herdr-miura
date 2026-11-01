@@ -61,6 +61,25 @@ fn reads_utc_timestamps() {
 }
 
 #[test]
+fn a_session_started_at_its_first_timestamp() {
+    let fixture = fixture();
+    append(
+        &fixture.transcript,
+        r#"{"type":"mode","mode":"normal"}
+{"type":"file-history-snapshot","snapshot":{"timestamp":"2020-01-01T00:00:00.000Z"}}
+{"type":"user","timestamp":"2026-10-29T09:33:17.123Z","message":{"content":"hi"}}
+"#,
+    );
+    let cache = Cache::default();
+    assert_eq!(read(&cache, &fixture).unwrap().started_at, Some(MINUTE + 17));
+    append(
+        &fixture.transcript,
+        &response("a", "2026-10-29T09:40:00.000Z", 10, 1000, false),
+    );
+    assert_eq!(read(&cache, &fixture).unwrap().started_at, Some(MINUTE + 17));
+}
+
+#[test]
 fn sums_a_minute_and_takes_the_context_and_model_from_the_last_response() {
     let fixture = fixture();
     append(

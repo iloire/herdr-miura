@@ -15,6 +15,9 @@ import {
   sessionOf,
   shortModel,
   spendTitle,
+  startedLabel,
+  startedLevel,
+  startedTitle,
   tokensSince,
   weighted,
   windowStart,
@@ -54,8 +57,9 @@ const AGE_TITLE = "Time in this status, counted from when the app first saw it, 
 /// can sit in different worktrees. Then the ports of the servers started in this
 /// tab, each opening its page. At the first line's right end the prompt library,
 /// whose prompts go to this tab's agent. The second line holds what matters about
-/// each of its agents at all times: status, time in it, how long it has been quiet
-/// when that is long, model, context, spend this plan window, the last fifteen
+/// each of its agents at all times: status, model, when its session started, colored
+/// once that is hours back, time in its status, how long it has been quiet when that
+/// is long, context, spend this plan window, the last fifteen
 /// minutes' burn, a loop's next tick, and its title, or its latest prompt when it
 /// has none. What is only sometimes true shows only then. On a tight first line
 /// the warning and the Git state outlast the rest; on a tight second one the titles
@@ -242,6 +246,7 @@ function AgentFacts({
           {agent.display_agent ?? agent.agent ?? "agent"}
           {usage?.model && <span className="tab-agent-model"> · {shortModel(usage.model)}</span>}
         </span>
+        {usage?.started_at != null && <Started at={usage.started_at * 1000} now={now * 1000} />}
         {age && (
           <span className={`tab-fact age-${agent.agent_status}`} title={AGE_TITLE}>
             {agent.agent_status} <b>{age}</b>
@@ -271,6 +276,14 @@ function AgentFacts({
         </span>
       )}
     </>
+  );
+}
+
+function Started({ at, now }: { at: number; now: number }) {
+  return (
+    <span className={`tab-fact started-${startedLevel(at, now)}`} title={startedTitle(at, now)}>
+      started <b>{startedLabel(at, now)}</b>
+    </span>
   );
 }
 
