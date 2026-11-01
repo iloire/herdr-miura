@@ -1,4 +1,4 @@
-import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import { formatSpan } from "../app/time";
@@ -28,7 +28,6 @@ export function QueuePanel({
   queue: saved,
   access,
   actions,
-  focusComposer,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -40,9 +39,16 @@ export function QueuePanel({
   queue: Queue | null;
   access: QueueAccess;
   actions: QueueActions | null;
-  /// Put the cursor in the prompt box: when opened by hand, not when it opened on its own.
-  focusComposer: boolean;
 }) {
+  const composer = useRef<HTMLTextAreaElement>(null);
+  // Only a hand opening the panel moves the cursor. The body below remounts
+  // whenever the folder goes unknown, as on a `cd` in a lone shell, and the
+  // workspace can change without a key pressed: neither may take the keyboard.
+  useEffect(() => {
+    if (!controller.composerAsked) return;
+    controller.composerAsked = false;
+    composer.current?.focus();
+  });
   const head = (
     <header className="changes-head queue-head">
       <span>Queue</span>
@@ -87,7 +93,7 @@ export function QueuePanel({
       queue={saved ?? emptyQueue(folder)}
       separate={access.separate}
       actions={actions}
-      focusComposer={focusComposer}
+      composer={composer}
     />
   );
 }
@@ -101,7 +107,7 @@ function QueueBody({
   queue,
   separate,
   actions,
-  focusComposer,
+  composer,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -112,7 +118,7 @@ function QueueBody({
   /// A dev build's own queue, apart from the daily window's.
   separate: boolean;
   actions: QueueActions;
-  focusComposer: boolean;
+  composer: RefObject<HTMLTextAreaElement | null>;
 }) {
   const home = useHome();
   const directory = queueDirectory(folder);
@@ -120,16 +126,11 @@ function QueueBody({
   const [removed, setRemoved] = useState<{ title: string; undo: () => void } | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const composer = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!removed) return;
     const timer = window.setTimeout(() => setRemoved(null), UNDO_MS);
     return () => clearTimeout(timer);
   }, [removed]);
-  // Opening the panel by hand, or switching workspace with it so open, puts the cursor in the box.
-  useEffect(() => {
-    if (focusComposer) composer.current?.focus();
-  }, [focusComposer, workspace.workspace_id]);
 
   const active = queue.items.find(isInLine);
   const away = queue.items.filter(isAway);

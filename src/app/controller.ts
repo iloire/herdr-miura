@@ -552,6 +552,9 @@ export class Controller {
 
   /// Set by the terminal view, so closing an overlay hands typing back to it.
   focusTerminal: () => void = () => {};
+  /// Set when a hand opens the Queue panel. The panel clears it and puts the
+  /// cursor in its prompt box, so only that gesture ever moves the keyboard.
+  composerAsked = false;
 
   /// Set by `App`, which keeps the diff or file open over the terminal.
   closeViews: () => void = () => {};
@@ -579,11 +582,13 @@ export class Controller {
 
   private togglePanel(panel: "changes" | "files" | "queue"): void {
     const open = !this.state[panel];
+    this.composerAsked = panel === "queue" && open;
     this.set({ changes: false, files: false, queue: false, queueAuto: false, [panel]: open });
     if (!open) this.focusTerminal();
   }
 
   openQueue(): void {
+    if (!this.state.queue || this.state.queueAuto) this.composerAsked = true;
     this.set({ queue: true, queueAuto: false, changes: false, files: false });
   }
 

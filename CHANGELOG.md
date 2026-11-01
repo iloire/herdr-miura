@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 19:57 — The queue's prompt box stops taking the keyboard
+
+With the Queue panel open, typing could jump from the terminal into its prompt box. A `cd` in a workspace's lone shell
+leaves the queue's folder unknown until Git answers, which rebuilt the panel, and every rebuild took the cursor, as did
+any change of workspace. Now only opening the panel by hand puts the cursor in the box.
+
 ## 2026-11-01 12:40 — A workspace's color is its own
 
 Choosing a color for a workspace no longer colors every other workspace on the same folder: `workspace_colors` is now

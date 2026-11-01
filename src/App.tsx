@@ -635,7 +635,6 @@ export default function App() {
                 queue={focusedQueue}
                 access={queueAccess}
                 actions={local ? queueActions : null}
-                focusComposer={!state.queueAuto}
               />
             ) : state.files ? (
               <FilesPanel

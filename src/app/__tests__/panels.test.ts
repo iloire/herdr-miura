@@ -49,6 +49,25 @@ describe("the panel commands", () => {
     expect(focusTerminal).toHaveBeenCalledOnce();
   });
 
+  it("asks for the prompt box only when a hand opens the queue", () => {
+    controller.followQueue(true);
+    expect(controller.composerAsked).toBe(false);
+
+    controller.openQueue();
+    expect(controller.composerAsked).toBe(true);
+
+    controller.composerAsked = false;
+    controller.openQueue();
+    expect(controller.composerAsked).toBe(false);
+
+    controller.run("add_to_queue");
+    controller.run("add_to_queue");
+    expect(controller.composerAsked).toBe(true);
+
+    controller.run("add_to_queue");
+    expect(controller.composerAsked).toBe(false);
+  });
+
   it.each(["tab.focus", "workspace.focus", "pane.focus"])("%s closes the view over the terminal and hands it the focus", (method) => {
     const closeViews = vi.fn<() => void>();
     controller.closeViews = closeViews;
