@@ -1,5 +1,4 @@
 import type { Controller, State } from "../app/controller";
-import { shortcutLabel } from "../terminal/keys";
 import type { ClaudeUsage as Usage } from "../app/claudeUsage";
 import type { ListeningPort } from "../app/ports";
 import { ClaudeUsage } from "./ClaudeUsage";
@@ -44,7 +43,6 @@ export function StatusBar({
   onOpenUsage: () => void;
 }) {
   const { status, notice } = state;
-  const palette = state.commands.find((command) => command.name === "command_palette")?.parsed[0];
   return (
     <footer className={`statusbar phase-${status.phase}`}>
       <HostPicker controller={controller} host={state.host} hosts={state.hosts} />
@@ -65,7 +63,6 @@ export function StatusBar({
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
       <QueueChip queue={queue} onOpen={onOpenQueue} />
       <Ports ports={ports} />
-      {palette && <span className="hint">{shortcutLabel(palette)} commands</span>}
       <button
         className="icon-button status-settings"
         title="Settings (⌘,)"

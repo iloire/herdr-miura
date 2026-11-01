@@ -2498,7 +2498,7 @@ body.reordering * {
   color: var(--blocked);
 }
 
-/* Command palette */
+/* Dialogs: the backdrop and box every one shares, and the prompt library's search and list */
 
 /* Above everything the app layers over itself, the pane resizers among them,
    and below the right-click menus. */
@@ -4977,8 +4977,8 @@ kbd {
   vertical-align: middle;
 }
 
-/* Prompt library (⌘⇧L): the command palette's look, with the selected
-   prompt's text beside the list. */
+/* Prompt library (⌘⇧L): a search and a list, with the selected prompt's text
+   beside the list. */
 .palette.prompt-palette {
   width: min(920px, calc(100vw - 32px));
 }

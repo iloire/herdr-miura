@@ -64,7 +64,6 @@ export interface State {
   notice: string | null;
   title: string | null;
   sidebar: boolean;
-  palette: boolean;
   /// The prompt library's palette is open.
   library: boolean;
   /// The Settings dialog is open.
@@ -141,7 +140,6 @@ export class Controller {
     notice: null,
     title: null,
     sidebar: layout.sidebar,
-    palette: false,
     library: false,
     settingsOpen: false,
     changes: layout.drawer === "changes",
@@ -233,7 +231,7 @@ export class Controller {
     this.set({ commands });
   }
 
-  /// The first key a command is bound to, as the palette writes it.
+  /// The first key a command is bound to, as a hint writes it.
   shortcutHint(name: string): string | undefined {
     const shortcut = this.state.commands.find((command) => command.name === name)?.parsed[0];
     return shortcut && shortcutLabel(shortcut);
@@ -417,7 +415,7 @@ export class Controller {
   private perform(method: string, params: Record<string, unknown>): void {
     if (method === "tab.close") return this.closeTab(String(params.tab_id));
     void this.send(method, params);
-    // However the move was asked for (a key, the palette, a card, the strip),
+    // However the move was asked for (a key, a card, the strip),
     // the view over the terminal closes and typing goes to the tab, workspace
     // or pane moved to.
     if (MOVES.has(method)) {
@@ -488,11 +486,9 @@ export class Controller {
       case "new_command_tab":
         return this.newTab();
       case "open_settings":
-        return this.set({ settingsOpen: !this.state.settingsOpen, palette: false });
-      case "command_palette":
-        return this.set({ palette: !this.state.palette, library: false });
+        return this.set({ settingsOpen: !this.state.settingsOpen });
       case "prompt_library":
-        return this.set({ library: !this.state.library, palette: false });
+        return this.set({ library: !this.state.library });
       case "add_to_queue":
         return this.togglePanel("queue");
       case "review_changes":
@@ -579,10 +575,6 @@ export class Controller {
     const { queue, queueAuto, changes, files } = this.state;
     if (busy && !queue && !changes && !files) this.set({ queue: true, queueAuto: true });
     else if (!busy && queue && queueAuto) this.set({ queue: false, queueAuto: false });
-  }
-
-  closePalette(): void {
-    this.set({ palette: false });
   }
 
   closeLibrary(): void {

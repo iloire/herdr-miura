@@ -140,7 +140,7 @@ function split(direction: "right" | "down") {
 }
 
 /// Every command this app runs, with herdr-gpui's names, labels, and default
-/// keys so muscle memory carries over. Shown in this order in the palette.
+/// keys so muscle memory carries over.
 const DEFINITIONS: Definition[] = [
   {
     name: "new_workspace",
@@ -224,7 +224,6 @@ const DEFINITIONS: Definition[] = [
   { name: "decrease_font_size", label: "Decrease Font Size", mac: ["cmd--"], other: ["ctrl-shift--"], action: "window" },
   { name: "reset_font_size", label: "Reset Font Size", mac: ["cmd-0"], other: ["ctrl-shift-0"], action: "window" },
   { name: "open_settings", label: "Settings", mac: ["cmd-,"], other: ["ctrl-,"], action: "window" },
-  { name: "command_palette", label: "Command Palette", mac: ["cmd-shift-p"], other: ["ctrl-shift-p"], action: "window" },
   { name: "review_changes", label: "Review Changes", mac: [], other: [], action: "window" },
   { name: "browse_files", label: "Browse Files", mac: ["cmd-shift-e"], other: ["ctrl-shift-e"], action: "window" },
   { name: "add_to_queue", label: "Add to Queue", mac: ["cmd-shift-a"], other: ["ctrl-shift-a"], action: "window" },

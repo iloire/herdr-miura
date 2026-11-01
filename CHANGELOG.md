@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 01:01 — Take out the command palette
+
+The palette and its `⇧⌘P commands` hint in the status bar are gone until it is built properly. The dialogs and the prompt
+library keep the styles they shared with it. Move Tab, Swap Pane, Resize Pane, Open Scrollback in Editor and Detach had no
+other way in, so they are out of reach for now; they stay in the command catalog for the rebuilt palette.
+
 ## 2026-11-01 00:16 — Show when a tab is in a worktree
 
 A Claude Code session that enters a worktree moves its own folder but not its process's, so Herdr went on reading the main

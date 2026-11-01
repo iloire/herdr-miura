@@ -8,7 +8,7 @@ herdr-gpui's unknown-key warning.
 - **Nothing fails the load.** A bad value keeps its default, and a key that is not a setting does nothing.
   Both show as a dismissible warning over the terminal, and at the top of the Settings dialog. A file that
   does not parse is all defaults, with the parser's message.
-- **The Settings dialog (⌘,, the command palette, or the gear at the right end of the status bar) writes the same file**, one key at a time, keeping comments and layout. A key it
+- **The Settings dialog (⌘, or the gear at the right end of the status bar) writes the same file**, one key at a time, keeping comments and layout. A key it
   adds to a file of commented-out keys goes below them. Setting a value back to its default removes the key.
 - **Edits by hand** are read when the window comes back to the front.
 

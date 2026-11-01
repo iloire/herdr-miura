@@ -37,7 +37,6 @@ import { DiscardDialog } from "./components/Discard";
 import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
-import { Palette } from "./components/Palette";
 import { PromptPalette } from "./components/PromptPalette";
 import { QueuePanel } from "./components/QueuePanel";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -534,12 +533,6 @@ export default function App() {
   };
   const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
 
-  const paletteCommands = useMemo(
-    // `focus_tab_3` and friends are shortcuts, not things anyone searches for.
-    () => state.commands.filter((command) => !/_\d$/.test(command.name)),
-    [state.commands],
-  );
-
   const drawerOpen = readChanges || state.queue;
 
   return (
@@ -675,7 +668,6 @@ export default function App() {
             onDiscarded={discarded}
           />
         )}
-        {state.palette && <Palette controller={controller} commands={paletteCommands} />}
         {state.library && (
           <PromptPalette
             controller={controller}
