@@ -1415,13 +1415,6 @@ body.reordering * {
   color: var(--bright);
 }
 
-.claude-usage svg {
-  flex: none;
-  width: 12px;
-  height: 12px;
-  color: var(--muted);
-}
-
 .usage-window {
   display: inline-flex;
   align-items: center;

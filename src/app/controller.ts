@@ -14,7 +14,7 @@ import { stepWorkspace } from "./step";
 
 export type Status =
   | { phase: "connecting" }
-  | { phase: "connected"; serverVersion: string }
+  | { phase: "connected" }
   | { phase: "disconnected"; reason: string };
 
 /// A host whose key ssh does not know yet. `fingerprints` is null while
@@ -320,7 +320,7 @@ export class Controller {
   private handle(event: BridgeEvent): void {
     switch (event.type) {
       case "connected":
-        this.set({ status: { phase: "connected", serverVersion: event.server_version } });
+        this.set({ status: { phase: "connected" } });
         break;
       case "snapshot": {
         this.daemonSnapshot = event.snapshot;

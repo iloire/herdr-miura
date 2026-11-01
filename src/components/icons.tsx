@@ -130,13 +130,6 @@ export const LoopIcon = () => (
   </Icon>
 );
 
-/// Claude's mark, beside its plan usage in the status bar.
-export const ClaudeIcon = () => (
-  <Icon>
-    <path d="M8 2v12M2 8h12M3.75 3.75l8.5 8.5M12.25 3.75l-8.5 8.5" {...LINE} />
-  </Icon>
-);
-
 export const TeamIcon = () => (
   <Icon>
     <circle cx="6" cy="5.5" r="2" {...LINE} />

@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 10:19 — A tighter status bar
+
+The Herdr version and the mark beside the Claude usage are gone, as neither told you anything you act on. The connection
+now shows only while it is down or connecting.
+
 ## 2026-11-01 01:49 — Make Run in a Worktree Now work with git-crypt, and show its failures
 
 The action did nothing in a repository under git-crypt: `herdr worktree create` failed on its first file, since git-crypt
