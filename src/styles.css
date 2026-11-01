@@ -2612,14 +2612,18 @@ kbd {
 }
 
 .context-menu button:hover:not(:disabled),
-.context-menu button:focus-visible {
+.context-menu button:focus-visible,
+.context-menu button[aria-expanded="true"] {
   background: var(--raised);
   outline: none;
 }
 
+/* No pointer events, as a disabled row sends none: the panel sees the hover
+   instead, so passing over one still closes an open submenu. */
 .context-menu button:disabled {
   color: var(--muted);
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .context-menu-divider {
@@ -2686,14 +2690,6 @@ kbd {
 .context-menu button.context-menu-swatch[aria-checked="true"] {
   outline: 2px solid var(--text);
   outline-offset: 2px;
-}
-
-.context-menu .context-menu-back {
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-  border-bottom: 1px solid var(--rule);
-  border-radius: 5px 5px 0 0;
-  margin-bottom: 3px;
 }
 
 /* Ports the focused workspace's servers listen on, in the status bar: a

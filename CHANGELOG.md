@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 12:30 — Menus open their submenus on hover
+
+A right-click menu's submenus (Folder, Move to Workspace, Sort Tabs) now fly out beside their row when you hover it, as
+menus normally do, instead of replacing the menu with a page you had to click into. They flip to the other side at the
+window's edge. Click, Enter and → open one too, and ← or Escape closes it.
+
 ## 2026-11-01 10:55 — See what fills a session's context, and what to cut
 
 Clicking `ctx` in the tab header, or in the usage dialog's open sessions, opens a Context dialog. Each open session gets a
