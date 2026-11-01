@@ -117,4 +117,4 @@ Not settings: poll intervals, sidebar width, workspace sort and pins (window sta
   `config-gpui.local.toml`'s `theme`, so switching it there switches both apps. Cheap to add later; left
   out until you run both side by side.
 - **Per-host terminal theme**, as herdr-gpui's device themes do, so an SSH-attached window looks
-  different from this Mac's. Fits naturally once the host picker and themes both exist.
+  different from a local one. Fits naturally once the host picker and themes both exist.

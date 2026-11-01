@@ -94,4 +94,4 @@ then `herdr pane run <its pane> claude --agent <agent>`. Clicking a role that is
 | shell | The tab is there, with no agent in it (Claude exited, or hasn't started yet). |
 | waiting on you / working / done / idle | The most urgent status among the tab's agents. |
 
-The team only works for this Mac's daemon, like the other features that run the `herdr` CLI.
+The team only works for the local daemon, like the other features that run the `herdr` CLI.

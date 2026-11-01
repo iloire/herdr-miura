@@ -112,7 +112,7 @@ socket variables and start that daemon with its own `HOME`. With the same `HOME`
 copy of your saved session and shares its state folder.
 
 A dev window on any branch but `main` has a colored strip along its foot naming its branch, so it can't be mistaken for
-the app you use every day. To run a branch beside the one you have open, give it its own port:
+another copy of the app. To run a branch beside the one you have open, give it its own port:
 
 ```sh
 npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'
@@ -133,7 +133,8 @@ npm run tauri build     # release bundle in src-tauri/target/release/bundle/
 ```
 
 Nothing deploys yet. Builds are local and unsigned. [docs/channels.md](docs/channels.md) describes two builds that can
-run side by side: a pinned Stable, and an Edge that rebuilds after every commit on `main`.
+run side by side: a pinned Stable, and an Edge that rebuilds after every commit on `main`. The script that makes them is
+not in this repo.
 
 ## How it is split
 
@@ -152,3 +153,6 @@ key bindings.
 More support for SSH remote hosts is coming soon. Terminals and agents work there today, but the Changes panel, the
 queue, teams, the prompt library and the file browser only work locally, not on the remote host
 ([docs/ssh.md](docs/ssh.md)).
+
+The tab header's model, context and spend, and the ↻ on a looping session, need Claude Code hooks that report the
+session to Herdr. Those hooks are not in this repo yet, so a fresh install shows neither.

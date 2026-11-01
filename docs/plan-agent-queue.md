@@ -53,7 +53,7 @@ context, and no two queued agents ever run at once.
   changed.` The queued agent then leaves a clean tree, and the next one starts from its commit.
 - **Pause, don't guess.** A failed start, a stalled prompt, a closed tab or a dirty tree each pause the
   queue with the reason shown. Nothing is retried on its own.
-- **The window drives it.** The queue only moves while the app is open and attached. This Mac only for
+- **The window drives it.** The queue only moves while the app is open and attached. Local machine only for
   now, like ports and worktrees: the CLI runs here.
 - **Rust owns the file, TypeScript owns the decisions.** The dispatcher is a pure function of (queue,
   snapshot, counts) → next action, tested with Vitest. Rust stores the queue and runs the three CLI

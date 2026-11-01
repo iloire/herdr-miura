@@ -50,7 +50,7 @@ prompt goes to the agent you are looking at, to a fresh Claude in a new tab, or 
 - **Reads are bounded.** Rust lists the two folders (at most 500 files each, three folders deep, `.md`
   only) and returns each file's text or why it could not be read. A project file is resolved through
   symlinks and refused when it leaves the workspace folder, as `read_file` does. Global files may be links
-  into a dotfiles repo, so those are followed. This Mac only, like the queue: the files and the CLI are here.
+  into a dotfiles repo, so those are followed. Local machine only, like the queue: the files and the CLI are here.
 - **TypeScript decides, in a pure module.** `app/promptLibrary.ts` turns the two raw listings into the
   palette's entries: parse frontmatter, apply the override, mark the broken ones, sort and filter. Vitest
   covers it. The frontmatter reader moves out of `agentFile.ts` into `app/frontmatter.ts`, shared by both.

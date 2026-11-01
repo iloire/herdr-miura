@@ -6,7 +6,7 @@ Two builds of the app can stay open side by side, attached to the same Herdr dae
 | --- | --- | --- |
 | Identifier | `com.herdr.tauri` | `com.herdr.tauri.edge` |
 | Moves when | promoted by hand | a commit lands on local `main` |
-| Prompt queue | the daily one | its own, empty unless used |
+| Prompt queue | the main one | its own, empty unless used |
 | Build | full release profile (LTO) | release without LTO, incremental |
 | Window | no strip | `DEV · edge <commit>` strip and title |
 | Icon | dark tile, `icons/icon.icns` | violet tile, `icons/edge/icon.icns` |

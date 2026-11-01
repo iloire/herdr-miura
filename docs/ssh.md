@@ -34,12 +34,12 @@ fingerprints with the host's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.
 
 ## While attached to a remote host
 
-The terminal, sidebar, tabs and commands work as they do locally. Whatever reads this Mac's disk or
-runs its `herdr` (the Changes and Files panels, changed-file counts, worktrees, ports, the queue, teams,
+The terminal, sidebar, tabs and commands work as they do locally. Whatever reads the local disk or
+runs the local `herdr` (the Changes and Files panels, changed-file counts, worktrees, ports, the queue, teams,
 the prompt library, opening a folder, moving a tab to another workspace) is refused, since the paths name
 folders on the other machine. Copy path still works.
 The Changes panel's fetch, push and pull are refused with it and stay hidden, as Git would have to run
-over there; nothing reaches this Mac's checkouts or credentials on the remote's behalf.
+over there; nothing reaches your local checkouts or credentials on the remote's behalf.
 Land on a worktree's card is hidden and refused the same way: the worktree is a folder over there, and
 its rebase, check and removal would have to run there too. Land it from a Herdr window on that machine.
 
