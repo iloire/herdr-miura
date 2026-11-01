@@ -150,4 +150,5 @@ Text selection and copy in the terminal, find, terminal graphics, GitHub pull re
 key bindings.
 
 More support for SSH remote hosts is coming soon. Terminals and agents work there today, but the Changes panel, the
-queue, teams, the prompt library and the file browser only work on this Mac ([docs/ssh.md](docs/ssh.md)).
+queue, teams, the prompt library and the file browser only work locally, not on the remote host
+([docs/ssh.md](docs/ssh.md)).
