@@ -75,6 +75,7 @@ export function TabHeader({
   ports,
   queued,
   library,
+  onOpenContext,
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
@@ -92,6 +93,8 @@ export function TabHeader({
   queued: { item: Item; place: { position: number; total: number } | null; next: Item | null } | null;
   /// The prompt library's palette is open.
   library: boolean;
+  /// Shows what fills a session's context.
+  onOpenContext: (session: string) => void;
 }) {
   // Every agent's, not just this tab's, so a background tab has the right time
   // when it comes up. No snapshot means reconnecting, which is not every agent
@@ -151,6 +154,7 @@ export function TabHeader({
             usage={usages.get(sessionOf(agent) ?? "") ?? null}
             since={since}
             now={Math.floor(now / 1000)}
+            onOpenContext={onOpenContext}
           />
         ))}
       </div>
@@ -223,6 +227,7 @@ function AgentFacts({
   usage,
   since,
   now,
+  onOpenContext,
 }: {
   agent: Agent;
   age: string | null;
@@ -230,6 +235,7 @@ function AgentFacts({
   usage: SessionUsage | null;
   since: number;
   now: number;
+  onOpenContext: (session: string) => void;
 }) {
   const loop = loopTag(agent);
   const spent = usage && tokensSince([usage], since);
@@ -259,9 +265,16 @@ function AgentFacts({
         )}
         {usage && spent && (
           <>
-            <span className={`tab-fact ctx-${contextLevel(usage.context)}`} title={contextTitle(usage.context)}>
+            <button
+              className={`tab-fact context-link ctx-${contextLevel(usage.context)}`}
+              title={contextTitle(usage.context)}
+              onClick={() => {
+                const session = sessionOf(agent);
+                if (session) onOpenContext(session);
+              }}
+            >
               ctx <b>{formatTokens(usage.context)}</b>
-            </span>
+            </button>
             <span className="tab-fact" title={spendTitle(spent, since)}>
               5h <b>{formatTokens(weighted(spent))}</b>
             </span>

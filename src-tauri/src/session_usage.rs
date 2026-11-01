@@ -385,6 +385,11 @@ impl Cache {
             .collect()
     }
 
+    /// The transcript of a session; `None` as for [`Cache::read`].
+    pub fn transcript(&self, projects: &Path, session: &str) -> Option<PathBuf> {
+        self.0.lock().ok()?.transcript(projects, session)
+    }
+
     /// Every project's use over the last week, closed sessions included, from
     /// the transcripts changed in that time. A resumed session repeats
     /// responses in a new file, so each message id counts once across files.

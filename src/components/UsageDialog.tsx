@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { agentTitle } from "../app/attention";
 import {
   type ClaudeUsage,
   elapsed,
@@ -18,6 +17,7 @@ import {
   contextTitle,
   formatTokens,
   type SessionUsage,
+  sessionName,
   sessionOf,
   shortModel,
   tokensSince,
@@ -70,12 +70,14 @@ export function UsageDialog({
   now,
   snapshot,
   sessions,
+  onOpenContext,
   onClose,
 }: {
   usage: ClaudeUsage | null;
   now: number;
   snapshot: Snapshot | null;
   sessions: Map<string, SessionUsage | null>;
+  onOpenContext: (session: string) => void;
   onClose: () => void;
 }) {
   const history = useHistory();
@@ -103,7 +105,7 @@ export function UsageDialog({
         </header>
         <div className="usage-body">
           {usage && <Limits usage={usage} now={now} />}
-          <Tokens usage={usage} now={now} history={history} snapshot={snapshot} sessions={sessions} />
+          <Tokens usage={usage} now={now} history={history} snapshot={snapshot} sessions={sessions} onOpenContext={onOpenContext} />
         </div>
       </div>
     </div>
@@ -185,12 +187,14 @@ function Tokens({
   history,
   snapshot,
   sessions,
+  onOpenContext,
 }: {
   usage: ClaudeUsage | null;
   now: number;
   history: History;
   snapshot: Snapshot | null;
   sessions: Map<string, SessionUsage | null>;
+  onOpenContext: (session: string) => void;
 }) {
   if (history.phase === "loading") return <p className="usage-empty">Reading this week's Claude Code transcripts…</p>;
   if (history.phase === "failed") return <p className="usage-empty">Could not read the transcripts in ~/.claude/projects.</p>;
@@ -229,7 +233,7 @@ function Tokens({
       </div>
       <div className="usage-pair">
         <Projects projects={projects} since={weekStart} />
-        <Sessions snapshot={snapshot} sessions={sessions} since={start} />
+        <Sessions snapshot={snapshot} sessions={sessions} since={start} onOpenContext={onOpenContext} />
       </div>
       <p className="usage-foot">
         Spend is counted in fresh-input tokens, each kind at its multiple, because raw counts are mostly cache reads at a
@@ -366,10 +370,12 @@ function Sessions({
   snapshot,
   sessions,
   since,
+  onOpenContext,
 }: {
   snapshot: Snapshot | null;
   sessions: Map<string, SessionUsage | null>;
   since: number;
+  onOpenContext: (session: string) => void;
 }) {
   const rows = (snapshot?.agents ?? [])
     .flatMap((agent) => {
@@ -389,16 +395,20 @@ function Sessions({
       {rows.length === 0 && <p className="usage-none">No Claude session is reporting from a pane.</p>}
       <ul className="usage-rows usage-sessions">
         {rows.map(({ id, agent, session, spend }) => {
-          const name = agentTitle(agent) ?? agent.display_agent ?? agent.agent ?? "agent";
+          const name = sessionName(agent);
           return (
             <li key={id}>
               <span className="usage-row-name" title={name}>
                 {name}
               </span>
               <span className="usage-row-model">{session.model && shortModel(session.model)}</span>
-              <span className={`usage-row-context ctx-${contextLevel(session.context)}`} title={contextTitle(session.context)}>
+              <button
+                className={`usage-row-context context-link ctx-${contextLevel(session.context)}`}
+                title={contextTitle(session.context)}
+                onClick={() => onOpenContext(id)}
+              >
                 ctx {formatTokens(session.context)}
-              </span>
+              </button>
               <span className="usage-row-value">{formatTokens(spend)}</span>
             </li>
           );

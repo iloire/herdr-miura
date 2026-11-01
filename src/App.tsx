@@ -48,6 +48,7 @@ import { PaneResizer } from "./components/PaneResizer";
 import { PanelSwitch } from "./components/PanelSwitch";
 import { TabHeader } from "./components/TabHeader";
 import { UsageDialog } from "./components/UsageDialog";
+import { ContextDialog } from "./components/ContextDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { useListing } from "./files/listing";
@@ -97,6 +98,7 @@ export default function App() {
   // The workspace whose worktrees the details dialog shows.
   const [worktreesOf, setWorktreesOf] = useState<string | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [contextOf, setContextOf] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
   // The files picked in the drawer when the window last closed, reopened once
@@ -577,7 +579,7 @@ export default function App() {
                 onOpenQueue={openQueue}
                 onSplit={markSplit}
               />
-              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} />
+              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} onOpenContext={setContextOf} />
               <div className="stage">
                 <Terminal
                   controller={controller}
@@ -693,8 +695,22 @@ export default function App() {
             now={usage.now}
             snapshot={state.snapshot}
             sessions={sessionUsages}
+            onOpenContext={(session) => {
+              setUsageOpen(false);
+              setContextOf(session);
+            }}
             onClose={() => {
               setUsageOpen(false);
+              controller.focusTerminal();
+            }}
+          />
+        )}
+        {contextOf && (
+          <ContextDialog
+            snapshot={state.snapshot}
+            focus={contextOf}
+            onClose={() => {
+              setContextOf(null);
               controller.focusTerminal();
             }}
           />

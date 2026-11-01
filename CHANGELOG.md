@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 10:55 — See what fills a session's context, and what to cut
+
+Clicking `ctx` in the tab header, or in the usage dialog's open sessions, opens a Context dialog. Each open session gets a
+strip split into what is fixed, what you can cut from its startup load, and its conversation, ticked at the 150k and 300k
+marks. What to Cut First ranks everything loaded at startup by what cutting it would free across the open sessions. A
+session opens into a tree: memory files by `##` section, skills by plugin, MCP servers, and tool calls by the file or
+command, with a button to open a memory file. Totals are measured; the split is estimated from the transcript's characters.
+
 ## 2026-11-01 10:37 — Show when a session started, and mark old ones
 
 The tab header gives each agent's session its start after the model: the time today, the date before, with the exact

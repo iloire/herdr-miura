@@ -5224,3 +5224,254 @@ kbd {
     border-bottom: 1px solid var(--rule);
   }
 }
+
+/* The Context dialog. Its one loud thing is the strip: amber is what you can cut,
+   so the eye lands there, and what cannot be cut stays the color of the rules. */
+.palette.usage-dialog.context-dialog {
+  width: min(1040px, calc(100vw - 32px));
+  height: 84vh;
+}
+
+.context-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  border-top: 1px solid var(--rule);
+}
+
+.context-rail {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 1px solid var(--rule);
+}
+
+.context-pick {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  align-items: baseline;
+  padding: 7px 10px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-pick:hover {
+  background: var(--hover);
+}
+
+.context-pick.selected {
+  background: var(--active);
+}
+
+.context-pick:focus-visible,
+.context-row-name:focus-visible,
+.context-open:focus-visible {
+  outline: 1px solid var(--rule-strong);
+  outline-offset: 1px;
+}
+
+.context-pick-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-pick .context-strip {
+  grid-column: 1 / -1;
+  height: 6px;
+}
+
+.context-strip {
+  position: relative;
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--rule);
+}
+
+/* Ticks at the header's two context sizes. */
+.context-strip i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--ink);
+}
+
+.band-fixed {
+  background: var(--elbow);
+}
+
+.band-yours {
+  background: var(--lantern);
+}
+
+.band-conversation {
+  background: color-mix(in srgb, var(--working) 55%, var(--rule));
+}
+
+.context-detail {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 28px 20px;
+}
+
+.context-detail .usage-section {
+  padding: 14px 0 6px;
+}
+
+.context-key {
+  margin-top: 8px;
+}
+
+.context-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.context-tree .context-tree {
+  margin-left: 16px;
+}
+
+.context-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+}
+
+.context-row-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+}
+
+.context-row-name:not(:disabled) {
+  cursor: pointer;
+}
+
+.context-row-name:not(:disabled):hover .context-row-label {
+  color: var(--bright);
+}
+
+.yours > .context-row .context-row-name {
+  color: var(--text);
+}
+
+.context-fold {
+  flex: none;
+  width: 10px;
+  color: var(--faint);
+}
+
+.context-row-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-row-note,
+.context-row-count {
+  flex: none;
+  color: var(--faint);
+  font-size: calc(12px * var(--ui-scale));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.context-row-track {
+  flex: none;
+  width: 120px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--rule);
+}
+
+.context-row-track > span {
+  display: block;
+  min-width: 1px;
+  height: 100%;
+  background: var(--elbow);
+}
+
+.yours > .context-row .context-row-track > span {
+  background: var(--lantern);
+}
+
+.context-row .usage-row-value {
+  flex: none;
+  min-width: 40px;
+  text-align: right;
+}
+
+.context-open {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: calc(11px * var(--ui-scale));
+  cursor: pointer;
+}
+
+.context-open:hover {
+  color: var(--bright);
+}
+
+.context-hint {
+  max-width: 60ch;
+  margin: 0 0 6px 16px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.context-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.context-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 700px) {
+  .context-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 2fr) minmax(0, 5fr);
+  }
+
+  .context-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .context-row-track {
+    width: 56px;
+  }
+}

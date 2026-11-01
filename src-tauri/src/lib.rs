@@ -21,6 +21,7 @@ mod outcome;
 mod process;
 mod prompts;
 mod queue;
+mod session_context;
 mod session_usage;
 mod settings;
 mod ssh_hosts;
@@ -93,6 +94,7 @@ pub fn run() {
             commands::resize,
             commands::send_input,
             commands::send_popup_input,
+            commands::session_context,
             commands::session_usage,
             commands::usage_history,
             commands::settings_load,

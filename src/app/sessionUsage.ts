@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Agent } from "../protocol";
 import type { StatusSince } from "./agentAge";
-import { agentToken } from "./attention";
+import { agentTitle, agentToken } from "./attention";
 import { type ClaudeUsage, resetTime } from "./claudeUsage";
 import { formatMinutes, formatMoment, formatSpan } from "./time";
 
@@ -54,6 +54,11 @@ const PLAN_WINDOW_S = 5 * 3600;
 /// The agent's Claude Code session id, or `null` before its first hook has run.
 export function sessionOf(agent: Agent): string | null {
   return agentToken(agent, "claude_session");
+}
+
+/// What a session goes by in a list of them.
+export function sessionName(agent: Agent): string {
+  return agentTitle(agent) ?? agent.display_agent ?? agent.agent ?? "agent";
 }
 
 /// Each session's use, by id; `null` for one whose transcript could not be read.
@@ -119,7 +124,7 @@ export function contextLevel(context: number): ContextLevel {
 
 /// The context figure's tooltip, saying why it is colored when it is.
 export function contextTitle(context: number): string {
-  const what = "Context: what the session's next turn starts from, and pays for";
+  const what = "Context: what the session's next turn starts from, and pays for. Click to see what fills it";
   const level = contextLevel(context);
   if (level === "over") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.over)}: worth a /compact or a fresh session`;
   if (level === "high") return `${what}\nOver ${formatTokens(CONTEXT_LIMITS.high)}: getting large`;

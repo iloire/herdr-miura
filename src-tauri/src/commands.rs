@@ -9,6 +9,7 @@ use crate::{
     files::{self, Contents, Listing},
     folder::{self, Opener},
     land, listening_ports, prompts, queue,
+    session_context::{self, SessionContext},
     session_usage::{self, ProjectUsage, SessionUsage},
     settings,
     ssh_hosts,
@@ -383,6 +384,29 @@ pub async fn session_usage(
             return vec![None; sessions.len()];
         };
         app.state::<session_usage::Cache>().read(&projects, &sessions, unix_now())
+    });
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// What fills each Claude Code session's context, by session id; `None` as for
+/// [`session_usage`]. Reads the whole of each transcript, so the Context dialog
+/// asks while it is open and not on the header's poll.
+#[tauri::command]
+pub async fn session_context(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    sessions: Vec<String>,
+) -> Result<Vec<Option<SessionContext>>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let Some(projects) = claude_projects() else {
+            return vec![None; sessions.len()];
+        };
+        let cache = app.state::<session_usage::Cache>();
+        sessions
+            .iter()
+            .map(|id| session_context::read(&cache.transcript(&projects, id)?))
+            .collect()
     });
     Ok(read.await.map_err(changes::Error::Worker)?)
 }
