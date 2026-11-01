@@ -2811,34 +2811,40 @@ kbd {
   font-size: calc(10px * var(--ui-scale));
 }
 
-/* File view: the diff view's frame, with a gutter of line numbers beside
-   the text, or an image on a checkerboard so transparency shows. */
+/* File view: the diff view's frame around an editor, which scrolls itself
+   (components/CodeEditor.tsx holds its look), or an image on a checkerboard so
+   transparency shows. */
 
-.file-text {
-  display: flex;
-  font: calc(12px * var(--ui-scale))/1.55 var(--mono);
-  min-width: max-content;
+.diff-body.editing {
+  overflow: hidden;
+  padding-bottom: 0;
 }
 
-.file-text pre {
-  margin: 0;
-  padding: 8px 0;
-  font: inherit;
+.file-editor {
+  height: 100%;
 }
 
-.file-numbers {
-  position: sticky;
-  left: 0;
-  min-width: 52px;
-  padding-right: 12px !important;
-  text-align: right;
-  color: var(--faint);
-  background: var(--ink);
-  user-select: none;
+.file-note {
+  flex: none;
+  color: var(--muted);
+  font: calc(12px * var(--ui-scale)) var(--sans);
 }
 
-.file-code {
-  padding: 8px 16px 8px 4px !important;
+.file-note.error {
+  color: var(--blocked);
+}
+
+.file-save {
+  padding: 2px 10px;
+  border-radius: 5px;
+  background: var(--lantern);
+  color: var(--ink);
+  font: calc(12px * var(--ui-scale)) var(--sans);
+}
+
+.file-save:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: 1px;
 }
 
 .file-image {

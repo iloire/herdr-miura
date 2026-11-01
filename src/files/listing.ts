@@ -24,6 +24,12 @@ export function readFile(root: string, path: string): Promise<FileContents> {
   return invoke<FileContents>("read_file", { root, path });
 }
 
+/// Saves `text` over the file, unless it no longer holds `base`. A `null` base
+/// overwrites. Answers whether it wrote.
+export function writeFile(root: string, path: string, text: string, base: string | null): Promise<boolean> {
+  return invoke<boolean>("write_file", { root, path, text, base });
+}
+
 /// The files of the checkout `directory` sits in while `open`: read when the
 /// panel opens or the directory changes, and again when the window comes back,
 /// since files usually change elsewhere.

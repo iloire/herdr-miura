@@ -60,7 +60,8 @@ make target.
 ## Browse files and reuse prompts
 
 The Files panel (⌘⇧E) walks the whole checkout with a filter, and opens any file's text or image, or a Markdown file as
-a rendered page.
+a rendered page. Text and code files can be edited right there: ⌘S saves, and a file an agent changed in the meantime is
+never overwritten without asking.
 
 The prompt library (⌘⇧L) opens Claude Code's own command files, from `.claude/commands/` and
 `~/.claude/commands/`. Edit one, then send it to the focused agent, to a fresh Claude in a new tab, or to the queue

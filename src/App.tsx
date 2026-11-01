@@ -139,7 +139,7 @@ export default function App() {
       // that would hide what is in it or break an IME composition. A rename never
       // gets here: RenameField stops its keys.
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      if (target instanceof HTMLElement && (target.matches("input, textarea") || target.isContentEditable)) {
         const keepsArrows = event.isComposing || target.closest(KEEPS_ARROWS) !== null;
         if (!fieldPassesChord(event, keepsArrows)) return;
       }
@@ -613,7 +613,7 @@ export default function App() {
                   onClose={closeDiff}
                 />
               )}
-              {shownTreeFile && <FileView root={listingRoot} path={filePick} onOpen={setFilePick} onClose={closeFile} />}
+              {shownTreeFile && <FileView root={listingRoot} path={filePick} onOpen={setFilePick} onClose={closeFile} onSaved={checkoutWritten} />}
             </div>
             <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} />
           </main>

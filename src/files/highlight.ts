@@ -1,11 +1,10 @@
-// Syntax highlighting for read-only views: which language a file is, and code
+// Syntax highlighting: which language a file is, and code
 // as colored tokens. It runs in a worker (files/offThread.ts), so Shiki's core
 // and each grammar load on first use and none of it reaches the main bundle,
 // and it uses the JS regex engine, so no WASM. Token colors are `var(--code-…)`,
 // which the theme sets (themes/chrome.ts): switching theme repaints without
 // tokenizing again. Every "no" here is `null` and the caller keeps its plain
-// text. Code is untrusted: callers `clean` it and draw tokens as text, never
-// as HTML.
+// text. Code is untrusted: callers draw tokens as text, never as HTML.
 
 import type { GrammarState, HighlighterCore, LanguageInput } from "@shikijs/core";
 

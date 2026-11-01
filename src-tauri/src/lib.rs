@@ -90,6 +90,7 @@ pub fn run() {
             commands::queue_prompt,
             commands::queue_save,
             commands::read_file,
+            commands::write_file,
             commands::request,
             commands::resize,
             commands::send_input,

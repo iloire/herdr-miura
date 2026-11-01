@@ -458,6 +458,23 @@ pub async fn read_file(
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
+/// Saves the file view's text over the file, unless it no longer holds `base`.
+/// Answers whether it wrote; no `base` overwrites.
+#[tauri::command]
+pub async fn write_file(
+    connection: State<'_, Connection>,
+    root: String,
+    path: String,
+    text: String,
+    base: Option<String>,
+) -> Result<bool> {
+    connection.ensure_local()?;
+    let write = tauri::async_runtime::spawn_blocking(move || {
+        files::write(&root, &path, &text, base.as_deref())
+    });
+    Ok(write.await.map_err(changes::Error::Worker)??)
+}
+
 /// Moves a tab's panes into a new tab of another workspace through the
 /// `herdr` CLI, on the blocking pool since it waits on child processes.
 #[tauri::command]

@@ -1,6 +1,7 @@
 //! The Files panel's reads: every file a checkout holds, as Git lists them
 //! (tracked, and untracked ones not ignored), and one file's contents for
-//! the file view: its text, or an image's bytes. Nothing here writes.
+//! the file view: its text, or an image's bytes. `write` saves an edited
+//! text file back, unless something else changed it first.
 
 use crate::git;
 use base64::Engine;
@@ -35,6 +36,8 @@ pub enum Error {
     NotFile(String),
     #[error("could not read the file")]
     Read(#[source] std::io::Error),
+    #[error("could not write the file")]
+    Write(#[source] std::io::Error),
 }
 
 #[derive(Debug, Serialize)]
@@ -181,6 +184,33 @@ pub fn read(root: &str, path: &str) -> Result<Contents, Error> {
     })
 }
 
+/// Puts `text` in the existing file at `path`, unless it no longer holds
+/// `base`, which agents working in the same checkout make likely. No `base`
+/// overwrites. Answers whether it wrote. It goes through a file beside the real
+/// one and a rename, so a full disk leaves the old contents whole.
+pub fn write(root: &str, path: &str, text: &str, base: Option<&str>) -> Result<bool, Error> {
+    let full = inside(root, path)?;
+    let metadata = fs::metadata(&full).map_err(Error::Read)?;
+    if !metadata.is_file() {
+        return Err(Error::NotFile(path.into()));
+    }
+    if let Some(base) = base
+        && fs::read(&full).map_err(Error::Read)? != base.as_bytes()
+    {
+        return Ok(false);
+    }
+    let mut temp = full.clone().into_os_string();
+    temp.push(".herdr-save");
+    let temp = PathBuf::from(temp);
+    let written = fs::write(&temp, text)
+        .and_then(|()| fs::set_permissions(&temp, metadata.permissions()))
+        .and_then(|()| fs::rename(&temp, &full));
+    if written.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    written.map(|()| true).map_err(Error::Write)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -272,6 +302,72 @@ mod tests {
             );
         }
         assert!(matches!(read(&root, "src"), Err(Error::NotFile(_))));
+    }
+
+    #[test]
+    fn writes_over_what_it_was_told_is_there() {
+        let dir = repo();
+        let root = root(&dir);
+        assert!(write(&root, "src/a.rs", "fn b() {}\n", Some("fn a() {}\n")).unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("src/a.rs")).unwrap(),
+            "fn b() {}\n"
+        );
+        assert_eq!(fs::read_dir(dir.path().join("src")).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn leaves_a_file_that_changed_since_it_was_read() {
+        let dir = repo();
+        let root = root(&dir);
+        assert!(!write(&root, "src/a.rs", "mine\n", Some("stale\n")).unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("src/a.rs")).unwrap(),
+            "fn a() {}\n"
+        );
+        assert!(write(&root, "src/a.rs", "mine\n", None).unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("src/a.rs")).unwrap(),
+            "mine\n"
+        );
+    }
+
+    #[test]
+    fn writes_only_files_inside_the_checkout() {
+        let dir = repo();
+        let root = root(&dir);
+        assert!(matches!(
+            write(&root, "../x", "", None),
+            Err(Error::OutsideCheckout(_))
+        ));
+        assert!(matches!(
+            write(&root, "src", "", None),
+            Err(Error::NotFile(_))
+        ));
+        assert!(matches!(
+            write(&root, "missing.txt", "", None),
+            Err(Error::Read(_))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saving_keeps_a_file_executable_and_a_symlink_a_link() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = repo();
+        let root = root(&dir);
+        let script = dir.path().join("run.sh");
+        fs::write(&script, "old\n").unwrap();
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+        std::os::unix::fs::symlink("run.sh", dir.path().join("link")).unwrap();
+        assert!(write(&root, "link", "new\n", Some("old\n")).unwrap());
+        assert_eq!(fs::read_to_string(&script).unwrap(), "new\n");
+        let mode = fs::metadata(&script).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o755);
+        assert!(fs::symlink_metadata(dir.path().join("link"))
+            .unwrap()
+            .file_type()
+            .is_symlink());
     }
 
     #[cfg(unix)]

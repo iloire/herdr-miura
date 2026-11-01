@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 22:34 — Edit files in the file view
+
+Text and code files opened from the Files panel can now be edited in place, with undo and syntax colors; a Markdown file
+edits in its Source view. ⌘S saves. If an agent changed the file since it was read, the save stops and offers Overwrite or
+Revert. Unsaved edits stay as a draft when you close the file or the app restarts, and come back when it opens again.
+
 ## 2026-11-01 19:57 — The queue's prompt box stops taking the keyboard
 
 With the Queue panel open, typing could jump from the terminal into its prompt box. A `cd` in a workspace's lone shell

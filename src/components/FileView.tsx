@@ -1,58 +1,26 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { clean } from "../changes/diff";
-import type { Token } from "../files/highlight";
-import { readFile, type FileContents } from "../files/listing";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lineEnding, loadFileDraft, saveFileDraft, type FileDraft } from "../files/edits";
+import { readFile, writeFile, type FileContents } from "../files/listing";
 import { isMarkdown, renderMarkdown, resolveLink } from "../files/markdown";
-import { highlightOffThread } from "../files/offThread";
-import { TokenSpans } from "./TokenSpans";
+
+/// CodeMirror, a chunk of its own that loads with the first text file.
+const CodeEditor = lazy(() => import("./CodeEditor"));
+
+/// A pause in typing, before the edits are kept in storage.
+const KEEP_DRAFT_MS = 400;
 
 type Loaded = { phase: "loading" } | { phase: "ready"; contents: FileContents } | { phase: "failed"; error: string };
+
+/// A text file open for editing; `opened` counts its reads, to start the editor over.
+type Editing = FileDraft & { file: string; opened: number };
+
+type SaveProblem = { kind: "changed" } | { kind: "failed"; error: string };
 
 function size(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
-}
-
-/// A file's text with line numbers. File content is untrusted, so each line
-/// goes through the diff view's `clean`, and tokens are drawn as text. The plain
-/// text shows first; tokens replace it inside the same `<pre>`, holding the same
-/// characters, so nothing moves.
-function TextBody({ text, path }: { text: string; path: string }) {
-  const lines = useMemo(() => text.replace(/\n$/, "").split("\n").map(clean), [text]);
-  const numbers = useMemo(() => lines.map((_, i) => i + 1).join("\n"), [lines]);
-  const code = useMemo(() => lines.join("\n"), [lines]);
-  const [tokens, setTokens] = useState<Token[][] | null>(null);
-
-  useEffect(() => {
-    const stale = new AbortController();
-    setTokens(null);
-    void highlightOffThread(code, path, stale.signal).then((result) => {
-      if (!stale.signal.aborted) setTokens(result);
-    });
-    return () => stale.abort();
-  }, [code, path]);
-
-  const colored = useMemo(
-    () =>
-      tokens?.map((line, i) => (
-        <Fragment key={i}>
-          {i > 0 && "\n"}
-          <TokenSpans tokens={line} />
-        </Fragment>
-      )),
-    [tokens],
-  );
-
-  return (
-    <div className="file-text">
-      <pre className="file-numbers" aria-hidden="true">
-        {numbers}
-      </pre>
-      <pre className="file-code">{colored ?? code}</pre>
-    </div>
-  );
 }
 
 /// A Markdown file drawn as a page. A link to the web opens in the browser,
@@ -110,52 +78,148 @@ function ImageBody({ src, alt }: { src: string; alt: string }) {
 }
 
 /// One file of the checkout over the terminal area, as the diff view sits:
-/// text with line numbers, a Markdown file as a page (its source a click
-/// away), or an image. Esc closes.
+/// text to edit, a Markdown file as a page (its source a click away), or an
+/// image. ⌘S saves, and refuses a file that changed since it was read. Esc
+/// closes; edits not saved stay as a draft for the next time the file opens.
 export function FileView({
   root,
   path,
   onOpen,
   onClose,
+  onSaved,
 }: {
   root: string;
   path: string;
   onOpen: (path: string) => void;
   onClose: () => void;
+  onSaved: () => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded>({ phase: "loading" });
+  const [held, setEditing] = useState<Editing | null>(null);
+  const [problem, setProblem] = useState<SaveProblem | null>(null);
   const [source, setSource] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const file = `${root}/${path}`;
+  const shownFile = useRef(file);
+  shownFile.current = file;
+  const saving = useRef(false);
+  // Until the next file is read, the last one's text is not this file's.
+  const editing = held?.file === file ? held : null;
+
+  const read = (draft: FileDraft | null, isCurrent: () => boolean) => {
+    setProblem(null);
+    readFile(root, path)
+      .then((contents) => {
+        if (!isCurrent()) return;
+        setLoaded({ phase: "ready", contents });
+        if (contents.type !== "text") return setEditing(null);
+        const kept = draft && draft.text !== contents.text ? draft : { base: contents.text, text: contents.text };
+        setEditing((last) => ({ ...kept, file, opened: (last?.opened ?? 0) + 1 }));
+        // An empty file has no page to show.
+        if (!contents.text) setSource(true);
+      })
+      .catch((error) => {
+        if (!isCurrent()) return;
+        setLoaded({ phase: "failed", error: String(error) });
+        setEditing(null);
+      });
+  };
 
   useEffect(() => {
     let current = true;
     setLoaded({ phase: "loading" });
-    readFile(root, path)
-      .then((contents) => current && setLoaded({ phase: "ready", contents }))
-      .catch((error) => current && setLoaded({ phase: "failed", error: String(error) }));
+    read(loadFileDraft(root, path), () => current);
     rootRef.current?.focus();
     return () => {
       current = false;
     };
   }, [root, path]);
 
+  // Kept shortly after typing stops, and at once on leaving the file.
+  const dirty = editing !== null && editing.text !== editing.base;
+  const keep = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!editing) return;
+    let pending = true;
+    const write = () => {
+      if (pending) saveFileDraft(root, path, dirty ? { base: editing.base, text: editing.text } : null);
+      pending = false;
+    };
+    keep.current = write;
+    const timer = setTimeout(write, KEEP_DRAFT_MS);
+    return () => clearTimeout(timer);
+  }, [editing, dirty, root, path]);
+  useEffect(() => () => keep.current(), [root, path]);
+
+  const save = async (overwrite: boolean) => {
+    if (!editing || !dirty || saving.current) return;
+    const { text, base } = editing;
+    saving.current = true;
+    try {
+      const written = await writeFile(root, path, text, overwrite ? null : base);
+      if (shownFile.current !== file) return;
+      setProblem(written ? null : { kind: "changed" });
+      if (!written) return;
+      // What was typed during the save stays an edit.
+      setEditing((now) => now && { ...now, base: text });
+      onSaved();
+    } catch (error) {
+      if (shownFile.current === file) setProblem({ kind: "failed", error: String(error) });
+    } finally {
+      saving.current = false;
+    }
+  };
+
+  const revert = () => {
+    saveFileDraft(root, path, null);
+    read(null, () => shownFile.current === file);
+  };
+
   const contents = loaded.phase === "ready" ? loaded.contents : null;
-  const markdown = isMarkdown(path) && contents?.type === "text" && contents.text !== "";
+  const markdown = isMarkdown(path) && editing !== null;
+  const preview = markdown && !source;
+  const base = editing?.base;
+  const lineBreak = useMemo(() => (base === undefined ? null : lineEnding(base)), [base]);
   return (
     <div
       className="diff-view file-view"
       ref={rootRef}
       tabIndex={-1}
       onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        onClose();
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        } else if (event.key === "s" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+          event.preventDefault();
+          void save(false);
+        }
       }}
     >
       <header className="diff-head">
-        <span className="diff-path" title={`${root}/${path}`}>
+        <span className="diff-path" title={file}>
           {path}
         </span>
+        {editing && lineBreak === null && <span className="file-note">Read-only: mixed line endings</span>}
+        {dirty && (
+          <>
+            {problem?.kind === "changed" && <span className="file-note error">Changed on disk since it was read</span>}
+            {problem?.kind === "failed" && (
+              <span className="file-note error" title={problem.error}>
+                Could not save
+              </span>
+            )}
+            <button className="diff-discard" title="Drop your edits and read the file again" onClick={revert}>
+              Revert
+            </button>
+            <button
+              className="file-save"
+              title={problem?.kind === "changed" ? "Replace what is on disk with your text" : "Save (⌘S)"}
+              onClick={() => void save(problem?.kind === "changed")}
+            >
+              {problem?.kind === "changed" ? "Overwrite" : "Save"}
+            </button>
+          </>
+        )}
         {markdown && (
           <div className="segmented" role="radiogroup" aria-label="Show the file as">
             <button role="radio" aria-checked={!source} onClick={() => setSource(false)}>
@@ -170,17 +234,23 @@ export function FileView({
           ×
         </button>
       </header>
-      <div className="diff-body">
+      <div className={`diff-body ${editing && !preview ? "editing" : ""}`}>
         {loaded.phase === "loading" && <p className="empty">Reading the file…</p>}
         {loaded.phase === "failed" && <p className="empty error">Could not open the file: {loaded.error}</p>}
-        {contents?.type === "text" &&
-          (!contents.text ? (
-            <p className="empty">The file is empty.</p>
-          ) : markdown && !source ? (
-            <MarkdownBody root={root} path={path} text={contents.text} onOpen={onOpen} />
-          ) : (
-            <TextBody text={contents.text} path={path} />
-          ))}
+        {editing && (
+          <Suspense>
+            {/* Stays mounted under the preview, for its undo history. */}
+            <CodeEditor
+              key={`${file}#${editing.opened}`}
+              text={editing.text}
+              path={path}
+              lineBreak={lineBreak}
+              active={!preview}
+              onChange={(text) => setEditing((now) => now && { ...now, text })}
+            />
+          </Suspense>
+        )}
+        {editing && preview && <MarkdownBody root={root} path={path} text={editing.text} onOpen={onOpen} />}
         {contents?.type === "image" && (
           <ImageBody src={`data:${contents.mime};base64,${contents.data}`} alt={path.split("/").pop() ?? path} />
         )}
