@@ -200,7 +200,7 @@ pub fn set_in(path: &Path, key: &str, value: &Value) -> Result<(), Error> {
 }
 
 /// Sets `entry` of a table whose keys are the user's rather than setting names,
-/// as `workspace_colors` is keyed by folder: any one line of text, which TOML
+/// as `workspace_colors` is keyed by folder and name: any one line of text, which TOML
 /// quotes. `table` is a plain top-level key. Otherwise as `set_in`.
 pub fn set_entry_in(path: &Path, table: &str, entry: &str, value: &Value) -> Result<(), Error> {
     let parts = key_parts(table)?;

@@ -241,8 +241,10 @@ export default function App() {
     );
     return workspaceSlots(rows, rootOf, colors);
   }, [state.snapshot, rootOf, worktrees, colors]);
-  const chooseColor = (folder: string, slot: HueSlot | null) =>
-    controller.act(saveWorkspaceColor(folder, slot).then(settings.reload));
+  const chooseColor = (key: string, slot: HueSlot | null) =>
+    controller.act(saveWorkspaceColor(key, slot).then(settings.reload));
+  const moveColor = (from: string, to: string, slot: HueSlot) =>
+    controller.act(saveWorkspaceColor(to, slot).then(() => saveWorkspaceColor(from, null)).then(settings.reload));
 
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf);
@@ -543,7 +545,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} cards={state.settings.workspaceCards} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} cards={state.settings.workspaceCards} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}

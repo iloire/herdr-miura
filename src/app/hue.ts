@@ -44,8 +44,13 @@ export function slotColor(slot: HueSlot): string {
   return slotCss(HUE_SLOTS.indexOf(slot) + 1);
 }
 
-/// Every workspace with a chosen color, by workspace id: its own folder's, or
-/// for a worktree its main checkout's, which alone can choose one.
+/// A chosen color's key in `workspace_colors`. Folder and name together, as
+/// workspaces on one folder each have their own color and a workspace's id
+/// does not outlast the daemon.
+export const colorKey = (folder: string, label: string) => `${folder}#${label}`;
+
+/// Every workspace with a chosen color, by workspace id: its own, or for a
+/// worktree its main checkout's, which alone can choose one.
 export function workspaceSlots(
   rows: readonly Row[],
   rootOf: (workspace: Workspace) => string | null,
@@ -53,8 +58,9 @@ export function workspaceSlots(
 ): Map<string, HueSlot> {
   const slots = new Map<string, HueSlot>();
   for (const { workspace, parent } of rows) {
-    const root = rootOf(parent ?? workspace);
-    const slot = root === null ? undefined : colors[root];
+    const owner = parent ?? workspace;
+    const root = rootOf(owner);
+    const slot = root === null ? undefined : colors[colorKey(root, owner.label)];
     if (slot) slots.set(workspace.workspace_id, slot);
   }
   return slots;

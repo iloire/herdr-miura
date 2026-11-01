@@ -130,12 +130,12 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   else settings.newTabCommand = command || null;
   const colors = get("workspace_colors");
   if (isObject(colors)) {
-    for (const [folder, slot] of Object.entries(colors)) {
-      if (isHueSlot(slot)) settings.workspaceColors[folder] = slot;
-      else warnings.push(`\`workspace_colors\` for ${folder} should be one of ${HUE_SLOTS.join(", ")}; using its automatic color.`);
+    for (const [key, slot] of Object.entries(colors)) {
+      if (isHueSlot(slot)) settings.workspaceColors[key] = slot;
+      else warnings.push(`\`workspace_colors\` for ${key} should be one of ${HUE_SLOTS.join(", ")}; using its automatic color.`);
     }
   } else if (colors !== undefined) {
-    warnings.push("`workspace_colors` should be a [workspace_colors] table of folders; every workspace keeps its automatic color.");
+    warnings.push("`workspace_colors` should be a [workspace_colors] table of workspaces; every workspace keeps its automatic color.");
   }
   const cards = settings.workspaceCards;
   cards.gitStatus = flag("workspace_cards.git_status", cards.gitStatus);
@@ -171,8 +171,8 @@ export function saveSetting(key: string, value: string | number | boolean | null
 }
 
 /// Chooses a workspace's color, by its folder; `null` goes back to automatic.
-export function saveWorkspaceColor(folder: string, slot: HueSlot | null): Promise<void> {
-  return invoke("settings_set_entry", { table: "workspace_colors", entry: folder, value: slot });
+export function saveWorkspaceColor(key: string, slot: HueSlot | null): Promise<void> {
+  return invoke("settings_set_entry", { table: "workspace_colors", entry: key, value: slot });
 }
 
 /// The terminal's font list: the chosen face, then the usual monospace fallbacks.

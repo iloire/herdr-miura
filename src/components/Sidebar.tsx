@@ -5,7 +5,7 @@ import { agentRefusal, type Land, type LandStore, landing } from "../changes/lan
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, cardAgents, cardWantsOpen, loopTags, unseenDone, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
-import { HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
+import { colorKey, HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import type { Settings } from "../app/settings";
@@ -72,6 +72,7 @@ export function Sidebar({
   onMarkSeen,
   slots,
   onChooseColor,
+  onMoveColor,
   cards,
 }: {
   controller: Controller;
@@ -102,7 +103,9 @@ export function Sidebar({
   /// Each workspace's chosen color, by workspace id; absent when automatic.
   slots: ReadonlyMap<string, HueSlot>;
   /// Chooses the color of the workspace on this folder; `null` is automatic.
-  onChooseColor: (folder: string, slot: HueSlot | null) => void;
+  onChooseColor: (key: string, slot: HueSlot | null) => void;
+  /// Keeps a chosen color with a workspace whose name changed.
+  onMoveColor: (from: string, to: string, slot: HueSlot) => void;
   /// What every card shows.
   cards: Settings["workspaceCards"];
 }) {
@@ -282,7 +285,7 @@ export function Sidebar({
                   // A worktree wears its main checkout's color, and only a local
                   // workspace has a root to keep the choice under.
                   const root = rootOf(workspace);
-                  const colors = root !== null && !parent ? [colorSwatches(slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(root, slot))] : [];
+                  const colors = root !== null && !parent ? [colorSwatches(slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(colorKey(root, workspace.label), slot))] : [];
                   const items = [[rename, markSeen, ...colors]];
                   if (path && folder) {
                     const queue: MenuItem = {
@@ -306,8 +309,12 @@ export function Sidebar({
                         onDone={(label) => {
                           setRenaming(null);
                           controller.focusTerminal();
-                          if (label !== null && label !== workspace.label)
+                          if (label !== null && label !== workspace.label) {
                             controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
+                            const root = rootOf(workspace);
+                            const slot = slots.get(workspace.workspace_id);
+                            if (root !== null && slot && !parent) onMoveColor(colorKey(root, workspace.label), colorKey(root, label), slot);
+                          }
                         }}
                       />
                       {headEnd}

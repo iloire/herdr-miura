@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HUE_SLOTS, hue, hueColor, slotColor, workspaceHue, workspaceSlots } from "../hue";
+import { colorKey, HUE_SLOTS, hue, hueColor, slotColor, workspaceHue, workspaceSlots } from "../hue";
 import { activeTheme } from "../../themes/active";
 import { css } from "../../terminal/theme";
 import { legible } from "../../themes/chrome";
@@ -39,14 +39,22 @@ describe("a workspace's color", () => {
   });
 
   it("gives a chosen slot only to the workspace on that folder", () => {
-    const slots = workspaceSlots(rows, rootOf, { "/code/other": "blue" });
+    const slots = workspaceSlots(rows, rootOf, { [colorKey("/code/other", "other")]: "blue" });
     expect([...slots]).toEqual([["other", "blue"]]);
   });
 
+  it("keeps workspaces on one folder apart by their names", () => {
+    const sharing = [workspace("notes"), workspace("loops")].map((w) => ({ workspace: w, parent: null }));
+    const slots = workspaceSlots(sharing, () => "/notes", { [colorKey("/notes", "loops")]: "magenta" });
+    expect([...slots]).toEqual([["loops", "magenta"]]);
+  });
+
   it("gives a worktree its main checkout's slot, over one set on its own folder", () => {
-    const slots = workspaceSlots(rows, rootOf, { "/code/app": "green", "/code/app-tree": "red" });
+    const mainKey = colorKey("/code/app", "main");
+    const treeKey = colorKey("/code/app-tree", "tree");
+    const slots = workspaceSlots(rows, rootOf, { [mainKey]: "green", [treeKey]: "red" });
     expect(slots.get("tree")).toBe("green");
-    expect(workspaceSlots(rows, rootOf, { "/code/app-tree": "red" }).has("tree")).toBe(false);
+    expect(workspaceSlots(rows, rootOf, { [treeKey]: "red" }).has("tree")).toBe(false);
   });
 
   it("uses the chosen slot, else the automatic hue of the name", () => {

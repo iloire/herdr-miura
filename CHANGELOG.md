@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 12:40 — A workspace's color is its own
+
+Choosing a color for a workspace no longer colors every other workspace on the same folder: `workspace_colors` is now
+keyed by folder and name, `"<folder>#<name>"`, and a sidebar rename takes the color along. Entries keyed by the folder
+alone no longer apply, so a color chosen before this is picked again.
+
 ## 2026-11-01 12:30 — Menus open their submenus on hover
 
 A right-click menu's submenus (Folder, Move to Workspace, Sort Tabs) now fly out beside their row when you hover it, as

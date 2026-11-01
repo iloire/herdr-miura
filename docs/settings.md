@@ -27,7 +27,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `ui.font_size` | number, 10 to 18 | `13` | The chrome's text size (sidebar, tabs, panels, dialogs). Every font size in the stylesheet scales by `size / 13`. |
 | `tabs.wrap` | boolean | `true` | Tabs that do not fit wrap onto more rows. `false` keeps one row, which scrolls sideways with no scrollbar and keeps the open tab and the + in view. |
 | `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's +, a tab menu's New Tab and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell, and + turns into an outlined terminal icon while ⌥ is held. |
-| `workspace_colors` | table of folder to color | none | A workspace's color, chosen in its right-click menu: each key is a workspace's folder, as a full path (a key with `/` or `.` needs quotes in TOML), and each value is `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`. See below. |
+| `workspace_colors` | table of folder to color | none | A workspace's color, chosen in its right-click menu: each key is a workspace's folder as a full path, then `#` and its name (quoted in TOML), and each value is `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`. See below. |
 | `workspace_cards.git_status` | boolean | `true` | Show the Git counts on every card: ↑ to push, ↓ to pull, ± changed files. |
 | `workspace_cards.agent_status` | boolean | `true` | Show the agent status marks and tally on the head of every card. |
 | `workspace_cards.details` | `"manual"`, `"auto"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
@@ -52,7 +52,7 @@ wrap = false
 command = "claude"
 
 [workspace_colors]
-"/Users/me/code/notes" = "cyan"
+"/Users/me/code/notes#notes" = "cyan"
 
 [workspace_cards]
 git_status = false
@@ -97,8 +97,9 @@ removes the entry. The file stores the color's name, not a value, so it follows 
 - A chosen color replaces the automatic hue everywhere the workspace's hue shows: the tab strip, the status bar, the
   Queue panel and the Worktrees and Team dialogs. On the card it colors the rail with a faint tint; automatic cards
   stay neutral. The current card's highlight and the gold of a card that needs you replace it while they show.
-- The key is the folder the workspace's card reads, so a choice survives a rename, and two workspaces on one folder
-  share it. A worktree open under its main checkout takes that checkout's color and offers no swatches. A workspace
+- The key is the folder the workspace's card reads and its name, so workspaces on one folder each have their own, and
+  the choice outlasts a daemon restart. A rename in the sidebar takes the color along; one from the `herdr` CLI leaves
+  the workspace automatic. A worktree open under its main checkout takes that checkout's color and offers no swatches. A workspace
   with no local folder, such as one on a remote host, has none either.
 - A value that is not one of the six is a warning, and that workspace keeps its automatic color.
 
