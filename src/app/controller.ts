@@ -94,7 +94,7 @@ export interface State {
 /// Shortcuts beyond the catalog's defaults, the Option-arrows herdr-gpui
 /// answers through Herdr's `[keys]`: Up and Down step through workspaces,
 /// Left and Right through the focused workspace's tabs.
-const MOVES = new Set(["tab.focus", "workspace.focus", "pane.focus"]);
+const MOVES = new Set(["tab.focus", "workspace.create", "workspace.focus", "pane.focus"]);
 
 const EXTRA_SHORTCUTS: Record<string, string[]> = {
   next_tab: ["alt-right"],

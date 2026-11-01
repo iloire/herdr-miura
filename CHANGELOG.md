@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 22:47 — A new workspace takes the keyboard
+
+Creating a workspace now puts focus in its terminal, as a new tab does, so you can start typing straight away. A file or
+diff open over the terminal closes, as it does when moving to another workspace.
+
 ## 2026-11-01 22:34 — Edit files in the file view
 
 Text and code files opened from the Files panel can now be edited in place, with undo and syntax colors; a Markdown file

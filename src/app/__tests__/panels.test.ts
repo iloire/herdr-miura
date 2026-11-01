@@ -68,7 +68,7 @@ describe("the panel commands", () => {
     expect(controller.composerAsked).toBe(false);
   });
 
-  it.each(["tab.focus", "workspace.focus", "pane.focus"])("%s closes the view over the terminal and hands it the focus", (method) => {
+  it.each(["tab.focus", "workspace.create", "workspace.focus", "pane.focus"])("%s closes the view over the terminal and hands it the focus", (method) => {
     const closeViews = vi.fn<() => void>();
     controller.closeViews = closeViews;
 

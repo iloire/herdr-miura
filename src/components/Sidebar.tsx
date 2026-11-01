@@ -188,6 +188,9 @@ export function Sidebar({
           title="New workspace"
           aria-label="New workspace"
           disabled={!snapshot}
+          // Typing goes to the workspace this opens: the press must not take
+          // focus from the terminal.
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => controller.run("new_workspace")}
         >
           +
