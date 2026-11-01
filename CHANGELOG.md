@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 01:36 — Make Clear Needs You work
+
+The row did nothing but show a `Not sent` notice: Herdr does not offer `pane.report_metadata` to GUI clients, so the app
+dropped the request. It now goes through the `herdr` CLI, as the tab move does, on this machine's daemon only.
+
 ## 2026-11-01 01:23 — Clear a tab's needs-you mark by hand
 
 A tab whose agent finished with `herdr-outcome you` stayed gold until the next prompt to that session, even when the note

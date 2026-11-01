@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentCountsByTab, clearOutcomeParams, loopTags, outcomeNeedsYou, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
+import { agentCountsByTab, loopTags, outcomeNeedsYou, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { moveChoices, splitName, tabMove } from "../app/moveTab";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
@@ -153,7 +153,7 @@ export function TabBar({
               {
                 label: "Clear Needs You",
                 icon: <CheckIcon />,
-                onSelect: () => needYou.forEach((agent) => controller.request("pane.report_metadata", clearOutcomeParams(agent))),
+                onSelect: () => controller.act(invoke("clear_outcome", { panes: needYou.map((agent) => agent.pane_id) })),
               },
             ]
           : []),

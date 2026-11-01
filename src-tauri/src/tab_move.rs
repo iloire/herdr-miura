@@ -145,6 +145,8 @@ pub(crate) fn run(cli: &Path, args: &[&str]) -> Result<serde_json::Value, Error>
             result: Some(result),
             ..
         }) if output.status.success() => Ok(result),
+        // Some commands answer success with no output at all.
+        None if output.status.success() && text.trim().is_empty() => Ok(serde_json::Value::Null),
         _ => Err(Error::Refused {
             code: None,
             message: text.trim().chars().take(300).collect(),
@@ -232,6 +234,14 @@ mod tests {
         for bad in ["", "--new-workspace", "w1\n", "w\u{1b}1"] {
             assert!(matches!(checked(bad), Err(Error::InvalidId(_))), "{bad:?}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_silent_success_is_a_success_and_a_silent_failure_is_not() {
+        let shell = Path::new("/bin/sh");
+        assert!(matches!(run(shell, &["-c", "true"]), Ok(serde_json::Value::Null)));
+        assert!(matches!(run(shell, &["-c", "false"]), Err(Error::Refused { .. })));
     }
 
     #[test]

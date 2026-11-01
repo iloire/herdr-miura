@@ -62,7 +62,6 @@ const METHODS: &[&str] = &[
     "pane.focus",
     "pane.focus_direction",
     "pane.rename",
-    "pane.report_metadata",
     "pane.resize",
     "pane.scroll",
     "pane.split",
@@ -464,6 +463,15 @@ pub async fn move_tab_to_new_workspace(
     let run = tauri::async_runtime::spawn_blocking(move || {
         crate::tab_move::move_tab(&panes, Destination::New(&name), label.as_deref())
     });
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Drops the `herdr-outcome` token of these panes through the `herdr` CLI, on
+/// the blocking pool since it waits on child processes.
+#[tauri::command]
+pub async fn clear_outcome(connection: State<'_, Connection>, panes: Vec<String>) -> Result<()> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || crate::outcome::clear(&panes));
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 

@@ -165,13 +165,6 @@ export function tabNeedsYou(agents: readonly Agent[]): string | null {
   return notes.length > 0 ? notes.filter(Boolean).join("; ") : null;
 }
 
-/// The `pane.report_metadata` params that drop an agent's outcome, by hand: the
-/// note was dealt with outside the session, so no prompt will clear it. Herdr
-/// keeps a pane's metadata per source, so this has to speak as `herdr-outcome`.
-export function clearOutcomeParams(agent: Agent): Record<string, unknown> {
-  return { pane_id: agent.pane_id, source: "herdr-outcome", tokens: { attn_outcome: null } };
-}
-
 /// Whether a tab's agents are all finished for sure.
 export function tabVerifiedDone(agents: readonly Agent[]): boolean {
   return agents.length > 0 && agents.every(verifiedDone);

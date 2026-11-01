@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../../protocol";
 import { sortWorkspaces } from "../workspaceOrder";
-import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, cardWantsOpen, clearOutcomeParams, effectiveStatus, loopTag, loopTags, needsYouNote, outcomeNeedsYou, seenSnapshot, shownStatus, tabNeedsYou, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
+import { agentCountsByTab, agentRowName, agentsByWorkspace, agentTitle, attentionCount, attentionRows, cardAgents, cardWantsOpen, effectiveStatus, loopTag, loopTags, needsYouNote, outcomeNeedsYou, seenSnapshot, shownStatus, tabNeedsYou, tabVerifiedDone, unseenDone, verifiedDone, wantsYou, workspaceMarks } from "../attention";
 
 function agent(pane_id: string, workspace_id: string, agent_status: AgentStatus, over: Partial<Agent> = {}): Agent {
   return {
@@ -449,10 +449,6 @@ describe("an outcome that needs you", () => {
     ] as Workspace[];
     const sorted = sortWorkspaces(workspaces, "attention", [agent("1", "waiting", "idle", you)]);
     expect(sorted.map((w) => w.workspace_id)).toEqual(["waiting", "busy"]);
-  });
-
-  it("is cleared by hand as the source that reported it, a null token dropping it", () => {
-    expect(clearOutcomeParams(agent("p", "w", "idle", you))).toEqual({ pane_id: "p", source: "herdr-outcome", tokens: { attn_outcome: null } });
   });
 
   it("marks a tab if any one agent needs you, with every note", () => {

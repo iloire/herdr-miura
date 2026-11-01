@@ -17,6 +17,7 @@ mod listening_ports;
 #[cfg(target_os = "macos")]
 mod menu;
 mod osc52;
+mod outcome;
 mod process;
 mod prompts;
 mod queue;
@@ -50,6 +51,7 @@ pub fn run() {
             commands::change_counts,
             commands::checkout_changes,
             commands::claude_usage,
+            commands::clear_outcome,
             commands::connect,
             commands::copy_path,
             commands::create_agent,
