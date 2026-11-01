@@ -20,6 +20,7 @@ import {
   type FolderOf,
   foldSplitQueues,
   holdBack,
+  isAway,
   type Item,
   loadQueue,
   moveItem,
@@ -158,6 +159,13 @@ export function useQueue(
     };
   }, [commit, controller]);
 
+  /// A run out of line pauses nothing and leaves only a line in the history,
+  /// so its failure has to be said out loud.
+  const alertAway = useCallback(
+    (item: Item, message: string) => controller.alert(`Prompt #${item.n} failed in its worktree`, message),
+    [controller],
+  );
+
   const prompt = useCallback(
     async (folder: string, item: Item) => {
       const queue = current.current?.queues[queueKey(folder)] ?? emptyQueue(folder);
@@ -165,10 +173,12 @@ export function useQueue(
         await promptItem(item, queue);
         update(folder, (q) => patchItem(q, item.id, { state: "running", reason: undefined }));
       } catch (error) {
-        update(folder, (q) => end(q, item.id, "failed", Date.now(), `did not take its prompt: ${error}`));
+        const reason = `did not take its prompt: ${error}`;
+        update(folder, (q) => end(q, item.id, "failed", Date.now(), reason));
+        if (isAway(item)) alertAway(item, `The agent ${reason}`);
       }
     },
-    [update],
+    [alertAway, update],
   );
 
   /// Notes the tab and agent an item got, and prompts it if it is ready.
@@ -221,10 +231,13 @@ export function useQueue(
             ...q,
             history: q.history.map((i) => (i.id === item.id ? { ...i, commits } : i)),
           }));
+          return;
         }
+        case "failed":
+          alertAway(item, `The prompt ${item.reason ?? "failed"}.`);
       }
     },
-    [prompt, started, update],
+    [alertAway, prompt, started, update],
   );
 
   const tick = useCallback(() => {
@@ -312,7 +325,7 @@ export function useQueue(
           .then((opened) => started(folder, { ...item, state: "starting", worktree: path }, opened))
           .catch((error) => {
             update(folder, (q) => bringBack(q, id));
-            controller.act(Promise.reject(error));
+            controller.alert(`Could not run prompt #${item.n} in a worktree`, `${error}\n\nThe prompt is back in the queue.`);
           });
       },
       drop(folder, id) {

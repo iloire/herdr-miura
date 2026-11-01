@@ -1836,6 +1836,16 @@ body.reordering * {
   color: var(--text);
 }
 
+.alert-message {
+  max-height: 40vh;
+  overflow: auto;
+  margin: 0 0 12px;
+  font: calc(12px * var(--ui-scale))/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 .host-key h2 {
   margin: 0 0 8px;
   font: 600 calc(15px * var(--ui-scale)) var(--sans);

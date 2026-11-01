@@ -201,11 +201,13 @@ export function viewOf(queue: Queue, snapshot: Snapshot, now: number, folderOf: 
 }
 
 /// Work for the window to carry out: open an item's tab and agent, prompt an
-/// agent that has become ready, or count what a finished item committed.
+/// agent that has become ready, count what a finished item committed, or say
+/// that one run out of line failed, which pauses nothing and so shows nowhere.
 export type Effect =
   | { kind: "open"; item: Item; workspaceId: string }
   | { kind: "prompt"; item: Item }
-  | { kind: "finished"; item: Item };
+  | { kind: "finished"; item: Item }
+  | { kind: "failed"; item: Item };
 
 export const busy = (agent: Agent) =>
   agent.agent_status === "working" || agent.agent_status === "blocked" || loopTag(agent) !== null;
@@ -247,7 +249,8 @@ function advance(queue: Queue, active: Item, view: View): { queue: Queue; effect
     if (!agent) {
       if (active.opened && now - active.opened < OPEN_GRACE_MS) return same;
       const reason = active.reason ? `its agent never started: ${active.reason}` : "its agent never started";
-      return { queue: end(queue, active.id, "failed", now, reason), effect: null };
+      const failed = end(queue, active.id, "failed", now, reason);
+      return { queue: failed, effect: isAway(active) ? { kind: "failed", item: failed.history[0] } : null };
     }
     if (agent.agent_status !== "idle" && agent.agent_status !== "done") return same;
     const item = { ...active, state: "prompting" as const, reason: undefined };
@@ -481,7 +484,8 @@ export function itemOfTab(
 /// while something is moving, the "needs you" disc while it waits on you, and
 /// neither once its agent has stopped.
 export function runningState(item: Item, status: AgentStatus | undefined): { words: string; mark: "working" | "blocked" | null } {
-  if (item.state === "starting") return { words: "Starting Claude…", mark: "working" };
+  // A worktree is checked out first, which can take minutes.
+  if (item.state === "starting") return { words: isAway(item) ? "Creating the worktree…" : "Starting Claude…", mark: "working" };
   if (item.state === "waiting") return { words: "Waiting for Claude to be ready", mark: "blocked" };
   if (item.state === "prompting") return { words: "Sending the prompt…", mark: "working" };
   if (status === "blocked") return { words: "Waiting on you", mark: "blocked" };

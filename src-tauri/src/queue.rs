@@ -32,6 +32,9 @@ const MAX_FOLDER: usize = 4096;
 const HOME_DEADLINE: Duration = Duration::from_secs(5);
 /// In bytes: `tabLabel`'s 200 UTF-16 units take up to 600.
 const MAX_TAB_LABEL: usize = 640;
+/// git-crypt runs once per file, so a large repository takes minutes to check
+/// out: 16,700 files took five.
+const CHECKOUT_DEADLINE: Duration = Duration::from_secs(15 * 60);
 /// A copy of the queue file is kept at most this often, and this many are kept.
 const BACKUP_EVERY: Duration = Duration::from_secs(60 * 60);
 const BACKUPS_KEPT: usize = 48;
@@ -403,7 +406,7 @@ pub fn open(
 
 /// Makes the worktree `path` of `directory` on a new branch `feat/` plus its
 /// folder's name, as `worktreeBranch` shows it, in a workspace of its own labelled `label`, and starts the agent in its first
-/// tab. Its Git state stays with the worktree: removing that closes the
+/// tab. Git makes it, not `herdr worktree create`, which cannot check out a repository under git-crypt (`make_worktree`). Its Git state stays with the worktree: removing that closes the
 /// workspace and keeps the branch. Blocking: run off the main thread.
 pub fn worktree(
     directory: &str,
@@ -421,16 +424,17 @@ pub fn worktree(
     }
     exclude_worktrees(directory);
     let cli = herdr()?;
-    let created = run(
-        &cli,
-        &[
-            "worktree", "create", "--cwd", directory, "--branch", &branch, "--path", path, "--label", label, "--no-focus",
-        ],
-    )?;
-    let pane = serde_json::from_value::<Created>(created)
-        .map_err(Error::Decode)?
-        .root_pane;
-    // The worktree exists now, so a slow shell is no reason to report that
+    make_worktree(directory, path, &branch)?;
+    let open = ["worktree", "open", "--cwd", directory, "--path", path, "--label", label, "--no-focus"];
+    let opened = run(&cli, &open).and_then(|value| serde_json::from_value::<Created>(value).map_err(Error::Decode));
+    let pane = match opened {
+        Ok(created) => created.root_pane,
+        Err(error) => {
+            discard_worktree(directory, path, &branch);
+            return Err(error);
+        }
+    };
+    // The worktree is open now, so a slow shell is no reason to report that
     // nothing happened: a second try would find its branch taken. The item
     // fails as an agent that never started, with this note as the reason.
     start_agent(&cli, &pane, path, name, kind, args).or_else(|error| {
@@ -442,6 +446,57 @@ pub fn worktree(
             head: head(path),
         })
     })
+}
+
+/// Makes the worktree and checks it out, or leaves nothing behind, so a second
+/// try does not find its branch taken. git-crypt looks for its key in the
+/// worktree's own Git folder, which has none yet, so a plain `git worktree add`
+/// fails partway through its checkout: the key has to be there first.
+fn make_worktree(directory: &str, path: &str, branch: &str) -> Result<(), Error> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let args = ["worktree", "add", "-q", "--no-checkout", "-b", branch, path];
+    crate::git::run(directory, &args, "create the worktree", deadline, 4096)?;
+    let checked_out = link_git_crypt_keys(path).and_then(|()| {
+        let deadline = Instant::now() + CHECKOUT_DEADLINE;
+        crate::git::run(path, &["reset", "-q", "--hard"], "check out the worktree", deadline, 4096).map(|_| ())
+    });
+    checked_out.inspect_err(|_| discard_worktree(directory, path, branch))?;
+    Ok(())
+}
+
+/// Lets the worktree use the main checkout's unlocked git-crypt keys through a
+/// link, so the key is not copied, and removing the worktree removes only the
+/// link. A repository without git-crypt has nothing to link.
+fn link_git_crypt_keys(path: &str) -> Result<(), crate::git::Error> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let args = ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"];
+    let out = crate::git::run(path, &args, "find the worktree's Git folders", deadline, 8192)?;
+    let out = String::from_utf8_lossy(&out);
+    let mut folders = out.lines();
+    let (Some(own), Some(common)) = (folders.next(), folders.next()) else {
+        return Ok(());
+    };
+    let keys = Path::new(common).join("git-crypt");
+    if !keys.is_dir() {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&keys, Path::new(own).join("git-crypt")).map_err(|error| crate::git::Error::Failed {
+        operation: "give the worktree the git-crypt key",
+        details: error.to_string(),
+    })?;
+    #[cfg(not(unix))]
+    let _ = own;
+    Ok(())
+}
+
+/// Undoes `make_worktree` before any agent has been near it. Best effort: the
+/// failure that led here is the one to report. `-d`, so a branch that somehow
+/// holds commits stays.
+fn discard_worktree(directory: &str, path: &str, branch: &str) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let _ = crate::git::run(directory, &["worktree", "remove", "--force", path], "remove the worktree", deadline, 4096);
+    let _ = crate::git::run(directory, &["branch", "-d", branch], "delete the branch", deadline, 4096);
 }
 
 /// A worktree may only go in `.claude/worktrees/` of the checkout it is for.
@@ -640,6 +695,59 @@ mod tests {
             .output()
             .unwrap();
         assert!(done.status.success(), "{args:?}: {}", String::from_utf8_lossy(&done.stderr));
+    }
+
+    /// A repository with one commit, and the path and branch of a new worktree.
+    fn repo(name: &str) -> (std::path::PathBuf, String) {
+        let dir = temp(name).canonicalize().unwrap();
+        std::fs::write(dir.join("a"), "a").unwrap();
+        git(&dir, &["init", "-q"]);
+        git(&dir, &["add", "."]);
+        git(&dir, &["commit", "-qm", "a"]);
+        let path = dir.join(".claude/worktrees/x-q1").to_str().unwrap().to_owned();
+        (dir, path)
+    }
+
+    #[test]
+    fn a_new_worktree_is_checked_out_with_the_repositorys_git_crypt_keys() {
+        let (dir, path) = repo("wt-keys");
+        std::fs::create_dir_all(dir.join(".git/git-crypt/keys")).unwrap();
+        std::fs::write(dir.join(".git/git-crypt/keys/default"), "key").unwrap();
+
+        make_worktree(dir.to_str().unwrap(), &path, "feat/x-q1").unwrap();
+
+        assert_eq!(std::fs::read_to_string(Path::new(&path).join("a")).unwrap(), "a");
+        let key = dir.join(".git/worktrees/x-q1/git-crypt/keys/default");
+        assert_eq!(std::fs::read_to_string(key).unwrap(), "key");
+        git(&dir, &["worktree", "remove", &path]);
+        assert!(dir.join(".git/git-crypt/keys/default").exists(), "removing it leaves the key");
+    }
+
+    #[test]
+    fn a_worktree_without_git_crypt_gets_no_link() {
+        let (dir, path) = repo("wt-plain");
+        make_worktree(dir.to_str().unwrap(), &path, "feat/x-q1").unwrap();
+        assert!(Path::new(&path).join("a").exists());
+        assert!(!dir.join(".git/worktrees/x-q1/git-crypt").exists());
+    }
+
+    #[test]
+    fn a_checkout_that_fails_leaves_no_worktree_or_branch_and_can_be_retried() {
+        let (dir, path) = repo("wt-fails");
+        let directory = dir.to_str().unwrap();
+        std::fs::create_dir_all(dir.join(".git/info")).unwrap();
+        std::fs::write(dir.join(".git/info/attributes"), "* filter=broken\n").unwrap();
+        git(&dir, &["config", "filter.broken.smudge", "false"]);
+        git(&dir, &["config", "filter.broken.required", "true"]);
+
+        let error = make_worktree(directory, &path, "feat/x-q1").unwrap_err().to_string();
+
+        assert!(error.contains("check out the worktree"), "{error}");
+        assert!(!Path::new(&path).exists());
+        let branches = std::process::Command::new("git").args(["branch", "--list", "feat/*"]).current_dir(&dir).output().unwrap();
+        assert!(branches.stdout.is_empty());
+        std::fs::remove_file(dir.join(".git/info/attributes")).unwrap();
+        make_worktree(directory, &path, "feat/x-q1").unwrap();
     }
 
     #[test]

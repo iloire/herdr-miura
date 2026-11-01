@@ -48,6 +48,11 @@ export interface Command extends CatalogEntry {
   parsed: Shortcut[];
 }
 
+export interface Alert {
+  title: string;
+  message: string;
+}
+
 export interface State {
   status: Status;
   /// The SSH host attached to, or null for this machine's daemon.
@@ -62,6 +67,8 @@ export interface State {
   /// The latest local failure, such as a command the daemon refused. Never
   /// hides a disconnection: the status line shows `status` first.
   notice: string | null;
+  /// A failure you have to read: it stays up until dismissed.
+  alert: Alert | null;
   title: string | null;
   sidebar: boolean;
   /// The prompt library's palette is open.
@@ -138,6 +145,7 @@ export class Controller {
     closeAsk: null,
     snapshot: null,
     notice: null,
+    alert: null,
     title: null,
     sidebar: layout.sidebar,
     library: false,
@@ -396,6 +404,17 @@ export class Controller {
     action.catch((error) => this.notice(error));
   }
 
+  /// Shows a failure in a dialog, for one that would be lost in the status bar.
+  alert(title: string, message: string): void {
+    this.set({ alert: { title, message } });
+  }
+
+  dismissAlert(): void {
+    if (!this.state.alert) return;
+    this.set({ alert: null });
+    this.focusTerminal();
+  }
+
   request(method: string, params: Record<string, unknown>): void {
     const snapshot = this.state.snapshot;
     const ask = snapshot && this.state.settings.confirmCloseTab ? closeAsk(snapshot, method, params) : null;
@@ -474,9 +493,9 @@ export class Controller {
   shortcut(event: KeyLike): boolean {
     const command = this.state.commands.find((c) => c.parsed.some((s) => matches(s, event)));
     if (!command || (IS_MAC && MENU_COMMANDS.has(command.name))) return false;
-    // The close dialog holds the focus: a move would hand it to the terminal,
+    // These dialogs hold the focus: a move would hand it to the terminal,
     // where the Esc meant for the dialog would interrupt the agent.
-    if (this.state.closeAsk) return true;
+    if (this.state.closeAsk || this.state.alert) return true;
     this.run(command.name);
     return true;
   }

@@ -31,6 +31,8 @@ pub enum Error {
     /// Herdr's message, and its error code when it gave one.
     #[error("Herdr refused: {message}")]
     Refused { code: Option<String>, message: String },
+    #[error(transparent)]
+    Git(#[from] crate::git::Error),
     #[error("Herdr did not move the pane")]
     Unchanged,
     #[error("Herdr answered in a form this app does not read")]

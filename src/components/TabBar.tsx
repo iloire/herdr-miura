@@ -8,6 +8,7 @@ import { tabDirectory } from "../app/sharedCheckout";
 import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
+import { AlertDialog } from "./AlertDialog";
 import { CloseDialog } from "./CloseDialog";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
@@ -317,6 +318,7 @@ export function TabBar({
       </div>
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
       <CloseDialog controller={controller} />
+      <AlertDialog controller={controller} />
     </div>
   );
 }

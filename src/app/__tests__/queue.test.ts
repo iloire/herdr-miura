@@ -168,7 +168,8 @@ describe("step", () => {
       items: queue.items.map((i, n) => (n === 0 ? { ...i, state: "waiting" as const, reason: "not an available shell" } : i)),
     };
     expect(step(waiting, view([], 2000, ["p1"])).queue).toBe(waiting);
-    const { queue: failed } = step(waiting, view([], 1000 + 15_000, ["p1"]));
+    const { queue: failed, effect } = step(waiting, view([], 1000 + 15_000, ["p1"]));
+    expect(effect).toBeNull();
     expect(failed.history[0]).toMatchObject({ state: "failed", reason: "its agent never started: not an available shell" });
     expect(failed.paused?.reason).toBe("#1 its agent never started: not an available shell.");
     expect(failed.items.map((i) => i.state)).toEqual(["queued"]);
@@ -331,6 +332,7 @@ describe("text", () => {
   it("spins a running card only while something moves", () => {
     const item = (state: Item["state"]) => ({ state }) as Item;
     expect(runningState(item("starting"), undefined)).toEqual({ words: "Starting Claude…", mark: "working" });
+    expect(runningState({ ...item("starting"), worktree: "/w" }, undefined).words).toBe("Creating the worktree…");
     expect(runningState(item("prompting"), "idle")).toEqual({ words: "Sending the prompt…", mark: "working" });
     expect(runningState(item("running"), "working")).toEqual({ words: "Working", mark: "working" });
     expect(runningState(item("running"), "idle")).toEqual({ words: "Finishing", mark: null });
@@ -490,6 +492,9 @@ describe("a prompt run in a worktree", () => {
     const queue = sent("fix it");
     const stuck = { ...queue, items: queue.items.map((i) => ({ ...i, state: "waiting" as const, paneId: "w1", reason: "no shell" })) };
     const ended = step(stuck, view([], 1000 + 16_000, ["w1"])).queue;
+    const { queue: same, effect } = step(stuck, view([], 1000 + 16_000, ["w1"]));
+    expect(same.history[0]).toBe(effect?.item);
+    expect(effect?.kind).toBe("failed");
     expect(ended.history[0]).toMatchObject({ state: "failed", reason: "its agent never started: no shell" });
     expect(ended.paused).toBeNull();
   });

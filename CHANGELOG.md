@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 01:49 — Make Run in a Worktree Now work with git-crypt, and show its failures
+
+The action did nothing in a repository under git-crypt: `herdr worktree create` failed on its first file, since git-crypt
+looks for its key in the new worktree's own Git folder, and the only sign was a line in the status bar. The app now makes
+the worktree itself, links the key in before the checkout, and removes what it made if a step fails, where the old way
+left a branch that blocked the next try. A large repository takes minutes to check out, so the card reads "Creating the
+worktree…" meanwhile.
+
+A failed run now opens a dialog with Git's or Herdr's own message, including an agent in a worktree that never starts or
+refuses its prompt, which used to end in the history without a word.
+
 ## 2026-11-01 01:36 — Make Clear Needs You work
 
 The row did nothing but show a `Not sent` notice: Herdr does not offer `pane.report_metadata` to GUI clients, so the app
