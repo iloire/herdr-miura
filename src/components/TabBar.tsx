@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentCountsByTab, loopTags, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
+import { agentCountsByTab, clearOutcomeParams, loopTags, outcomeNeedsYou, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { moveChoices, splitName, tabMove } from "../app/moveTab";
 import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
@@ -133,7 +133,9 @@ export function TabBar({
     const folder = snapshot && tabDirectory(tab, snapshot);
     // The agents as they stand now: one that finishes again before the pick
     // has a new sequence, so its mark stays.
-    const finished = unseenDone(snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? []);
+    const own = snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [];
+    const finished = unseenDone(own);
+    const needYou = own.filter(outcomeNeedsYou);
     return [
       [
         { label: "Rename…", icon: <RenameIcon />, onSelect: () => setRenaming(tab.tab_id) },
@@ -145,6 +147,16 @@ export function TabBar({
           disabled: finished.length === 0,
           onSelect: () => onMarkSeen(finished),
         },
+        // Only when it applies: most tabs never need it, unlike Mark as Seen.
+        ...(needYou.length > 0
+          ? [
+              {
+                label: "Clear Needs You",
+                icon: <CheckIcon />,
+                onSelect: () => needYou.forEach((agent) => controller.request("pane.report_metadata", clearOutcomeParams(agent))),
+              },
+            ]
+          : []),
       ],
       [
         ...(folder

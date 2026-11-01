@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 01:23 — Clear a tab's needs-you mark by hand
+
+A tab whose agent finished with `herdr-outcome you` stayed gold until the next prompt to that session, even when the note
+was already dealt with. Its right-click now has Clear Needs You, which drops the outcome without using a turn. The row
+shows only on such a tab, and a live prompt is not offered it: that one still waits for an answer.
+
 ## 2026-11-01 01:01 — Take out the command palette
 
 The palette and its `⇧⌘P commands` hint in the status bar are gone until it is built properly. The dialogs and the prompt

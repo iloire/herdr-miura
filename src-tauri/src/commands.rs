@@ -62,6 +62,7 @@ const METHODS: &[&str] = &[
     "pane.focus",
     "pane.focus_direction",
     "pane.rename",
+    "pane.report_metadata",
     "pane.resize",
     "pane.scroll",
     "pane.split",
