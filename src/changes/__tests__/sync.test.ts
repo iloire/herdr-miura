@@ -6,6 +6,7 @@ const invoke = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
 const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
+  worktree_of: null,
   path: "/repo",
   branch: "main",
   upstream: "origin/main",

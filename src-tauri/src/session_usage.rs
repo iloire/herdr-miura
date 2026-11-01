@@ -27,6 +27,10 @@ const WEEK_SECONDS: i64 = 8 * 86_400;
 /// enough to send a week of it every poll.
 const BUCKET_SECONDS: i64 = 5 * 60;
 
+/// Folders kept per session, most recent first: enough to see past a scratch
+/// folder or two back to the one it works in.
+const MAX_CWDS: usize = 8;
+
 /// Characters of a prompt kept, for the tab header's tooltip: all of one you
 /// typed, and only the start of a pasted wall of text, which would otherwise
 /// travel to the webview every poll.
@@ -88,6 +92,10 @@ pub struct SessionUsage {
     pub written_at: Option<i64>,
     /// Its latest prompt, cut to [`MAX_PROMPT_CHARS`].
     pub prompt: Option<String>,
+    /// The folders it has worked in, latest first, each once. Entering a
+    /// worktree moves Claude Code's own folder, not its process's, so only
+    /// the transcript knows.
+    pub cwds: Vec<String>,
 }
 
 /// A project's use over the last week, in five-minute buckets.
@@ -111,6 +119,8 @@ struct FileState {
     cwd: Option<String>,
     /// The latest prompt typed or pasted into it.
     prompt: Option<String>,
+    /// See [`SessionUsage::cwds`].
+    cwds: Vec<String>,
 }
 
 impl FileState {
@@ -173,11 +183,23 @@ impl FileState {
             .or_default()
             .add(response.tokens);
         if !response.sidechain {
+            if let Some(cwd) = value.get("cwd").and_then(Value::as_str) {
+                self.moved_to(cwd);
+            }
             self.context = response.tokens.prompt();
             if let Some(model) = response.model {
                 self.model = Some(model);
             }
         }
+    }
+
+    fn moved_to(&mut self, cwd: &str) {
+        if self.cwds.first().is_some_and(|latest| latest == cwd) {
+            return;
+        }
+        self.cwds.retain(|known| known != cwd);
+        self.cwds.insert(0, cwd.to_owned());
+        self.cwds.truncate(MAX_CWDS);
     }
 }
 
@@ -470,6 +492,7 @@ fn session(
     let main = files.entry(transcript.to_owned()).or_default();
     main.update(transcript).ok()?;
     let (model, context, prompt) = (main.model.clone(), main.context, main.prompt.clone());
+    let cwds = main.cwds.clone();
     let mut minutes = main.minutes.clone();
     let mut written = written_at(transcript);
     for path in subagents(transcript) {
@@ -495,6 +518,7 @@ fn session(
             .collect(),
         written_at: written,
         prompt,
+        cwds,
     })
 }
 

@@ -311,6 +311,28 @@ fn a_rebase_in_a_linked_worktree_is_found_through_its_git_dir() {
 }
 
 #[test]
+fn a_linked_worktree_names_its_main_checkout() {
+    let dir = repo();
+    let parent = tempfile::tempdir().unwrap();
+    let linked = parent.path().join("linked");
+    git(&dir, &["worktree", "add", "-q", "-b", "side", linked.to_str().unwrap()]);
+    let main = dir.path().canonicalize().unwrap();
+    let view = read_checkout(linked.to_str().unwrap()).unwrap().unwrap();
+    assert_eq!(view.worktree_of.as_deref(), main.to_str());
+    assert_eq!(read_checkout(&path(&dir)).unwrap().unwrap().worktree_of, None);
+}
+
+#[test]
+fn a_submodule_is_no_worktree() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("super/.git/modules/lib")).unwrap();
+    let module = dir.path().join("super/lib");
+    fs::create_dir_all(&module).unwrap();
+    fs::write(module.join(".git"), "gitdir: ../.git/modules/lib\n").unwrap();
+    assert_eq!(worktree_of(module.to_str().unwrap()), None);
+}
+
+#[test]
 fn a_merge_has_no_step() {
     let dir = repo();
     diverged(&dir, 1);

@@ -16,6 +16,8 @@ export function hasGitLine(branch: string | null, counts: number[]): boolean {
 /// What the tab header says about a checkout: every field can be empty.
 export interface TabGit {
   branch: string | null;
+  /// The main checkout, when this is a linked worktree of it.
+  worktree: string | null;
   changed: number;
   ahead: number;
   behind: number;
@@ -41,9 +43,10 @@ export function operationLabel({ operation, operation_step: step }: Pick<Checkou
 /// so it alone can be all there is to say.
 export function tabGit(state: ChangesState, directory: string | null): TabGit | null {
   if (state.phase !== "ready" || state.directory !== directory || !state.checkout) return null;
-  const { branch, total_files: changed, ahead, behind, unmerged, conflicts } = state.checkout;
+  const { branch, worktree_of: worktree, total_files: changed, ahead, behind, unmerged, conflicts } = state.checkout;
   const [base, count] = unmerged ?? ["", 0];
   const operation = operationLabel(state.checkout);
-  if (!operation && !hasGitLine(branch, [changed, ahead, behind, count, conflicts])) return null;
-  return { branch: shownBranch(branch), changed, ahead, behind, unmerged: count > 0 ? { count, base } : null, operation, conflicts };
+  if (!operation && !worktree && !hasGitLine(branch, [changed, ahead, behind, count, conflicts])) return null;
+  // Off the main checkout no branch goes without saying.
+  return { branch: worktree ? branch : shownBranch(branch), worktree, changed, ahead, behind, unmerged: count > 0 ? { count, base } : null, operation, conflicts };
 }

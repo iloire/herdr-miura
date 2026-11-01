@@ -4,6 +4,7 @@ import { hasGitLine, operationLabel, shownBranch, tabGit } from "../gitLine";
 
 const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   path: "/repo",
+  worktree_of: null,
   branch: "main",
   upstream: "origin/main",
   upstream_gone: false,
@@ -78,6 +79,7 @@ describe("tabGit", () => {
   it("keeps unpushed work on main, without naming main", () => {
     expect(tabGit(ready({ ahead: 2 }), "/repo")).toEqual({
       branch: null,
+      worktree: null,
       changed: 0,
       ahead: 2,
       behind: 0,
@@ -95,6 +97,7 @@ describe("tabGit", () => {
   it("names a feature branch with nothing pending", () => {
     expect(tabGit(ready({ branch: "feat/thing", unmerged: ["origin/main", 0] }), "/repo")).toEqual({
       branch: "feat/thing",
+      worktree: null,
       changed: 0,
       ahead: 0,
       behind: 0,
@@ -164,5 +167,15 @@ describe("tabGit, mid-operation", () => {
 
   it("ignores another directory's rebase", () => {
     expect(tabGit(ready({ operation: "rebase", conflicts: 1 }, "/elsewhere"), "/repo")).toBeNull();
+  });
+});
+
+describe("tabGit in a linked worktree", () => {
+  it("speaks up on a clean worktree, naming even a main branch", () => {
+    expect(tabGit(ready({ worktree_of: "/main", branch: "main" }), "/repo")).toMatchObject({ worktree: "/main", branch: "main" });
+  });
+
+  it("stays quiet on a clean main checkout", () => {
+    expect(tabGit(ready(), "/repo")).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ import { AgentCount } from "./AgentCount";
 import { CloseDialog } from "./CloseDialog";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
-import { CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
+import { BranchIcon, CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
@@ -38,6 +38,7 @@ function useOptionHeld(): boolean {
 export function TabBar({
   controller,
   snapshot,
+  worktreeTabs,
   pins,
   onPinsChange,
   wrap,
@@ -48,6 +49,8 @@ export function TabBar({
 }: {
   controller: Controller;
   snapshot: Snapshot | null;
+  /// The tabs working in a linked worktree.
+  worktreeTabs: ReadonlySet<string>;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
   wrap: boolean;
@@ -256,6 +259,11 @@ export function TabBar({
                   {pinned && (
                     <span className="tab-pin" title="Pinned" aria-label="Pinned">
                       <PinIcon />
+                    </span>
+                  )}
+                  {worktreeTabs.has(tab.tab_id) && (
+                    <span className="tab-worktree-mark" title="In a worktree" aria-label="In a worktree">
+                      <BranchIcon />
                     </span>
                   )}
                   <span className="tab-text">{tab.label}</span>

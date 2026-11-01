@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ChangesState, CheckoutChanges } from "../../changes/store";
 import type { Agent, AgentStatus, Pane, Snapshot, Tab } from "../../protocol";
-import { paneDirectory, sharedCheckout, sharedTitle, tabDirectory } from "../sharedCheckout";
+import type { SessionUsage } from "../sessionUsage";
+import { inLinkedWorktree, paneDirectory, sessionWorktree, sharedCheckout, sharedTitle, tabDirectory, withSessionFolders } from "../sharedCheckout";
 
 const pane = (id: string, cwd: string, over: Partial<Pane> = {}): Pane => ({
   pane_id: id,
@@ -159,5 +160,55 @@ describe("paneDirectory", () => {
     expect(paneDirectory(pane("1", "/a", { foreground_cwd: "/b" }))).toBe("/b");
     expect(paneDirectory(pane("1", "/a"))).toBe("/a");
     expect(paneDirectory(undefined)).toBeNull();
+  });
+});
+
+describe("sessionWorktree", () => {
+  const worktree = "/repo/.claude/worktrees/x";
+
+  it("finds the worktree a session moved into, from any folder of it", () => {
+    expect(sessionWorktree([worktree], "/repo")).toBe(worktree);
+    expect(sessionWorktree([`${worktree}/src/app`], "/repo")).toBe(worktree);
+    expect(sessionWorktree([worktree], "/repo/src")).toBe(worktree);
+  });
+
+  it("looks past a scratch folder", () => {
+    expect(sessionWorktree(["/tmp/scratch", worktree, "/repo"], "/repo")).toBe(worktree);
+  });
+
+  it("is null once the session has left", () => {
+    expect(sessionWorktree(["/repo", worktree], "/repo")).toBeNull();
+    expect(sessionWorktree(["/repo/src", worktree], "/repo")).toBeNull();
+  });
+
+  it("ignores another repo's worktree and a session that never moved", () => {
+    expect(sessionWorktree(["/other/.claude/worktrees/y"], "/repo")).toBeNull();
+    expect(sessionWorktree(["/repo"], "/repo")).toBeNull();
+    expect(sessionWorktree([], "/repo")).toBeNull();
+  });
+});
+
+describe("withSessionFolders", () => {
+  const session = "0f2736ab-56ae-454c-ad08-fc76c65f788f";
+  const claude = { ...agent("1"), tokens: [["claude_session", session]] } as Agent;
+  const usage = (cwds: string[]) => new Map([[session, { cwds } as SessionUsage]]);
+  const snapshot = { agents: [claude], panes: [pane("1", "/repo"), pane("2", "/repo")] } as unknown as Snapshot;
+
+  it("moves only the session's pane", () => {
+    const moved = withSessionFolders(snapshot, usage(["/repo/.claude/worktrees/x"]));
+    expect(moved.panes.map(paneDirectory)).toEqual(["/repo/.claude/worktrees/x", "/repo"]);
+  });
+
+  it("returns the same snapshot when nothing moved", () => {
+    expect(withSessionFolders(snapshot, usage(["/repo"]))).toBe(snapshot);
+    expect(withSessionFolders(snapshot, new Map())).toBe(snapshot);
+  });
+});
+
+describe("inLinkedWorktree", () => {
+  it("knows agents' worktrees by their place and others from the list", () => {
+    expect(inLinkedWorktree("/repo/.claude/worktrees/x/src", [])).toBe(true);
+    expect(inLinkedWorktree("/wt/a/src", ["/wt/a"])).toBe(true);
+    expect(inLinkedWorktree("/repo", ["/wt/a"])).toBe(false);
   });
 });

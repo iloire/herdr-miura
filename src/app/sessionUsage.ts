@@ -34,6 +34,8 @@ export interface SessionUsage {
   written_at: number | null;
   /// Its latest prompt, the start of it when long.
   prompt: string | null;
+  /// The folders it has worked in, latest first, each once.
+  cwds: string[];
 }
 
 /// Anything that keeps its tokens over time.

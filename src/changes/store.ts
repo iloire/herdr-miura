@@ -29,6 +29,8 @@ export interface RecentCommit {
 
 export interface CheckoutChanges {
   path: string;
+  /// The main checkout, when this is a linked worktree of it.
+  worktree_of: string | null;
   branch: string | null;
   upstream: string | null;
   /// The upstream's ref is gone, deleted on the remote and pruned here.

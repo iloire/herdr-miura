@@ -1233,6 +1233,12 @@ body.reordering * {
   opacity: 0.8;
 }
 
+.tab-worktree-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--lantern);
+}
+
 .tab-pin {
   display: inline-flex;
   color: var(--lantern);
@@ -1937,6 +1943,26 @@ body.reordering * {
   font-size: calc(11px * var(--ui-scale));
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Over the branch, so a worktree's panel cannot pass for the main checkout's. */
+.worktree-band {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 16px 0;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--lantern) 55%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--lantern) 14%, transparent);
+  color: var(--lantern);
+  font: calc(11px * var(--ui-scale))/1.3 var(--mono);
+}
+
+.worktree-band svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
 }
 
 .branch-line {
@@ -3064,6 +3090,27 @@ kbd {
 .tab-shared {
   flex: none;
   color: var(--lantern);
+}
+
+/* A linked worktree, which is easy to take for the main checkout. Boxed so it
+   reads as a state rather than one more fact, and it never shrinks. */
+.tab-worktree {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-block: -2px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--lantern) 55%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--lantern) 14%, transparent);
+  color: var(--lantern);
+}
+
+.tab-worktree svg,
+.tab-worktree-mark svg {
+  width: 12px;
+  height: 12px;
 }
 
 .tab-stray {

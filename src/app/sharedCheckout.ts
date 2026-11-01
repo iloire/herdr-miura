@@ -8,6 +8,7 @@
 import type { ChangesState } from "../changes/store";
 import type { AgentStatus, Pane, Snapshot, Tab } from "../protocol";
 import { agentCountsByTab, agentRowName } from "./attention";
+import { type SessionUsage, sessionOf } from "./sessionUsage";
 import { inside } from "./worktreeGroups";
 
 /// Who can still write here. Working is writing now. Blocked counts too: it is
@@ -37,6 +38,49 @@ export function paneDirectory(pane: Pane | undefined): string | null {
 export function tabDirectory(tab: Tab, snapshot: Snapshot): string | null {
   const panes = snapshot.panes.filter((pane) => pane.tab_id === tab.tab_id);
   return paneDirectory(panes.find((pane) => pane.focused) ?? panes[0]);
+}
+
+/// The worktree a Claude session has moved into, from `folder`, the one its pane
+/// reports. Entering a worktree moves Claude Code's own folder and leaves its
+/// process's, which is all the pane knows, so the pane would go on naming the
+/// main checkout. Its latest folder decides: `cwds` also holds scratch folders
+/// elsewhere, which are passed over, and one back in `folder`'s tree means it
+/// left. Null when it is not in one.
+export function sessionWorktree(cwds: readonly string[], folder: string): string | null {
+  for (const cwd of cwds) {
+    const at = cwd.indexOf(NESTED_WORKTREES);
+    if (at === -1) {
+      if (inside(cwd, folder) || inside(folder, cwd)) return null;
+    } else if (inside(folder, cwd.slice(0, at))) {
+      const end = cwd.indexOf("/", at + NESTED_WORKTREES.length);
+      return end === -1 ? cwd : cwd.slice(0, end);
+    }
+  }
+  return null;
+}
+
+/// `snapshot` with each Claude session's pane where the session really is. The
+/// same object comes back when no session has moved.
+export function withSessionFolders(snapshot: Snapshot, usages: ReadonlyMap<string, SessionUsage | null>): Snapshot {
+  const folders = new Map<string, string>();
+  for (const agent of snapshot.agents) {
+    const session = sessionOf(agent);
+    const cwds = session === null ? undefined : usages.get(session)?.cwds;
+    const folder = paneDirectory(snapshot.panes.find((pane) => pane.pane_id === agent.pane_id));
+    const worktree = cwds && folder ? sessionWorktree(cwds, folder) : null;
+    if (worktree && worktree !== folder) folders.set(agent.pane_id, worktree);
+  }
+  if (folders.size === 0) return snapshot;
+  const panes = snapshot.panes.map((pane) => {
+    const folder = folders.get(pane.pane_id);
+    return folder ? { ...pane, foreground_cwd: folder } : pane;
+  });
+  return { ...snapshot, panes };
+}
+
+/// Whether `directory` is in a linked worktree rather than a main checkout.
+export function inLinkedWorktree(directory: string, linked: readonly string[]): boolean {
+  return directory.includes(NESTED_WORKTREES) || linked.some((worktree) => inside(directory, worktree));
 }
 
 /// `directory` is in `checkout` itself, not in a linked worktree inside it.

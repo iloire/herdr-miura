@@ -47,7 +47,8 @@ const AGE_TITLE = "Time in this status, counted from when the app first saw it, 
 /// terminal under whatever runs there. First, for a tab the queue opened, that it did: the tab itself looks
 /// like any other. Then what makes a new prompt risky: a warning when other
 /// agents can write in this checkout, and a rebase, merge or cherry-pick under
-/// way or files in conflict. Then where the focused pane is, when that is not
+/// way or files in conflict. Then a chip for a linked worktree, which is easy
+/// to take for the main checkout. Then where the focused pane is, when that is not
 /// the workspace's root, to catch an agent working in the wrong place. Then the
 /// Git state of its checkout, which the sidebar cannot give: tabs of a workspace
 /// can sit in different worktrees. Then the ports of the servers started in this
@@ -116,6 +117,12 @@ export function TabHeader({
           </span>
         )}
         {git && <GitUnderWay git={git} />}
+        {git?.worktree && (
+          <span className="tab-worktree" title={`A linked worktree of ${git.worktree}, not its main checkout`}>
+            <BranchIcon />
+            worktree
+          </span>
+        )}
         {stray && <StrayFacts stray={stray} />}
         {git && <GitFacts git={git} />}
         <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />

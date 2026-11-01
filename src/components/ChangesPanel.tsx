@@ -9,7 +9,7 @@ import { ChangesSync } from "./ChangesSync";
 import { ChangedFiles } from "./ChangedFiles";
 import { CommitList, type CommitRows } from "./CommitList";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
-import { CodeIcon, CopyIcon, TrashIcon } from "./icons";
+import { BranchIcon, CodeIcon, CopyIcon, TrashIcon } from "./icons";
 
 /// The checkout under the focused pane: branch, its sync with the remote,
 /// changed files, recent commits. Picking a file opens its diff; picking a
@@ -87,6 +87,14 @@ export function ChangesPanel({
       {/* One key for everything of a checkout, so another checkout starts clean. */}
       {checkout && (
         <Fragment key={checkout.path}>
+          {checkout.worktree_of && (
+            <div className="worktree-band" title={`A linked worktree of ${checkout.worktree_of}, not its main checkout`}>
+              <BranchIcon />
+              <span>
+                Worktree of <b>{checkout.worktree_of.split("/").pop()}</b>
+              </span>
+            </div>
+          )}
           <div className="branch-line">
             <span className="branch">{checkout.branch ?? "detached HEAD"}</span>
             {checkout.unmerged && checkout.unmerged[1] > 0 && (

@@ -52,6 +52,8 @@ pub enum Error {
 #[derive(Debug, Serialize)]
 pub struct CheckoutView {
     path: String,
+    /// The main checkout, when this is a linked worktree of it.
+    worktree_of: Option<String>,
     branch: Option<String>,
     upstream: Option<String>,
     /// The upstream's ref is gone, deleted on the remote and pruned here.
@@ -197,6 +199,7 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         )
     });
     Ok(Some(CheckoutView {
+        worktree_of: worktree_of(&path),
         path,
         branch: status.branch,
         upstream_gone: status.born && status.upstream.is_some() && !status.compared,
@@ -215,6 +218,24 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         removed,
         commits: commits.into_iter().map(CommitView::from).collect(),
     }))
+}
+
+/// The main checkout of the linked worktree at `checkout`. A linked worktree's
+/// `.git` is a file naming `<main>/.git/worktrees/<name>`; a submodule's is a
+/// file too, but names `modules`, and a main checkout's is a folder. Bare
+/// repositories keep `worktrees` directly in `<repo>.git`, which is then the
+/// main checkout's stand-in.
+fn worktree_of(checkout: &str) -> Option<String> {
+    let dot_git = fs::read_to_string(Path::new(checkout).join(".git")).ok()?;
+    let git_dir = Path::new(checkout).join(dot_git.strip_prefix("gitdir:")?.trim());
+    let git_dir = git_dir.canonicalize().ok()?;
+    let worktrees = git_dir.parent()?;
+    if worktrees.file_name()? != "worktrees" {
+        return None;
+    }
+    let common = worktrees.parent()?;
+    let main = if common.file_name()? == ".git" { common.parent()? } else { common };
+    Some(main.to_str()?.to_owned())
 }
 
 /// The top of the checkout `directory` sits in.

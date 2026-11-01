@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 00:16 — Show when a tab is in a worktree
+
+A Claude Code session that enters a worktree moves its own folder but not its process's, so Herdr went on reading the main
+checkout: the Changes panel and tab header showed `main` and the main checkout's files for an agent working on a branch
+elsewhere. The session's transcript records where it really is, so the panel, the tab header and the `N agents here`
+warning now follow that.
+
+A linked worktree is also hard to miss now: a boxed `worktree` chip in the tab header, a branch mark on its tab, and a
+`Worktree of <repo>` band over the branch in the Changes panel, which names the main checkout in its tooltip.
+
 ## 2026-10-31 23:06 — Move a tab to a new workspace
 
 The tab menu's Move to Workspace now opens on New Workspace…, so a tab can get a workspace of its own in one step. The

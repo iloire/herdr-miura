@@ -17,7 +17,7 @@ import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
 import { useRoots } from "./app/useRoots";
 import { useSeen } from "./app/useSeen";
-import { paneDirectory, sharedCheckout } from "./app/sharedCheckout";
+import { inLinkedWorktree, paneDirectory, sharedCheckout, tabDirectory, withSessionFolders } from "./app/sharedCheckout";
 import { strayPath } from "./app/workspaceRoot";
 import { groupWorktrees } from "./app/worktreeGroups";
 import { Controller } from "./app/controller";
@@ -104,7 +104,6 @@ export default function App() {
   // their checkout is read, and until then kept from being saved over.
   const restore = useRef<{ changesFile: SavedFile | null; treeFile: SavedFile | null } | null>(null);
   restore.current ??= loadLayout();
-  const directory = focusedDirectory(state.snapshot);
   // The widths asked for, which a narrower window or a wider sidebar shrink
   // only as they are shown, so neither forgets the saved width.
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -333,6 +332,26 @@ export default function App() {
     };
   }, [local, sessionKey]);
 
+  // Where each pane's program really is: Claude Code enters a worktree without
+  // its process moving, so everything that reads a checkout goes by this.
+  const located = useMemo(
+    () => state.snapshot && withSessionFolders(state.snapshot, sessionUsages),
+    [state.snapshot, sessionUsages],
+  );
+  const directory = focusedDirectory(located);
+  const linkedWorktrees = useMemo(
+    () => [...worktreeLists.values()].flatMap((list) => list ?? []).map((worktree) => worktree.path),
+    [worktreeLists],
+  );
+  const worktreeTabs = useMemo(() => {
+    if (!located) return new Set<string>();
+    const inWorktree = located.tabs.filter((tab) => {
+      const folder = tabDirectory(tab, located);
+      return folder !== null && inLinkedWorktree(folder, linkedWorktrees);
+    });
+    return new Set(inWorktree.map((tab) => tab.tab_id));
+  }, [located, linkedWorktrees]);
+
   const focusedPorts = ports.get(state.snapshot?.focused_workspace_id ?? "") ?? [];
   const focusedWorkspace = state.snapshot?.workspaces.find((w) => w.workspace_id === state.snapshot?.focused_workspace_id);
 
@@ -356,10 +375,9 @@ export default function App() {
   }, [changesPoll, directory, changesStore]);
   const git = local ? tabGit(changes, directory) : null;
   const shared = useMemo(() => {
-    if (!local || !state.snapshot) return null;
-    const linked = [...worktreeLists.values()].flatMap((list) => list ?? []).map((worktree) => worktree.path);
-    return sharedCheckout(state.snapshot, changes, directory, linked);
-  }, [local, state.snapshot, changes, directory, worktreeLists]);
+    if (!local || !located) return null;
+    return sharedCheckout(located, changes, directory, linkedWorktrees);
+  }, [local, located, changes, directory, linkedWorktrees]);
   const home = useHome();
   const stray = local ? strayPath(changes, directory, roots.folders[focusedWorkspace?.workspace_id ?? ""] ?? null, home) : null;
 
@@ -557,6 +575,7 @@ export default function App() {
               <TabBar
                 controller={controller}
                 snapshot={seenAs}
+                worktreeTabs={worktreeTabs}
                 pins={pins}
                 onPinsChange={setPins}
                 wrap={state.settings.tabsWrap}

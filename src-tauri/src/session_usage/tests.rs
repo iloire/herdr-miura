@@ -282,6 +282,23 @@ fn human(content: &str) -> String {
     ) + "\n"
 }
 
+/// A response line in `cwd`, a subagent's when `sidechain`.
+fn moved_response(id: &str, cwd: &str, sidechain: bool) -> String {
+    response(id, "2026-10-29T09:33:17.123Z", 1, 1, sidechain).replacen('{', &format!(r#"{{"cwd":"{cwd}","#), 1)
+}
+
+#[test]
+fn folders_come_latest_first_and_each_once() {
+    let fixture = fixture();
+    let lines = [("a", "/repo"), ("b", "/repo/.claude/worktrees/x"), ("c", "/tmp/scratch"), ("d", "/repo/.claude/worktrees/x")];
+    for (id, cwd) in lines {
+        append(&fixture.transcript, &moved_response(id, cwd, false));
+    }
+    append(&fixture.transcript, &moved_response("e", "/elsewhere", true));
+    let usage = read(&Cache::default(), &fixture).unwrap();
+    assert_eq!(usage.cwds, ["/repo/.claude/worktrees/x", "/tmp/scratch", "/repo"]);
+}
+
 fn latest_prompt(fixture: &Fixture) -> Option<String> {
     read(&Cache::default(), fixture).unwrap().prompt
 }
