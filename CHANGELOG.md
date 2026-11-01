@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-01 10:31 — Sort a workspace's tabs by what needs you
+
+Sort Tabs on a tab's right-click offers Needs You First: tabs waiting on you, then finished ones, then working, then
+idle, after any pinned tabs. Working First stays the default. The order is the strip's alone, so a tab goes back to its
+place once dealt with, and ⌘1–9 keep their tabs. The strip still holds still while the pointer is on it, and on one row
+it now follows the open tab when the sort moves it.
+
 ## 2026-11-01 10:19 — A tighter status bar
 
 The Herdr version and the mark beside the Claude usage are gone, as neither told you anything you act on. The connection

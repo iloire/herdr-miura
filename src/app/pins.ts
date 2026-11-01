@@ -42,20 +42,6 @@ export function pinnedByWorkspace(tabs: readonly Tab[], isPinned: (tab: Tab) => 
   return byWorkspace;
 }
 
-/// `tabs` as the strip shows them: pinned first, then those `isWorking` says
-/// have an agent working, then the rest, each group in the daemon's order. Only
-/// pins move a tab in the daemon; a working tab goes back to its place once it
-/// stops. The caller decides what counts as working, so `useSteadyStrip` can
-/// hold the tabs still under the pointer.
-export function stripOrder(
-  tabs: readonly Tab[],
-  isPinned: (tab: Tab) => boolean,
-  isWorking: (tab: Tab) => boolean,
-): Tab[] {
-  const rest = tabs.filter((tab) => !isPinned(tab));
-  return [...tabs.filter(isPinned), ...rest.filter(isWorking), ...rest.filter((tab) => !isWorking(tab))];
-}
-
 /// Where `tab` belongs in its workspace once pinned or unpinned: right after
 /// the other pinned tabs. Sent as `tab.move`'s `insert_index`, so the daemon's
 /// order, and the shortcuts that focus tab N, match what the strip shows.

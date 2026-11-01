@@ -14,7 +14,8 @@ It is a client for the [Herdr](https://herdr.dev) daemon, so closing the window 
 ## See what needs you
 
 Each workspace card shows its agents at a glance: working, finished, or waiting on you. Sort by attention and the ones
-stuck on a question rise to the top, in gold. The Dock badge and window title count them too. A header over each tab
+stuck on a question rise to the top, in gold; a workspace's tabs can sort the same way. The Dock badge and window title
+count them too. A header over each tab
 shows every session's model, context and spend, and warns when two agents share a checkout.
 
 A workspace can name a team of agents in `.herdr/team.json`. The sidebar lists each role with what it is doing, and

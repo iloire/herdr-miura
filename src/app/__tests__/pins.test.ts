@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Tab } from "../../protocol";
-import { loadPins, pinIndex, pinKey, pinnedByWorkspace, savePins, stripOrder } from "../pins";
+import { loadPins, pinIndex, pinKey, pinnedByWorkspace, savePins } from "../pins";
 
 const tab = (tab_id: string, workspace_id = "w", agent_status: Tab["agent_status"] = "idle"): Tab => ({
   tab_id,
@@ -11,31 +11,6 @@ const tab = (tab_id: string, workspace_id = "w", agent_status: Tab["agent_status
   zoomed: false,
   focused: false,
   agent_status,
-});
-
-describe("stripOrder", () => {
-  it("puts pinned tabs first and keeps the daemon's order within each group", () => {
-    const pinned = new Set(["c", "a"]);
-    const order = stripOrder([tab("a"), tab("b"), tab("c"), tab("d")], (t) => pinned.has(t.tab_id), () => false);
-    expect(order.map((t) => t.tab_id)).toEqual(["a", "c", "b", "d"]);
-  });
-
-  it("puts the working tabs right after the pinned ones", () => {
-    const working = new Set(["c", "d", "e"]);
-    const order = stripOrder(
-      [tab("a"), tab("b"), tab("c"), tab("d"), tab("e")],
-      (t) => t.tab_id === "e" || t.tab_id === "a",
-      (t) => working.has(t.tab_id),
-    );
-    expect(order.map((t) => t.tab_id)).toEqual(["a", "e", "c", "d", "b"]);
-  });
-
-  it("orders by the working set it is given, not by the tab's status now", () => {
-    const tabs = [tab("a", "w", "working"), tab("b", "w", "idle")];
-    const held = new Set(["b"]);
-    const order = stripOrder(tabs, () => false, (t) => held.has(t.tab_id));
-    expect(order.map((t) => t.tab_id)).toEqual(["b", "a"]);
-  });
 });
 
 describe("pinnedByWorkspace", () => {

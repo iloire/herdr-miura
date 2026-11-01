@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { agentCountsByTab, loopTags, outcomeNeedsYou, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
 import { moveChoices, splitName, tabMove } from "../app/moveTab";
-import { pinIndex, pinKey, savePins, stripOrder } from "../app/pins";
+import { pinIndex, pinKey, savePins } from "../app/pins";
 import { tabDirectory } from "../app/sharedCheckout";
+import { loadTabSort, saveTabSort, stripOrder, tabRanks, type TabSort } from "../app/tabOrder";
 import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
@@ -72,11 +73,16 @@ export function TabBar({
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
-  const strip = useSteadyStrip(snapshot?.tabs ?? [], snapshot?.focused_workspace_id ?? null);
+  const [sort, setSort] = useState(loadTabSort);
+  const strip = useSteadyStrip(
+    tabRanks(snapshot?.tabs ?? [], sort, snapshot?.agents ?? []),
+    snapshot?.tabs ?? [],
+    snapshot?.focused_workspace_id ?? null,
+  );
   const tabs = stripOrder(
     snapshot?.tabs.filter((tab) => tab.workspace_id === snapshot.focused_workspace_id) ?? [],
     isPinned,
-    (tab) => strip.working.has(tab.tab_id),
+    strip.ranks,
   );
   const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
 
@@ -85,13 +91,15 @@ export function TabBar({
     controller.stripTabs = tabs.map((tab) => tab.tab_id);
   });
 
-  // On one row the open tab can sit past the edge, so it is scrolled to.
+  // On one row the open tab can sit past the edge, so it is scrolled to, also
+  // when the sort carries it there.
   const rows = useRef<HTMLDivElement>(null);
   const focusedTab = tabs.find((tab) => tab.focused)?.tab_id;
+  const order = tabs.map((tab) => tab.tab_id).join();
   useEffect(() => {
     if (wrap) return;
     rows.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [wrap, focusedTab, tabs.length]);
+  }, [wrap, focusedTab, order]);
 
   /// A click on a tab that only just moved was aimed at another one, so it does nothing.
   const closeByPointer = (tab: Tab) => {
@@ -125,6 +133,15 @@ export function TabBar({
       }),
     );
   };
+
+  const sortChoice = (label: string, choice: TabSort): MenuItem => ({
+    label,
+    icon: sort === choice ? <CheckIcon /> : undefined,
+    onSelect: () => {
+      setSort(choice);
+      saveTabSort(choice);
+    },
+  });
 
   /// The tab menu. It opens on the tab's own actions, so Enter never makes a
   /// new tab, and ends with the ones that add or remove a tab.
@@ -190,6 +207,7 @@ export function TabBar({
           ],
         },
       ],
+      [{ label: "Sort Tabs", items: [[sortChoice("Working First", "working"), sortChoice("Needs You First", "attention")]] }],
       [
         // As the + button: the shortcut that does the same is ⌘⇧T, not ⌘T's plain terminal.
         { label: "New Tab", icon: <NewTabIcon />, hint: controller.shortcutHint("new_command_tab"), onSelect: () => controller.newTab() },

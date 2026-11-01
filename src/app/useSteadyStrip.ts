@@ -1,8 +1,8 @@
-// Keeps the tab strip still under the pointer. A tab jumps ahead when its agent
-// starts working, and a × aimed at one tab could land on another that moved
-// there a moment before. So the strip keeps the working set it had when the
-// pointer came in until the pointer has left, and a click just after a move
-// is ignored, for the move that came while the pointer was on its way.
+// Keeps the tab strip still under the pointer. A tab jumps ahead when its status
+// changes, and a × aimed at one tab could land on another that moved there a
+// moment before. So the strip keeps the ranks it had when the pointer came in
+// until the pointer has left, and a click just after a move is ignored, for the
+// move that came while the pointer was on its way.
 // New and closed tabs, and pins, still show at once.
 
 import { useEffect, useRef, useState } from "react";
@@ -14,23 +14,22 @@ const RELEASE_MS = 300;
 const SETTLE_MS = 500;
 
 export interface SteadyStrip {
-  /// The tabs to show as working.
-  working: ReadonlySet<string>;
+  /// The ranks to order the tabs by.
+  ranks: ReadonlyMap<string, number>;
   hold: () => void;
   release: () => void;
   /// Whether the strip has been still long enough to trust a click on it.
   settled: () => boolean;
 }
 
-export function useSteadyStrip(tabs: readonly Tab[], workspaceId: string | null): SteadyStrip {
-  const live = new Set(tabs.filter((tab) => tab.agent_status === "working").map((tab) => tab.tab_id));
-  const [held, setHeld] = useState<ReadonlySet<string> | null>(null);
-  const working = held ?? live;
+export function useSteadyStrip(live: ReadonlyMap<string, number>, tabs: readonly Tab[], workspaceId: string | null): SteadyStrip {
+  const [held, setHeld] = useState<ReadonlyMap<string, number> | null>(null);
+  const ranks = held ?? live;
 
   const movedAt = useRef(0);
   const shown = tabs
-    .filter((tab) => tab.workspace_id === workspaceId && working.has(tab.tab_id))
-    .map((tab) => tab.tab_id)
+    .filter((tab) => tab.workspace_id === workspaceId && ranks.has(tab.tab_id))
+    .map((tab) => `${tab.tab_id}:${ranks.get(tab.tab_id)}`)
     .join();
   useEffect(() => {
     // While held this only changes because a tab closed, and nothing moved.
@@ -50,5 +49,5 @@ export function useSteadyStrip(tabs: readonly Tab[], workspaceId: string | null)
   };
   const settled = () => Date.now() - movedAt.current >= SETTLE_MS;
 
-  return { working, hold, release, settled };
+  return { ranks, hold, release, settled };
 }

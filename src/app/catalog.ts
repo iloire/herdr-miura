@@ -76,8 +76,8 @@ function directional(prefix: string, method: string, label: string, mac: string[
   );
 }
 
-/// `tabs` in the strip's order, which puts working tabs first without moving
-/// them in the daemon. Any it hasn't drawn yet go last, in the daemon's order.
+/// `tabs` in the strip's order, which sorts them without moving them in the
+/// daemon. Any it hasn't drawn yet go last, in the daemon's order.
 function inStripOrder<T extends { tab_id: string }>(tabs: T[], strip: readonly string[]): T[] {
   const place = (tab: T) => {
     const index = strip.indexOf(tab.tab_id);
