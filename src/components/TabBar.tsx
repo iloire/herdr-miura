@@ -1,16 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { agentCountsByTab, loopTags, outcomeNeedsYou, tabNeedsYou, tabVerifiedDone, unseenDone } from "../app/attention";
 import type { Controller } from "../app/controller";
+import { type HueSlot, slotTint } from "../app/hue";
 import { moveChoices, splitName, tabMove } from "../app/moveTab";
 import { pinIndex, pinKey, savePins } from "../app/pins";
 import { tabDirectory } from "../app/sharedCheckout";
+import { saveTabColors } from "../app/tabColors";
 import { loadTabSort, saveTabSort, stripOrder, tabRanks, type TabSort } from "../app/tabOrder";
 import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { AlertDialog } from "./AlertDialog";
 import { CloseDialog } from "./CloseDialog";
+import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
 import { BranchIcon, CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
@@ -43,6 +46,8 @@ export function TabBar({
   worktreeTabs,
   pins,
   onPinsChange,
+  tabColors,
+  onTabColorsChange,
   wrap,
   newTabCommand,
   onMarkSeen,
@@ -55,6 +60,9 @@ export function TabBar({
   worktreeTabs: ReadonlySet<string>;
   pins: Set<string>;
   onPinsChange: (pins: Set<string>) => void;
+  /// Each colored tab's slot, by `pinKey`.
+  tabColors: ReadonlyMap<string, HueSlot>;
+  onTabColorsChange: (colors: ReadonlyMap<string, HueSlot>) => void;
   wrap: boolean;
   newTabCommand: string | null;
   onMarkSeen: (agents: Agent[]) => void;
@@ -73,6 +81,7 @@ export function TabBar({
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
+  const tabColor = (tab: Tab) => tabColors.get(pinKey(bootId, tab.tab_id)) ?? null;
   const [sort, setSort] = useState(loadTabSort);
   const strip = useSteadyStrip(
     tabRanks(snapshot?.tabs ?? [], sort, snapshot?.agents ?? []),
@@ -115,6 +124,15 @@ export function TabBar({
     savePins(next, bootId);
     const index = pinIndex(snapshot.tabs, tab, (other) => next.has(pinKey(bootId, other.tab_id)));
     controller.request("tab.move", { tab_id: tab.tab_id, insert_index: index });
+  };
+
+  const chooseColor = (tab: Tab, slot: HueSlot | null) => {
+    const next = new Map(tabColors);
+    const key = pinKey(bootId, tab.tab_id);
+    if (slot) next.set(key, slot);
+    else next.delete(key);
+    onTabColorsChange(next);
+    saveTabColors(next, bootId);
   };
 
   const moveTo = (tab: Tab, workspaceId: string) => {
@@ -175,6 +193,7 @@ export function TabBar({
               },
             ]
           : []),
+        colorSwatches("Tab color", "None", tabColor(tab), (slot) => chooseColor(tab, slot), slotTint),
       ],
       [
         ...(folder
@@ -241,10 +260,12 @@ export function TabBar({
           const agents = agentCounts.get(tab.tab_id) ?? 0;
           const own = snapshot?.agents.filter((agent) => agent.tab_id === tab.tab_id) ?? [];
           const waiting = tabNeedsYou(own);
+          const color = tabColor(tab);
           return (
             <div
               key={tab.tab_id}
-              className="tab"
+              className={color ? "tab tinted" : "tab"}
+              style={color ? ({ "--tab-tint": slotTint(color) } as CSSProperties) : undefined}
               role="tab"
               aria-selected={tab.focused}
               onContextMenu={(event) => {

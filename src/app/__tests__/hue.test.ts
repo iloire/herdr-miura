@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorKey, HUE_SLOTS, hue, hueColor, slotColor, workspaceHue, workspaceSlots } from "../hue";
+import { colorKey, HUE_SLOTS, hue, hueColor, slotColor, slotTint, workspaceHue, workspaceSlots } from "../hue";
 import { activeTheme } from "../../themes/active";
 import { css } from "../../terminal/theme";
 import { legible } from "../../themes/chrome";
@@ -36,6 +36,7 @@ describe("a workspace's color", () => {
   it("names the palette's red-to-cyan slots in order", () => {
     const { terminal, chrome } = activeTheme();
     HUE_SLOTS.forEach((slot, i) => expect(slotColor(slot)).toBe(css(legible(terminal.palette[i + 1], chrome.tokens))));
+    HUE_SLOTS.forEach((slot, i) => expect(slotTint(slot)).toBe(css(terminal.palette[i + 1])));
   });
 
   it("gives a chosen slot only to the workspace on that folder", () => {

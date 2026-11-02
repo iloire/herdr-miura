@@ -44,6 +44,13 @@ export function slotColor(slot: HueSlot): string {
   return slotCss(HUE_SLOTS.indexOf(slot) + 1);
 }
 
+/// A chosen slot as the theme has it, for a faint tint under words rather than
+/// the words themselves: `legible` could move it far from its color, as it
+/// takes Gruvbox Material Dark's red to white.
+export function slotTint(slot: HueSlot): string {
+  return css(activeTheme().terminal.palette[HUE_SLOTS.indexOf(slot) + 1]);
+}
+
 /// A chosen color's key in `workspace_colors`. Folder and name together, as
 /// workspaces on one folder each have their own color and a workspace's id
 /// does not outlast the daemon.

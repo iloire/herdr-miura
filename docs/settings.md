@@ -103,6 +103,13 @@ removes the entry. The file stores the color's name, not a value, so it follows 
   with no local folder, such as one on a remote host, has none either.
 - A value that is not one of the six is a warning, and that workspace keeps its automatic color.
 
+Tabs differ. A tab has no automatic hue: it stays plain until its right-click menu's swatches give it a faint tint, and
+None takes that away. The choice is not a setting and is not in this file, as a tab has nothing lasting to key it by: its
+name changes, and a restarted daemon may hand an old tab id to a new tab. The window keeps it in `localStorage` under the
+daemon's boot and the tab id, the way it keeps pins, so it survives reloading the window but not a daemon restart, and a
+tab moved to another workspace, which is a new tab to Herdr, loses it. The slot's name is stored here too, so a tab
+follows the theme.
+
 ## Themes
 
 A `theme` value is resolved as herdr-gpui resolves its own, so one value works in both apps:

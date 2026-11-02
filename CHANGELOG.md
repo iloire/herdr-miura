@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 12:10 — A tab can have a color
+
+A tab's right-click menu has a row of swatches, the six palette colors and None, for marking what kind of work a tab
+holds. Only a tab you color gets a tint, faint enough to leave the status marks and the gold "needs you" mark the loudest
+thing on the strip. The window keeps the choice as it keeps pins, so it survives reloading the window but not a daemon
+restart, and a tab moved to another workspace loses it.
+
 ## 2026-11-02 11:40 — A queue follows a renamed folder
 
 A queue stayed under its folder's old path when the repo was renamed: prompts queued from the workspace joined a queue on

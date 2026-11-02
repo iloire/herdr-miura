@@ -1200,6 +1200,20 @@ body.reordering * {
   color: var(--text);
 }
 
+/* A color the user chose, kept faint under the marks and the open tab's edge.
+   Its own variable: --hue here is the workspace's. */
+.tab.tinted {
+  background: color-mix(in srgb, var(--tab-tint) 10%, transparent);
+}
+
+.tab.tinted:hover {
+  background: color-mix(in srgb, var(--tab-tint) 10%, var(--hover));
+}
+
+.tab.tinted[aria-selected="true"] {
+  background: color-mix(in srgb, var(--tab-tint) 10%, var(--active));
+}
+
 .tab-label {
   display: flex;
   align-items: center;

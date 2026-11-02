@@ -22,7 +22,7 @@ A workspace can name a team of agents in `.herdr/team.json`. The sidebar lists e
 starts the ones not running ([docs/team.md](docs/team.md)).
 
 Right-click a workspace to rename it, pick its color, start a team, queue a prompt or open it in your editor. Tabs have
-a menu too, for pinning one, marking it seen, queueing a prompt, opening its folder or moving it to another workspace.
+a menu too, for pinning one, giving it a color, marking it seen, queueing a prompt, opening its folder or moving it to another workspace.
 
 <table>
   <tr>

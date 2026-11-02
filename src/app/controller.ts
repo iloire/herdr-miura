@@ -485,6 +485,11 @@ export class Controller {
     if (this.closing.delete(tabId)) this.showSnapshot();
   }
 
+  /// Every tab the daemon lists, also those `state.snapshot` hides while they close.
+  listedTabs(): string[] {
+    return this.daemonSnapshot?.tabs.map((tab) => tab.tab_id) ?? [];
+  }
+
   private showSnapshot(): void {
     this.set({ snapshot: this.daemonSnapshot && withoutClosing(this.daemonSnapshot, this.closing) });
   }

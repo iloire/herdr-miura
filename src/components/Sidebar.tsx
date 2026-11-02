@@ -5,7 +5,7 @@ import { agentRefusal, type Land, type LandStore, landing } from "../changes/lan
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, cardAgents, cardWantsOpen, loopTags, unseenDone, workspaceMarks } from "../app/attention";
 import { hasGitLine, shownBranch } from "../app/gitLine";
-import { colorKey, HUE_SLOTS, type HueSlot, slotColor, workspaceHue } from "../app/hue";
+import { colorKey, type HueSlot, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import type { Settings } from "../app/settings";
@@ -16,6 +16,7 @@ import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
 import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
+import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
@@ -38,18 +39,6 @@ import { Worktrees } from "./Worktrees";
 import { StatusMark } from "./StatusMark";
 import { TeamSection } from "./TeamSection";
 import { createTeam, type TeamState, useTeams } from "../app/team";
-
-/// The row of colors a workspace can take, in its menu.
-function colorSwatches(chosen: HueSlot | null, pick: (slot: HueSlot | null) => void): MenuItem {
-  const named = (slot: HueSlot) => slot[0].toUpperCase() + slot.slice(1);
-  return {
-    label: "Workspace color",
-    swatches: [
-      { label: "Automatic", color: null, current: chosen === null, onSelect: () => pick(null) },
-      ...HUE_SLOTS.map((slot) => ({ label: named(slot), color: slotColor(slot), current: chosen === slot, onSelect: () => pick(slot) })),
-    ],
-  };
-}
 
 const NO_LANDS: ReadonlyMap<string, Land> = new Map();
 const noLands = () => NO_LANDS;
@@ -288,7 +277,7 @@ export function Sidebar({
                   // A worktree wears its main checkout's color, and only a local
                   // workspace has a root to keep the choice under.
                   const root = rootOf(workspace);
-                  const colors = root !== null && !parent ? [colorSwatches(slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(colorKey(root, workspace.label), slot))] : [];
+                  const colors = root !== null && !parent ? [colorSwatches("Workspace color", "Automatic", slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(colorKey(root, workspace.label), slot))] : [];
                   const items = [[rename, markSeen, ...colors]];
                   if (path && folder) {
                     const queue: MenuItem = {

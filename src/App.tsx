@@ -6,6 +6,7 @@ import { tabGit } from "./app/gitLine";
 import { type HueSlot, workspaceHue, workspaceSlots } from "./app/hue";
 import { loadLayout, type SavedFile, saveLayout } from "./app/layout";
 import { loadPins } from "./app/pins";
+import { loadTabColors, saveTabColors, withoutClosedTabs } from "./app/tabColors";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
@@ -104,6 +105,7 @@ export default function App() {
   const [contextOf, setContextOf] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
+  const [tabColors, setTabColors] = useState<ReadonlyMap<string, HueSlot>>(loadTabColors);
   // The files picked in the drawer when the window last closed, reopened once
   // their checkout is read, and until then kept from being saved over.
   const restore = useRef<{ changesFile: SavedFile | null; treeFile: SavedFile | null } | null>(null);
@@ -244,6 +246,17 @@ export default function App() {
     );
     return workspaceSlots(rows, rootOf, colors);
   }, [state.snapshot, rootOf, worktrees, colors]);
+  // A closed tab's color goes with it, in case its id comes back on a new tab.
+  // The daemon's list, not `state.snapshot`: a tab whose close is on its way
+  // is hidden from that one, and comes back if the close is refused.
+  useEffect(() => {
+    const bootId = state.snapshot?.boot_id;
+    if (!bootId) return;
+    const open = withoutClosedTabs(tabColors, bootId, controller.listedTabs());
+    if (open === tabColors) return;
+    setTabColors(open);
+    saveTabColors(open, bootId);
+  }, [controller, state.snapshot, tabColors]);
   const chooseColor = (key: string, slot: HueSlot | null) =>
     controller.act(saveWorkspaceColor(key, slot).then(settings.reload));
   const moveColor = (from: string, to: string, slot: HueSlot) =>
@@ -596,6 +609,8 @@ export default function App() {
                 worktreeTabs={worktreeTabs}
                 pins={pins}
                 onPinsChange={setPins}
+                tabColors={tabColors}
+                onTabColorsChange={setTabColors}
                 wrap={state.settings.tabsWrap}
                 newTabCommand={state.settings.newTabCommand}
                 onMarkSeen={markSeen}
