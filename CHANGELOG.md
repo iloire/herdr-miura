@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 11:40 — A queue follows a renamed folder
+
+A queue stayed under its folder's old path when the repo was renamed: prompts queued from the workspace joined a queue on
+a folder that was gone, and the panel paused on `could not start`. A rename is now noticed with the window open as well as
+at launch, and the queue moves to the workspace's new folder, history included. Waiting prompts arrive paused, with Resume
+to run them, since a repo deleted looks the same as one renamed and its prompts must not start in another repo by accident.
+
 ## 2026-11-02 11:32 — ⌘W closes the file in front of the terminal
 
 ⌘W in the file view closed the terminal pane hidden behind it, losing that pane's scrollback and leaving the file open.

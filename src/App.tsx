@@ -175,7 +175,7 @@ export default function App() {
   }, [attention]);
 
   const local = state.status.phase === "connected" && state.host === null;
-  const { roots, rootOf, queueFolderOf, isOpenSplitOf, markSplit } = useRoots(state.snapshot, local);
+  const { roots, rootOf, queueFolderOf, moves, isOpenSplitOf, markSplit } = useRoots(state.snapshot, local);
   // Every workspace's changed-file count, one `git status` per folder, and
   // its checkout's linked worktrees, never two rounds at once. A workspace
   // with a fixed root reads that, not its active tab's folder. Reread on a
@@ -250,7 +250,7 @@ export default function App() {
     controller.act(saveWorkspaceColor(to, slot).then(() => saveWorkspaceColor(from, null)).then(settings.reload));
 
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf);
+  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;

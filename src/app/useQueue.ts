@@ -19,6 +19,7 @@ import {
   end,
   type FolderOf,
   foldSplitQueues,
+  moveQueue,
   holdBack,
   isAway,
   type Item,
@@ -87,12 +88,13 @@ export function useQueue(
   folderOf: FolderOf,
   rootOf: FolderOf,
   isOpenSplit: (workspaceId: string) => boolean,
+  moves: [string, string][],
 ): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
-  const latest = useRef({ snapshot, local, folderOf, rootOf, isOpenSplit });
-  latest.current = { snapshot, local, folderOf, rootOf, isOpenSplit };
+  const latest = useRef({ snapshot, local, folderOf, rootOf, isOpenSplit, moves });
+  latest.current = { snapshot, local, folderOf, rootOf, isOpenSplit, moves };
 
   /// Inbox files added but not yet deleted, so a slow save never adds one twice.
   const taken = useRef(new Set<string>());
@@ -241,9 +243,9 @@ export function useQueue(
   );
 
   const tick = useCallback(() => {
-    const { snapshot, local, folderOf, rootOf, isOpenSplit } = latest.current;
+    const { snapshot, local, folderOf, rootOf, isOpenSplit, moves } = latest.current;
     if (!current.current || !snapshot || !local) return;
-    const file = foldSplitQueues(current.current, isOpenSplit);
+    const file = moves.reduce((next, [from, to]) => moveQueue(next, from, to), foldSplitQueues(current.current, isOpenSplit));
     const now = Date.now();
     const queues = { ...file.queues };
     const effects: [string, Effect][] = [];

@@ -1,12 +1,13 @@
 // Keeps each workspace's fixed root and asks Git for the queue's folder of every
 // folder in use. Each folder is asked once a launch: one that is gone has no
-// answer to wait for, and one in `homes` is already settled. Homes saved by an
-// earlier launch are checked once, as a repo can be renamed between launches.
+// answer to wait for, and one in `homes` is already settled. Saved homes are
+// checked at launch and again whenever a new folder turns up, which is how a
+// rename shows: a repo can be renamed between launches or under an open window.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Snapshot, Workspace } from "../protocol";
 import { readHomes } from "./queue";
-import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, withoutGone, withSplit, workspaceRoot } from "./workspaceRoot";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, queueMoves, type Roots, saveRoots, withHomes, withoutGone, withSplit, workspaceRoot } from "./workspaceRoot";
 
 export function useRoots(
   snapshot: Snapshot | null,
@@ -17,6 +18,8 @@ export function useRoots(
   /// whose workspaces are never given one.
   rootOf: (workspace: Workspace) => string | null;
   queueFolderOf: (workspace: Workspace) => string | null;
+  /// The queues whose folder is gone, as `[from, to]`.
+  moves: [string, string][];
   /// Whether a workspace split off a tab is still open.
   isOpenSplitOf: (workspaceId: string) => boolean;
   /// Notes a workspace just split off a tab that was in `folder`.
@@ -55,6 +58,7 @@ export function useRoots(
     const folders = homelessFolders(roots, snapshot).filter((folder) => !asked.current.has(folder));
     if (!folders.length) return;
     for (const folder of folders) asked.current.add(folder);
+    checkedHomes.current = false;
     readHomes(folders)
       .then((homes) => {
         const found = new Map<string, string>();
@@ -81,6 +85,7 @@ export function useRoots(
     (workspace: Workspace) => (snapshot ? queueFolder(roots, workspace, snapshot) : null),
     [roots, snapshot],
   );
+  const moves = useMemo(() => (local && snapshot ? queueMoves(roots, snapshot) : []), [local, roots, snapshot]);
   const isOpenSplitOf = useCallback(
     (workspaceId: string) => !!snapshot && isOpenSplit(roots, workspaceId, snapshot),
     [roots, snapshot],
@@ -92,5 +97,5 @@ export function useRoots(
       return next;
     });
   }, []);
-  return { roots, rootOf, queueFolderOf, isOpenSplitOf, markSplit };
+  return { roots, rootOf, queueFolderOf, moves, isOpenSplitOf, markSplit };
 }

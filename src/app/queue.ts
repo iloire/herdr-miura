@@ -373,6 +373,25 @@ export function foldSplitQueues(file: QueueFile, isOpen: (workspaceId: string) =
   return next;
 }
 
+/// Carries the queue on `from`, a folder that is gone, over to `to`, adding it to
+/// any queue already there. Waiting prompts come paused: a repo renamed and one
+/// deleted look alike here, and only the first has its prompts' files at `to`.
+/// A queue with an item in progress waits for `step` to end that item.
+export function moveQueue(file: QueueFile, from: string, to: string): QueueFile {
+  const { [queueKey(from)]: source, ...queues } = file.queues;
+  if (!source || source.items.some(isActive)) return file;
+  const target = queues[queueKey(to)] ?? { ...source, folder: to, items: [], history: [], paused: null, nextN: source.nextN - source.items.length };
+  const items = source.items.map((item, index) => ({ ...item, n: target.nextN + index }));
+  const moved: Queue = {
+    ...target,
+    paused: items.length ? { reason: `Moved here from \`${from}\`, which no longer exists.` } : target.paused,
+    nextN: target.nextN + items.length,
+    items: [...target.items, ...items],
+    history: [...target.history, ...source.history].slice(0, HISTORY),
+  };
+  return { ...file, queues: { ...queues, [queueKey(to)]: moved } };
+}
+
 /// Adds a prompt at the end, or at the front of what is waiting.
 export function addItem(
   file: QueueFile,

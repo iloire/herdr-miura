@@ -7,6 +7,7 @@ import {
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
+  moveQueue,
   foldSplitQueues,
   type InboxEntry,
   type Item,
@@ -35,6 +36,7 @@ import {
   WORKTREE_NOTE,
   worktreeBranch,
   worktreePath,
+  type QueueFile,
 } from "../queue";
 
 const FOLDER = "/code/app";
@@ -593,5 +595,43 @@ describe("a split workspace's queue", () => {
   it("leaves other queues alone", () => {
     const file = addItem(EMPTY_FILE, FOLDER, "theirs", false, 1);
     expect(foldSplitQueues(file, closed)).toBe(file);
+  });
+});
+
+describe("moveQueue", () => {
+  const OLD = "/code/old";
+  const NEW = "/code/new";
+  const on = (file: QueueFile, folder: string) => file.queues[queueKey(folder)];
+
+  it("keeps a renamed repo's queue whole, paused until someone looks", () => {
+    const file = addItem(addItem(EMPTY_FILE, OLD, "one", false, 1), OLD, "two", false, 2);
+    const moved = moveQueue(file, OLD, NEW);
+    expect(on(moved, OLD)).toBeUndefined();
+    expect(on(moved, NEW).folder).toBe(NEW);
+    expect(on(moved, NEW).items.map((item) => [item.n, item.prompt])).toEqual([[1, "one"], [2, "two"]]);
+    expect(on(moved, NEW).nextN).toBe(3);
+    expect(on(moved, NEW).paused?.reason).toContain(OLD);
+  });
+
+  it("adds to a queue already on the new folder", () => {
+    const file = addItem(addItem(EMPTY_FILE, NEW, "there", false, 1), OLD, "here", false, 2);
+    const moved = on(moveQueue(file, OLD, NEW), NEW);
+    expect(moved.items.map((item) => [item.n, item.prompt])).toEqual([[1, "there"], [2, "here"]]);
+  });
+
+  it("does not pause a queue over a bare history", () => {
+    const file = { ...EMPTY_FILE, queues: { [queueKey(OLD)]: emptyQueue(OLD) } };
+    expect(on(moveQueue(file, OLD, NEW), NEW).paused).toBeNull();
+  });
+
+  it("waits for an item in progress", () => {
+    const file = addItem(EMPTY_FILE, OLD, "one", false, 1);
+    const queue = on(file, OLD);
+    const running = { ...file, queues: { [queueKey(OLD)]: { ...queue, items: [{ ...queue.items[0], state: "running" as const }] } } };
+    expect(moveQueue(running, OLD, NEW)).toBe(running);
+  });
+
+  it("does nothing without a queue to move", () => {
+    expect(moveQueue(EMPTY_FILE, OLD, NEW)).toBe(EMPTY_FILE);
   });
 });

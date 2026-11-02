@@ -28,14 +28,17 @@ export interface Roots {
   /// boot, as ids are not reused: the id arrives from the CLI, and the snapshot
   /// showing that workspace can come either side of it.
   split: Record<string, string>;
+  /// The workspace to follow for each queue's folder found gone, kept for the
+  /// boot: a queue with an item in progress has to wait for it to end.
+  moved: Record<string, string>;
 }
 
-const NO_ROOTS: Roots = { bootId: "", folders: {}, homes: {}, split: {} };
+const NO_ROOTS: Roots = { bootId: "", folders: {}, homes: {}, split: {}, moved: {} };
 
 export function loadRoots(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): Roots {
   try {
     const saved = JSON.parse(storage?.getItem(KEY) ?? "null") as Partial<Roots> | null;
-    return typeof saved?.bootId === "string" && saved.folders ? { bootId: saved.bootId, folders: saved.folders, homes: saved.homes ?? {}, split: saved.split ?? {} } : NO_ROOTS;
+    return typeof saved?.bootId === "string" && saved.folders ? { bootId: saved.bootId, folders: saved.folders, homes: saved.homes ?? {}, split: saved.split ?? {}, moved: saved.moved ?? {} } : NO_ROOTS;
   } catch {
     return NO_ROOTS;
   }
@@ -79,7 +82,9 @@ export function nextRoots(roots: Roots, snapshot: Snapshot): Roots {
     ids.length === Object.keys(roots.folders).length &&
     ids.every((id) => folders[id] === roots.folders[id]) &&
     Object.keys(homes).length === Object.keys(roots.homes).length;
-  return unchanged ? roots : { bootId: snapshot.boot_id, folders, homes, split: sameBoot ? roots.split : {} };
+  if (unchanged) return roots;
+  const moved = Object.entries(roots.moved).filter(([, id]) => sameBoot && id in folders);
+  return { bootId: snapshot.boot_id, folders, homes, split: sameBoot ? roots.split : {}, moved: Object.fromEntries(moved) };
 }
 
 /// `roots` with `workspaceId`, just split off a tab in `folder`.
@@ -122,14 +127,17 @@ export function withHomes(roots: Roots, found: Map<string, string>): Roots {
 
 /// `roots` without what stood on `gone`, homes no longer on disk: a repo renamed
 /// or deleted under its workspaces. `nextRoots` then roots them where their tabs
-/// are. A removed worktree stays, as its home is the main checkout.
+/// are, and `queueMoves` takes their queues along. A removed worktree stays, as
+/// its home is the main checkout.
 export function withoutGone(roots: Roots, gone: ReadonlySet<string>): Roots {
   const isGone = (folder: string) => gone.has(roots.homes[folder]);
   if (!Object.keys(roots.homes).some(isGone)) return roots;
   const keep = (folders: Record<string, string>) =>
     Object.fromEntries(Object.entries(folders).filter(([, folder]) => !isGone(folder)));
+  const left = Object.entries(roots.folders).filter(([, folder]) => isGone(folder));
   return {
     ...roots,
+    moved: { ...roots.moved, ...Object.fromEntries(left.map(([id, folder]) => [roots.homes[folder], id])) },
     folders: keep(roots.folders),
     homes: Object.fromEntries(Object.entries(roots.homes).filter(([folder]) => !isGone(folder))),
     split: keep(roots.split),
@@ -153,6 +161,21 @@ export function queueFolder(roots: Roots, workspace: Workspace, snapshot: Snapsh
   const home = (root === undefined ? undefined : roots.homes[root]) ?? (tabs === null ? undefined : roots.homes[tabs]);
   if (home === undefined) return null;
   return roots.bootId === snapshot.boot_id && id in roots.split ? splitQueueFolder(home, id) : home;
+}
+
+/// The queues to carry over, `[from, to]`: each left on a gone folder by a
+/// workspace that has found its new one. A workspace back on that folder keeps
+/// the queue there.
+export function queueMoves(roots: Roots, snapshot: Snapshot): [string, string][] {
+  if (roots.bootId !== snapshot.boot_id) return [];
+  const inUse = new Set(snapshot.workspaces.map((workspace) => queueFolder(roots, workspace, snapshot)));
+  const moves: [string, string][] = [];
+  for (const [from, id] of Object.entries(roots.moved)) {
+    const workspace = snapshot.workspaces.find((w) => w.workspace_id === id);
+    const to = workspace && queueFolder(roots, workspace, snapshot);
+    if (to && !inUse.has(from)) moves.push([from, to]);
+  }
+  return moves;
 }
 
 export interface StrayPath {

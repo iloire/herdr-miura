@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CheckoutChanges, ChangesState } from "../../changes/store";
 import type { Snapshot, Workspace } from "../../protocol";
 import { queueDirectory, splitQueueFolder } from "../queue";
-import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, withoutGone, withSplit, workspaceRoot } from "../workspaceRoot";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, queueMoves, type Roots, saveRoots, strayPath, withHomes, withoutGone, withSplit, workspaceRoot } from "../workspaceRoot";
 
 const HOME = "/Users/me";
 const ROOT = "/Users/me/code/app";
@@ -88,11 +88,11 @@ function snapshot(boot_id: string, tabs: Record<string, string[]>, agentsIn: str
 }
 
 describe("nextRoots", () => {
-  const none: Roots = { bootId: "", folders: {}, homes: {}, split: {} };
+  const none: Roots = { bootId: "", folders: {}, homes: {}, split: {}, moved: {} };
 
   it("starts a workspace on the folder most of its tabs are in, not the focus", () => {
     const roots = nextRoots(none, snapshot("boot", { w1: ["/app", "/elsewhere", "/app"] }));
-    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {}, split: {} });
+    expect(roots).toEqual({ bootId: "boot", folders: { w1: "/app" }, homes: {}, split: {}, moved: {} });
   });
 
   it("keeps a workspace's root when an agent's only pane moves", () => {
@@ -128,7 +128,7 @@ describe("nextRoots", () => {
 
   it("starts over on a new boot, whose ids mean other workspaces", () => {
     const first = nextRoots(none, snapshot("old", { w1: ["/a"] }));
-    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" }, homes: {}, split: {} });
+    expect(nextRoots(first, snapshot("new", { w1: ["/b"] }))).toEqual({ bootId: "new", folders: { w1: "/b" }, homes: {}, split: {}, moved: {} });
   });
 
   it("waits for a workspace's panes before fixing its root", () => {
@@ -142,7 +142,7 @@ describe("roots storage", () => {
 
   it("round-trips", () => {
     let saved: string | null = null;
-    const roots = { bootId: "boot", folders: { w1: "/a" }, homes: { "/a": "/a" }, split: {} };
+    const roots = { bootId: "boot", folders: { w1: "/a" }, homes: { "/a": "/a" }, split: {}, moved: {} };
     saveRoots(roots, { setItem: (_, value) => (saved = value) });
     expect(loadRoots(store(saved))).toEqual(roots);
   });
@@ -179,13 +179,14 @@ const rootedOn = (folder: string, homes: Record<string, string> = {}): Roots => 
   folders: { w1: folder },
   homes,
   split: {},
+  moved: {},
 });
 
 describe("workspaceRoot", () => {
   it("is the fixed root wherever the tabs are, and nothing before one is fixed", () => {
     const { snapshot, workspace } = shot("/elsewhere");
     expect(workspaceRoot(rootedOn(MAIN), workspace, snapshot)).toBe(MAIN);
-    expect(workspaceRoot({ bootId: "boot", folders: {}, homes: {}, split: {} }, workspace, snapshot)).toBeNull();
+    expect(workspaceRoot({ bootId: "boot", folders: {}, homes: {}, split: {}, moved: {} }, workspace, snapshot)).toBeNull();
   });
 
   it("ignores roots saved under another boot, whose ids name other workspaces", () => {
@@ -308,6 +309,28 @@ describe("homes", () => {
     expect(next.homes).toEqual({ "/renamed": "/renamed" });
     expect(workspaceRoot(next, workspace, snapshot)).toBe("/renamed");
     expect(queueFolder(next, workspace, snapshot)).toBe("/renamed");
+  });
+
+  it("carries a renamed repo's queue once the workspace knows its new folder", () => {
+    const { snapshot } = shot("/renamed", "/renamed");
+    const stale = rootedOn(MAIN, { [MAIN]: MAIN });
+    expect(queueMoves(stale, snapshot)).toEqual([]);
+    const left = nextRoots(withoutGone(stale, new Set([MAIN])), snapshot);
+    expect(queueMoves(left, snapshot)).toEqual([]);
+    expect(queueMoves(withHomes(left, new Map([["/renamed", "/renamed"]])), snapshot)).toEqual([[MAIN, "/renamed"]]);
+  });
+
+  it("leaves a queue on a folder a workspace is back on", () => {
+    const { snapshot } = shot(MAIN, MAIN);
+    const roots = { ...rootedOn(MAIN, { [MAIN]: MAIN }), moved: { [MAIN]: "w1" } };
+    expect(queueMoves(roots, snapshot)).toEqual([]);
+  });
+
+  it("forgets a move when its workspace closes or the daemon restarts", () => {
+    const { snapshot } = shot("/renamed", "/renamed");
+    const roots = { ...rootedOn("/renamed", { "/renamed": "/renamed" }), moved: { [MAIN]: "w1" } };
+    expect(nextRoots({ ...roots, moved: { [MAIN]: "w9" }, folders: {} }, snapshot).moved).toEqual({});
+    expect(nextRoots({ ...roots, bootId: "earlier" }, snapshot).moved).toEqual({});
   });
 
   it("keeps a removed worktree's root, whose home is still there", () => {
