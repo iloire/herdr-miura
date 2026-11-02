@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const { Controller } = await import("../controller");
-const { isActive, movedHome, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
+const { isActive, matchingSessions, movedHome, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
 import type { RecentSession } from "../recentSessions";
 
 function session(id: string, over: Partial<RecentSession> = {}): RecentSession {
@@ -179,5 +179,29 @@ describe("the controller", () => {
     await settle();
     expect(controller.getState().notice).toMatch(/already running/);
     expect(controller.getState().resuming.size).toBe(0);
+  });
+});
+
+describe("matchingSessions", () => {
+  const sessions = [
+    session("favicon", { title: "Lanzarote favicon colors", prompt: "fix the icon" }),
+    session("cron", { title: null, prompt: "pause the Scheduler job", branch: "ops" }),
+    session("detached", { title: "Firestore reads", prompt: "check reads", branch: null }),
+  ];
+  const ids = (query: string) => matchingSessions(sessions, query).map((found) => found.id);
+
+  it("keeps every session, in order, for an empty query", () => {
+    expect(ids("  ")).toEqual(["favicon", "cron", "detached"]);
+  });
+
+  it("looks in the title, the last prompt and the branch, ignoring case", () => {
+    expect(ids("FAVICON")).toEqual(["favicon"]);
+    expect(ids("scheduler")).toEqual(["cron"]);
+    expect(ids("ops")).toEqual(["cron"]);
+  });
+
+  it("needs every word, in any order and any field", () => {
+    expect(ids("icon lanzarote")).toEqual(["favicon"]);
+    expect(ids("lanzarote scheduler")).toEqual([]);
   });
 });

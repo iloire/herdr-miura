@@ -80,6 +80,15 @@ export const isActive = (state: SessionState) => state.kind === "open" || state.
 /// Whether the session opens somewhere other than where it last worked.
 export const movedHome = (session: RecentSession) => session.opens_in !== null && session.opens_in !== session.folder;
 
+/// The sessions every word of `query` is found in: title, last prompt or branch.
+export function matchingSessions(sessions: readonly RecentSession[], query: string): RecentSession[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return sessions.filter((session) => {
+    const text = [session.title ?? "", session.prompt, session.branch ?? ""].join("\n").toLowerCase();
+    return words.every((word) => text.includes(word));
+  });
+}
+
 /// What Reopen Closed Session resumes: the newest closed session of the list.
 /// Not a queue run, which a person closes in batches when it is done, nor one
 /// whose worktree has gone, which was most likely landed.

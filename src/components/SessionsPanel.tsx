@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
-import { isActive, movedHome, readRecentSessions, type RecentSession, type SessionState, sessionState, sessionTabs } from "../app/recentSessions";
+import { isActive, matchingSessions, movedHome, readRecentSessions, type RecentSession, type SessionState, sessionState, sessionTabs } from "../app/recentSessions";
 import { relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
 import type { Snapshot, Workspace } from "../protocol";
@@ -51,11 +51,13 @@ export function SessionsPanel({
   const [sessions, setSessions] = useState<RecentSession[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setSessions(null);
     setFailed(null);
     setPreviewing(null);
+    setQuery("");
   }, [key]);
   // Read again as a resume starts and ends: its session now counts as running.
   useEffect(() => {
@@ -99,8 +101,9 @@ export function SessionsPanel({
 
   const tabs = sessionTabs(snapshot);
   const stateOf = (session: RecentSession) => sessionState(session, tabs, resuming);
-  const active = sessions?.filter((session) => isActive(stateOf(session))) ?? [];
-  const history = sessions?.filter((session) => !isActive(stateOf(session))) ?? [];
+  const shown = matchingSessions(sessions ?? [], query);
+  const active = shown.filter((session) => isActive(stateOf(session)));
+  const history = shown.filter((session) => !isActive(stateOf(session)));
   const shownPreview = sessions?.find((session) => session.id === previewing) ?? null;
   const pick = (session: RecentSession, state: SessionState) => {
     if (state.kind === "open") controller.request("tab.focus", { tab_id: state.tabId });
@@ -138,11 +141,33 @@ export function SessionsPanel({
     <aside className="changes sessions-panel" aria-label="Sessions" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">{head}</header>
       {failed && <div className="queue-banner" role="status">{failed}</div>}
-      {sessions?.length === 0 && (
+      {sessions?.length === 0 ? (
         <div className="queue-off">
           <p>No Claude sessions in this workspace yet.</p>
         </div>
+      ) : (
+        <div className="files-filter">
+          <input
+            type="search"
+            placeholder="Filter sessions"
+            aria-label="Filter sessions"
+            spellCheck={false}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                const first = [...active, ...history].find((session) => stateOf(session).kind !== "opening");
+                if (first) pick(first, stateOf(first));
+              } else if (event.key === "Escape") {
+                if (query) setQuery("");
+                else controller.focusTerminal();
+              } else return;
+              event.preventDefault();
+            }}
+          />
+        </div>
       )}
+      {sessions && sessions.length > 0 && shown.length === 0 && <p className="empty">No session holds “{query.trim()}”.</p>}
       <div className="sessions-list">
         {active.length > 0 && (
           <section className="sessions-group active">

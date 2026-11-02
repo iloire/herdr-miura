@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 13:59 — Filter the Sessions panel
+
+The Sessions panel has a filter box, as the Files panel does. Every word typed has to appear in a session's title, last
+prompt or branch, in any order. Enter opens the first match, Esc clears the box, and a second Esc goes back to the
+terminal. It searches the 200 sessions the panel lists, not the whole of each transcript.
+
 ## 2026-11-02 13:52 — See the image behind `[Image #1]`
 
 ⌘-click `[Image #1]` in a Claude Code pane to see the image pasted into that session, over the window, until Esc or a
