@@ -519,8 +519,11 @@ export default function App() {
     setLinkedFile(null);
     controller.focusTerminal();
   };
+  const viewShown = useRef(false);
+  viewShown.current = Boolean(shownFile || shownCommit || shownTreeFile);
   // Going to a tab shows it, even the one already focused under the diff.
   useEffect(() => {
+    controller.viewOpen = () => viewShown.current;
     controller.closeViews = () => {
       setDiffFile(null);
       setOpenCommit(null);

@@ -108,6 +108,10 @@ const EXTRA_SHORTCUTS: Record<string, string[]> = {
 /// menu.rs), which runs them through an event, so the webview leaves the key alone.
 const MENU_COMMANDS = new Set(["open_settings"]);
 
+/// Commands whose key closes the thing in front, which a view over the terminal
+/// is: the pane or tab behind it cannot be seen, and its scrollback does not come back.
+const CLOSES_FRONT = new Set(["close_pane", "close_tab"]);
+
 export const DEFAULT_FONT_SIZE = DEFAULT_SETTINGS.terminal.fontSize;
 
 /// The Enter key, typed after a new tab's command.
@@ -497,6 +501,11 @@ export class Controller {
     // These dialogs hold the focus: a move would hand it to the terminal,
     // where the Esc meant for the dialog would interrupt the agent.
     if (this.state.closeAsk || this.state.alert) return true;
+    if (CLOSES_FRONT.has(command.name) && this.viewOpen()) {
+      this.closeViews();
+      this.focusTerminal();
+      return true;
+    }
     this.run(command.name);
     return true;
   }
@@ -559,6 +568,8 @@ export class Controller {
 
   /// Set by `App`, which keeps the diff or file open over the terminal.
   closeViews: () => void = () => {};
+  /// Whether one of those covers the terminal now.
+  viewOpen: () => boolean = () => false;
 
   /// Opens `panel` in the drawer, or closes it if open: the focus was in the
   /// panel or on its toggle, so closing hands typing back to the terminal.

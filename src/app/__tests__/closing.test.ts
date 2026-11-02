@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Agent, AgentStatus, Snapshot, Tab } from "../../protocol";
+import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../../protocol";
 import { closeAsk, focusAfterClose, withoutClosing } from "../closing";
 import { DEFAULT_SETTINGS } from "../settings";
 
@@ -260,6 +260,43 @@ describe("closing a tab", () => {
       controller.answerClose(false);
       expect(controller.shortcut(toggleSidebar)).toBe(true);
       expect(controller.getState().sidebar).toBe(!sidebar);
+    });
+
+    describe("with a view over the terminal", () => {
+      const chord = { key: "W", code: "KeyW", metaKey: false, ctrlKey: true, altKey: false, shiftKey: true, repeat: false };
+      const closeKeys = { pane: chord, tab: { ...chord, altKey: true } };
+
+      async function onPaneB() {
+        const { controller, emit } = await connected(tabs());
+        emit({
+          type: "snapshot",
+          snapshot: { ...snapshot(tabs()), focused_pane_id: "b:p", workspaces: [{ workspace_id: "w1" } as Workspace] },
+        });
+        controller.loadCatalog();
+        return controller;
+      }
+
+      it.each(Object.entries(closeKeys))("closes the view and not the %s behind it", async (_, closeKey) => {
+        const controller = await onPaneB();
+        controller.viewOpen = () => true;
+        const closeViews = vi.fn<() => void>();
+        const focusTerminal = vi.fn<() => void>();
+        controller.closeViews = closeViews;
+        controller.focusTerminal = focusTerminal;
+        expect(controller.shortcut(closeKey)).toBe(true);
+        await flush();
+        expect(requests()).toEqual([]);
+        expect(shown(controller)).toEqual(["a", "b"]);
+        expect(closeViews).toHaveBeenCalledOnce();
+        expect(focusTerminal).toHaveBeenCalledOnce();
+      });
+
+      it("closes the pane once the view is gone", async () => {
+        const controller = await onPaneB();
+        expect(controller.shortcut(closeKeys.pane)).toBe(true);
+        await flush();
+        expect(requests()).toEqual([["pane.close", { pane_id: "b:p" }]]);
+      });
     });
 
     it("drops the question on a new connection, where its IDs mean nothing", async () => {

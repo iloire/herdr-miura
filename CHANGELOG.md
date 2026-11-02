@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 11:32 — ⌘W closes the file in front of the terminal
+
+⌘W in the file view closed the terminal pane hidden behind it, losing that pane's scrollback and leaving the file open.
+⌘W and ⌘⇧W now close an open file, diff or commit first, wherever the keyboard is, and edits not saved stay as a draft.
+With nothing covering the terminal they close the pane and the tab as before.
+
 ## 2026-11-02 11:19 — ⌘-click a file path in a terminal
 
 A file path in a terminal now works like a commit hash: hold ⌘ to underline it and click to open it in the file view, a

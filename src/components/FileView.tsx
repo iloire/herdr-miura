@@ -79,8 +79,8 @@ function ImageBody({ src, alt }: { src: string; alt: string }) {
 
 /// One file of the checkout over the terminal area, as the diff view sits:
 /// text to edit, a Markdown file as a page (its source a click away), or an
-/// image. ⌘S saves, and refuses a file that changed since it was read. Esc
-/// closes; edits not saved stay as a draft for the next time the file opens.
+/// image. ⌘S saves, and refuses a file that changed since it was read. Esc or
+/// ⌘W closes; edits not saved stay as a draft for the next time the file opens.
 export function FileView({
   root,
   path,
@@ -230,7 +230,7 @@ export function FileView({
             </button>
           </div>
         )}
-        <button className="icon-button" aria-label="Close file" title="Close (Esc)" onClick={onClose}>
+        <button className="icon-button" aria-label="Close file" title="Close (Esc or ⌘W)" onClick={onClose}>
           ×
         </button>
       </header>
