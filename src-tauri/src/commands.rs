@@ -10,6 +10,7 @@ use crate::{
     folder::{self, Opener},
     land, listening_ports, prompts, queue,
     session_context::{self, SessionContext},
+    recent_sessions::{self, RecentSession},
     session_usage::{self, ProjectUsage, SessionUsage},
     settings,
     ssh_hosts,
@@ -386,6 +387,50 @@ pub async fn session_usage(
         app.state::<session_usage::Cache>().read(&projects, &sessions, unix_now())
     });
     Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// The sessions that worked in `folders` or under them, closed ones included,
+/// newest first, from this Mac's transcripts. Reads only the ends of files, and
+/// holds no lock the tab header waits on.
+#[tauri::command]
+pub async fn recent_sessions(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    folders: Vec<String>,
+) -> Result<Vec<RecentSession>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let Some(projects) = claude_projects() else {
+            return Vec::new();
+        };
+        let sessions = projects.with_file_name("sessions");
+        app.state::<recent_sessions::Cache>().list(&projects, &sessions, &folders)
+    });
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Opens a tab in `workspace_id` running `claude --resume <session>`, in the
+/// folder the transcript says, unless something already has the session open.
+/// Takes only the id, so the webview cannot start it anywhere else.
+#[tauri::command]
+pub async fn session_resume(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    workspace_id: String,
+    session: String,
+) -> Result<queue::Opened> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || -> Result<queue::Opened> {
+        let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
+        let sessions = projects.with_file_name("sessions");
+        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &session)?;
+        // `p`, as the prompt library's tabs. Herdr refuses a name in use, and two
+        // resumes can land in one second.
+        let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
+        let name = format!("p{}", millis % 1_000_000_000);
+        Ok(queue::resume(&workspace_id, &target.folder, &target.label, &name, &session)?)
+    });
+    run.await.map_err(changes::Error::Worker)?
 }
 
 /// What fills each Claude Code session's context, by session id; `None` as for

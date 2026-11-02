@@ -11,6 +11,8 @@ pub enum Error {
     #[error(transparent)]
     TabMove(#[from] crate::tab_move::Error),
     #[error(transparent)]
+    RecentSessions(#[from] crate::recent_sessions::Error),
+    #[error(transparent)]
     PromptCreate(#[from] crate::prompts::CreateError),
     #[error(transparent)]
     PromptSave(#[from] crate::prompts::SaveError),

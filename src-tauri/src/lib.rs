@@ -22,6 +22,7 @@ mod process;
 mod prompts;
 mod queue;
 mod session_context;
+mod recent_sessions;
 mod session_usage;
 mod settings;
 mod ssh_hosts;
@@ -42,6 +43,7 @@ pub fn run() {
         .manage(connection::Connection::default())
         .manage(queue::Owner::default())
         .manage(session_usage::Cache::default())
+        .manage(recent_sessions::Cache::default())
         .manage(ssh_hosts::PendingKeys::default())
         .manage(sync::Running::default());
     #[cfg(target_os = "macos")]
@@ -98,6 +100,8 @@ pub fn run() {
             commands::send_popup_input,
             commands::session_context,
             commands::session_usage,
+            commands::recent_sessions,
+            commands::session_resume,
             commands::usage_history,
             commands::settings_load,
             commands::settings_set,

@@ -2,6 +2,18 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 12:52 — Bring a Claude session back
+
+A Claude tab closed by accident, or lost to a crash or a quit, can now be brought back without `claude --resume` in a
+terminal. ⌘⇧R, or File > Reopen Closed Session, resumes the newest session of the focused workspace that no tab holds. The
+new Sessions panel in the drawer lists the workspace's sessions, its worktrees' included, with title, last prompt, branch
+and age: clicking one resumes it in a new tab in its folder, or goes to the tab that already has it.
+
+A session running in a plain terminal is marked and cannot be resumed, so two Claude Codes never write one session. A
+removed worktree's session opens in its main checkout and says so, and a session whose folder has gone with nothing to
+stand in says that instead of opening. Queue runs are labelled and hidden behind a checkbox, and ⌘⇧R skips them, along with
+sessions of removed worktrees.
+
 ## 2026-11-02 12:10 — A tab can have a color
 
 A tab's right-click menu has a row of swatches, the six palette colors and None, for marking what kind of work a tab

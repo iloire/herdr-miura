@@ -23,6 +23,7 @@ describe("the panel commands", () => {
     ["review_changes", "changes"],
     ["browse_files", "files"],
     ["add_to_queue", "queue"],
+    ["recent_sessions", "sessions"],
   ] as const)("%s hands focus to the terminal when it closes the panel, not when it opens it", (command, panel) => {
     controller.run(command);
     expect(controller.getState()[panel]).toBe(true);

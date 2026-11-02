@@ -41,7 +41,7 @@
   --top-row: 39px;
   /* Room for the window's traffic lights, and for the panel switch. */
   --traffic-lights: 84px;
-  --panel-switch: 100px;
+  --panel-switch: 128px;
   --mono: "JetBrains Mono", "SF Mono", Menlo, "DejaVu Sans Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -5490,4 +5490,95 @@ kbd {
   .context-row-track {
     width: 56px;
   }
+}
+
+/* The Sessions panel: a plain list, each row a button. A session that cannot be
+   resumed stays on the list, dimmed, saying why. */
+.sessions-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.sessions-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.sessions-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.session-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+.session-row:hover:enabled {
+  background: var(--hover);
+}
+
+.session-row:disabled {
+  cursor: default;
+}
+
+.session-row:disabled .session-title,
+.session-row:disabled .session-prompt {
+  opacity: 0.6;
+}
+
+.session-title,
+.session-prompt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-title {
+  color: var(--text);
+  font: 600 calc(12px * var(--ui-scale)) var(--sans);
+}
+
+.session-title.untitled {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.session-prompt {
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.session-branch {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-state {
+  color: var(--hue);
 }

@@ -1,7 +1,7 @@
 import type { Controller } from "../app/controller";
-import { ChangesIcon, FileIcon, QueueIcon } from "./icons";
+import { ChangesIcon, FileIcon, HistoryIcon, QueueIcon } from "./icons";
 
-/// Changes, Files and Queue, pinned to the window's top right corner: over the
+/// Changes, Files, Queue and Sessions, pinned to the window's top right corner: over the
 /// tab row, and over the drawer once it opens, so a diff covering the tabs
 /// leaves the switch in place.
 export function PanelSwitch({
@@ -10,6 +10,8 @@ export function PanelSwitch({
   files,
   queue,
   queued,
+  sessions,
+  showSessions,
 }: {
   controller: Controller;
   changes: boolean;
@@ -18,6 +20,10 @@ export function PanelSwitch({
   queue: boolean;
   /// Prompts waiting in the focused workspace's queue, and whether one runs.
   queued: { waiting: number; running: boolean };
+  /// The Sessions panel is open.
+  sessions: boolean;
+  /// Sessions are this Mac's, so a remote host has no such panel.
+  showSessions: boolean;
 }) {
   return (
     <div className="panel-switch" role="group" aria-label="Side panel">
@@ -49,6 +55,17 @@ export function PanelSwitch({
         <QueueIcon />
         {queued.waiting > 0 && <span className="queue-toggle-count">{queued.waiting}</span>}
       </button>
+      {showSessions && (
+        <button
+          className="panel-toggle"
+          title="Recent sessions"
+          aria-label="Recent sessions"
+          aria-pressed={sessions}
+          onClick={() => controller.run("recent_sessions")}
+        >
+          <HistoryIcon />
+        </button>
+      )}
     </div>
   );
 }

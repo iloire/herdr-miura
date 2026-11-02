@@ -2,7 +2,7 @@
 // which panel the right-hand drawer held, and the file picked in it. Kept in
 // this window's storage, so a relaunch opens where you left off.
 
-export type Drawer = "changes" | "files" | "queue";
+export type Drawer = "changes" | "files" | "queue" | "sessions";
 
 /// A file picked in a panel, with the checkout it belongs to: in another
 /// checkout the same path means nothing.
@@ -39,7 +39,7 @@ export function loadLayout(storage: Pick<Storage, "getItem"> | undefined = globa
     const { sidebar, drawer, changesFile, treeFile } = saved as Record<string, unknown>;
     return {
       sidebar: typeof sidebar === "boolean" ? sidebar : DEFAULT_LAYOUT.sidebar,
-      drawer: drawer === "changes" || drawer === "files" || drawer === "queue" ? drawer : null,
+      drawer: drawer === "changes" || drawer === "files" || drawer === "queue" || drawer === "sessions" ? drawer : null,
       changesFile: savedFile(changesFile),
       treeFile: savedFile(treeFile),
     };

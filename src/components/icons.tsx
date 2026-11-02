@@ -57,6 +57,13 @@ export const CheckIcon = () => (
   </Icon>
 );
 
+/// A clock with its hand running back, for what came before.
+export const HistoryIcon = () => (
+  <Icon>
+    <path d="M2.75 8a5.25 5.25 0 1 0 1.6-3.8L2.75 5.75M2.75 2.75v3h3M8 5v3.25l2.25 1.25" {...LINE} />
+  </Icon>
+);
+
 export const TerminalIcon = () => (
   <Icon>
     <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" {...LINE} />

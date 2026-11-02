@@ -306,7 +306,7 @@ fn prompt(value: &Value) -> Option<String> {
 
 /// `text` without the `<pasted_content id="…">` tags around a paste, in which
 /// a queued prompt arrives whole.
-fn without_paste_tags(text: &str) -> String {
+pub(crate) fn without_paste_tags(text: &str) -> String {
     const NAME: &str = "pasted_content";
     let mut kept = String::with_capacity(text.len());
     let mut rest = text;
@@ -328,7 +328,7 @@ fn without_paste_tags(text: &str) -> String {
     kept
 }
 
-fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+pub(crate) fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
@@ -495,7 +495,7 @@ impl State {
 }
 
 /// A Claude Code session id: a UUID, so never a path.
-fn is_session_id(id: &str) -> bool {
+pub(crate) fn is_session_id(id: &str) -> bool {
     id.len() == 36
         && id.char_indices().all(|(i, c)| match i {
             8 | 13 | 18 | 23 => c == '-',

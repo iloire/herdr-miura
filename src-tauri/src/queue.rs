@@ -389,15 +389,30 @@ pub fn open(
     kind: &str,
     args: &[String],
 ) -> Result<Opened, Error> {
+    open_tab(workspace, directory, label, name, kind, args, false)
+}
+
+/// Opens a tab at `directory`, in front, running `claude --resume <session>`,
+/// as `open` does. The session's id must already be a UUID. Blocking.
+pub fn resume(workspace: &str, directory: &str, label: &str, name: &str, session: &str) -> Result<Opened, Error> {
+    let args = ["--resume".to_owned(), session.to_owned()];
+    open_tab(workspace, directory, label, name, "claude", &args, true)
+}
+
+fn open_tab(
+    workspace: &str,
+    directory: &str,
+    label: &str,
+    name: &str,
+    kind: &str,
+    args: &[String],
+    focus: bool,
+) -> Result<Opened, Error> {
     checked(workspace)?;
     check_start(directory, label, name, kind, args)?;
     let cli = herdr()?;
-    let created = run(
-        &cli,
-        &[
-            "tab", "create", "--workspace", workspace, "--cwd", directory, "--label", label, "--no-focus",
-        ],
-    )?;
+    let front = if focus { "--focus" } else { "--no-focus" };
+    let created = run(&cli, &["tab", "create", "--workspace", workspace, "--cwd", directory, "--label", label, front])?;
     let pane = serde_json::from_value::<Created>(created)
         .map_err(Error::Decode)?
         .root_pane;

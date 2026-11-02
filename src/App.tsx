@@ -9,6 +9,7 @@ import { loadPins } from "./app/pins";
 import { loadTabColors, saveTabColors, withoutClosedTabs } from "./app/tabColors";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
+import { sessionFolders } from "./app/recentSessions";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
 import { isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
@@ -40,6 +41,7 @@ import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { PromptPalette } from "./components/PromptPalette";
 import { QueuePanel } from "./components/QueuePanel";
+import { SessionsPanel } from "./components/SessionsPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
@@ -151,11 +153,13 @@ export default function App() {
       if (controller.shortcut(event)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);
-    // The macOS app menu's Settings… item, which also owns ⌘, there.
-    const unlisten = listen("menu://open_settings", () => controller.run("open_settings"));
+    // The macOS app menu's items, which also own their keys there.
+    const menuItems = ["open_settings", "reopen_closed_session"].map((command) =>
+      listen(`menu://${command}`, () => controller.run(command)),
+    );
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      void unlisten.then((stop) => stop());
+      for (const unlisten of menuItems) void unlisten.then((stop) => stop());
     };
   }, [controller]);
 
@@ -571,7 +575,19 @@ export default function App() {
   };
   const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
 
-  const drawerOpen = readChanges || state.queue;
+  // The folders whose Claude sessions are this workspace's: on this Mac only.
+  const focusedRoot = focusedWorkspace && state.snapshot ? (rootOf(focusedWorkspace) ?? workspaceFolder(focusedWorkspace, state.snapshot)) : null;
+  const focusedWorktrees = worktrees.get(focusedWorkspace?.workspace_id ?? "");
+  const recentFolders = useMemo(
+    () => (local ? sessionFolders(focusedRoot, focusedWorktrees ?? []) : null),
+    [local, focusedRoot, focusedWorktrees],
+  );
+  const focusedWorkspaceId = local ? (focusedWorkspace?.workspace_id ?? null) : null;
+  useEffect(() => {
+    controller.reopenSession = () => controller.reopenClosed(focusedWorkspaceId, recentFolders);
+  }, [controller, focusedWorkspaceId, recentFolders]);
+
+  const drawerOpen = readChanges || state.queue || state.sessions;
 
   return (
     <>
@@ -593,6 +609,8 @@ export default function App() {
               waiting: focusedQueue?.items.filter((item) => item.state === "queued").length ?? 0,
               running: Boolean(focusedQueue?.items.some(isActive)),
             }}
+            sessions={state.sessions}
+            showSessions={local}
           />
           {/* The focused workspace's hue marks the selected tab and the status
               bar, so the main column reads as the card picked in the sidebar. */}
@@ -671,6 +689,15 @@ export default function App() {
                 queue={focusedQueue}
                 access={queueAccess}
                 actions={local ? queueActions : null}
+              />
+            ) : state.sessions && state.snapshot ? (
+              <SessionsPanel
+                controller={controller}
+                snapshot={state.snapshot}
+                workspace={focusedWorkspace ?? null}
+                hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
+                folders={recentFolders}
+                resuming={state.resuming}
               />
             ) : state.files ? (
               <FilesPanel

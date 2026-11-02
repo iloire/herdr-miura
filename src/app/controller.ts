@@ -10,6 +10,7 @@ import { parseShortcut, shortcutLabel, type KeyLike, matches, type Shortcut } fr
 import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from "./catalog";
 import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
+import { readRecentSessions, reopenTarget, resumeInNewTab, sessionTabs } from "./recentSessions";
 import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
 
@@ -84,6 +85,10 @@ export interface State {
   queue: boolean;
   /// It opened on its own, for a workspace with prompts queued, so it closes on its own too.
   queueAuto: boolean;
+  /// The Sessions panel is open, the fourth in the drawer.
+  sessions: boolean;
+  /// Sessions a tab is on its way for, so no second one opens.
+  resuming: ReadonlySet<string>;
   fontSize: number;
   /// The theme on screen: chrome tokens on :root, terminal colors in the painter.
   theme: NamedTheme;
@@ -106,7 +111,7 @@ const EXTRA_SHORTCUTS: Record<string, string[]> = {
 
 /// Commands whose macOS shortcut belongs to an app menu item (src-tauri's
 /// menu.rs), which runs them through an event, so the webview leaves the key alone.
-const MENU_COMMANDS = new Set(["open_settings"]);
+const MENU_COMMANDS = new Set(["open_settings", "reopen_closed_session"]);
 
 /// Commands whose key closes the thing in front, which a view over the terminal
 /// is: the pane or tab behind it cannot be seen, and its scrollback does not come back.
@@ -133,6 +138,7 @@ const ENTER: PaneInputEvent = {
 /// its own is left to open on its own again.
 function drawerOf(state: State): Drawer | null {
   if (state.queue) return state.queueAuto ? null : "queue";
+  if (state.sessions) return "sessions";
   return state.changes ? "changes" : state.files ? "files" : null;
 }
 
@@ -159,6 +165,8 @@ export class Controller {
     files: layout.drawer === "files",
     queue: layout.drawer === "queue",
     queueAuto: false,
+    sessions: layout.drawer === "sessions",
+    resuming: new Set(),
     fontSize: DEFAULT_FONT_SIZE,
     theme: HERDR_NIGHT,
     settings: DEFAULT_SETTINGS,
@@ -525,6 +533,10 @@ export class Controller {
         return this.set({ library: !this.state.library });
       case "add_to_queue":
         return this.togglePanel("queue");
+      case "recent_sessions":
+        return this.togglePanel("sessions");
+      case "reopen_closed_session":
+        return this.reopenSession();
       case "review_changes":
         return this.togglePanel("changes");
       case "browse_files":
@@ -591,7 +603,7 @@ export class Controller {
     this.act(
       findCommit(directory, name).then((found) => {
         if (!found) return this.set({ notice: `No commit ${name} in ${directory}` });
-        this.set({ changes: true, files: false, queue: false, queueAuto: false });
+        this.set({ changes: true, files: false, queue: false, queueAuto: false, sessions: false });
         this.showCommit(found);
       }),
     );
@@ -610,31 +622,68 @@ export class Controller {
     this.act(
       findFile(directory, name).then((found) => {
         if (!found) return this.set({ notice: `No file ${name} in a checkout from ${directory}` });
-        this.set({ files: true, changes: false, queue: false, queueAuto: false });
+        this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false });
         this.showFile(found, directory);
       }),
     );
   }
 
-  private togglePanel(panel: "changes" | "files" | "queue"): void {
+  private togglePanel(panel: "changes" | "files" | "queue" | "sessions"): void {
     const open = !this.state[panel];
     this.composerAsked = panel === "queue" && open;
-    this.set({ changes: false, files: false, queue: false, queueAuto: false, [panel]: open });
+    this.set({ changes: false, files: false, queue: false, queueAuto: false, sessions: false, [panel]: open });
     if (!open) this.focusTerminal();
   }
 
   openQueue(): void {
     if (!this.state.queue || this.state.queueAuto) this.composerAsked = true;
-    this.set({ queue: true, queueAuto: false, changes: false, files: false });
+    this.set({ queue: true, queueAuto: false, changes: false, files: false, sessions: false });
   }
 
   /// Follows the focused workspace: its queue holding prompts opens the panel
   /// when the drawer is free, and one opened that way closes again once the
   /// focused workspace has none. A panel opened or closed by hand is left be.
   followQueue(busy: boolean): void {
-    const { queue, queueAuto, changes, files } = this.state;
-    if (busy && !queue && !changes && !files) this.set({ queue: true, queueAuto: true });
+    const { queue, queueAuto, changes, files, sessions } = this.state;
+    if (busy && !queue && !changes && !files && !sessions) this.set({ queue: true, queueAuto: true });
     else if (!busy && queue && queueAuto) this.set({ queue: false, queueAuto: false });
+  }
+
+  /// Set by `App`, which knows the focused workspace's folders.
+  reopenSession: () => void = () => {};
+
+  /// Resumes the newest closed session of `folders` in `workspaceId`. Asks at
+  /// the key press, so a second press finds the next one back.
+  reopenClosed(workspaceId: string | null, folders: string[] | null): void {
+    if (!workspaceId || !folders) return this.set({ notice: "Reopen Closed Session works on this Mac's workspaces only" });
+    this.act(
+      readRecentSessions(folders).then((sessions) => {
+        const { snapshot, resuming } = this.state;
+        const target = snapshot && reopenTarget(sessions, sessionTabs(snapshot), resuming);
+        if (target) this.resumeSession(workspaceId, target.id);
+        else this.set({ notice: "No closed session to reopen in this workspace" });
+      }),
+    );
+  }
+
+  /// Opens a tab resuming `session`. Its tab comes to the front at once, so any
+  /// view over the terminal closes; the answer waits for Claude to take input.
+  resumeSession(workspaceId: string, session: string): void {
+    if (this.state.resuming.has(session)) return;
+    this.set({ resuming: new Set([...this.state.resuming, session]) });
+    this.closeViews();
+    this.focusTerminal();
+    this.act(
+      resumeInNewTab(workspaceId, session)
+        .then((opened) => {
+          if (!opened.ready) this.set({ notice: `Claude is not ready in the new tab: ${opened.note ?? "no reason given"}` });
+        })
+        .finally(() => {
+          const resuming = new Set(this.state.resuming);
+          resuming.delete(session);
+          this.set({ resuming });
+        }),
+    );
   }
 
   closeLibrary(): void {
