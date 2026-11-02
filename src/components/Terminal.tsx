@@ -13,7 +13,7 @@ const BUTTONS: MouseButton[] = ["Left", "Middle", "Right"];
 function sameLink(a: Link | null, b: Link | null): boolean {
   if (!a || !b) return a === b;
   const [ax, bx] = [a.cells[0], b.cells[0]];
-  return a.url === b.url && a.commit === b.commit && a.file === b.file && a.cells.length === b.cells.length && ax.x === bx.x && ax.y === bx.y;
+  return a.url === b.url && a.commit === b.commit && a.file === b.file && a.image === b.image && a.cells.length === b.cells.length && ax.x === bx.x && ax.y === bx.y;
 }
 
 function modifiers(event: MouseEvent | WheelEvent): number {
@@ -64,8 +64,9 @@ export function Terminal({
       repaintAll();
     };
 
-    // ⌘ over a URL, commit hash or file path underlines it. A ⌘-click opens a
-    // URL in the browser, a commit in the diff view and a file in the file view.
+    // ⌘ over a URL, commit hash, file path or `[Image #1]` underlines it. A
+    // ⌘-click opens a URL in the browser, a commit in the diff view, a file in
+    // the file view and a pasted image over the window.
     let pointer: { column: number; row: number } | null = null;
     let commandHeld = false;
     const updateLink = (): Set<number> => {
@@ -158,6 +159,10 @@ export function Terminal({
         }
         if (link?.file && pane) {
           controller.openFileLink(link.file, pane.pane_id);
+          return;
+        }
+        if (link?.image !== undefined && pane) {
+          controller.openImageLink(link.image, pane.pane_id);
           return;
         }
         if (link?.url) {

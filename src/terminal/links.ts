@@ -1,11 +1,13 @@
 import type { Grid } from "./grid";
 
-/// A URL, commit hash or file path found in the grid, with the cells it covers
-/// (it may wrap rows).
+/// A URL, commit hash, file path or pasted image found in the grid, with the
+/// cells it covers (it may wrap rows).
 export interface Link {
   url?: string;
   commit?: string;
   file?: string;
+  /// The number of Claude Code's `[Image #1]`.
+  image?: number;
   cells: { x: number; y: number }[];
 }
 
@@ -22,6 +24,9 @@ const PATH_PATTERN = /(?<![\p{L}\p{N}_.\/~@+-])(?:~\/|\.{1,2}\/|\/)?[\p{L}\p{N}_
 /// A word is only a path with a `/` in it, or a name ending in an extension.
 const PATH_SHAPE = /\/|[^.]\.[a-zA-Z]\w*$/;
 
+/// How Claude Code shows an image pasted into a prompt.
+const IMAGE_PATTERN = /\[Image #(\d+)\]/g;
+
 /// Prose punctuation that ends a sentence rather than the URL.
 const TRAILING = /[.,;:!?'"*]+$/;
 
@@ -36,7 +41,7 @@ function trim(text: string): string {
   return url;
 }
 
-/// The URL, commit hash or file path under a cell, if any. Only the disk can
+/// The URL, commit hash, file path or pasted image under a cell, if any. Only the disk can
 /// tell whether a path is a file. Text is read only within the pane holding
 /// the cell, so a neighbouring pane's text never joins it, and a row whose
 /// last column is filled continues onto the next one, as a wrapped URL does.
@@ -76,6 +81,10 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
     if (!covered.some((cell) => cell.x === column && cell.y === row)) continue;
     const cells = covered.filter((cell, i) => i === 0 || cell !== covered[i - 1]);
     return { url: url.startsWith("http") ? url : `http://${url}`, cells };
+  }
+  for (const match of text.matchAll(IMAGE_PATTERN)) {
+    const covered = origin.slice(match.index, match.index + match[0].length);
+    if (covered.some((cell) => cell.x === column && cell.y === row)) return { image: Number(match[1]), cells: covered };
   }
   for (const match of text.matchAll(COMMIT_PATTERN)) {
     const covered = origin.slice(match.index, match.index + match[0].length);

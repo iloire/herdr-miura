@@ -11,6 +11,7 @@ import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from 
 import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
 import { readRecentSessions, reopenTarget, resumeInNewTab, sessionTabs } from "./recentSessions";
+import { type PastedImage, readPastedImage, sessionOf } from "./sessionUsage";
 import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
 
@@ -71,6 +72,8 @@ export interface State {
   notice: string | null;
   /// A failure you have to read: it stays up until dismissed.
   alert: Alert | null;
+  /// The pasted image open over the window, with its number.
+  pastedImage: (PastedImage & { paste: number }) | null;
   title: string | null;
   sidebar: boolean;
   /// The prompt library's palette is open.
@@ -157,6 +160,7 @@ export class Controller {
     snapshot: null,
     notice: null,
     alert: null,
+    pastedImage: null,
     title: null,
     sidebar: layout.sidebar,
     library: false,
@@ -626,6 +630,27 @@ export class Controller {
         this.showFile(found, directory);
       }),
     );
+  }
+
+  /// Shows the image a pane's `[Image #1]` means, from the transcript of that
+  /// pane's Claude Code session.
+  openImageLink(paste: number, paneId: string): void {
+    const snapshot = this.state.snapshot;
+    const agent = snapshot?.agents.find((agent) => agent.pane_id === paneId);
+    const session = agent ? sessionOf(agent) : null;
+    if (!session) return this.set({ notice: "No Claude Code session in this pane to read the image from" });
+    if (paneId !== snapshot?.focused_pane_id) this.request("pane.focus", { pane_id: paneId });
+    this.act(
+      readPastedImage(session, paste).then((image) => {
+        if (!image) return this.set({ notice: `Image #${paste} is not in this session's transcript` });
+        this.set({ pastedImage: { ...image, paste } });
+      }),
+    );
+  }
+
+  closePastedImage(): void {
+    this.set({ pastedImage: null });
+    this.focusTerminal();
   }
 
   private togglePanel(panel: "changes" | "files" | "queue" | "sessions"): void {

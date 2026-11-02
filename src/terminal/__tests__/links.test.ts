@@ -132,6 +132,14 @@ describe("linkAt", () => {
     expect(linkAt(g, 26, 0)).toBeNull();
   });
 
+  it("finds a pasted image's number, on the whole of its label", () => {
+    const g = grid(["> [Image #12] what is this"]);
+    expect(linkAt(g, 2, 0)).toMatchObject({ image: 12 });
+    expect(linkAt(g, 12, 0)?.image).toBe(12);
+    expect(linkAt(g, 12, 0)?.cells).toHaveLength(11);
+    expect(linkAt(g, 13, 0)).toBeNull();
+  });
+
   it("prefers a URL and a commit to a path", () => {
     expect(linkAt(grid(["https://a.dev/x/y.md"]), 16, 0)?.url).toBe("https://a.dev/x/y.md");
     expect(linkAt(grid(["see d0de2cf"]), 6, 0)?.commit).toBe("d0de2cf");

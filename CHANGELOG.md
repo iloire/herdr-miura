@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 13:52 — See the image behind `[Image #1]`
+
+⌘-click `[Image #1]` in a Claude Code pane to see the image pasted into that session, over the window, until Esc or a
+click outside. It is read from the session's transcript, so it still opens after a reboot clears Claude Code's temporary
+copy. A pane with no session, or an image not yet sent, gives a notice.
+
 ## 2026-11-02 13:40 — Remove New Tab from the tab menu
 
 The tab strip's right-click menu no longer has New Tab, which did the same as the + and ⌘⇧T. Those stay, as does ⌘T, and

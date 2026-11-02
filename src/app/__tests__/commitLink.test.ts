@@ -106,3 +106,45 @@ describe("openFileLink", () => {
     expect(controller.getState().files).toBe(false);
   });
 });
+
+describe("openImageLink", () => {
+  const SESSION = "d0aa0621-ac48-4225-9ee8-e1d0fcacb836";
+  const settled = () => new Promise((done) => setTimeout(done));
+  let controller: InstanceType<typeof Controller>;
+  let answer: { mime: string; data: string } | null;
+
+  beforeEach(() => {
+    answer = { mime: "image/png", data: "aW1n" };
+    invoke.mockReset();
+    invoke.mockImplementation(async (command) => (command === "pasted_image" ? answer : undefined));
+    controller = new Controller();
+    controller.getState().snapshot = {
+      ...snapshot(),
+      agents: [{ pane_id: "p2", tokens: [["$claude_session", SESSION]] }],
+    } as unknown as Snapshot;
+  });
+
+  it("reads the image from the session of the pane holding the text", async () => {
+    const focus = vi.spyOn(controller, "request").mockImplementation(() => {});
+    controller.openImageLink(3, "p2");
+    expect(focus).toHaveBeenCalledWith("pane.focus", { pane_id: "p2" });
+    await settled();
+    expect(invoke).toHaveBeenCalledWith("pasted_image", { session: SESSION, paste: 3 });
+    expect(controller.getState().pastedImage).toEqual({ mime: "image/png", data: "aW1n", paste: 3 });
+  });
+
+  it("says so when no prompt holds the image", async () => {
+    vi.spyOn(controller, "request").mockImplementation(() => {});
+    answer = null;
+    controller.openImageLink(3, "p2");
+    await settled();
+    expect(controller.getState().pastedImage).toBeNull();
+    expect(controller.getState().notice).toBe("Image #3 is not in this session's transcript");
+  });
+
+  it("says so in a pane with no session, without reading anything", () => {
+    controller.openImageLink(1, "p1");
+    expect(invoke).not.toHaveBeenCalledWith("pasted_image", expect.anything());
+    expect(controller.getState().notice).toBe("No Claude Code session in this pane to read the image from");
+  });
+});

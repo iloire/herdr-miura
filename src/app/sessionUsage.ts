@@ -56,6 +56,17 @@ export function sessionOf(agent: Agent): string | null {
   return agentToken(agent, "claude_session");
 }
 
+/// An image pasted into a prompt, as base64 with its media type.
+export interface PastedImage {
+  mime: string;
+  data: string;
+}
+
+/// Image number `paste` of a session, or null when no prompt of it holds one.
+export function readPastedImage(session: string, paste: number): Promise<PastedImage | null> {
+  return invoke<PastedImage | null>("pasted_image", { session, paste });
+}
+
 /// What a session goes by in a list of them.
 export function sessionName(agent: Agent): string {
   return agentTitle(agent) ?? agent.display_agent ?? agent.agent ?? "agent";

@@ -8,7 +8,9 @@ use crate::{
     connection::Connection,
     files::{self, Contents, FoundFile, Listing},
     folder::{self, Opener},
-    land, listening_ports, prompts, queue,
+    land, listening_ports,
+    pasted_image::{self, PastedImage},
+    prompts, queue,
     session_context::{self, SessionContext},
     recent_sessions::{self, RecentSession},
     session_usage::{self, ProjectUsage, SessionUsage},
@@ -464,6 +466,22 @@ pub async fn session_context(
             .iter()
             .map(|id| session_context::read(&cache.transcript(&projects, id)?))
             .collect()
+    });
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Image number `paste` of a Claude Code session, read from its transcript.
+#[tauri::command]
+pub async fn pasted_image(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    session: String,
+    paste: u64,
+) -> Result<Option<PastedImage>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let transcript = app.state::<session_usage::Cache>().transcript(&claude_projects()?, &session)?;
+        pasted_image::read(&transcript, paste)
     });
     Ok(read.await.map_err(changes::Error::Worker)?)
 }

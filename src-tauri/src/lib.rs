@@ -18,6 +18,7 @@ mod listening_ports;
 mod menu;
 mod osc52;
 mod outcome;
+mod pasted_image;
 mod process;
 mod prompts;
 mod queue;
@@ -78,6 +79,7 @@ pub fn run() {
             commands::move_tab_to_new_workspace,
             commands::open_file,
             commands::open_folder,
+            commands::pasted_image,
             commands::prompt_create,
             commands::prompt_save,
             commands::prompt_library,

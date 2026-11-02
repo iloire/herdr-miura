@@ -2876,6 +2876,23 @@ kbd {
   border: 1px solid var(--rule);
 }
 
+.pasted-image-backdrop {
+  align-items: center;
+  padding-top: 0;
+}
+
+.pasted-image {
+  outline: none;
+  line-height: 0;
+}
+
+.pasted-image img {
+  max-width: 92vw;
+  max-height: 92vh;
+  background: repeating-conic-gradient(var(--hover) 0% 25%, var(--rule) 0% 50%) 0 0 / 16px 16px;
+  border: 1px solid var(--rule);
+}
+
 .file-dimensions {
   margin: 0;
   color: var(--muted);

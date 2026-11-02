@@ -12,6 +12,7 @@ import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
 import { AlertDialog } from "./AlertDialog";
+import { PastedImageDialog } from "./PastedImageDialog";
 import { CloseDialog } from "./CloseDialog";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -356,6 +357,7 @@ export function TabBar({
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
       <CloseDialog controller={controller} />
       <AlertDialog controller={controller} />
+      <PastedImageDialog controller={controller} />
     </div>
   );
 }
