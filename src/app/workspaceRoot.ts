@@ -120,6 +120,22 @@ export function withHomes(roots: Roots, found: Map<string, string>): Roots {
   return added.length ? { ...roots, homes: { ...roots.homes, ...Object.fromEntries(added) } } : roots;
 }
 
+/// `roots` without what stood on `gone`, homes no longer on disk: a repo renamed
+/// or deleted under its workspaces. `nextRoots` then roots them where their tabs
+/// are. A removed worktree stays, as its home is the main checkout.
+export function withoutGone(roots: Roots, gone: ReadonlySet<string>): Roots {
+  const isGone = (folder: string) => gone.has(roots.homes[folder]);
+  if (!Object.keys(roots.homes).some(isGone)) return roots;
+  const keep = (folders: Record<string, string>) =>
+    Object.fromEntries(Object.entries(folders).filter(([, folder]) => !isGone(folder)));
+  return {
+    ...roots,
+    folders: keep(roots.folders),
+    homes: Object.fromEntries(Object.entries(roots.homes).filter(([folder]) => !isGone(folder))),
+    split: keep(roots.split),
+  };
+}
+
 /// The folder a workspace's card reads, wherever its tabs go; null until the
 /// window has fixed one. Roots of another boot name other workspaces.
 export function workspaceRoot(roots: Roots, workspace: Workspace, snapshot: Snapshot): string | null {

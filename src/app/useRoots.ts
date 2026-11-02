@@ -1,11 +1,12 @@
 // Keeps each workspace's fixed root and asks Git for the queue's folder of every
 // folder in use. Each folder is asked once a launch: one that is gone has no
-// answer to wait for, and one in `homes` is already settled.
+// answer to wait for, and one in `homes` is already settled. Homes saved by an
+// earlier launch are checked once, as a repo can be renamed between launches.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot, Workspace } from "../protocol";
 import { readHomes } from "./queue";
-import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, withSplit, workspaceRoot } from "./workspaceRoot";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, withHomes, withoutGone, withSplit, workspaceRoot } from "./workspaceRoot";
 
 export function useRoots(
   snapshot: Snapshot | null,
@@ -23,6 +24,25 @@ export function useRoots(
 } {
   const [roots, setRoots] = useState(loadRoots);
   const asked = useRef(new Set<string>());
+  const checkedHomes = useRef(false);
+
+  useEffect(() => {
+    if (!local || !snapshot || checkedHomes.current) return;
+    checkedHomes.current = true;
+    const saved = [...new Set(Object.values(roots.homes))];
+    readHomes(saved)
+      .then((answers) => {
+        const gone = new Set(saved.filter((_, i) => !answers[i]));
+        setRoots((current) => {
+          const next = withoutGone(current, gone);
+          if (next !== current) saveRoots(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        checkedHomes.current = false;
+      });
+  }, [local, snapshot, roots]);
 
   useEffect(() => {
     if (!local || !snapshot) return;

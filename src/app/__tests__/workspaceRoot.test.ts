@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CheckoutChanges, ChangesState } from "../../changes/store";
 import type { Snapshot, Workspace } from "../../protocol";
 import { queueDirectory, splitQueueFolder } from "../queue";
-import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, withSplit, workspaceRoot } from "../workspaceRoot";
+import { homelessFolders, isOpenSplit, loadRoots, nextRoots, queueFolder, type Roots, saveRoots, strayPath, withHomes, withoutGone, withSplit, workspaceRoot } from "../workspaceRoot";
 
 const HOME = "/Users/me";
 const ROOT = "/Users/me/code/app";
@@ -298,5 +298,26 @@ describe("homes", () => {
     const same = rootedOn(MAIN, { [MAIN]: MAIN });
     expect(nextRoots(same, snapshot)).toBe(same);
     expect(withHomes(same, new Map([[MAIN, MAIN]]))).toBe(same);
+  });
+
+  it("moves a workspace to its tabs when its repo was renamed", () => {
+    const { snapshot, workspace } = shot("/renamed", "/renamed");
+    const stale = rootedOn(MAIN, { [MAIN]: MAIN, "/renamed": "/renamed" });
+    expect(queueFolder(stale, workspace, snapshot)).toBe(MAIN);
+    const next = nextRoots(withoutGone(stale, new Set([MAIN])), snapshot);
+    expect(next.homes).toEqual({ "/renamed": "/renamed" });
+    expect(workspaceRoot(next, workspace, snapshot)).toBe("/renamed");
+    expect(queueFolder(next, workspace, snapshot)).toBe("/renamed");
+  });
+
+  it("keeps a removed worktree's root, whose home is still there", () => {
+    const stale = rootedOn(TREE, { [TREE]: MAIN, [MAIN]: MAIN });
+    expect(withoutGone(stale, new Set([TREE]))).toBe(stale);
+    expect(withoutGone(stale, new Set())).toBe(stale);
+  });
+
+  it("drops a split workspace's root with the rest", () => {
+    const split = withSplit(rootedOn(MAIN, { [MAIN]: MAIN }), "w2", MAIN);
+    expect(withoutGone(split, new Set([MAIN])).split).toEqual({});
   });
 });

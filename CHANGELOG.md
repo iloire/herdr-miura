@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 00:19 — A workspace leaves a folder that is gone
+
+A workspace kept the folder it was first seen on even after that folder was renamed or deleted, so the prompt library
+showed none of the project's prompts and the queue stayed on the old path. At launch, a workspace whose folder is gone
+now takes the folder its tabs are in. A queue stays under its old path, so one left on a renamed folder no longer shows.
+
 ## 2026-11-01 22:47 — A new workspace takes the keyboard
 
 Creating a workspace now puts focus in its terminal, as a new tab does, so you can start typing straight away. A file or
