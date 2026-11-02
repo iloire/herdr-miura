@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 13:40 — Remove New Tab from the tab menu
+
+The tab strip's right-click menu no longer has New Tab, which did the same as the + and ⌘⇧T. Those stay, as does ⌘T, and
+Close Tab is now the last group by itself. `menu-tab.png` is retaken, so it also shows the tab colors and Sort Tabs.
+
 ## 2026-11-02 13:25 — Read a session before resuming it
 
 Clicking a closed session in the Sessions panel no longer resumes it at once. It opens a dialog with the session's latest

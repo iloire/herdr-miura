@@ -161,8 +161,8 @@ export function TabBar({
     },
   });
 
-  /// The tab menu. It opens on the tab's own actions, so Enter never makes a
-  /// new tab, and ends with the ones that add or remove a tab.
+  /// The tab menu. It opens on the tab's own actions, so Enter never closes
+  /// the tab, and ends with Close Tab.
   const tabMenu = (tab: Tab): MenuItem[][] => {
     const { others, canSplit } = moveChoices(tab, snapshot);
     const pinned = isPinned(tab);
@@ -228,8 +228,6 @@ export function TabBar({
       ],
       [{ label: "Sort Tabs", items: [[sortChoice("Working First", "working"), sortChoice("Needs You First", "attention")]] }],
       [
-        // As the + button: the shortcut that does the same is ⌘⇧T, not ⌘T's plain terminal.
-        { label: "New Tab", icon: <NewTabIcon />, hint: controller.shortcutHint("new_command_tab"), onSelect: () => controller.newTab() },
         {
           label: "Close Tab",
           hint: pinned ? "Unpin first" : controller.shortcutHint("close_tab"),

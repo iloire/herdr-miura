@@ -27,7 +27,7 @@ a menu too, for pinning one, giving it a color, marking it seen, queueing a prom
 <table>
   <tr>
     <td><img src="docs/screenshots/menu-workspace.png" alt="A workspace's right-click menu, with its color swatches and actions, beside the card's agents"></td>
-    <td><img src="docs/screenshots/menu-tab.png" alt="A tab's right-click menu: Rename, Pin and Mark as Seen; Add to Queue, Folder and Move to Workspace; New Tab and Close Tab, with shortcuts beside the rows"></td>
+    <td><img src="docs/screenshots/menu-tab.png" alt="A tab's right-click menu: Rename, Pin, Mark as Seen and the tab colors; Add to Queue, Folder and Move to Workspace; Sort Tabs; Close Tab, with shortcuts beside the rows"></td>
   </tr>
 </table>
 
