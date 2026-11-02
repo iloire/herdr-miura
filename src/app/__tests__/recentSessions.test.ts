@@ -10,7 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const { Controller } = await import("../controller");
-const { movedHome, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
+const { isActive, movedHome, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
 import type { RecentSession } from "../recentSessions";
 
 function session(id: string, over: Partial<RecentSession> = {}): RecentSession {
@@ -55,6 +55,19 @@ describe("a session's state", () => {
   it("is gone with nowhere to open, and closed otherwise", () => {
     expect(sessionState(session("a", { opens_in: null }), noTabs, none).kind).toBe("gone");
     expect(sessionState(session("a"), noTabs, none).kind).toBe("closed");
+  });
+});
+
+describe("Active and History", () => {
+  it("counts a session a Claude Code has, in a tab, on its way or elsewhere, as active", () => {
+    expect(isActive({ kind: "open", tabId: "w1:t1" })).toBe(true);
+    expect(isActive({ kind: "opening" })).toBe(true);
+    expect(isActive({ kind: "elsewhere" })).toBe(true);
+  });
+
+  it("files the rest under history, even with its folder gone", () => {
+    expect(isActive({ kind: "closed" })).toBe(false);
+    expect(isActive({ kind: "gone" })).toBe(false);
   });
 });
 

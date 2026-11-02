@@ -5499,23 +5499,45 @@ kbd {
   flex-direction: column;
 }
 
-.sessions-filter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--rule);
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-}
-
 .sessions-list {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+}
+
+.sessions-group h3 {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin: 0;
+  padding: 8px 16px 6px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--peat);
+  color: var(--muted);
+  font: 500 calc(11px * var(--ui-scale)) var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sessions-group ul {
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
+}
+
+/* A session with a Claude Code running carries the workspace's color down its
+   edge; the history stays quiet. */
+.sessions-group.active h3 {
+  color: var(--hue);
+}
+
+.sessions-group.active .session-row {
+  box-shadow: inset 3px 0 0 var(--hue);
+}
+
+.sessions-group:not(.active) .session-title {
+  color: var(--muted);
+  font-weight: 400;
 }
 
 .session-row {
@@ -5535,8 +5557,8 @@ kbd {
   cursor: default;
 }
 
-.session-row:disabled .session-title,
-.session-row:disabled .session-prompt {
+.session-row.gone .session-title,
+.session-row.gone .session-prompt {
   opacity: 0.6;
 }
 
@@ -5581,4 +5603,69 @@ kbd {
 
 .session-state {
   color: var(--hue);
+}
+
+/* A session's latest messages, before resuming it. */
+.session-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(720px, calc(100vw - 32px));
+  max-height: 76vh;
+}
+
+.session-preview > * {
+  flex: none;
+}
+
+.session-preview h2 {
+  margin: 0;
+  overflow: hidden;
+  font: 600 calc(14px * var(--ui-scale)) var(--sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-preview-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.session-preview > .session-preview-messages {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border-block: 1px solid var(--rule);
+  padding: 4px 0;
+}
+
+.session-message {
+  margin: 0;
+  padding: 8px 4px;
+}
+
+.session-message h3 {
+  margin: 0 0 2px;
+  color: var(--muted);
+  font: 500 calc(11px * var(--ui-scale)) var(--sans);
+}
+
+.session-message.user h3 {
+  color: var(--lantern);
+}
+
+.session-message p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.session-preview-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
 }

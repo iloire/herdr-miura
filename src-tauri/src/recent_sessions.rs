@@ -39,6 +39,16 @@ const MAX_ROWS: usize = 200;
 /// A session file is a few hundred bytes.
 const MAX_LIVE_FILE: u64 = 64 * 1024;
 
+/// How much of a transcript's end a preview reads. Tool results fill most of a
+/// transcript, so it takes this much to find a few messages of conversation.
+const PREVIEW_TAIL: u64 = 2 * 1024 * 1024;
+/// Messages a preview shows, the latest ones.
+const PREVIEW_MESSAGES: usize = 12;
+/// Characters of one message in a preview.
+const MAX_PREVIEW_CHARS: usize = 4000;
+/// What Claude Code writes as a user's message and no person typed.
+const NOT_TYPED: [&str; 5] = ["<command-", "<local-command-", "<task-notification", "<system-reminder", "<bash-"];
+
 /// Linked worktrees made by Claude Code or the queue live here, so the main
 /// checkout of one that is gone can still be told from its path.
 const WORKTREES: &str = "/.claude/worktrees/";
@@ -72,6 +82,23 @@ pub struct RecentSession {
     pub queue: bool,
     /// A Claude Code process has it open, in a tab or a plain terminal.
     pub running: bool,
+}
+
+/// A session's latest conversation, to decide whether to resume it.
+#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Preview {
+    /// Oldest first.
+    pub messages: Vec<Message>,
+    pub model: Option<String>,
+    /// How full its context was at its last response.
+    pub context_tokens: Option<u64>,
+}
+
+/// Something a person typed or Claude answered. Thinking and tools are left out.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Message {
+    pub from_user: bool,
+    pub text: String,
 }
 
 /// Where to resume a session.
@@ -173,10 +200,7 @@ fn one_line(text: &str, max: usize) -> String {
     let text = without_paste_tags(text);
     let words: Vec<&str> = text.split_whitespace().collect();
     let line: String = words.join(" ").chars().filter(|c| !c.is_control()).collect();
-    match line.char_indices().nth(max) {
-        Some((end, _)) => format!("{}…", line[..end].trim_end()),
-        None => line,
-    }
+    cut(&line, max)
 }
 
 /// Whether a transcript's first user message opens with a paste, with nothing
@@ -192,25 +216,111 @@ fn queue_run(head: &[u8]) -> bool {
         })
 }
 
+/// The whole lines of the last `length` bytes of a file of `size` bytes.
+fn read_tail(mut file: File, size: u64, length: u64) -> std::io::Result<Vec<u8>> {
+    let start = size.saturating_sub(length);
+    file.seek(SeekFrom::Start(start))?;
+    let mut tail = Vec::new();
+    file.take(length).read_to_end(&mut tail)?;
+    if start > 0 {
+        // The read began partway through this line.
+        let first = tail.iter().position(|&byte| byte == b'\n').map_or(tail.len(), |at| at + 1);
+        tail.drain(..first);
+    }
+    Ok(tail)
+}
+
 fn summarize(path: &Path, size: u64) -> std::io::Result<Option<Summary>> {
     let mut file = File::open(path)?;
     let mut head = Vec::new();
     (&mut file).take(HEAD).read_to_end(&mut head)?;
-    let start = size.saturating_sub(TAIL);
-    file.seek(SeekFrom::Start(start))?;
-    let mut tail = Vec::new();
-    file.take(TAIL).read_to_end(&mut tail)?;
-    let mut lines = tail.split(|&byte| byte == b'\n');
-    if start > 0 {
-        // The read began partway through this one.
-        lines.next();
-    }
+    let tail = read_tail(file, size, TAIL)?;
     let mut facts = Facts::default();
-    lines.for_each(|line| facts.read(line));
+    tail.split(|&byte| byte == b'\n').for_each(|line| facts.read(line));
     if facts.prompt.is_some() && facts.cwd.is_none() {
         facts.search_start(path)?;
     }
     Ok(facts.summary(queue_run(&head)))
+}
+
+/// The text of a message's `content`, a string or a list of blocks.
+fn message_text(content: &Value) -> String {
+    if let Some(text) = content.as_str() {
+        return text.to_owned();
+    }
+    let blocks = content.as_array().map(Vec::as_slice).unwrap_or_default();
+    let text = blocks.iter().filter(|block| block.get("type").and_then(Value::as_str) == Some("text"));
+    text.filter_map(|block| block.get("text")?.as_str()).collect::<Vec<_>>().join("\n\n")
+}
+
+fn cut(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((end, _)) => format!("{}…", text[..end].trim_end()),
+        None => text.to_owned(),
+    }
+}
+
+impl Preview {
+    fn read(&mut self, line: &[u8]) {
+        let Ok(value) = serde_json::from_slice::<Value>(line) else {
+            return;
+        };
+        let flag = |key: &str| value.get(key).and_then(Value::as_bool).unwrap_or(false);
+        let from_user = match value.get("type").and_then(Value::as_str) {
+            Some("user") => true,
+            Some("assistant") => false,
+            _ => return,
+        };
+        if flag("isMeta") || flag("isSidechain") || flag("isCompactSummary") {
+            return;
+        }
+        let Some(message) = value.get("message") else {
+            return;
+        };
+        if !from_user {
+            let model = message.get("model").and_then(Value::as_str).filter(|model| !model.starts_with('<'));
+            self.model = model.map(str::to_owned).or(self.model.take());
+            if let Some(usage) = message.get("usage") {
+                let count = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
+                let tokens = count("input_tokens") + count("cache_creation_input_tokens") + count("cache_read_input_tokens");
+                self.context_tokens = Some(tokens);
+            }
+        }
+        let text = without_paste_tags(&message_text(message.get("content").unwrap_or(&Value::Null)));
+        let text = text.trim();
+        if text.is_empty() || (from_user && NOT_TYPED.iter().any(|mark| text.starts_with(mark))) {
+            return;
+        }
+        self.messages.push(Message { from_user, text: cut(text, MAX_PREVIEW_CHARS) });
+    }
+}
+
+/// The newest transcript of `id`, as a copied project folder files one id twice.
+fn newest_transcript(projects: &Path, id: &str) -> Option<PathBuf> {
+    let name = format!("{id}.jsonl");
+    std::fs::read_dir(projects)
+        .ok()?
+        .filter_map(|entry| Some(entry.ok()?.path().join(&name)))
+        .filter_map(|path| Some((stamp(&path)?.1, path)))
+        .max_by_key(|(modified, _)| *modified)
+        .map(|(_, path)| path)
+}
+
+/// The end of `id`'s conversation, read only as far as `PREVIEW_TAIL`: a session
+/// whose last stretch is all tools has few messages to show, or none.
+pub fn preview(projects: &Path, id: &str) -> Result<Preview, Error> {
+    if !is_session_id(id) {
+        return Err(Error::Unknown(id.to_owned()));
+    }
+    let path = newest_transcript(projects, id).ok_or_else(|| Error::Unknown(id.to_owned()))?;
+    let (size, _) = stamp(&path).ok_or_else(|| Error::Unknown(id.to_owned()))?;
+    let tail = File::open(&path).and_then(|file| read_tail(file, size, PREVIEW_TAIL));
+    let tail = tail.map_err(|_| Error::Unknown(id.to_owned()))?;
+    let mut preview = Preview::default();
+    tail.split(|&byte| byte == b'\n').for_each(|line| preview.read(line));
+    let extra = preview.messages.len().saturating_sub(PREVIEW_MESSAGES);
+    preview.messages.drain(..extra);
+    Ok(preview)
 }
 
 /// Where a tab for a session that last worked in `folder` can open. Resuming

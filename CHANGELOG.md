@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 13:25 — Read a session before resuming it
+
+Clicking a closed session in the Sessions panel no longer resumes it at once. It opens a dialog with the session's latest
+messages, its folder, branch, model and context size, and a Resume button, as the title alone does not always say which
+session it was. A running or removed session can be read the same way, with no Resume. An open row still goes to its tab,
+and ⌘⇧R still resumes straight away. The panel now lists every session, Active above History, with no queue-run checkbox.
+
 ## 2026-11-02 12:52 — Bring a Claude session back
 
 A Claude tab closed by accident, or lost to a crash or a quit, can now be brought back without `claude --resume` in a
@@ -11,8 +18,8 @@ and age: clicking one resumes it in a new tab in its folder, or goes to the tab 
 
 A session running in a plain terminal is marked and cannot be resumed, so two Claude Codes never write one session. A
 removed worktree's session opens in its main checkout and says so, and a session whose folder has gone with nothing to
-stand in says that instead of opening. Queue runs are labelled and hidden behind a checkbox, and ⌘⇧R skips them, along with
-sessions of removed worktrees.
+stand in says that instead of opening. Sessions with a Claude Code running sit under Active, in the workspace's color, above a quieter History. Queue runs are
+listed with the rest and labelled, and ⌘⇧R skips them, along with sessions of removed worktrees.
 
 ## 2026-11-02 12:10 — A tab can have a color
 

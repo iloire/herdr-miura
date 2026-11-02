@@ -409,6 +409,18 @@ pub async fn recent_sessions(
     Ok(read.await.map_err(changes::Error::Worker)?)
 }
 
+/// The latest messages of a session, for the Sessions panel to show before
+/// anything is resumed.
+#[tauri::command]
+pub async fn session_preview(connection: State<'_, Connection>, session: String) -> Result<recent_sessions::Preview> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || {
+        let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
+        recent_sessions::preview(&projects, &session)
+    });
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
 /// Opens a tab in `workspace_id` running `claude --resume <session>`, in the
 /// folder the transcript says, unless something already has the session open.
 /// Takes only the id, so the webview cannot start it anywhere else.

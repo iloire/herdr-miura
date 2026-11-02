@@ -326,3 +326,66 @@ fn resuming_refuses_what_it_cannot_open() {
     f.write(ID, &[user("a", &format!("{code}-gone")), last_prompt("a")]);
     assert!(matches!(cache.target(&f.projects, &f.sessions, ID), Err(Error::FolderGone(_))));
 }
+
+/// An assistant line with one text block and its usage.
+fn answer(text: &str) -> String {
+    let text = serde_json::to_string(text).unwrap();
+    format!(
+        r#"{{"type":"assistant","message":{{"model":"claude-opus-5-5","content":[{{"type":"thinking","thinking":"hidden"}},{{"type":"text","text":{text}}}],"usage":{{"input_tokens":10,"cache_creation_input_tokens":20,"cache_read_input_tokens":30}}}}}}"#
+    )
+}
+
+#[test]
+fn a_preview_shows_the_conversation_with_its_model_and_context() {
+    let f = fixture();
+    f.write(ID, &[user("first question", "/code"), answer("first answer")]);
+    let found = preview(&f.projects, ID).unwrap();
+    let words: Vec<(bool, &str)> = found.messages.iter().map(|m| (m.from_user, m.text.as_str())).collect();
+    assert_eq!(words, [(true, "first question"), (false, "first answer")]);
+    assert_eq!(found.model.as_deref(), Some("claude-opus-5-5"));
+    assert_eq!(found.context_tokens, Some(60));
+}
+
+#[test]
+fn a_preview_leaves_out_what_no_person_typed_or_read() {
+    let f = fixture();
+    let tool = r#"{"type":"user","message":{"content":[{"type":"tool_result","content":"secret output"}]}}"#;
+    let meta = r#"{"type":"user","isMeta":true,"message":{"content":"caveat"}}"#;
+    let side = r#"{"type":"assistant","isSidechain":true,"message":{"content":[{"type":"text","text":"subagent"}]}}"#;
+    let summary = r#"{"type":"user","isCompactSummary":true,"message":{"content":"long summary"}}"#;
+    let lines = [tool.to_owned(), meta.to_owned(), side.to_owned(), summary.to_owned(), user("<command-name>/clear</command-name>", "/code"), user("kept", "/code"), "not json".to_owned()];
+    f.write(ID, &lines);
+    let found = preview(&f.projects, ID).unwrap();
+    assert_eq!(found.messages, [Message { from_user: true, text: "kept".to_owned() }]);
+}
+
+#[test]
+fn a_preview_takes_the_paste_tags_off_and_keeps_the_latest_messages() {
+    let f = fixture();
+    let mut lines = vec![user("<pasted_content id=\"a\">queued</pasted_content>", "/code")];
+    assert_eq!(without_paste_tags("<pasted_content id=\"a\">queued</pasted_content>"), "queued");
+    lines.extend((0..20).map(|n| user(&format!("message {n}"), "/code")));
+    f.write(ID, &lines);
+    let found = preview(&f.projects, ID).unwrap();
+    assert_eq!(found.messages.len(), PREVIEW_MESSAGES);
+    assert_eq!(found.messages[0].text, "message 8");
+    assert_eq!(found.messages.last().unwrap().text, "message 19");
+}
+
+#[test]
+fn a_preview_cuts_a_long_message_and_a_torn_first_line_does_no_harm() {
+    let f = fixture();
+    let filler = "x".repeat(PREVIEW_TAIL as usize + 10);
+    f.write(ID, &[user(&filler, "/code"), user(&"y".repeat(MAX_PREVIEW_CHARS + 5), "/code")]);
+    let found = preview(&f.projects, ID).unwrap();
+    assert_eq!(found.messages.len(), 1);
+    assert_eq!(found.messages[0].text.chars().count(), MAX_PREVIEW_CHARS + 1);
+    assert!(found.messages[0].text.ends_with('…'));
+}
+
+#[test]
+fn a_preview_refuses_an_id_that_is_not_a_uuid_and_one_it_cannot_find() {
+    let f = fixture();
+    assert!(matches!(preview(&f.projects, "../../etc/passwd"), Err(Error::Unknown(_))));
+    assert!(matches!(preview(&f.projects, OTHER), Err(Error::Unknown(_))));
+}

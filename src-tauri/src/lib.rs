@@ -101,6 +101,7 @@ pub fn run() {
             commands::session_context,
             commands::session_usage,
             commands::recent_sessions,
+            commands::session_preview,
             commands::session_resume,
             commands::usage_history,
             commands::settings_load,

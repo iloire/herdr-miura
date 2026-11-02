@@ -33,6 +33,16 @@ export type SessionState =
   | { kind: "elsewhere" }
   | { kind: "gone" };
 
+/// A session's latest conversation, as the Rust side reads it.
+export interface SessionPreview {
+  /// Oldest first; what was typed and answered, without thinking or tools.
+  messages: { from_user: boolean; text: string }[];
+  model: string | null;
+  context_tokens: number | null;
+}
+
+export const readSessionPreview = (session: string) => invoke<SessionPreview>("session_preview", { session });
+
 export const readRecentSessions = (folders: string[]) => invoke<RecentSession[]>("recent_sessions", { folders });
 
 /// Opens a tab running `claude --resume`, in front, in the folder the transcript says.
@@ -63,6 +73,9 @@ export function sessionState(session: RecentSession, tabs: ReadonlyMap<string, s
   if (session.running) return { kind: "elsewhere" };
   return session.opens_in ? { kind: "closed" } : { kind: "gone" };
 }
+
+/// Whether a Claude Code has the session, or is about to. The rest is history.
+export const isActive = (state: SessionState) => state.kind === "open" || state.kind === "opening" || state.kind === "elsewhere";
 
 /// Whether the session opens somewhere other than where it last worked.
 export const movedHome = (session: RecentSession) => session.opens_in !== null && session.opens_in !== session.folder;
