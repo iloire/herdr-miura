@@ -33,6 +33,17 @@ export function writeFile(root: string, path: string, text: string, base: string
 /// The files of the checkout `directory` sits in while `open`: read when the
 /// panel opens or the directory changes, and again when the window comes back,
 /// since files usually change elsewhere.
+/// A file named in a pane's text: its checkout, and its path inside that.
+export interface FoundFile {
+  root: string;
+  path: string;
+}
+
+/// The file `name` means from `directory`, or null when it means none there.
+export function findFile(directory: string, name: string): Promise<FoundFile | null> {
+  return invoke<FoundFile | null>("find_file", { directory, name });
+}
+
 export function useListing(directory: string | null, open: boolean): ListingState {
   const [state, setState] = useState<ListingState>({ phase: "idle" });
   useEffect(() => {

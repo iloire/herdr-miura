@@ -92,7 +92,7 @@ Eight built-in themes, any Ghostty theme, or a light and dark pair that follows 
 ## And the rest
 
 - Split panes, tabs that wrap or scroll, pins, and moving a tab to another workspace.
-- ⌘-click a URL or a commit hash in a terminal. A hash opens that commit's diff.
+- ⌘-click a URL, a commit hash or a file path in a terminal. A hash opens that commit's diff, a path opens the file in the file view.
 - A ↻ on any Claude session that `/loop` will run again, with its next wakeup.
 - Attach to Herdr on another machine over SSH, one host at a time ([docs/ssh.md](docs/ssh.md)).
 

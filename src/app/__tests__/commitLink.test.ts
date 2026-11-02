@@ -71,3 +71,38 @@ describe("openCommitLink", () => {
     expect(controller.getState()).toMatchObject({ changes: false, notice: "No commit 1234567 in /repo" });
   });
 });
+
+describe("openFileLink", () => {
+  const settled = () => new Promise((done) => setTimeout(done));
+
+  it("asks from the pane holding the text, opens the Files panel and hands the file on", async () => {
+    const found = { root: "/repo/worktree", path: "docs/plan.md" };
+    invoke.mockReset();
+    invoke.mockImplementation(async (command) => (command === "find_file" ? found : undefined));
+    const controller = new Controller();
+    controller.getState().snapshot = snapshot();
+    controller.getState().changes = true;
+    const shown = vi.fn();
+    controller.showFile = shown;
+    vi.spyOn(controller, "request").mockImplementation(() => {});
+    controller.openFileLink("docs/plan.md", "p2");
+    await settled();
+    expect(invoke).toHaveBeenCalledWith("find_file", { directory: "/repo/worktree", name: "docs/plan.md" });
+    expect(shown).toHaveBeenCalledWith(found, "/repo/worktree");
+    expect(controller.getState()).toMatchObject({ files: true, changes: false });
+  });
+
+  it("says so when the text is no file", async () => {
+    invoke.mockReset();
+    invoke.mockImplementation(async () => null);
+    const controller = new Controller();
+    controller.getState().snapshot = snapshot();
+    const shown = vi.fn();
+    controller.showFile = shown;
+    controller.openFileLink("and/or", "p1");
+    await settled();
+    expect(shown).not.toHaveBeenCalled();
+    expect(controller.getState().notice).toBe("No file and/or in a checkout from /repo");
+    expect(controller.getState().files).toBe(false);
+  });
+});

@@ -1,10 +1,11 @@
 import type { Grid } from "./grid";
 
-/// A URL or commit hash found in the grid, with the cells it covers (it may
-/// wrap rows).
+/// A URL, commit hash or file path found in the grid, with the cells it covers
+/// (it may wrap rows).
 export interface Link {
   url?: string;
   commit?: string;
+  file?: string;
   cells: { x: number; y: number }[];
 }
 
@@ -13,6 +14,13 @@ const URL_PATTERN = /https?:\/\/[^\s<>"'`]+|\b(?:localhost|127\.0\.0\.1|0\.0\.0\
 /// What could be a commit: a lone run of hex digits, not part of a path, a
 /// file name, a UUID or a color. Only Git can tell whether it is one.
 const COMMIT_PATTERN = /(?<![\w/#=-]|\w\.)[0-9a-f]{7,64}(?![\w/-]|\.\w)/g;
+
+/// What could be a path: names joined by `/`, from `/`, `~/`, `./` or `../`. A
+/// `:12` after it is left out, as the view opens at the top of the file.
+const PATH_PATTERN = /(?<![\p{L}\p{N}_.\/~@+-])(?:~\/|\.{1,2}\/|\/)?[\p{L}\p{N}_.@+-]+(?:\/[\p{L}\p{N}_.@+-]+)*/gu;
+
+/// A word is only a path with a `/` in it, or a name ending in an extension.
+const PATH_SHAPE = /\/|[^.]\.[a-zA-Z]\w*$/;
 
 /// Prose punctuation that ends a sentence rather than the URL.
 const TRAILING = /[.,;:!?'"*]+$/;
@@ -28,7 +36,8 @@ function trim(text: string): string {
   return url;
 }
 
-/// The URL or commit hash under a cell, if any. Text is read only within the pane holding
+/// The URL, commit hash or file path under a cell, if any. Only the disk can
+/// tell whether a path is a file. Text is read only within the pane holding
 /// the cell, so a neighbouring pane's text never joins it, and a row whose
 /// last column is filled continues onto the next one, as a wrapped URL does.
 export function linkAt(grid: Grid, column: number, row: number): Link | null {
@@ -71,6 +80,12 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
   for (const match of text.matchAll(COMMIT_PATTERN)) {
     const covered = origin.slice(match.index, match.index + match[0].length);
     if (covered.some((cell) => cell.x === column && cell.y === row)) return { commit: match[0], cells: covered };
+  }
+  for (const match of text.matchAll(PATH_PATTERN)) {
+    const file = trim(match[0]);
+    if (!PATH_SHAPE.test(file)) continue;
+    const covered = origin.slice(match.index, match.index + file.length);
+    if (covered.some((cell) => cell.x === column && cell.y === row)) return { file, cells: covered };
   }
   return null;
 }

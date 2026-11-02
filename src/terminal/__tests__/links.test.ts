@@ -96,4 +96,44 @@ describe("linkAt", () => {
     const g = grid(["https://a.dev|tail"], [pane(0, 13, 1), pane(13, 5, 1)]);
     expect(linkAt(g, 3, 0)?.url).toBe("https://a.dev");
   });
+
+  it("finds an absolute path, leaving a sentence's punctuation out", () => {
+    const g = grid(["open /Users/me/docs/PLAN.md (commit"]);
+    expect(linkAt(g, 10, 0)?.file).toBe("/Users/me/docs/PLAN.md");
+    expect(linkAt(g, 28, 0)).toBeNull();
+    expect(linkAt(grid(["see /a/b.md."]), 6, 0)?.file).toBe("/a/b.md");
+  });
+
+  it("finds relative paths and bare file names", () => {
+    expect(linkAt(grid(["src/app/queue.ts"]), 5, 0)?.file).toBe("src/app/queue.ts");
+    expect(linkAt(grid(["../x/y.ts"]), 1, 0)?.file).toBe("../x/y.ts");
+    expect(linkAt(grid(["~/notes/a.md"]), 0, 0)?.file).toBe("~/notes/a.md");
+    expect(linkAt(grid(["a CHANGELOG.md entry"]), 4, 0)?.file).toBe("CHANGELOG.md");
+    expect(linkAt(grid([".env.local"]), 3, 0)?.file).toBe(".env.local");
+  });
+
+  it("leaves a line number out of the path", () => {
+    const g = grid(["src/App.tsx:409"]);
+    expect(linkAt(g, 3, 0)?.file).toBe("src/App.tsx");
+    expect(linkAt(g, 13, 0)).toBeNull();
+  });
+
+  it("finds a path that wraps rows, its cells included", () => {
+    const g = grid(["see /Users/me/plans/", "    weekly/PLAN.md  "]);
+    const link = linkAt(g, 8, 1);
+    expect(link?.file).toBe("/Users/me/plans/weekly/PLAN.md");
+    expect(link?.cells).toHaveLength(30);
+  });
+
+  it("takes plain words and numbers for no path", () => {
+    const g = grid(["Hello there, version 3.5 end."]);
+    expect(linkAt(g, 2, 0)).toBeNull();
+    expect(linkAt(g, 22, 0)).toBeNull();
+    expect(linkAt(g, 26, 0)).toBeNull();
+  });
+
+  it("prefers a URL and a commit to a path", () => {
+    expect(linkAt(grid(["https://a.dev/x/y.md"]), 16, 0)?.url).toBe("https://a.dev/x/y.md");
+    expect(linkAt(grid(["see d0de2cf"]), 6, 0)?.commit).toBe("d0de2cf");
+  });
 });

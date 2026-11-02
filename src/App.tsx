@@ -51,7 +51,7 @@ import { UsageDialog } from "./components/UsageDialog";
 import { ContextDialog } from "./components/ContextDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
-import { useListing } from "./files/listing";
+import { type FoundFile, useListing } from "./files/listing";
 import type { Snapshot } from "./protocol";
 import { fieldPassesChord } from "./terminal/keys";
 
@@ -76,6 +76,9 @@ const SESSIONS_POLL_MS = 15_000;
 /// Text fields ⌥↑/↓ does not leave: a workspace switch would land behind an open
 /// dialog, or throw away the edit of a queued prompt.
 const KEEPS_ARROWS = ".palette-backdrop, .queue-edit";
+
+/// A file opened from a pane's text, and the folder of that pane.
+type LinkedFile = FoundFile & { from: string };
 
 /// The directory the focused pane's program is in.
 function focusedDirectory(snapshot: Snapshot | null): string | null {
@@ -481,7 +484,11 @@ export default function App() {
     if (next) setOpenCommit(next);
   };
 
-  const listing = useListing(directory, state.files);
+  // A file linked from a pane may sit in another checkout, a worktree say, so
+  // the Files panel lists that one until the file closes or the pane moves on.
+  const [linkedFile, setLinkedFile] = useState<LinkedFile | null>(null);
+  const linked = linkedFile?.from === directory ? linkedFile : null;
+  const listing = useListing(linked?.root ?? directory, state.files);
   const listingRoot = listing.phase === "ready" ? (listing.listing?.root ?? null) : null;
   // A file opened in one checkout means nothing in the next, except the one
   // left open when the window last closed.
@@ -490,6 +497,14 @@ export default function App() {
     setFilePick(saved && saved.root === listingRoot ? saved.path : null);
     if (saved && listingRoot) restore.current = { ...restore.current!, treeFile: null };
   }, [listingRoot]);
+  // After the effect above, which clears the pick when the checkout changes.
+  useEffect(() => {
+    if (linked && linked.root === listingRoot) setFilePick(linked.path);
+  }, [linked, listingRoot]);
+  // Closing the panel closes its file, and a linked one must not come back.
+  useEffect(() => {
+    if (!state.files) setLinkedFile(null);
+  }, [state.files]);
   useEffect(() => {
     if (restore.current?.treeFile) return;
     saveLayout({ treeFile: listingRoot && filePick ? { root: listingRoot, path: filePick } : null });
@@ -501,6 +516,7 @@ export default function App() {
   const shownTreeFile = state.files && listingRoot && filePick;
   const closeFile = () => {
     setFilePick(null);
+    setLinkedFile(null);
     controller.focusTerminal();
   };
   // Going to a tab shows it, even the one already focused under the diff.
@@ -509,8 +525,10 @@ export default function App() {
       setDiffFile(null);
       setOpenCommit(null);
       setFilePick(null);
+      setLinkedFile(null);
     };
     controller.showCommit = setLinkedCommit;
+    controller.showFile = (found, from) => setLinkedFile({ ...found, from });
   }, [controller]);
 
   // The dialog closes on its own once the workspace is gone or its last

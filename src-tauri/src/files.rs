@@ -49,6 +49,13 @@ pub struct Listing {
     total_files: usize,
 }
 
+/// A file named in a pane's text: its checkout, and its path inside that.
+#[derive(Debug, Serialize)]
+pub struct FoundFile {
+    root: String,
+    path: String,
+}
+
 /// What the file view shows for one file.
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -69,15 +76,20 @@ pub enum Contents {
     },
 }
 
-/// The files of the checkout `directory` sits in, or `None` outside Git.
-pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
-    let deadline = Instant::now() + DEADLINE;
-    let Ok(root) = git::text(
+/// The top folder of the checkout `directory` sits in.
+fn toplevel(directory: &str, deadline: Instant) -> Result<String, git::Error> {
+    git::text(
         directory,
         &["rev-parse", "--path-format=absolute", "--show-toplevel"],
         "find the checkout",
         deadline,
-    ) else {
+    )
+}
+
+/// The files of the checkout `directory` sits in, or `None` outside Git.
+pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
+    let deadline = Instant::now() + DEADLINE;
+    let Ok(root) = toplevel(directory, deadline) else {
         return Ok(None);
     };
     let listing = git::run(
@@ -108,6 +120,30 @@ pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
         files,
         total_files,
     }))
+}
+
+/// The file `name` means from `directory`: an absolute or `~/` path as it is, a
+/// relative one from there, then from that checkout's top, as agents write
+/// them. Its checkout is its own, which need not be `directory`'s. `None` when
+/// no such file is in a checkout.
+pub fn find(directory: &str, name: &str) -> Option<FoundFile> {
+    let deadline = Instant::now() + DEADLINE;
+    let named = match name.strip_prefix("~/") {
+        Some(rest) => PathBuf::from(std::env::var_os("HOME")?).join(rest),
+        None => PathBuf::from(name),
+    };
+    let top = toplevel(directory, deadline).ok();
+    let full = [Some(directory), top.as_deref()]
+        .into_iter()
+        .flatten()
+        .filter_map(|folder| fs::canonicalize(Path::new(folder).join(&named)).ok())
+        .find(|full| full.is_file())?;
+    let root = toplevel(full.parent()?.to_str()?, deadline).ok()?;
+    let path = full.strip_prefix(fs::canonicalize(&root).ok()?).ok()?;
+    Some(FoundFile {
+        path: path.to_str()?.to_owned(),
+        root,
+    })
 }
 
 /// `path` under `root`, after resolving symlinks, refused when it leaves
@@ -259,6 +295,41 @@ mod tests {
             fs::canonicalize(&listing.root).unwrap(),
             fs::canonicalize(dir.path()).unwrap()
         );
+    }
+
+    #[test]
+    fn finds_a_file_from_the_folder_then_the_checkouts_top() {
+        let dir = repo();
+        let top = list(&root(&dir)).unwrap().unwrap().root;
+        let sub = format!("{top}/src");
+        for (from, name) in [(&top, "src/a.rs"), (&sub, "a.rs"), (&sub, "src/a.rs"), (&sub, "../src/a.rs")] {
+            let found = find(from, name).unwrap();
+            assert_eq!((found.root.as_str(), found.path.as_str()), (top.as_str(), "src/a.rs"));
+        }
+        assert_eq!(find(&sub, &format!("{top}/src/a.rs")).unwrap().path, "src/a.rs");
+        assert_eq!(find(&top, "target/out").unwrap().path, "target/out");
+    }
+
+    #[test]
+    fn a_file_in_a_worktree_belongs_to_the_worktree() {
+        let dir = repo();
+        let top = list(&root(&dir)).unwrap().unwrap().root;
+        let worktree = format!("{top}/target/wt");
+        git(dir.path(), &["worktree", "add", "-q", "-b", "wt", &worktree]);
+        let found = find(&top, &format!("{worktree}/src/a.rs")).unwrap();
+        assert_eq!((found.root.as_str(), found.path.as_str()), (worktree.as_str(), "src/a.rs"));
+    }
+
+    #[test]
+    fn finds_no_folder_missing_file_or_file_outside_git() {
+        let dir = repo();
+        let top = root(&dir);
+        assert!(find(&top, "src").is_none());
+        assert!(find(&top, "and/or").is_none());
+        assert!(find(&top, &format!("{top}/.git/config")).is_none());
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("a.txt"), "one\n").unwrap();
+        assert!(find(&top, &format!("{}/a.txt", root(&outside))).is_none());
     }
 
     #[test]

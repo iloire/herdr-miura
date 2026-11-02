@@ -1,5 +1,6 @@
 import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
+import { findFile, type FoundFile } from "../files/listing";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
@@ -576,6 +577,25 @@ export class Controller {
         if (!found) return this.set({ notice: `No commit ${name} in ${directory}` });
         this.set({ changes: true, files: false, queue: false, queueAuto: false });
         this.showCommit(found);
+      }),
+    );
+  }
+
+  /// Hands App a file to open, with the folder of the pane that named it.
+  showFile: (found: FoundFile, directory: string) => void = () => {};
+
+  /// Opens the file a pane's text names, read from that pane's folder, in the
+  /// file's own checkout, which may be a worktree the pane is not in.
+  openFileLink(name: string, paneId: string): void {
+    const snapshot = this.state.snapshot;
+    const directory = paneDirectory(snapshot?.panes.find((pane) => pane.pane_id === paneId));
+    if (!directory) return;
+    if (paneId !== snapshot?.focused_pane_id) this.request("pane.focus", { pane_id: paneId });
+    this.act(
+      findFile(directory, name).then((found) => {
+        if (!found) return this.set({ notice: `No file ${name} in a checkout from ${directory}` });
+        this.set({ files: true, changes: false, queue: false, queueAuto: false });
+        this.showFile(found, directory);
       }),
     );
   }

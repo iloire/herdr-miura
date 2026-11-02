@@ -6,7 +6,7 @@ use crate::{
     changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff, FoundCommit},
     claude_usage,
     connection::Connection,
-    files::{self, Contents, Listing},
+    files::{self, Contents, FoundFile, Listing},
     folder::{self, Opener},
     land, listening_ports, prompts, queue,
     session_context::{self, SessionContext},
@@ -444,6 +444,18 @@ pub async fn list_files(
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || files::list(&directory));
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The file a path in a pane's text names from that pane's folder.
+#[tauri::command]
+pub async fn find_file(
+    connection: State<'_, Connection>,
+    directory: String,
+    name: String,
+) -> Result<Option<FoundFile>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::find(&directory, &name));
+    Ok(read.await.map_err(changes::Error::Worker)?)
 }
 
 /// One file of the checkout at `root`, for the file view.

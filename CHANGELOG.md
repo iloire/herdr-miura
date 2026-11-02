@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-02 11:19 — ⌘-click a file path in a terminal
+
+A file path in a terminal now works like a commit hash: hold ⌘ to underline it and click to open it in the file view, a
+Markdown file as a page. Absolute, `~/` and relative paths work, as do bare names like `CHANGELOG.md`, and a path into a
+worktree opens from that worktree. A `:12` after a path is not followed: the file opens at the top.
+
 ## 2026-11-02 00:19 — A workspace leaves a folder that is gone
 
 A workspace kept the folder it was first seen on even after that folder was renamed or deleted, so the prompt library
