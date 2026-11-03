@@ -71,6 +71,8 @@ pub enum Event {
     /// The last event of a connection that was not stopped by its handle.
     Disconnected {
         reason: String,
+        /// The daemon was out of reach, so trying again may work.
+        retry: bool,
     },
 }
 

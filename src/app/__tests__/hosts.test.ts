@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: { command: string; args: Record<string, unknown> }[] = [];
 const answers: Record<string, unknown> = {};
@@ -23,6 +23,62 @@ function lastChannel(): { onmessage: (event: unknown) => void } {
   const connect = calls.filter((c) => c.command === "connect").at(-1);
   return connect?.args.events as { onmessage: (event: unknown) => void };
 }
+
+describe("waiting for this machine's daemon", () => {
+  const connects = () => calls.filter((c) => c.command === "connect").length;
+  const unreachable = { type: "disconnected", reason: "could not reach", retry: true };
+
+  beforeEach(() => {
+    calls.length = 0;
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps trying without leaving the disconnected status", async () => {
+    const controller = new Controller();
+    await controller.setSurface(surface);
+    lastChannel().onmessage(unreachable);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(connects()).toBe(2);
+    expect(controller.getState().status.phase).toBe("disconnected");
+
+    lastChannel().onmessage(unreachable);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(connects()).toBe(3);
+
+    lastChannel().onmessage({ type: "connected" });
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(connects()).toBe(3);
+  });
+
+  it("does not retry what another try cannot fix", async () => {
+    const controller = new Controller();
+    await controller.setSurface(surface);
+    lastChannel().onmessage({ ...unreachable, retry: false });
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(connects()).toBe(1);
+  });
+
+  it("stops when detached", async () => {
+    const controller = new Controller();
+    await controller.setSurface(surface);
+    lastChannel().onmessage(unreachable);
+    await controller.detach();
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(connects()).toBe(1);
+  });
+
+  it("leaves a remote host alone", async () => {
+    const controller = new Controller();
+    await controller.setSurface(surface);
+    await controller.connectTo("box");
+    lastChannel().onmessage(unreachable);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(connects()).toBe(2);
+  });
+});
 
 describe("one host at a time", () => {
   beforeEach(() => {

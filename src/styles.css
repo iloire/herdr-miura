@@ -1399,6 +1399,16 @@ body.reordering * {
   height: calc(13px * var(--ui-scale));
 }
 
+.statusbar .connection {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusbar .link-button {
+  flex: none;
+}
+
 .statusbar.phase-disconnected .connection {
   color: var(--blocked);
 }

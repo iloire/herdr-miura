@@ -56,7 +56,7 @@ from that release and run the live test against a daemon of that version.
 | --- | --- |
 | `protocol.ts` | Types that mirror Herdr's serde JSON (snake_case fields, externally tagged input enums) and the bridge's events. |
 | `daemon.ts` | `invoke` wrappers. Each `connect` opens a new `Channel` and drops events from older ones. |
-| `app/controller.ts` | The state store React reads through `useSyncExternalStore`, input routing (to a popup if one is open, otherwise to the focused pane), and the window-only commands (sidebar, font size, reconnect, detach). |
+| `app/controller.ts` | The state store React reads through `useSyncExternalStore`, input routing (to a popup if one is open, otherwise to the focused pane), and the window-only commands (sidebar, font size, reconnect, detach). While this machine's daemon is out of reach it tries again every 2 s, so a window opened before the daemon attaches once it is up. It never starts the daemon, and it leaves remote hosts, Detach and a refused client alone. |
 | `terminal/grid.ts` | Applies `FrameUpdate`s and reports dirty rows. Looks up panes and splits by cell. |
 | `terminal/painter.ts` | Canvas 2D painter: backgrounds, glyphs, underline and strike, cursor shapes, centered popups. |
 | `terminal/boxdraw.ts` | Line-drawing characters drawn as rectangles so borders join up. |

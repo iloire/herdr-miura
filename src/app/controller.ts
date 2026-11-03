@@ -29,6 +29,7 @@ export interface HostKey {
 }
 
 const HOST_STORAGE_KEY = "herdr-tauri.host";
+const RETRY_MS = 2000;
 
 function savedHost(): string | null {
   try {
@@ -179,6 +180,7 @@ export class Controller {
   private listeners = new Set<() => void>();
   private frameListeners = new Set<(dirty: Set<number>) => void>();
   private surface: Surface | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
   /// The daemon's latest snapshot; `state.snapshot` is it without `closing`.
   private daemonSnapshot: Snapshot | null = null;
   /// Tabs closed here that the daemon still lists.
@@ -273,12 +275,16 @@ export class Controller {
     }
   }
 
-  async connect(): Promise<void> {
+  /// A retry keeps the status it finds, so the bar doesn't flicker while the
+  /// daemon stays away.
+  async connect(retrying = false): Promise<void> {
     if (!this.surface) return;
+    this.stopRetrying();
     this.daemonSnapshot = null;
     this.closing.clear();
     this.closeRequests.clear();
-    this.set({ status: { phase: "connecting" }, snapshot: null, notice: null, closeAsk: null });
+    const status: Status = retrying ? this.state.status : { phase: "connecting" };
+    this.set({ status, snapshot: null, notice: null, closeAsk: null });
     try {
       await this.daemon.connect(this.surface, this.state.host);
     } catch (error) {
@@ -329,7 +335,13 @@ export class Controller {
     this.set({ hostKey: null });
   }
 
+  private stopRetrying(): void {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
+  }
+
   async detach(): Promise<void> {
+    this.stopRetrying();
     await this.daemon.disconnect();
     this.set({ status: { phase: "disconnected", reason: "Detached. The daemon and its terminals keep running." } });
   }
@@ -392,6 +404,10 @@ export class Controller {
         break;
       case "disconnected":
         this.set({ status: { phase: "disconnected", reason: event.reason } });
+        // Only this machine's daemon: another try at a host could mean another sign-in.
+        if (event.retry && this.state.host === null) {
+          this.retryTimer = setTimeout(() => void this.connect(true), RETRY_MS);
+        }
         break;
     }
   }

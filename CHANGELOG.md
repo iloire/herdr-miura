@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-03 01:25 — Attach by itself once the daemon is up
+
+A window opened before the daemon, as at login after a restart, stayed disconnected until something forced a new
+connection. It now tries again every 2 seconds while this machine's daemon is out of reach, and also when a running
+daemon goes away. It does not start the daemon, and it does not retry after Detach, a version mismatch or on a remote
+host. The status bar shortens a long message so Reconnect stays visible.
+
 ## 2026-11-03 01:02 — Count changed files on the Changes button
 
 The Changes button at the window's top right carries the focused workspace's uncommitted file count, in the green of the

@@ -157,7 +157,7 @@ export type BridgeEvent =
   | { type: "shell_error"; message: string }
   | { type: "version_mismatch"; outdated: "daemon" | "client"; server_version: string | null }
   | { type: "unknown_host_key"; host: string }
-  | { type: "disconnected"; reason: string };
+  | { type: "disconnected"; reason: string; retry: boolean };
 
 // Input, in serde's externally tagged JSON form of `ClientPaneInputEvent`.
 

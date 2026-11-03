@@ -153,6 +153,7 @@ fn start(endpoint: Endpoint, options: ConnectOptions) -> Result<Client> {
             if worker_stop.load(Ordering::Acquire) {
                 return;
             }
+            let retry = result.as_ref().map_or_else(Error::is_unreachable, |()| true);
             let reason = match result {
                 Ok(()) => "the connection closed".to_owned(),
                 Err(error) => {
@@ -168,7 +169,7 @@ fn start(endpoint: Endpoint, options: ConnectOptions) -> Result<Client> {
                     display(&error)
                 }
             };
-            emit(Event::Disconnected { reason });
+            emit(Event::Disconnected { reason, retry });
         })
         .map_err(Error::Thread)?;
     Ok(Client {

@@ -91,12 +91,30 @@ fn a_daemon_that_goes_away_ends_with_a_reason() {
     let (_dir, path, listener) = listener();
     let client = connect_at(path, options()).unwrap();
     drop(handshake(&listener));
-    let reason = loop {
-        if let Event::Disconnected { reason } = next(&client.events) {
-            break reason;
+    let (reason, retry) = loop {
+        if let Event::Disconnected { reason, retry } = next(&client.events) {
+            break (reason, retry);
         }
     };
     assert_eq!(reason, "the connection closed");
+    assert!(retry);
+}
+
+#[test]
+fn a_daemon_shutting_down_is_worth_retrying() {
+    let (_dir, path, listener) = listener();
+    let client = connect_at(path, options()).unwrap();
+    let mut daemon = handshake(&listener);
+    let message = ServerMessage::ServerShutdown {
+        reason: Some("restart".into()),
+    };
+    codec::write(&mut daemon, &message).unwrap();
+    let retry = loop {
+        if let Event::Disconnected { retry, .. } = next(&client.events) {
+            break retry;
+        }
+    };
+    assert!(retry);
 }
 
 #[test]
@@ -107,15 +125,16 @@ fn a_protocol_violation_ends_the_connection() {
     let mut stale = surface();
     stale.boot_id = "other".into();
     codec::write(&mut daemon, &ServerMessage::PaneSurface(stale)).unwrap();
-    let reason = loop {
-        if let Event::Disconnected { reason } = next(&client.events) {
-            break reason;
+    let (reason, retry) = loop {
+        if let Event::Disconnected { reason, retry } = next(&client.events) {
+            break (reason, retry);
         }
     };
     assert!(
         reason.contains("older than the one shown, or for another boot"),
         "{reason}"
     );
+    assert!(!retry);
 }
 
 #[test]
@@ -123,10 +142,11 @@ fn no_daemon_is_a_connect_error_naming_the_socket() {
     let (_dir, path, listener) = listener();
     drop(listener);
     let client = connect_at(path.clone(), options()).unwrap();
-    let Event::Disconnected { reason } = next(&client.events) else {
+    let Event::Disconnected { reason, retry } = next(&client.events) else {
         panic!("expected a disconnect");
     };
     assert!(reason.contains(&path.display().to_string()), "{reason}");
+    assert!(retry);
 }
 
 #[test]
@@ -187,7 +207,7 @@ fn live_daemon() {
     let surface = loop {
         match next(&client.events) {
             Event::Surface(surface) => break surface,
-            Event::Disconnected { reason } => panic!("{reason}"),
+            Event::Disconnected { reason, .. } => panic!("{reason}"),
             _ => {}
         }
     };
@@ -222,7 +242,7 @@ fn live_daemon() {
                 request_id,
                 response,
             } if request_id == id => break response,
-            Event::Disconnected { reason } => panic!("{reason}"),
+            Event::Disconnected { reason, .. } => panic!("{reason}"),
             _ => {}
         }
     };
@@ -237,7 +257,7 @@ fn live_daemon() {
     let resized = loop {
         match next(&client.events) {
             Event::Surface(surface) if surface.frame.width == 60 => break surface,
-            Event::Disconnected { reason } => panic!("{reason}"),
+            Event::Disconnected { reason, .. } => panic!("{reason}"),
             _ => {}
         }
     };
@@ -272,7 +292,7 @@ fn live_daemon() {
                     break surface;
                 }
             }
-            Event::Disconnected { reason } => panic!("{reason}"),
+            Event::Disconnected { reason, .. } => panic!("{reason}"),
             _ => {}
         }
     };

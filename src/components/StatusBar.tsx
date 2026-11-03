@@ -47,7 +47,7 @@ export function StatusBar({
     <footer className={`statusbar phase-${status.phase}`}>
       <HostPicker controller={controller} host={state.host} hosts={state.hosts} />
       {status.phase !== "connected" && (
-        <span className="connection">
+        <span className="connection" title={status.phase === "disconnected" ? status.reason : undefined}>
           {status.phase === "connecting" && (state.host ? `Connecting to ${state.host}…` : "Connecting to Herdr…")}
           {status.phase === "disconnected" && `Disconnected: ${status.reason}`}
         </span>

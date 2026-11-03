@@ -92,6 +92,12 @@ pub enum Outdated {
 }
 
 impl Error {
+    /// Whether the daemon may simply not be there yet, or has gone away, as
+    /// opposed to refusing this client.
+    pub fn is_unreachable(&self) -> bool {
+        matches!(self, Self::Connect { .. } | Self::Io(_) | Self::ServerShutdown(_))
+    }
+
     pub fn outdated(&self) -> Option<(Outdated, Option<&str>)> {
         match self {
             Self::LegacyDaemon => Some((Outdated::Daemon, None)),

@@ -43,7 +43,7 @@ fn welcome(listener: &UnixListener, health_check: bool) -> UnixStream {
 
 fn reason(events: &Receiver<Event>) -> String {
     loop {
-        if let Event::Disconnected { reason } = next(events) {
+        if let Event::Disconnected { reason, .. } = next(events) {
             return reason;
         }
     }
@@ -110,7 +110,7 @@ fn live_ssh_host() {
         match client.events.recv_timeout(wait).unwrap() {
             Event::Connected(_) => connected = true,
             Event::Snapshot(_) => break,
-            Event::Disconnected { reason } => panic!("disconnected: {reason}"),
+            Event::Disconnected { reason, .. } => panic!("disconnected: {reason}"),
             _ => {}
         }
     }

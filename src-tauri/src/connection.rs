@@ -67,6 +67,7 @@ enum Outbound<'a> {
     },
     Disconnected {
         reason: &'a str,
+        retry: bool,
     },
 }
 
@@ -203,7 +204,7 @@ fn pump(
                 server_version: server_version.as_deref(),
             },
             Event::UnknownHostKey { host } => Outbound::UnknownHostKey { host },
-            Event::Disconnected { reason } => Outbound::Disconnected { reason },
+            Event::Disconnected { reason, retry } => Outbound::Disconnected { reason, retry: *retry },
         };
         if send(channel, &outbound).is_err() {
             return;
