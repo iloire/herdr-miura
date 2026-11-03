@@ -3790,13 +3790,14 @@ kbd {
 }
 
 /* The icon pulses in the working blue while one of the queue's prompts
-   runs, and the number waiting sits on its corner. */
+   runs. */
 .queue-toggle.running svg {
   animation: queue-pulse 2.4s ease-in-out infinite;
   color: var(--working);
 }
 
-.queue-toggle-count {
+/* A count on a button's corner: prompts waiting, or files changed. */
+.panel-count {
   position: absolute;
   top: -5px;
   right: -4px;
@@ -3810,6 +3811,12 @@ kbd {
   font: 700 calc(9px * var(--ui-scale))/14px var(--mono);
   text-align: center;
   pointer-events: none;
+}
+
+/* The green of the +N diff stat, not the lantern: a dirty checkout isn't
+   waiting on you, and with agents working it is dirty most of the day. */
+.changes-count {
+  background: var(--done);
 }
 
 @media (prefers-reduced-motion: reduce) {

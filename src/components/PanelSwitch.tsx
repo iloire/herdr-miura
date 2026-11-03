@@ -7,6 +7,7 @@ import { ChangesIcon, FileIcon, HistoryIcon, QueueIcon } from "./icons";
 export function PanelSwitch({
   controller,
   changes,
+  changed,
   files,
   queue,
   queued,
@@ -15,6 +16,8 @@ export function PanelSwitch({
 }: {
   controller: Controller;
   changes: boolean;
+  /// Uncommitted files in the focused workspace's checkout.
+  changed: number;
   files: boolean;
   /// The Queue panel is open.
   queue: boolean;
@@ -29,12 +32,13 @@ export function PanelSwitch({
     <div className="panel-switch" role="group" aria-label="Side panel">
       <button
         className="panel-toggle"
-        title="Changes"
-        aria-label="Changes"
+        title={`Changes${changed ? `: ${changed} changed` : ""}`}
+        aria-label={`Changes${changed ? `, ${changed} changed` : ""}`}
         aria-pressed={changes}
         onClick={() => controller.run("review_changes")}
       >
         <ChangesIcon />
+        {changed > 0 && <span className="panel-count changes-count">{changed}</span>}
       </button>
       <button
         className="panel-toggle"
@@ -53,7 +57,7 @@ export function PanelSwitch({
         onClick={() => controller.run("add_to_queue")}
       >
         <QueueIcon />
-        {queued.waiting > 0 && <span className="queue-toggle-count">{queued.waiting}</span>}
+        {queued.waiting > 0 && <span className="panel-count">{queued.waiting}</span>}
       </button>
       {showSessions && (
         <button

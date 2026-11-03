@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-03 01:02 — Count changed files on the Changes button
+
+The Changes button at the window's top right carries the focused workspace's uncommitted file count, in the green of the
+diff stat, and hides it at zero. Unpushed commits are not counted: the panel already shows those as ↑N.
+
 ## 2026-11-02 13:59 — Filter the Sessions panel
 
 The Sessions panel has a filter box, as the Files panel does. Every word typed has to appear in a session's title, last

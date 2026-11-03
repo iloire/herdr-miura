@@ -603,6 +603,7 @@ export default function App() {
           <PanelSwitch
             controller={controller}
             changes={state.changes}
+            changed={changedFiles.get(focusedWorkspace?.workspace_id ?? "") ?? 0}
             files={state.files}
             queue={state.queue}
             queued={{
