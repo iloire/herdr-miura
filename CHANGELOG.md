@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-04 13:11 — Cmd+click opens a program's own links
+
+A link Claude Code draws for `[improvmx.com](https://improvmx.com)` shows only `improvmx.com`, which looked like a file
+name, so Cmd+click said "No file improvmx.com in a checkout". The daemon already sends each cell's OSC 8 target; the app
+now passes it to the terminal view, where it wins over what the text looks like. Web and `mailto:` links open in the
+browser, `file://` ones in the file view.
+
 ## 2026-11-04 12:04 — "This computer", not "This Mac"
 
 The host picker and the messages about the local machine said "this Mac" on Linux too. They now say "this computer"

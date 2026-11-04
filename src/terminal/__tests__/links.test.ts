@@ -17,8 +17,9 @@ function pane(x: number, width: number, height: number): SurfacePane {
   };
 }
 
-/// A grid from text rows, each padded to `width`, split into the given panes.
-function grid(lines: string[], panes?: SurfacePane[]): Grid {
+/// A grid from text rows, each padded to `width`, split into the given panes,
+/// with `links` giving cells an OSC 8 target by `"x,y"`.
+function grid(lines: string[], panes?: SurfacePane[], links: Record<string, string> = {}): Grid {
   const width = Math.max(...lines.map((line) => line.length));
   const g = new Grid();
   g.apply({
@@ -29,7 +30,10 @@ function grid(lines: string[], panes?: SurfacePane[]): Grid {
     full: true,
     rows: lines.map((line, y) => ({
       y,
-      cells: Array.from(line.padEnd(width), (symbol): Cell => [symbol, 0, 0, 0, false]),
+      cells: Array.from(line.padEnd(width), (symbol, x): Cell => {
+        const link = links[`${x},${y}`];
+        return link ? [symbol, 0, 0, 0, false, link] : [symbol, 0, 0, 0, false];
+      }),
     })),
     cursor: null,
     panes: panes ?? [pane(0, width, lines.length)],
@@ -130,6 +134,23 @@ describe("linkAt", () => {
     expect(linkAt(g, 2, 0)).toBeNull();
     expect(linkAt(g, 22, 0)).toBeNull();
     expect(linkAt(g, 26, 0)).toBeNull();
+  });
+
+  it("opens a program's own link rather than what its text looks like", () => {
+    const linked = (from: number, to: number, href: string) =>
+      Object.fromEntries(Array.from({ length: to - from }, (_, i) => [`${from + i},0`, href]));
+    const g = grid(["sign up at improvmx.com and"], undefined, linked(11, 23, "https://improvmx.com/"));
+    const link = linkAt(g, 14, 0);
+    expect(link?.url).toBe("https://improvmx.com/");
+    expect(link?.file).toBeUndefined();
+    expect(link?.cells.map((cell) => cell.x)).toEqual([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]);
+
+    const file = grid(["see notes here"], undefined, linked(4, 9, "file://mac/Users/me/My%20notes.md"));
+    expect(linkAt(file, 5, 0)?.file).toBe("/Users/me/My notes.md");
+
+    // A scheme the app cannot open falls back to the text.
+    const other = grid(["run a.md now"], undefined, linked(4, 8, "x-custom://thing"));
+    expect(linkAt(other, 5, 0)?.file).toBe("a.md");
   });
 
   it("finds a pasted image's number, on the whole of its label", () => {

@@ -44,7 +44,7 @@ fn first_frame_sends_every_row() {
     let update = update(None, &next);
     assert!(update.full);
     assert_eq!(row_ys(&update), [0, 1, 2]);
-    assert_eq!(update.rows[1].cells, [Cell("c", 0, 0, 0, false), Cell("d", 0, 0, 0, false)]);
+    assert_eq!(update.rows[1].cells, [Cell("c", 0, 0, 0, false, None), Cell("d", 0, 0, 0, false, None)]);
 }
 
 #[test]
@@ -89,6 +89,22 @@ fn empty_grid_has_no_rows() {
 
 #[test]
 fn cells_serialize_positionally() {
-    let json = serde_json::to_string(&Cell("x", 1, 2, 3, true)).unwrap_or_default();
+    let json = serde_json::to_string(&Cell("x", 1, 2, 3, true, None)).unwrap_or_default();
     assert_eq!(json, r#"["x",1,2,3,true]"#);
+    let json = serde_json::to_string(&Cell("x", 1, 2, 3, true, Some("https://a.dev"))).unwrap_or_default();
+    assert_eq!(json, r#"["x",1,2,3,true,"https://a.dev"]"#);
+}
+
+#[test]
+fn a_row_whose_link_changes_is_resent() {
+    // Each frame numbers its links afresh, so the same index can mean another URL.
+    let mut previous = surface("a", 2, "abcd");
+    previous.frame.hyperlinks.push("https://a.dev".into());
+    previous.frame.cells[2].hyperlink = Some(0);
+    let mut next = surface("a", 2, "abcd");
+    next.frame.hyperlinks.push("https://b.dev".into());
+    next.frame.cells[2].hyperlink = Some(0);
+    let update = update(Some(&previous), &next);
+    assert_eq!(row_ys(&update), [1]);
+    assert_eq!(update.rows[0].cells[0], Cell("c", 0, 0, 0, false, Some("https://b.dev")));
 }

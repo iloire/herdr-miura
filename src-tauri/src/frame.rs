@@ -6,17 +6,35 @@ use crate::herdr::wire::{
     CellData, ClientShellPopupSize, CursorState, FrameData, PaneSurfaceFrame, PaneSurfacePane,
     PaneSurfaceSplit,
 };
-use serde::Serialize;
+use serde::ser::SerializeTuple;
+use serde::{Serialize, Serializer};
 
-/// `[symbol, fg, bg, modifier, skip]`: positional, because a full 300x80 grid
-/// is 24k of these and field names would triple the payload.
-#[derive(Debug, PartialEq, Serialize)]
-pub struct Cell<'a>(&'a str, u32, u32, u16, bool);
+/// `[symbol, fg, bg, modifier, skip]`, then the cell's OSC 8 link only if it has
+/// one: positional, because a full 300x80 grid is 24k of these and field names
+/// would triple the payload.
+#[derive(Debug, PartialEq)]
+pub struct Cell<'a>(&'a str, u32, u32, u16, bool, Option<&'a str>);
 
-impl<'a> From<&'a CellData> for Cell<'a> {
-    fn from(cell: &'a CellData) -> Self {
-        Self(&cell.symbol, cell.fg, cell.bg, cell.modifier, cell.skip)
+impl Serialize for Cell<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut tuple = serializer.serialize_tuple(if self.5.is_some() { 6 } else { 5 })?;
+        tuple.serialize_element(self.0)?;
+        tuple.serialize_element(&self.1)?;
+        tuple.serialize_element(&self.2)?;
+        tuple.serialize_element(&self.3)?;
+        tuple.serialize_element(&self.4)?;
+        if let Some(link) = self.5 {
+            tuple.serialize_element(link)?;
+        }
+        tuple.end()
     }
+}
+
+/// The cell with its link read from the frame's table, as each frame numbers
+/// its links afresh.
+fn cell<'a>(cell: &'a CellData, hyperlinks: &'a [String]) -> Cell<'a> {
+    let link = cell.hyperlink.and_then(|index| hyperlinks.get(index as usize));
+    Cell(&cell.symbol, cell.fg, cell.bg, cell.modifier, cell.skip, link.map(String::as_str))
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -62,7 +80,7 @@ fn all_rows(frame: &FrameData) -> Vec<Row<'_>> {
     rows(frame)
         .map(|(y, cells)| Row {
             y,
-            cells: cells.iter().map(Cell::from).collect(),
+            cells: cells.iter().map(|c| cell(c, &frame.hyperlinks)).collect(),
         })
         .collect()
 }
@@ -79,10 +97,11 @@ pub fn update<'a>(previous: Option<&PaneSurfaceFrame>, next: &'a PaneSurfaceFram
         None => all_rows(&next.frame),
         Some(base) => rows(&next.frame)
             .zip(rows(&base.frame))
-            .filter(|((_, now), (_, then))| now != then)
-            .map(|((y, cells), _)| Row {
-                y,
-                cells: cells.iter().map(Cell::from).collect(),
+            .filter_map(|((y, now), (_, then))| {
+                let cells: Vec<_> = now.iter().map(|c| cell(c, &next.frame.hyperlinks)).collect();
+                let same = then.len() == cells.len()
+                    && then.iter().zip(&cells).all(|(c, now)| cell(c, &base.frame.hyperlinks) == *now);
+                (!same).then_some(Row { y, cells })
             })
             .collect(),
     };

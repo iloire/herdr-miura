@@ -111,8 +111,9 @@ export interface Split {
   path: boolean[];
 }
 
-/// `[symbol, fg, bg, modifier, skip]`, see `frame.rs`.
-export type Cell = [string, number, number, number, boolean];
+/// `[symbol, fg, bg, modifier, skip]`, then the cell's OSC 8 link if it has one,
+/// see `frame.rs`.
+export type Cell = [string, number, number, number, boolean, string?];
 
 export interface Row {
   y: number;

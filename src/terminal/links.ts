@@ -41,7 +41,23 @@ function trim(text: string): string {
   return url;
 }
 
-/// The URL, commit hash, file path or pasted image under a cell, if any. Only the disk can
+/// What a program's own OSC 8 link points at: a web address opens as one, a
+/// `file://` one as the path it names, and any other scheme as nothing.
+function target(href: string): { url: string } | { file: string } | null {
+  if (/^(https?|mailto):/i.test(href)) return { url: href };
+  if (/^file:/i.test(href)) {
+    try {
+      return { file: decodeURIComponent(new URL(href).pathname) };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/// The URL, commit hash, file path or pasted image under a cell, if any. A
+/// link the program drew itself, as Claude Code does for `[name](url)`, wins
+/// over what its text looks like. Only the disk can
 /// tell whether a path is a file. Text is read only within the pane holding
 /// the cell, so a neighbouring pane's text never joins it, and a row whose
 /// last column is filled continues onto the next one, as a wrapped URL does.
@@ -72,6 +88,13 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
       text += unit;
       for (let i = 0; i < unit.length; i++) origin.push({ x, y });
     }
+  }
+
+  const href = grid.cell(column, row)[5];
+  const linked = href ? target(href) : null;
+  if (linked) {
+    const cells = origin.filter((cell, i) => cell !== origin[i - 1] && grid.cell(cell.x, cell.y)[5] === href);
+    return { ...linked, cells };
   }
 
   for (const match of text.matchAll(URL_PATTERN)) {
