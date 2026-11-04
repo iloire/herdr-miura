@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-04 11:35 — Open on Linux with NVIDIA on Wayland
+
+The window died at launch with `Gdk-Message: Error 71 (Protocol error) dispatching to Wayland display`: WebKitGTK's
+DMA-BUF renderer and NVIDIA's driver don't get along on Wayland. The app now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+on Linux before it starts, unless the environment already sets it. macOS is unaffected.
+
 ## 2026-11-04 11:24 — Dependencies with no known vulnerabilities
 
 `npm audit` found two critical and one moderate advisory, all in vitest 3.2.7 (tinypool, @vitest/mocker); vitest is now
