@@ -101,6 +101,16 @@ Eight built-in themes, any Ghostty theme, or a light and dark pair that follows 
 
 Needs Node 20.19+ or 22.12+, Rust (the pinned toolchain installs itself through `rustup`) and a running Herdr daemon.
 
+The daemon must be **Herdr 0.9.0 or newer**: the app speaks Herdr's endpoint protocol (generation 1), which 0.9.0
+introduced. An older daemon is up and its socket is where the app looks, but the handshake fails and the status bar
+reports a version mismatch rather than a connection error. Distro packages can lag: Omarchy's repo shipped 0.8.2 while
+upstream was at 0.9.5, so install the release binary from [herdrdev/herdr](https://github.com/herdrdev/herdr/releases)
+ahead of it on `PATH`.
+
+On Linux the window draws through WebKitGTK. With NVIDIA's driver on Wayland, its DMA-BUF renderer kills the window at
+launch (`Error 71 (Protocol error) dispatching to Wayland display`), so `src-tauri/src/main.rs` sets
+`WEBKIT_DISABLE_DMABUF_RENDERER=1` unless the environment already sets it.
+
 ```sh
 npm install
 npm run tauri dev       # hot-reloading app, attached to your default Herdr session
