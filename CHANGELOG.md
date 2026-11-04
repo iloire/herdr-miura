@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-04 17:44 — Ctrl+Shift+V pastes on Linux
+
+The terminal's only paste key was Cmd+V, which macOS turns into a paste through its Edit menu. Linux has no such menu,
+and Ctrl+Shift+V and Shift+Insert reached the pane as ordinary key presses, so nothing pasted. Off macOS those two keys
+now read the clipboard and paste its text into the focused pane. Ctrl+V still goes to the program, as `^V`.
+
 ## 2026-11-04 13:11 — Cmd+click opens a program's own links
 
 A link Claude Code draws for `[improvmx.com](https://improvmx.com)` shows only `improvmx.com`, which looked like a file

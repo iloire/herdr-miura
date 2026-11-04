@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldPassesChord, keyInput, matches, parseShortcut, type KeyLike } from "../keys";
+import { fieldPassesChord, isPasteChord, keyInput, matches, parseShortcut, type KeyLike } from "../keys";
 
 const key = (over: Partial<KeyLike>): KeyLike => ({
   key: "",
@@ -50,6 +50,25 @@ describe("keyInput", () => {
 
   it("marks held keys as repeats", () => {
     expect(code(keyInput(key({ key: "Backspace", repeat: true })))?.kind).toBe("Repeat");
+  });
+});
+
+describe("isPasteChord", () => {
+  const ctrlShiftV = key({ key: "V", code: "KeyV", ctrlKey: true, shiftKey: true });
+  const shiftInsert = key({ key: "Insert", code: "Insert", shiftKey: true });
+
+  it("pastes on Ctrl+Shift+V and Shift+Insert off macOS", () => {
+    expect(isPasteChord(ctrlShiftV, false)).toBe(true);
+    expect(isPasteChord(shiftInsert, false)).toBe(true);
+  });
+
+  it("leaves Ctrl+V to the terminal program", () => {
+    expect(isPasteChord(key({ key: "v", code: "KeyV", ctrlKey: true }), false)).toBe(false);
+  });
+
+  it("leaves macOS to its Edit menu", () => {
+    expect(isPasteChord(ctrlShiftV, true)).toBe(false);
+    expect(isPasteChord(shiftInsert, true)).toBe(false);
   });
 });
 

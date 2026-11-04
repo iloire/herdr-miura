@@ -9,6 +9,7 @@
     "core:window:allow-internal-toggle-maximize",
     "core:window:allow-set-badge-count",
     "opener:default",
+    "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-write-text"
   ]
 }

@@ -71,6 +71,13 @@ export function keyInput(event: KeyLike, optionIsMeta = true): PaneInputEvent | 
   };
 }
 
+/// Ctrl+Shift+V or Shift+Insert, the Linux and Windows terminal paste keys.
+/// macOS pastes on Cmd+V through its Edit menu instead.
+export function isPasteChord(event: KeyLike, mac: boolean): boolean {
+  if (mac || event.metaKey || event.altKey || !event.shiftKey) return false;
+  return (event.ctrlKey && event.code === "KeyV") || (!event.ctrlKey && event.key === "Insert");
+}
+
 export interface Shortcut {
   cmd: boolean;
   ctrl: boolean;

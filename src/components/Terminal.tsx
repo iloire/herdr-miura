@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { IS_MAC } from "../app/catalog";
 import type { Controller } from "../app/controller";
 import type { MouseButton, MouseKind, PaneInputEvent, SurfacePane } from "../protocol";
-import { keyInput } from "../terminal/keys";
+import { isPasteChord, keyInput } from "../terminal/keys";
 import { Painter, measure, popupOrigin } from "../terminal/painter";
 import type { Theme } from "../terminal/theme";
 import { pasteEvents, wheelEvents } from "../terminal/mouse";
@@ -256,6 +258,13 @@ export function Terminal({
         return;
       }
       if (event.metaKey && (event.key === "v" || event.key === "c")) return; // native paste/copy
+      if (isPasteChord(event, IS_MAC)) {
+        event.preventDefault();
+        readText()
+          .then((text) => text && controller.sendInput(pasteEvents(text)))
+          .catch(() => {}); // an empty or non-text clipboard has nothing to paste
+        return;
+      }
       const key = keyInput(event);
       if (!key) return;
       event.preventDefault();
