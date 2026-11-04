@@ -696,7 +696,7 @@ export class Controller {
   /// Resumes the newest closed session of `folders` in `workspaceId`. Asks at
   /// the key press, so a second press finds the next one back.
   reopenClosed(workspaceId: string | null, folders: string[] | null): void {
-    if (!workspaceId || !folders) return this.set({ notice: "Reopen Closed Session works on this Mac's workspaces only" });
+    if (!workspaceId || !folders) return this.set({ notice: "Reopen Closed Session works on this computer's workspaces only" });
     this.act(
       readRecentSessions(folders).then((sessions) => {
         const { snapshot, resuming } = this.state;

@@ -34,7 +34,7 @@ pub enum Error {
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]
     NotConnected,
-    #[error("that workspace is on another machine, so this Mac cannot open or read it")]
+    #[error("that workspace is on another machine, so this computer cannot open or read it")]
     RemoteHost,
     #[error("unknown method `{0}`")]
     UnknownMethod(String),

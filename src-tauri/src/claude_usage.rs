@@ -32,7 +32,7 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Claude Code is not signed in on this Mac")]
+    #[error("Claude Code is not signed in on this computer")]
     SignedOut,
     #[error("Anthropic is rate limiting usage reads")]
     RateLimited,

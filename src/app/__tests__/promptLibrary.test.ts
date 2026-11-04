@@ -114,7 +114,7 @@ describe("actions", () => {
   it("says why an action cannot run", () => {
     expect(blocked(prompt, "here", can)).toBeNull();
     expect(blocked(prompt, "here", { ...can, agent: false })).toBe("The focused pane has no agent.");
-    expect(blocked(prompt, "new-tab", { ...can, folder: false })).toBe("This workspace has no folder on this Mac.");
+    expect(blocked(prompt, "new-tab", { ...can, folder: false })).toBe("This workspace has no folder on this computer.");
     expect(blocked(prompt, "queue", { ...can, queue: false })).toBe("Another window has the queue.");
     expect(blocked({ ...prompt, broken: "bad" }, "queue", can)).toBe("bad");
   });

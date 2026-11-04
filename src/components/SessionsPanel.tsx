@@ -93,7 +93,7 @@ export function SessionsPanel({
       <aside className="changes sessions-panel" aria-label="Sessions">
         <header className="changes-head queue-head">{head}</header>
         <div className="queue-off">
-          <p>Sessions are read from this Mac, so a workspace on another machine has none to show.</p>
+          <p>Sessions are read from this computer, so a workspace on another machine has none to show.</p>
         </div>
       </aside>
     );

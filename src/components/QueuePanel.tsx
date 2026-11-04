@@ -78,7 +78,7 @@ export function QueuePanel({
       <aside className="changes queue-panel" aria-label="Queue">
         {head}
         <p className="empty">
-          {actions ? "Focus a workspace to see its queue." : "Queues run on this Mac's Herdr. Attach to this Mac to use one."}
+          {actions ? "Focus a workspace to see its queue." : "Queues run on this computer's Herdr. Attach to this computer to use one."}
         </p>
       </aside>
     );

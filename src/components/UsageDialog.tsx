@@ -96,7 +96,7 @@ export function UsageDialog({
             <h2 id="usage-title">{usage?.plan ?? "Claude"}</h2>
             <p className="worktrees-summary">
               {usage?.read_at ? `Limits are for the whole account, read ${relativeTime(usage.read_at)}. ` : ""}
-              Token charts count Claude Code on this Mac.
+              Token charts count Claude Code on this computer.
             </p>
           </div>
           <button autoFocus className="worktrees-close" aria-label="Close" title="Close (Esc)" onClick={onClose}>

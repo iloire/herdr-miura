@@ -10,7 +10,7 @@ export function ClaudeUsage({ usage, now, onOpen }: { usage: Usage | null; now: 
     { name: "Weekly", window: usage.weekly },
   ].filter((entry): entry is { name: string; window: UsageWindow } => entry.window !== null);
   const title = [
-    `Claude${usage.plan ? ` ${usage.plan}` : ""} usage on this Mac`,
+    `Claude${usage.plan ? ` ${usage.plan}` : ""} usage on this computer`,
     ...windows.map(({ name, window }) => {
       const at = resetTime(window);
       const reset = at && at > now ? `, resets ${new Date(at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}` : "";

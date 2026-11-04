@@ -86,7 +86,7 @@ pub fn start(workspace: &str, directory: &str, members: &[Member]) -> Result<(),
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreateError {
-    #[error("`{0}` is not a folder on this Mac")]
+    #[error("`{0}` is not a folder on this computer")]
     NotFolder(String),
     #[error("this workspace already has a team: edit {0}")]
     Exists(String),

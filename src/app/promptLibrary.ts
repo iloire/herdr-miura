@@ -165,7 +165,7 @@ export function defaultAction(prompt: Prompt, hasAgent: boolean): Action {
 export function blocked(prompt: Prompt, action: Action, can: { agent: boolean; folder: boolean; queue: boolean }): string | null {
   if (prompt.broken) return prompt.broken;
   if (action === "here" && !can.agent) return "The focused pane has no agent.";
-  if (action !== "here" && !can.folder) return "This workspace has no folder on this Mac.";
+  if (action !== "here" && !can.folder) return "This workspace has no folder on this computer.";
   if (action === "queue" && !can.queue) return "Another window has the queue.";
   return null;
 }

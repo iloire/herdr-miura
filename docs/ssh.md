@@ -2,7 +2,7 @@
 
 The host picker at the left of the status bar lists the named `Host` entries of `~/.ssh/config`
 (and the files it `Include`s). Picking one replaces the connection: the window then shows that
-machine's Herdr, until you pick another or **This Mac**. The choice is remembered for the next launch.
+machine's Herdr, until you pick another or **This computer**. The choice is remembered for the next launch.
 
 ## What the host needs
 

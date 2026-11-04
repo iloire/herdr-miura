@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-04 12:04 — "This computer", not "This Mac"
+
+The host picker and the messages about the local machine said "this Mac" on Linux too. They now say "this computer"
+everywhere.
+
 ## 2026-11-04 11:35 — Open on Linux with NVIDIA on Wayland
 
 The window died at launch with `Gdk-Message: Error 71 (Protocol error) dispatching to Wayland display`: WebKitGTK's

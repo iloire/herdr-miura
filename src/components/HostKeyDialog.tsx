@@ -15,7 +15,7 @@ export function HostKeyDialog({ controller, hostKey }: { controller: Controller;
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(event) => event.key === "Escape" && controller.dismissHostKey()}
       >
-        <h2 id="host-key-title">{host} is new to this Mac</h2>
+        <h2 id="host-key-title">{host} is new to this computer</h2>
         <p>
           ssh has no key on record for {host}. Check that these fingerprints match the ones the host itself reports
           (<code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code> on it) before you trust it.

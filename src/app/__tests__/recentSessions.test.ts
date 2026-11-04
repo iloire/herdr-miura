@@ -135,7 +135,7 @@ describe("the controller", () => {
     invoke.mockClear();
     controller.reopenClosed("w1", null);
     expect(invoke).not.toHaveBeenCalled();
-    expect(controller.getState().notice).toMatch(/this Mac/);
+    expect(controller.getState().notice).toMatch(/this computer/);
   });
 
   it("says when there is nothing to reopen", async () => {
