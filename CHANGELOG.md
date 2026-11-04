@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-04 11:24 — Dependencies with no known vulnerabilities
+
+`npm audit` found two critical and one moderate advisory, all in vitest 3.2.7 (tinypool, @vitest/mocker); vitest is now
+5.1.0 and the audit is clean. Shiki moves to 4.6.0 and the rest to their latest in-range versions. `cargo audit` finds
+no vulnerabilities; `cargo update` replaces a yanked async-executor. What it still warns about are unmaintained crates
+that Tauri pulls in, which we can't change from here.
+
 ## 2026-11-03 01:25 — Attach by itself once the daemon is up
 
 A window opened before the daemon, as at login after a restart, stayed disconnected until something forced a new
