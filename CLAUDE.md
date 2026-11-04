@@ -18,3 +18,11 @@ The app in daily use is not built from this checkout: Stable and Edge run from t
 
   The dev window's `DEV · <branch>` strip (absent on `main`) tells the instances apart.
 - Run `npm run check` before committing.
+
+## Committing
+
+Work happens on two machines at once, so `main` moves often.
+
+- Rebase often: `git fetch` and `git rebase origin/main` before starting a change, again before committing, and on any
+  long task in between.
+- Push right after every commit. Don't let a commit sit local; the other machine can't build on what it can't see.
