@@ -2826,6 +2826,29 @@ kbd {
   text-overflow: ellipsis;
 }
 
+.tree-name.ignored {
+  color: var(--muted);
+}
+
+.files-ignored {
+  padding: 2px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.files-ignored:hover {
+  color: var(--text);
+}
+
+.files-ignored[aria-pressed="true"] {
+  background: var(--active);
+  color: var(--text);
+}
+
 .tree-name.changed {
   color: var(--lantern);
 }

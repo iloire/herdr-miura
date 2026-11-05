@@ -54,7 +54,7 @@ import { UsageDialog } from "./components/UsageDialog";
 import { ContextDialog } from "./components/ContextDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
-import { type FoundFile, useListing } from "./files/listing";
+import { type FoundFile, loadShowIgnored, saveShowIgnored, useListing } from "./files/listing";
 import type { Snapshot } from "./protocol";
 import { fieldPassesChord } from "./terminal/keys";
 
@@ -505,7 +505,9 @@ export default function App() {
   // the Files panel lists that one until the file closes or the pane moves on.
   const [linkedFile, setLinkedFile] = useState<LinkedFile | null>(null);
   const linked = linkedFile?.from === directory ? linkedFile : null;
-  const listing = useListing(linked?.root ?? directory, state.files);
+  const [showIgnored, setShowIgnored] = useState(loadShowIgnored);
+  useEffect(() => saveShowIgnored(showIgnored), [showIgnored]);
+  const listing = useListing(linked?.root ?? directory, state.files, showIgnored);
   const listingRoot = listing.phase === "ready" ? (listing.listing?.root ?? null) : null;
   // A file opened in one checkout means nothing in the next, except the one
   // left open when the window last closed.
@@ -707,6 +709,8 @@ export default function App() {
                 selected={shownTreeFile ? filePick : null}
                 onOpen={setFilePick}
                 onLeave={() => controller.focusTerminal()}
+                showIgnored={showIgnored}
+                onToggleIgnored={() => setShowIgnored((show) => !show)}
               />
             ) : (
               <ChangesPanel

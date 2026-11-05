@@ -1,5 +1,6 @@
 //! The Files panel's reads: every file a checkout holds, as Git lists them
-//! (tracked, and untracked ones not ignored), and one file's contents for
+//! (tracked, and untracked ones not ignored), on request the ignored ones with
+//! the folders they fill read one at a time, and one file's contents for
 //! the file view: its text, or an image's bytes. `write` saves an edited
 //! text file back, unless something else changed it first.
 
@@ -23,6 +24,8 @@ const MAX_LISTING_BYTES: usize = 16 << 20;
 const MAX_TEXT_BYTES: u64 = 1 << 20;
 /// An image's bytes shown at most.
 const MAX_IMAGE_BYTES: u64 = 8 << 20;
+/// Entries listed per ignored folder; `node_modules` can hold a great many.
+const MAX_FOLDER_ENTRIES: usize = 5_000;
 /// Bytes looked at for a NUL, which marks a binary.
 const BINARY_SNIFF: usize = 8000;
 
@@ -47,6 +50,9 @@ pub struct Listing {
     /// Sorted, with `/` between parts.
     files: Vec<String>,
     total_files: usize,
+    /// Ignored files, and ignored folders whole with a trailing `/`, when
+    /// asked for; empty otherwise.
+    ignored: Vec<String>,
 }
 
 /// A file named in a pane's text: its checkout, and its path inside that.
@@ -86,8 +92,22 @@ fn toplevel(directory: &str, deadline: Instant) -> Result<String, git::Error> {
     )
 }
 
-/// The files of the checkout `directory` sits in, or `None` outside Git.
-pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
+/// NUL-separated paths as sorted strings.
+fn paths(listing: &[u8]) -> Vec<String> {
+    let mut paths: Vec<String> = listing
+        .split(|&byte| byte == 0)
+        .filter(|path| !path.is_empty())
+        .map(|path| String::from_utf8_lossy(path).into_owned())
+        .collect();
+    paths.sort_unstable();
+    paths.dedup();
+    paths
+}
+
+/// The files of the checkout `directory` sits in, or `None` outside Git. With
+/// `ignored`, the ignored ones too, a folder Git ignores whole as one entry so
+/// `node_modules` costs a line.
+pub fn list(directory: &str, ignored: bool) -> Result<Option<Listing>, Error> {
     let deadline = Instant::now() + DEADLINE;
     let Ok(root) = toplevel(directory, deadline) else {
         return Ok(None);
@@ -106,20 +126,57 @@ pub fn list(directory: &str) -> Result<Option<Listing>, Error> {
         deadline,
         MAX_LISTING_BYTES,
     )?;
-    let mut files: Vec<String> = listing
-        .split(|&byte| byte == 0)
-        .filter(|path| !path.is_empty())
-        .map(|path| String::from_utf8_lossy(path).into_owned())
-        .collect();
-    files.sort_unstable();
-    files.dedup();
+    let mut files = paths(&listing);
     let total_files = files.len();
     files.truncate(MAX_FILES);
+    let ignored = if ignored {
+        let listing = git::run(
+            &root,
+            &[
+                "ls-files",
+                "-z",
+                "--others",
+                "--ignored",
+                "--exclude-standard",
+                "--directory",
+            ],
+            "list the ignored files",
+            deadline,
+            MAX_LISTING_BYTES,
+        )?;
+        let mut ignored = paths(&listing);
+        ignored.truncate(MAX_FILES);
+        ignored
+    } else {
+        Vec::new()
+    };
     Ok(Some(Listing {
         root,
         files,
         total_files,
+        ignored,
     }))
+}
+
+/// What the folder at `path` in the checkout at `root` holds, one level, as
+/// paths from the checkout with a trailing `/` on folders. For a folder Git
+/// ignores whole, whose files it never lists.
+pub fn list_folder(root: &str, path: &str) -> Result<Vec<String>, Error> {
+    let full = inside(root, path)?;
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&full).map_err(Error::Read)?.flatten() {
+        if entries.len() == MAX_FOLDER_ENTRIES {
+            break;
+        }
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        // A symlinked folder is followed only by `inside`, on opening it.
+        let folder = fs::metadata(entry.path()).is_ok_and(|meta| meta.is_dir());
+        entries.push(format!("{path}/{name}{}", if folder { "/" } else { "" }));
+    }
+    entries.sort_unstable();
+    Ok(entries)
 }
 
 /// The file `name` means from `directory`: an absolute or `~/` path as it is, a
@@ -286,11 +343,12 @@ mod tests {
     #[test]
     fn lists_tracked_and_untracked_files_but_not_ignored_ones() {
         let dir = repo();
-        let listing = list(&dir.path().join("src").to_string_lossy())
+        let listing = list(&dir.path().join("src").to_string_lossy(), false)
             .unwrap()
             .unwrap();
         assert_eq!(listing.files, [".gitignore", "new.txt", "src/a.rs"]);
         assert_eq!(listing.total_files, 3);
+        assert!(listing.ignored.is_empty());
         assert_eq!(
             fs::canonicalize(&listing.root).unwrap(),
             fs::canonicalize(dir.path()).unwrap()
@@ -298,9 +356,25 @@ mod tests {
     }
 
     #[test]
+    fn lists_ignored_files_on_request_with_ignored_folders_whole() {
+        let dir = repo();
+        fs::write(dir.path().join(".gitignore"), "target/\n.env.local\n").unwrap();
+        fs::write(dir.path().join(".env.local"), "SECRET=1\n").unwrap();
+        fs::create_dir(dir.path().join("target/deep")).unwrap();
+        fs::write(dir.path().join("target/deep/x"), "x\n").unwrap();
+        let listing = list(&root(&dir), true).unwrap().unwrap();
+        assert_eq!(listing.ignored, [".env.local", "target/"]);
+        assert_eq!(
+            list_folder(&listing.root, "target").unwrap(),
+            ["target/deep/", "target/out"]
+        );
+        assert!(list_folder(&listing.root, "../x").is_err());
+    }
+
+    #[test]
     fn finds_a_file_from_the_folder_then_the_checkouts_top() {
         let dir = repo();
-        let top = list(&root(&dir)).unwrap().unwrap().root;
+        let top = list(&root(&dir), false).unwrap().unwrap().root;
         let sub = format!("{top}/src");
         for (from, name) in [(&top, "src/a.rs"), (&sub, "a.rs"), (&sub, "src/a.rs"), (&sub, "../src/a.rs")] {
             let found = find(from, name).unwrap();
@@ -313,7 +387,7 @@ mod tests {
     #[test]
     fn a_file_in_a_worktree_belongs_to_the_worktree() {
         let dir = repo();
-        let top = list(&root(&dir)).unwrap().unwrap().root;
+        let top = list(&root(&dir), false).unwrap().unwrap().root;
         let worktree = format!("{top}/target/wt");
         git(dir.path(), &["worktree", "add", "-q", "-b", "wt", &worktree]);
         let found = find(&top, &format!("{worktree}/src/a.rs")).unwrap();
@@ -335,7 +409,7 @@ mod tests {
     #[test]
     fn outside_git_is_no_listing() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(list(&root(&dir)).unwrap().is_none());
+        assert!(list(&root(&dir), false).unwrap().is_none());
     }
 
     #[test]

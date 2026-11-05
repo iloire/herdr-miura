@@ -11,6 +11,8 @@ export interface TreeNode {
   children: TreeNode[] | null;
   /// Changed files at or under this node.
   changed: number;
+  /// Git ignores it: an ignored file, or a folder holding nothing else.
+  ignored: boolean;
 }
 
 /// One shown node and how deep it sits under the checkout.
@@ -34,30 +36,49 @@ function byFolderThenName(a: TreeNode, b: TreeNode): number {
   return lower !== 0 ? lower : a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 }
 
-/// The tree of `files`, with `changed` (paths) counted up their folders.
-export function buildTree(files: readonly string[], changed: ReadonlySet<string>): TreeNode {
-  const root: TreeNode = { name: "", path: "", children: [], changed: 0 };
+/// The tree of `files`, with `changed` (paths) counted up their folders, and
+/// the `ignored` entries dimmed: files, and folders with a trailing `/`.
+export function buildTree(files: readonly string[], changed: ReadonlySet<string>, ignored: readonly string[] = []): TreeNode {
+  const root: TreeNode = { name: "", path: "", children: [], changed: 0, ignored: false };
   const folders = new Map<string, TreeNode>([["", root]]);
-  const add = (parent: TreeNode, path: string, folder: boolean): TreeNode => {
-    const node: TreeNode = { name: path.slice(path.lastIndexOf("/") + 1), path, children: folder ? [] : null, changed: 0 };
+  const add = (parent: TreeNode, path: string, folder: boolean, isIgnored: boolean): TreeNode => {
+    const node: TreeNode = {
+      name: path.slice(path.lastIndexOf("/") + 1),
+      path,
+      children: folder ? [] : null,
+      changed: 0,
+      ignored: isIgnored,
+    };
     parent.children?.push(node);
     return node;
   };
-  for (const file of files) {
+  const folderOf = (path: string, isIgnored: boolean): TreeNode => {
     let parent = root;
-    for (const folder of ancestors(file)) {
+    for (const folder of [...ancestors(path), path]) {
+      if (!folder) continue;
       let node = folders.get(folder);
       if (!node) {
-        node = add(parent, folder, true);
+        node = add(parent, folder, true, isIgnored);
         folders.set(folder, node);
       }
       parent = node;
     }
-    const node = add(parent, file, false);
+    return parent;
+  };
+  for (const file of files) {
+    const node = add(folderOf(file.slice(0, Math.max(file.lastIndexOf("/"), 0)), false), file, false, false);
     if (changed.has(file)) {
       node.changed = 1;
       root.changed++;
       for (const folder of ancestors(file)) folders.get(folder)!.changed++;
+    }
+  }
+  const listed = new Set(files);
+  for (const entry of ignored) {
+    if (entry.endsWith("/")) folderOf(entry.slice(0, -1), true);
+    else if (!listed.has(entry)) {
+      listed.add(entry);
+      add(folderOf(entry.slice(0, Math.max(entry.lastIndexOf("/"), 0)), true), entry, false, true);
     }
   }
   for (const folder of folders.values()) folder.children!.sort(byFolderThenName);

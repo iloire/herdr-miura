@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ListingState } from "../files/listing";
+import { type ListingState, listFolder } from "../files/listing";
 import { ancestors, buildTree, matchingRows, visibleRows } from "../files/tree";
 import { FileIcon, FolderIcon } from "./icons";
 
@@ -15,6 +15,8 @@ export function FilesPanel({
   selected,
   onOpen,
   onLeave,
+  showIgnored,
+  onToggleIgnored,
 }: {
   state: ListingState;
   /// Changed paths and their `git status --short` letter.
@@ -23,28 +25,45 @@ export function FilesPanel({
   onOpen: (path: string) => void;
   /// Escape in an empty filter: typing goes back to the terminal.
   onLeave: () => void;
+  /// Whether ignored files are listed, dimmed.
+  showIgnored: boolean;
+  onToggleIgnored: () => void;
 }) {
   const listing = state.phase === "ready" ? state.listing : null;
   const root = listing?.root ?? null;
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [query, setQuery] = useState("");
+  // What the ignored folders opened so far hold, as Git lists none of it.
+  const [opened, setOpened] = useState<ReadonlyMap<string, readonly string[]>>(new Map());
   // Open folders mean nothing in another checkout.
-  useEffect(() => setExpanded(new Set()), [root]);
+  useEffect(() => {
+    setExpanded(new Set());
+    setOpened(new Map());
+  }, [root]);
 
   const changedPaths = useMemo(() => new Set(changed.keys()), [changed]);
-  const tree = useMemo(() => listing && buildTree(listing.files, changedPaths), [listing, changedPaths]);
+  const ignored = useMemo(() => (listing ? [...listing.ignored, ...[...opened.values()].flat()] : []), [listing, opened]);
+  // Folders Git ignores whole, whose contents are read on opening one.
+  const unread = useMemo(() => new Set(ignored.filter((entry) => entry.endsWith("/")).map((entry) => entry.slice(0, -1))), [ignored]);
+  const tree = useMemo(() => listing && buildTree(listing.files, changedPaths, ignored), [listing, changedPaths, ignored]);
   const filter = query.trim();
   const rows = useMemo(
     () => (!tree ? [] : filter ? matchingRows(tree, filter) : visibleRows(tree, expanded)),
     [tree, filter, expanded],
   );
 
-  const toggle = (path: string) =>
+  const toggle = (path: string) => {
+    if (root && unread.has(path) && !opened.has(path) && !expanded.has(path)) {
+      listFolder(root, path)
+        .then((entries) => setOpened((last) => new Map(last).set(path, entries)))
+        .catch(() => setOpened((last) => new Map(last).set(path, [])));
+    }
     setExpanded((open) => {
       const next = new Set(open);
       if (!next.delete(path)) next.add(path);
       return next;
     });
+  };
 
   // A file opened from a filtered list stays visible once the filter clears.
   const open = (path: string) => {
@@ -57,6 +76,14 @@ export function FilesPanel({
     <aside className="changes files" aria-label="Files">
       <header className="changes-head">
         <span title={root ?? undefined}>{name}</span>
+        <button
+          className="files-ignored"
+          aria-pressed={showIgnored}
+          title={showIgnored ? "Hide the files Git ignores" : "Show the files Git ignores, such as .env.local"}
+          onClick={onToggleIgnored}
+        >
+          Ignored
+        </button>
       </header>
       <div className="files-filter">
         <input
@@ -99,7 +126,7 @@ export function FilesPanel({
               >
                 <span className="chevron">{folder ? "›" : ""}</span>
                 {folder ? <FolderIcon /> : <FileIcon />}
-                <span className={`tree-name ${node.changed ? "changed" : ""}`}>{node.name}</span>
+                <span className={`tree-name ${node.changed ? "changed" : ""} ${node.ignored ? "ignored" : ""}`}>{node.name}</span>
                 {mark && <span className={`mark mark-${mark === "?" ? "untracked" : mark}`}>{mark}</span>}
                 {folder && node.changed > 0 && (
                   <span className="tree-count" title={`${node.changed} changed`}>

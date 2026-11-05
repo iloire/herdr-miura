@@ -6,6 +6,8 @@ export interface Listing {
   root: string;
   files: string[];
   total_files: number;
+  /// Ignored files, and ignored folders whole with a trailing `/`, when asked for.
+  ignored: string[];
 }
 
 export type FileContents =
@@ -30,9 +32,30 @@ export function writeFile(root: string, path: string, text: string, base: string
   return invoke<boolean>("write_file", { root, path, text, base });
 }
 
-/// The files of the checkout `directory` sits in while `open`: read when the
-/// panel opens or the directory changes, and again when the window comes back,
-/// since files usually change elsewhere.
+/// One level of the ignored folder at `path`, folders with a trailing `/`.
+export function listFolder(root: string, path: string): Promise<string[]> {
+  return invoke<string[]>("list_folder", { root, path });
+}
+
+const SHOW_IGNORED_KEY = "files-show-ignored";
+
+/// Whether the Files panel lists ignored files, kept in this window's storage.
+export function loadShowIgnored(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): boolean {
+  try {
+    return storage?.getItem(SHOW_IGNORED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveShowIgnored(show: boolean, storage: Pick<Storage, "setItem"> | undefined = globalThis.localStorage): void {
+  try {
+    storage?.setItem(SHOW_IGNORED_KEY, String(show));
+  } catch {
+    // Only a convenience lost.
+  }
+}
+
 /// A file named in a pane's text: its checkout, and its path inside that.
 export interface FoundFile {
   root: string;
@@ -44,7 +67,10 @@ export function findFile(directory: string, name: string): Promise<FoundFile | n
   return invoke<FoundFile | null>("find_file", { directory, name });
 }
 
-export function useListing(directory: string | null, open: boolean): ListingState {
+/// The files of the checkout `directory` sits in while `open`, the ignored ones
+/// too with `ignored`: read when the panel opens or either changes, and again
+/// when the window comes back, since files usually change elsewhere.
+export function useListing(directory: string | null, open: boolean, ignored: boolean): ListingState {
   const [state, setState] = useState<ListingState>({ phase: "idle" });
   useEffect(() => {
     if (!open || !directory) {
@@ -56,7 +82,7 @@ export function useListing(directory: string | null, open: boolean): ListingStat
     const refresh = () => {
       if (reading) return;
       reading = true;
-      invoke<Listing | null>("list_files", { directory })
+      invoke<Listing | null>("list_files", { directory, ignored })
         .then((listing) => live && setState({ phase: "ready", listing }))
         .catch((error) => live && setState({ phase: "failed", error: String(error) }))
         .finally(() => (reading = false));
@@ -69,6 +95,6 @@ export function useListing(directory: string | null, open: boolean): ListingStat
       live = false;
       window.removeEventListener("focus", refresh);
     };
-  }, [directory, open]);
+  }, [directory, open, ignored]);
   return state;
 }

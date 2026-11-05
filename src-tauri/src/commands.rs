@@ -510,14 +510,28 @@ fn unix_now() -> i64 {
         .map_or(0, |elapsed| elapsed.as_secs() as i64)
 }
 
-/// Every file of the checkout `directory` sits in, or `None` outside Git.
+/// Every file of the checkout `directory` sits in, the ignored ones too with
+/// `ignored`, or `None` outside Git.
 #[tauri::command]
 pub async fn list_files(
     connection: State<'_, Connection>,
     directory: String,
+    ignored: bool,
 ) -> Result<Option<Listing>> {
     connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || files::list(&directory));
+    let read = tauri::async_runtime::spawn_blocking(move || files::list(&directory, ignored));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// One level of an ignored folder of the checkout at `root`.
+#[tauri::command]
+pub async fn list_folder(
+    connection: State<'_, Connection>,
+    root: String,
+    path: String,
+) -> Result<Vec<String>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::list_folder(&root, &path));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 

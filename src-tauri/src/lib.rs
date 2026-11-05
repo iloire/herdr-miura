@@ -75,6 +75,7 @@ pub fn run() {
             commands::file_diff,
             commands::listening_ports,
             commands::list_files,
+            commands::list_folder,
             commands::move_tab,
             commands::move_tab_to_new_workspace,
             commands::open_file,

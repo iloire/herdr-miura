@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-05 14:38 — The Files panel can show ignored files
+
+The Files panel listed only what `git ls-files` lists without ignored files, so `.env.local`, build output and the like
+could not be opened. An `Ignored` toggle in the panel's header now lists them too, dimmed. A folder Git ignores whole,
+`node_modules` say, shows as one folder whose contents are read when it is opened, so it cannot swamp the listing. The
+toggle is remembered by the window.
+
 ## 2026-11-04 17:44 — Ctrl+Shift+V pastes on Linux
 
 The terminal's only paste key was Cmd+V, which macOS turns into a paste through its Edit menu. Linux has no such menu,

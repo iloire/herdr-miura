@@ -21,6 +21,31 @@ describe("buildTree", () => {
   });
 });
 
+describe("buildTree with ignored entries", () => {
+  it("dims ignored files and folders, but not a folder holding listed files", () => {
+    const tree = buildTree(FILES, new Set(), [".env.local", "node_modules/", "src/gen.ts", "docs/a.md", "dist/x/y.js"]);
+    const rows = visibleRows(tree, new Set(["src", "dist"]));
+    const dim = (path: string) => rows.find((row) => row.node.path === path)!.node.ignored;
+    expect(shown(rows)).toEqual([
+      "dist/",
+      "  x/",
+      "docs/",
+      "node_modules/",
+      "src/",
+      "  files/",
+      "  App.tsx",
+      "  gen.ts",
+      "  main.tsx",
+      ".env.local",
+      "b.txt",
+      "Cargo.toml",
+      "README.md",
+    ]);
+    expect(["dist", "dist/x", "node_modules", "src/gen.ts", ".env.local"].every(dim)).toBe(true);
+    expect(["docs", "src", "src/App.tsx"].some(dim)).toBe(false);
+  });
+});
+
 describe("visibleRows", () => {
   it("shows the children of open folders only, indented", () => {
     const tree = buildTree(FILES, new Set());
