@@ -331,7 +331,9 @@ export function TabBar({
                   title="Close tab"
                   onClick={() => closeByPointer(tab)}
                 >
-                  ×
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M3 3l6 6M9 3l-6 6" />
+                  </svg>
                 </button>
               )}
             </div>

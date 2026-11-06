@@ -1215,6 +1215,7 @@ body.reordering * {
 }
 
 .tab-label {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1233,18 +1234,32 @@ body.reordering * {
   color: var(--lantern);
 }
 
+/* Held at the tab's right edge, so it is in the same place on every tab. */
 .tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   width: 20px;
   height: 20px;
   border-radius: 4px;
+  color: var(--lantern);
   opacity: 0;
   margin-right: 4px;
 }
 
+.tab-close svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
 .tab:hover .tab-close,
 .tab[aria-selected="true"] .tab-close {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .tab-worktree-mark {
@@ -1284,7 +1299,7 @@ body.reordering * {
 
 .tab-close:hover {
   opacity: 1;
-  background: var(--raised);
+  background: color-mix(in srgb, var(--lantern) 22%, transparent);
 }
 
 .icon-button {
