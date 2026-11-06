@@ -7,7 +7,7 @@
 //! says so on its command line, since the user's config can turn each of
 //! those on, and a config that would make a plain push force is refused.
 
-use crate::{changes, git};
+use crate::{changes, git, herdr::Target};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
@@ -147,7 +147,7 @@ pub(crate) fn claim_checkout<'a>(
     checkout: &str,
     deadline: Instant,
 ) -> Result<(String, Claim<'a>), Outcome> {
-    let root = changes::checkout_root(checkout, deadline)
+    let root = changes::checkout_root(&Target::Local, checkout, deadline)
         .map_err(|error| Outcome::other(error.to_string()))?;
     let claim = running.claim(&root).ok_or_else(|| {
         Outcome::failed(

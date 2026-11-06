@@ -71,12 +71,17 @@ enum Outbound<'a> {
     },
 }
 
-#[derive(Default)]
 struct Live {
     handle: Option<ClientHandle>,
-    /// The daemon is on another machine, so paths in its snapshot are not
+    /// Where the daemon is. On another machine, paths in its snapshot are not
     /// this machine's.
-    remote: bool,
+    target: Target,
+}
+
+impl Default for Live {
+    fn default() -> Self {
+        Self { handle: None, target: Target::Local }
+    }
 }
 
 /// The live client's handle; the webview keeps the snapshot it acts on.
@@ -96,14 +101,19 @@ impl Connection {
     /// workspace that lives on another machine: the same path here is a
     /// different folder, or none, and the CLI would act on the local daemon.
     pub fn ensure_local(&self) -> Result<()> {
-        if self.live().remote {
+        if self.is_remote() {
             return Err(Error::RemoteHost);
         }
         Ok(())
     }
 
     pub fn is_remote(&self) -> bool {
-        self.live().remote
+        self.live().target != Target::Local
+    }
+
+    /// The machine the workspaces are on, for the reads that run on either.
+    pub fn target(&self) -> Target {
+        self.live().target.clone()
     }
 
     /// Replaces any current connection. The old worker is told to stop and
@@ -115,14 +125,13 @@ impl Connection {
         options: ConnectOptions,
         events: Channel<InvokeResponseBody>,
     ) -> Result<()> {
-        let remote = matches!(target, Target::Ssh(_));
-        let client = herdr::connect(target, options)?;
+        let client = herdr::connect(target.clone(), options)?;
         {
             let mut live = self.live();
             if let Some(old) = live.handle.replace(client.handle) {
                 old.disconnect();
             }
-            live.remote = remote;
+            live.target = target;
         }
         thread::Builder::new()
             .name("herdr-miura-events".into())

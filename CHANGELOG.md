@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-06 19:39 — The Changes and Files panels read a remote host's checkouts
+
+On a remote host the Changes and Files panels only said the workspace was on another machine. They now read the
+host's checkouts over the window's own ssh login: the branch, changed files, diffs, commits, the file tree, ignored
+folders and a file's text or image, and a ⌘-clicked commit hash opens there too. It is read-only: commit, discard,
+fetch, push and pull stay hidden, a file view there says `Read-only: on another machine`, and this Mac's drafts are
+left alone. A path is resolved on the host with `realpath` and refused when it leaves the checkout.
+
 ## 2026-11-06 12:50 — Terminal links get a right-click menu, and open outside a checkout
 
 A path outside any checkout, such as a screenshot under `/tmp`, did nothing on ⌘-click but say there was no such file,

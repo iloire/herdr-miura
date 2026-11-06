@@ -91,3 +91,13 @@ fn the_control_directory_is_private() {
     assert!(dir.as_os_str().len() < 40, "room for %C under the socket path limit");
     assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
 }
+
+#[test]
+fn a_script_gets_its_arguments_whole_through_the_remote_shell() {
+    let args = ["it's", "a b", "$(id)", "; echo no", "\\n", ""];
+    let output = script(LOOPBACK, r#"printf '<%s>' "$@""#, &args).output().unwrap();
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "<it's><a b><$(id)><; echo no><\\n><>"
+    );
+}

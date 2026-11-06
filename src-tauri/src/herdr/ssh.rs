@@ -91,6 +91,60 @@ exit 127"#
 /// The `ssh` invocation for `target`. Logins to one host share a master
 /// connection under `control_dir`, so reconnecting does not sign in again.
 pub fn command(target: &str, control_dir: Option<&Path>) -> Command {
+    let mut command = login(target, control_dir);
+    command
+        .arg(format!("/bin/sh -c {}", quote(&bridge_script())))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    command
+}
+
+/// `script` run by `/bin/sh` on `target`, with `args` as its `$1`, `$2`, ….
+/// It shares the connection's login, so it costs a round trip, not a sign-in.
+/// Each word is quoted, since ssh hands the remote shell one line to split.
+pub fn script(target: &str, script: &str, args: &[&str]) -> Command {
+    let mut line = format!("/bin/sh -c {} sh", quote(script));
+    for arg in args {
+        line.push(' ');
+        line.push_str(&quote(arg));
+    }
+    let mut command = remote_shell(target, &line);
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    command
+}
+
+/// `line` as ssh hands it to `target`'s login shell.
+#[cfg(not(test))]
+fn remote_shell(target: &str, line: &str) -> Command {
+    let mut command = login(target, control_dir().as_deref());
+    command.arg(line);
+    command
+}
+
+/// Tests reach [`LOOPBACK`] without ssh: this machine's shell splits the line
+/// as a remote login shell would. Any other host is still reached by ssh.
+#[cfg(test)]
+pub const LOOPBACK: &str = "loopback.test";
+
+#[cfg(test)]
+fn remote_shell(target: &str, line: &str) -> Command {
+    if target == LOOPBACK {
+        let mut command = crate::process::command("/bin/sh");
+        command.arg("-c").arg(line);
+        return command;
+    }
+    let mut command = login(target, control_dir().as_deref());
+    command.arg(line);
+    command
+}
+
+/// `ssh` to `target` with Herdr's non-interactive options, up to the remote
+/// command, which the caller adds.
+fn login(target: &str, control_dir: Option<&Path>) -> Command {
     let mut command = crate::process::command("ssh");
     command.arg("-T").arg("-C");
     for option in [
@@ -111,14 +165,7 @@ pub fn command(target: &str, control_dir: Option<&Path>) -> Command {
             .args(["-o", "ControlMaster=auto", "-o", "ControlPersist=600", "-o"])
             .arg(format!("ControlPath={}/%C", dir.display()));
     }
-    command
-        .arg("--")
-        .arg(target)
-        .arg(format!("/bin/sh -c {}", quote(&bridge_script())));
-    command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    command.arg("--").arg(target);
     command
 }
 

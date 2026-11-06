@@ -2,9 +2,10 @@
 //! deadline and a cap on what it may print. A child that overruns either is
 //! stopped rather than waited on. [`run`] is for reads; [`supervised`] is for
 //! commands that spawn helpers or write, and print their reason last;
-//! [`shell`] runs a repo's own check the same way.
+//! [`shell`] runs a repo's own check the same way. The reads also run on the
+//! host a remote daemon is on, over its ssh login ([`run_on`]).
 
-use crate::process;
+use crate::{herdr::{Target, ssh}, process};
 use std::{
     env,
     io::{self, Read},
@@ -81,19 +82,42 @@ fn git(directory: &str, args: &[&str]) -> Command {
     command
 }
 
-/// Git's stdout for `args` in `directory`, at most `limit` bytes.
-pub fn run(
-    directory: &str,
-    args: &[&str],
-    operation: &'static str,
-    deadline: Instant,
-    limit: usize,
-) -> Result<Vec<u8>, Error> {
-    let mut child = git(directory, args)
-        .spawn()
-        .map_err(|source| Error::Spawn { operation, source })?;
+/// The read-only Git `args` in `directory` on `target`: this machine's Git, or
+/// the host's over ssh, which sees the folders a remote daemon's panes are in.
+fn git_on(target: &Target, directory: &str, args: &[&str]) -> Command {
+    match target {
+        Target::Local => git(directory, args),
+        Target::Ssh(host) => {
+            let mut words = vec![
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.quotepath=off",
+                "--no-optional-locks",
+                "-C",
+                directory,
+            ];
+            words.extend_from_slice(args);
+            ssh::script(host, "GIT_TERMINAL_PROMPT=0 exec git \"$@\"", &words)
+        }
+    }
+}
+
+/// How a bounded read ended.
+pub struct Captured {
+    pub status: ExitStatus,
+    /// At most the limit plus one byte, so a caller can tell it was exceeded.
+    pub stdout: Vec<u8>,
+    /// One line of display text.
+    pub details: String,
+}
+
+/// Runs `command`, whose streams are piped, keeping at most `limit` + 1 bytes
+/// of stdout. `None` when the deadline passed and it was killed.
+pub fn capture(mut command: Command, deadline: Instant, limit: usize) -> io::Result<Option<Captured>> {
+    let mut child = command.spawn()?;
     // Both pipes drain on their own threads, so a chatty stderr can never
-    // block Git while stdout is being read, or the other way round.
+    // block the child while stdout is being read, or the other way round.
     let stdout = child
         .stdout
         .take()
@@ -103,25 +127,53 @@ pub fn run(
         .take()
         .map(|pipe| thread::spawn(move || read_bounded(pipe, DETAILS)));
     let status = wait(&mut child, deadline);
-    let output = stdout
+    let stdout = stdout
         .and_then(|reader| reader.join().ok())
         .unwrap_or_default();
     let details = stderr
         .and_then(|reader| reader.join().ok())
         .unwrap_or_default();
-    let Some(status) = status else {
-        return Err(Error::Timeout { operation });
-    };
-    if output.len() > limit {
+    Ok(status.map(|status| Captured {
+        status,
+        stdout,
+        details: clean(&String::from_utf8_lossy(&details)),
+    }))
+}
+
+/// Git's stdout for `args` in `directory`, at most `limit` bytes.
+pub fn run(
+    directory: &str,
+    args: &[&str],
+    operation: &'static str,
+    deadline: Instant,
+    limit: usize,
+) -> Result<Vec<u8>, Error> {
+    run_on(&Target::Local, directory, args, operation, deadline, limit)
+}
+
+/// [`run`] on `target`'s machine. Only for reads: nothing that writes or
+/// reaches a Git remote runs on another host from here.
+pub fn run_on(
+    target: &Target,
+    directory: &str,
+    args: &[&str],
+    operation: &'static str,
+    deadline: Instant,
+    limit: usize,
+) -> Result<Vec<u8>, Error> {
+    let done = capture(git_on(target, directory, args), deadline, limit)
+        .map_err(|source| Error::Spawn { operation, source })?
+        .ok_or(Error::Timeout { operation })?;
+    if done.stdout.len() > limit {
         return Err(Error::TooLarge { operation, limit });
     }
-    if !status.success() {
+    if !done.status.success() {
         return Err(Error::Failed {
             operation,
-            details: clean(&String::from_utf8_lossy(&details)),
+            details: done.details,
         });
     }
-    Ok(output)
+    Ok(done.stdout)
 }
 
 /// [`run`] as text, trailing newlines trimmed. Git prints UTF-8 paths with
@@ -132,7 +184,18 @@ pub fn text(
     operation: &'static str,
     deadline: Instant,
 ) -> Result<String, Error> {
-    let bytes = run(directory, args, operation, deadline, OUTPUT)?;
+    text_on(&Target::Local, directory, args, operation, deadline)
+}
+
+/// [`text`] on `target`'s machine, as [`run_on`].
+pub fn text_on(
+    target: &Target,
+    directory: &str,
+    args: &[&str],
+    operation: &'static str,
+    deadline: Instant,
+) -> Result<String, Error> {
+    let bytes = run_on(target, directory, args, operation, deadline, OUTPUT)?;
     Ok(String::from_utf8_lossy(&bytes)
         .trim_end_matches(['\r', '\n'])
         .to_owned())

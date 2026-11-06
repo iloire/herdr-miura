@@ -81,15 +81,18 @@ function ImageBody({ src, alt }: { src: string; alt: string }) {
 /// text to edit, a Markdown file as a page (its source a click away), or an
 /// image. ⌘S saves, and refuses a file that changed since it was read. Esc or
 /// ⌘W closes; edits not saved stay as a draft for the next time the file opens.
+/// A file on a remote host is `readOnly`: it can be read there, never written.
 export function FileView({
   root,
   path,
+  readOnly,
   onOpen,
   onClose,
   onSaved,
 }: {
   root: string;
   path: string;
+  readOnly: boolean;
   onOpen: (path: string) => void;
   onClose: () => void;
   onSaved: () => void;
@@ -128,18 +131,19 @@ export function FileView({
   useEffect(() => {
     let current = true;
     setLoaded({ phase: "loading" });
-    read(loadFileDraft(root, path), () => current);
+    // Drafts are this Mac's: the same path on a remote host is another file.
+    read(readOnly ? null : loadFileDraft(root, path), () => current);
     rootRef.current?.focus();
     return () => {
       current = false;
     };
-  }, [root, path]);
+  }, [root, path, readOnly]);
 
   // Kept shortly after typing stops, and at once on leaving the file.
   const dirty = editing !== null && editing.text !== editing.base;
   const keep = useRef<() => void>(() => {});
   useEffect(() => {
-    if (!editing) return;
+    if (!editing || readOnly) return;
     let pending = true;
     const write = () => {
       if (pending) saveFileDraft(root, path, dirty ? { base: editing.base, text: editing.text } : null);
@@ -148,11 +152,11 @@ export function FileView({
     keep.current = write;
     const timer = setTimeout(write, KEEP_DRAFT_MS);
     return () => clearTimeout(timer);
-  }, [editing, dirty, root, path]);
+  }, [editing, dirty, root, path, readOnly]);
   useEffect(() => () => keep.current(), [root, path]);
 
   const save = async (overwrite: boolean) => {
-    if (!editing || !dirty || saving.current) return;
+    if (!editing || !dirty || readOnly || saving.current) return;
     const { text, base } = editing;
     saving.current = true;
     try {
@@ -180,6 +184,8 @@ export function FileView({
   const preview = markdown && !source;
   const base = editing?.base;
   const lineBreak = useMemo(() => (base === undefined ? null : lineEnding(base)), [base]);
+  // A null line break is what keeps the editor read-only.
+  const editorBreak = readOnly ? null : lineBreak;
   return (
     <div
       className="diff-view file-view"
@@ -199,7 +205,8 @@ export function FileView({
         <span className="diff-path" title={file}>
           {path}
         </span>
-        {editing && lineBreak === null && <span className="file-note">Read-only: mixed line endings</span>}
+        {editing && readOnly && <span className="file-note">Read-only: on another machine</span>}
+        {editing && !readOnly && lineBreak === null && <span className="file-note">Read-only: mixed line endings</span>}
         {dirty && (
           <>
             {problem?.kind === "changed" && <span className="file-note error">Changed on disk since it was read</span>}
@@ -244,7 +251,7 @@ export function FileView({
               key={`${file}#${editing.opened}`}
               text={editing.text}
               path={path}
-              lineBreak={lineBreak}
+              lineBreak={editorBreak}
               active={!preview}
               onChange={(text) => setEditing((now) => now && { ...now, text })}
             />

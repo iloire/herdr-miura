@@ -1,15 +1,14 @@
 //! The Changes panel's reads: the checkout a directory sits in with its
 //! files and commits, the files one commit changed, and one file's diff. Every read runs Git on Tauri's
-//! blocking pool under a deadline and contacts no remote; nothing here writes.
+//! blocking pool under a deadline and contacts no remote; nothing here writes. The panel's reads take
+//! the machine the workspace is on, so a remote daemon's checkouts are read on its host over ssh.
 
 pub(crate) mod parse;
 
-use crate::git;
+use crate::{git, herdr::Target, host_fs};
 use parse::{Commit, CommitRef, FileChange, Kind};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs,
-    io::Read,
     path::{Component, Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -139,19 +138,20 @@ pub enum FileDiff {
 
 /// `None` when `directory` is outside Git, which the panel shows as an
 /// empty state rather than an error.
-pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
-    let deadline = Instant::now() + DEADLINE;
-    let Ok(path) = checkout_root(directory, deadline) else {
+pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<CheckoutView>, Error> {
+    let deadline = host_fs::deadline(target, DEADLINE);
+    let Ok(path) = checkout_root(target, directory, deadline) else {
         return Ok(None);
     };
-    let status = read_status(&path, deadline)?;
+    let status = read_status(target, &path, deadline)?;
     let mut files = status.files;
     let mut commits = Vec::new();
     let mut unmerged = None;
     // An unborn branch has no HEAD to count lines against or log from.
     if status.born {
         // Counts are a nicety: a failure keeps the files without them.
-        if let Ok(numstat) = git::text(
+        if let Ok(numstat) = git::text_on(
+            target,
             &path,
             &["diff", "--numstat", "-z", "HEAD"],
             "count changed lines",
@@ -160,18 +160,20 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
             parse::apply_numstat(&mut files, &numstat);
         }
         let format = format!("--max-count={MAX_COMMITS}");
-        commits = parse::log(&git::text(
+        commits = parse::log(&git::text_on(
+            target,
             &path,
             &["log", &format, "-z", FULL_REFS, LOG_FORMAT],
             "read recent commits",
             deadline,
         )?);
         // The branch tracking the default branch already says this through ahead.
-        unmerged = default_branch(&path, deadline)
+        unmerged = default_branch(target, &path, deadline)
             .filter(|base| status.upstream.as_ref() != Some(base))
             .and_then(|base| {
                 let range = format!("{base}..HEAD");
-                let count = git::text(
+                let count = git::text_on(
+                    target,
                     &path,
                     &["rev-list", "--count", &range],
                     "count unmerged commits",
@@ -185,8 +187,9 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
             });
     }
     // Neither is worth losing the panel for: without them it offers less.
-    let under_way = find_operation(&path, deadline);
-    let remotes = git::text(&path, &["remote"], "list the remotes", deadline)
+    let layout = read_layout(target, &path, deadline);
+    let under_way = layout.as_ref().and_then(|layout| find_operation(target, layout, deadline));
+    let remotes = git::text_on(target, &path, &["remote"], "list the remotes", deadline)
         .map(|remotes| remotes.lines().map(str::to_owned).collect())
         .unwrap_or_default();
     let total_files = files.len();
@@ -199,7 +202,7 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         )
     });
     Ok(Some(CheckoutView {
-        worktree_of: worktree_of(&path),
+        worktree_of: layout.as_ref().and_then(worktree_of),
         path,
         branch: status.branch,
         upstream_gone: status.born && status.upstream.is_some() && !status.compared,
@@ -208,7 +211,7 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
         behind: status.behind,
         born: status.born,
         operation: under_way.as_ref().map(|(operation, _)| *operation),
-        operation_step: under_way.as_ref().and_then(|(_, state)| rebase_step(state)),
+        operation_step: under_way.as_ref().and_then(|(_, state)| rebase_step(target, state, deadline)),
         conflicts,
         remotes,
         unmerged,
@@ -220,27 +223,66 @@ pub fn read_checkout(directory: &str) -> Result<Option<CheckoutView>, Error> {
     }))
 }
 
-/// The main checkout of the linked worktree at `checkout`. A linked worktree's
-/// `.git` is a file naming `<main>/.git/worktrees/<name>`; a submodule's is a
-/// file too, but names `modules`, and a main checkout's is a folder. Bare
-/// repositories keep `worktrees` directly in `<repo>.git`, which is then the
-/// main checkout's stand-in.
-fn worktree_of(checkout: &str) -> Option<String> {
-    let dot_git = fs::read_to_string(Path::new(checkout).join(".git")).ok()?;
-    let git_dir = Path::new(checkout).join(dot_git.strip_prefix("gitdir:")?.trim());
-    let git_dir = git_dir.canonicalize().ok()?;
-    let worktrees = git_dir.parent()?;
-    if worktrees.file_name()? != "worktrees" {
+/// Where Git keeps a checkout's state: its own folder, the one its worktrees
+/// share, and the paths an operation under way leaves.
+struct Layout {
+    git_dir: String,
+    common_dir: String,
+    /// `rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`.
+    states: Vec<String>,
+}
+
+/// Asked of Git in one call, as these live under `.git/worktrees/<name>` in a
+/// linked worktree, where `.git` is a file.
+fn read_layout(target: &Target, checkout: &str, deadline: Instant) -> Option<Layout> {
+    let paths = git::text_on(
+        target,
+        checkout,
+        &[
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-dir",
+            "--git-common-dir",
+            "--git-path",
+            "rebase-merge",
+            "--git-path",
+            "rebase-apply",
+            "--git-path",
+            "MERGE_HEAD",
+            "--git-path",
+            "CHERRY_PICK_HEAD",
+        ],
+        "find where Git keeps the checkout",
+        deadline,
+    )
+    .ok()?;
+    let mut lines = paths.lines().map(str::to_owned);
+    let layout = Layout {
+        git_dir: lines.next()?,
+        common_dir: lines.next()?,
+        states: lines.collect(),
+    };
+    (layout.states.len() == 4).then_some(layout)
+}
+
+/// The main checkout of a linked worktree, whose own folder is
+/// `<common>/worktrees/<name>`. A submodule's is not under `worktrees`, and
+/// a main checkout's is the common one. Bare repositories keep `worktrees`
+/// directly in `<repo>.git`, which is then the main checkout's stand-in.
+fn worktree_of(layout: &Layout) -> Option<String> {
+    let common = Path::new(&layout.common_dir);
+    let worktrees = Path::new(&layout.git_dir).parent()?;
+    if worktrees.file_name()? != "worktrees" || worktrees.parent()? != common {
         return None;
     }
-    let common = worktrees.parent()?;
     let main = if common.file_name()? == ".git" { common.parent()? } else { common };
     Some(main.to_str()?.to_owned())
 }
 
 /// The top of the checkout `directory` sits in.
-pub fn checkout_root(directory: &str, deadline: Instant) -> Result<String, git::Error> {
-    git::text(
+pub fn checkout_root(target: &Target, directory: &str, deadline: Instant) -> Result<String, git::Error> {
+    git::text_on(
+        target,
         directory,
         &["rev-parse", "--path-format=absolute", "--show-toplevel"],
         "find the checkout",
@@ -249,8 +291,9 @@ pub fn checkout_root(directory: &str, deadline: Instant) -> Result<String, git::
 }
 
 /// The checkout's whole status. A filter on one path would hide a rename.
-pub fn read_status(checkout: &str, deadline: Instant) -> Result<parse::Status, git::Error> {
-    let text = git::text(
+pub fn read_status(target: &Target, checkout: &str, deadline: Instant) -> Result<parse::Status, git::Error> {
+    let text = git::text_on(
+        target,
         checkout,
         &[
             "status",
@@ -267,43 +310,30 @@ pub fn read_status(checkout: &str, deadline: Instant) -> Result<parse::Status, g
 
 /// `rebase`, `merge` or `cherry-pick` while one is under way.
 pub fn operation_in_progress(checkout: &str, deadline: Instant) -> Option<&'static str> {
-    find_operation(checkout, deadline).map(|(operation, _)| operation)
+    let layout = read_layout(&Target::Local, checkout, deadline)?;
+    find_operation(&Target::Local, &layout, deadline).map(|(operation, _)| operation)
 }
 
-/// The operation under way and where Git keeps its state. Asked of Git, since
-/// these live under `.git/worktrees/<name>` in a linked worktree, where `.git`
-/// is a file. A rebase comes first: stopped on a commit, it also has the head
-/// file of the pick or merge it was replaying.
-fn find_operation(checkout: &str, deadline: Instant) -> Option<(&'static str, PathBuf)> {
-    let paths = git::text(
-        checkout,
-        &[
-            "rev-parse",
-            "--path-format=absolute",
-            "--git-path",
-            "rebase-merge",
-            "--git-path",
-            "rebase-apply",
-            "--git-path",
-            "MERGE_HEAD",
-            "--git-path",
-            "CHERRY_PICK_HEAD",
-        ],
-        "look for a rebase or merge",
-        deadline,
-    )
-    .ok()?;
-    paths
-        .lines()
+/// The operation under way and where Git keeps its state. A rebase comes
+/// first: stopped on a commit, it also has the head file of the pick or merge
+/// it was replaying.
+fn find_operation(target: &Target, layout: &Layout, deadline: Instant) -> Option<(&'static str, PathBuf)> {
+    let states: Vec<&str> = layout.states.iter().map(String::as_str).collect();
+    host_fs::existing(target, &states, deadline)
+        .into_iter()
+        .zip(states)
         .zip(["rebase", "rebase", "merge", "cherry-pick"])
-        .find(|(path, _)| Path::new(path).exists())
-        .map(|(path, operation)| (operation, PathBuf::from(path)))
+        .find(|((exists, _), _)| *exists)
+        .map(|((_, path), operation)| (operation, PathBuf::from(path)))
 }
 
 /// A rebase's step and total from its state folder: `msgnum` and `end` for the
 /// merge backend, `next` and `last` for the apply one. `None` for anything else.
-fn rebase_step(state: &Path) -> Option<(u32, u32)> {
-    let number = |name: &str| fs::read_to_string(state.join(name)).ok()?.trim().parse::<u32>().ok();
+fn rebase_step(target: &Target, state: &Path, deadline: Instant) -> Option<(u32, u32)> {
+    let number = |name: &str| {
+        let bytes = host_fs::read_plain(target, state.join(name).to_str()?, 32, deadline)?;
+        String::from_utf8(bytes).ok()?.trim().parse::<u32>().ok()
+    };
     number("msgnum")
         .zip(number("end"))
         .or_else(|| number("next").zip(number("last")))
@@ -328,23 +358,26 @@ const SHOW: [&str; 4] = ["show", "--format=", "-M", "--diff-merges=first-parent"
 
 /// The message of `sha` in the checkout at `checkout` and the files it
 /// changed, with their counts.
-pub fn read_commit(checkout: &str, sha: &str) -> Result<CommitFilesView, Error> {
+pub fn read_commit(target: &Target, checkout: &str, sha: &str) -> Result<CommitFilesView, Error> {
     let sha = commit_name(sha)?;
-    let deadline = Instant::now() + DEADLINE;
-    let message = git::text(
+    let deadline = host_fs::deadline(target, DEADLINE);
+    let message = git::text_on(
+        target,
         checkout,
         &["show", "--no-patch", "--format=%B", sha],
         "read the commit's message",
         deadline,
     )?;
-    let mut files = parse::name_status(&git::text(
+    let mut files = parse::name_status(&git::text_on(
+        target,
         checkout,
         &[&SHOW[..], &["-z", "--name-status", sha]].concat(),
         "read the commit's files",
         deadline,
     )?);
     // Counts are a nicety: a failure keeps the files without them.
-    if let Ok(numstat) = git::text(
+    if let Ok(numstat) = git::text_on(
+        target,
         checkout,
         &[&SHOW[..], &["-z", "--numstat", sha]].concat(),
         "count the commit's lines",
@@ -371,16 +404,17 @@ pub struct FoundCommit {
 /// The commit an abbreviated or full hash names from `directory`, if one does.
 /// A hash Git cannot place, because it is another repository's, not a commit
 /// at all, or too short to be one commit, is no match.
-pub fn find_commit(directory: &str, name: &str) -> Result<Option<FoundCommit>, Error> {
+pub fn find_commit(target: &Target, directory: &str, name: &str) -> Result<Option<FoundCommit>, Error> {
     if !(7..=64).contains(&name.len()) || !name.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(Error::InvalidCommit(name.into()));
     }
-    let deadline = Instant::now() + DEADLINE;
-    let Ok(checkout) = checkout_root(directory, deadline) else {
+    let deadline = host_fs::deadline(target, DEADLINE);
+    let Ok(checkout) = checkout_root(target, directory, deadline) else {
         return Ok(None);
     };
     let peeled = format!("{name}^{{commit}}");
-    let Ok(log) = git::text(
+    let Ok(log) = git::text_on(
+        target,
         &checkout,
         &["log", "--max-count=1", "-z", FULL_REFS, LOG_FORMAT, &peeled, "--"],
         "find the commit",
@@ -437,8 +471,9 @@ pub fn read_moving(checkout: &str, direction: Direction) -> Result<Vec<CommitVie
 
 /// The remote's default branch as last fetched: what `origin/HEAD` names,
 /// else `origin/main` or `origin/master`, whichever exists.
-pub fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
-    if let Ok(head) = git::text(
+pub fn default_branch(target: &Target, checkout: &str, deadline: Instant) -> Option<String> {
+    if let Ok(head) = git::text_on(
+        target,
         checkout,
         &[
             "symbolic-ref",
@@ -455,7 +490,8 @@ pub fn default_branch(checkout: &str, deadline: Instant) -> Option<String> {
         .into_iter()
         .find_map(|base| {
             let reference = format!("refs/remotes/{base}");
-            git::text(
+            git::text_on(
+                target,
                 checkout,
                 &["rev-parse", "--verify", "--quiet", &reference],
                 "find the default branch",
@@ -497,17 +533,8 @@ pub fn count_in(directory: &str, deadline: Instant) -> Option<usize> {
 
 /// A regular file's text: not through a symlink, at most 1 MiB, UTF-8,
 /// and with no NUL early on, which marks a binary.
-fn read_text(path: &Path) -> Option<String> {
-    let metadata = fs::symlink_metadata(path).ok()?;
-    if !metadata.is_file() || metadata.len() > MAX_TEXT_BYTES {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    fs::File::open(path)
-        .ok()?
-        .take(MAX_TEXT_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .ok()?;
+fn read_text(target: &Target, path: &str, deadline: Instant) -> Option<String> {
+    let bytes = host_fs::read_plain(target, path, MAX_TEXT_BYTES, deadline)?;
     if bytes.len() as u64 > MAX_TEXT_BYTES || bytes.iter().take(8000).any(|&b| b == 0) {
         return None;
     }
@@ -526,6 +553,7 @@ pub fn stays_inside(path: &str) -> bool {
 /// sends it back, so a path that could leave the checkout is refused.
 /// With `commit`, the file's change in that commit; else its uncommitted one.
 pub fn read_diff(
+    target: &Target,
     checkout: &str,
     path: &str,
     untracked: bool,
@@ -535,8 +563,10 @@ pub fn read_diff(
         return Err(Error::OutsideCheckout(path.into()));
     }
     let commit = commit.map(commit_name).transpose()?;
+    let deadline = host_fs::deadline(target, DEADLINE);
     if untracked && commit.is_none() {
-        let text = read_text(&Path::new(checkout).join(path)).ok_or(Error::NotText)?;
+        let full = Path::new(checkout).join(path);
+        let text = read_text(target, full.to_str().ok_or(Error::NotText)?, deadline).ok_or(Error::NotText)?;
         return Ok(FileDiff::Untracked { text });
     }
     let args = match commit {
@@ -551,11 +581,12 @@ pub fn read_diff(
             path,
         ],
     };
-    let bytes = git::run(
+    let bytes = git::run_on(
+        target,
         checkout,
         &args,
         "read the diff",
-        Instant::now() + DEADLINE,
+        deadline,
         MAX_DIFF_BYTES,
     )
     .map_err(|error| match error {

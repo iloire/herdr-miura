@@ -76,9 +76,9 @@ Fetch comes first for that reason, and everything else leans on it.
   worktree those files are not under `.git/`), on an unborn branch, with no remote, and when the upstream
   is gone. The panel's view is up to 5 s old, so the backend checks the branch and any rebase or merge again
   just before it runs, and a checkout that has moved off the branch on show is left alone.
-- **On a remote host** all of it stays hidden. The panel has no checkout there at all, since
-  `checkout_changes` is refused ([ssh.md](ssh.md)). `sync_checkout` and `moving_commits` are refused the same
-  way, and the panel gets no sync store, so a checkout read before switching hosts offers nothing either.
+- **On a remote host** all of it stays hidden. The panel reads the host's checkout read-only over ssh
+  ([ssh.md](ssh.md)), but `sync_checkout` and `moving_commits` are refused, and the panel gets no sync store,
+  so it offers no fetch, push, pull, commit or discard there.
 
 `git.rs`'s `supervised` differs from the runner the reads use: `ssh`, transport helpers, the `fetch` inside a
 `pull` and hooks share Git's process group, so an overrun stops them all with SIGTERM first, which lets Git

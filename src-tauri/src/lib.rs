@@ -12,6 +12,7 @@ mod folder;
 mod frame;
 mod git;
 mod herdr;
+mod host_fs;
 mod land;
 mod listening_ports;
 #[cfg(target_os = "macos")]

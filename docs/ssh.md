@@ -34,12 +34,22 @@ fingerprints with the host's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.
 
 ## While attached to a remote host
 
-The terminal, sidebar, tabs and commands work as they do locally. Whatever reads the local disk or
-runs the local `herdr` (the Changes and Files panels, changed-file counts, worktrees, ports, the queue, teams,
-the prompt library, opening a folder, moving a tab to another workspace) is refused, since the paths name
-folders on the other machine. Copy path still works.
+The terminal, sidebar, tabs and commands work as they do locally.
+
+The Changes and Files panels read the host's checkouts, read-only: Git and a few `/bin/sh` reads run there over
+the same shared ssh login (`git.rs`'s `run_on`, `host_fs.rs`), so each read is a round trip, not a sign-in, and
+gets three times the local deadline. The panels show the branch, changed files, diffs, commits, the file tree,
+ignored folders and a file's text or image as they do here. A file view is read-only (`Read-only: on another
+machine`) and leaves this Mac's drafts alone. A path is resolved with `realpath` on the host and refused when it
+leaves the checkout, as here, so the host needs `realpath`, `head` and `wc` (any Linux, macOS 13 or later).
+A ⌘-clicked commit hash opens there too.
+
+Whatever writes, or reads the local disk or runs the local `herdr` for a path, is still refused, since the
+paths name folders on the other machine: commit, discard, saving a file, ⌘-clicking a file path,
+changed-file counts, worktrees, ports, the queue, teams, the prompt library, opening a folder, moving a tab to
+another workspace. Copy path still works.
 The Changes panel's fetch, push and pull are refused with it and stay hidden, as Git would have to run
-over there; nothing reaches your local checkouts or credentials on the remote's behalf.
+over there with its credentials; nothing reaches your local checkouts or credentials on the remote's behalf.
 Land on a worktree's card is hidden and refused the same way: the worktree is a folder over there, and
 its rebase, check and removal would have to run there too. Land it from a Herdr window on that machine.
 

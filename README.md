@@ -162,9 +162,9 @@ code. [docs/architecture.md](docs/architecture.md) covers the data flow, the IPC
 Text selection and copy in the terminal, find, terminal graphics, GitHub pull requests, system notifications and custom
 key bindings.
 
-More support for SSH remote hosts is coming soon. Terminals and agents work there today, but the Changes panel, the
-queue, teams, the prompt library and the file browser only work locally, not on the remote host
-([docs/ssh.md](docs/ssh.md)).
+More support for SSH remote hosts is coming soon. Terminals and agents work there today, and the Changes panel and
+file browser read the host's checkouts, read-only. Commit, push, saving a file, the queue, teams and the prompt
+library only work locally ([docs/ssh.md](docs/ssh.md)).
 
 The tab header's model, context and spend, and the ↻ on a looping session, need Claude Code hooks that report the
 session to Herdr. Those hooks are not in this repo yet, so a fresh install shows neither.

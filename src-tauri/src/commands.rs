@@ -162,8 +162,8 @@ pub async fn checkout_changes(
     connection: State<'_, Connection>,
     directory: String,
 ) -> Result<Option<CheckoutView>> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&directory));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&target, &directory));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
@@ -183,8 +183,8 @@ pub async fn commit_files(
     checkout: String,
     sha: String,
 ) -> Result<CommitFilesView> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&checkout, &sha));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_commit(&target, &checkout, &sha));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
@@ -195,8 +195,8 @@ pub async fn find_commit(
     directory: String,
     name: String,
 ) -> Result<Option<FoundCommit>> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || changes::find_commit(&directory, &name));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || changes::find_commit(&target, &directory, &name));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
@@ -213,7 +213,7 @@ pub async fn moving_commits(
 }
 
 /// Fetches, pushes, publishes or pulls. Refused on a remote host, where the
-/// panel has no checkout to act on. `branch` is the one the panel showed, and
+/// panel only reads: Git would need the host's credentials. `branch` is the one the panel showed, and
 /// a checkout that has moved off it is left alone.
 /// What discarding `path` would do, with the fingerprint a discard must match.
 #[tauri::command]
@@ -336,9 +336,9 @@ pub async fn file_diff(
     untracked: bool,
     commit: Option<String>,
 ) -> Result<FileDiff> {
-    connection.ensure_local()?;
+    let target = connection.target();
     let read = tauri::async_runtime::spawn_blocking(move || {
-        changes::read_diff(&checkout, &path, untracked, commit.as_deref())
+        changes::read_diff(&target, &checkout, &path, untracked, commit.as_deref())
     });
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
@@ -518,8 +518,8 @@ pub async fn list_files(
     directory: String,
     ignored: bool,
 ) -> Result<Option<Listing>> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || files::list(&directory, ignored));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || files::list(&target, &directory, ignored));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
@@ -530,8 +530,8 @@ pub async fn list_folder(
     root: String,
     path: String,
 ) -> Result<Vec<String>> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || files::list_folder(&root, &path));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || files::list_folder(&target, &root, &path));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 
@@ -554,8 +554,8 @@ pub async fn read_file(
     root: String,
     path: String,
 ) -> Result<Contents> {
-    connection.ensure_local()?;
-    let read = tauri::async_runtime::spawn_blocking(move || files::read(&root, &path));
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || files::read(&target, &root, &path));
     Ok(read.await.map_err(changes::Error::Worker)??)
 }
 

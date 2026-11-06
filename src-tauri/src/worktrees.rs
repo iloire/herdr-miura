@@ -6,7 +6,7 @@
 //! whether it is still pending. The commits local main lacks are read too,
 //! since that is what Land would move and `main` can be ahead of its remote.
 
-use crate::{changes, git};
+use crate::{changes, git, herdr::Target};
 use serde::Serialize;
 use std::time::{Duration, Instant};
 
@@ -62,7 +62,7 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
     if linked.is_empty() {
         return Some(Vec::new());
     }
-    let base = changes::default_branch(directory, deadline);
+    let base = changes::default_branch(&Target::Local, directory, deadline);
     let main = main_branch(directory, deadline);
     let repo = main_checkout(&listing).unwrap_or_default();
     Some(
@@ -95,7 +95,7 @@ fn read(directory: &str) -> Option<Vec<Worktree>> {
 /// The local branch of the remote's default branch, else `main` or `master`,
 /// for a repo with no remote.
 pub fn main_branch(directory: &str, deadline: Instant) -> Option<String> {
-    let remote = changes::default_branch(directory, deadline)
+    let remote = changes::default_branch(&Target::Local, directory, deadline)
         .and_then(|base| base.split_once('/').map(|(_, branch)| branch.to_owned()));
     remote
         .into_iter()

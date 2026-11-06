@@ -1,4 +1,5 @@
 use super::*;
+use crate::herdr::Target;
 use std::{fs, path::Path, process::Command};
 
 /// Runs Git in `dir` as a throwaway author, failing the test if it fails.
@@ -71,7 +72,7 @@ impl World {
     }
 
     fn view(&self) -> serde_json::Value {
-        let view = changes::read_checkout(&self.mine().to_string_lossy()).unwrap();
+        let view = changes::read_checkout(&Target::Local, &self.mine().to_string_lossy()).unwrap();
         serde_json::to_value(view).unwrap()
     }
 
@@ -371,7 +372,7 @@ fn a_merge_in_a_linked_worktree_is_found() {
     let linked = world.root.path().join("linked");
     git(&mine, &["worktree", "add", "-q", "--detach", linked.to_str().unwrap()]);
     stop_in_a_merge(&linked);
-    let view = changes::read_checkout(&linked.to_string_lossy()).unwrap();
+    let view = changes::read_checkout(&Target::Local, &linked.to_string_lossy()).unwrap();
     assert_eq!(serde_json::to_value(view).unwrap()["operation"], "merge");
     assert_eq!(world.view()["operation"], serde_json::Value::Null, "the main checkout is not merging");
 }
@@ -402,7 +403,7 @@ fn an_unborn_branch_reads_and_fetches() {
     git(root.path(), &["clone", "-q", "remote.git", "mine"]);
     let mine = root.path().join("mine");
     let directory = mine.to_string_lossy();
-    let view = serde_json::to_value(changes::read_checkout(&directory).unwrap()).unwrap();
+    let view = serde_json::to_value(changes::read_checkout(&Target::Local, &directory).unwrap()).unwrap();
     assert_eq!(view["born"], false);
     assert_eq!(view["upstream_gone"], false, "nothing was ever there to be gone");
     assert_eq!(view["remotes"], serde_json::json!(["origin"]));
@@ -424,7 +425,7 @@ fn an_upstream_deleted_on_the_remote_reads_as_gone() {
 fn a_repository_with_no_remote_lists_none() {
     let dir = tempfile::tempdir().unwrap();
     git(dir.path(), &["init", "-q", "-b", "main"]);
-    let view = changes::read_checkout(&dir.path().to_string_lossy()).unwrap();
+    let view = changes::read_checkout(&Target::Local, &dir.path().to_string_lossy()).unwrap();
     assert_eq!(serde_json::to_value(view).unwrap()["remotes"], serde_json::json!([]));
 }
 

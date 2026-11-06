@@ -23,6 +23,7 @@ use crate::{
         parse::{self, FileChange, Kind},
     },
     git,
+    herdr::Target,
     sync::{self, Outcome, Reason},
 };
 use serde::Serialize;
@@ -167,7 +168,7 @@ fn inspect(root: &str, path: &str, deadline: Instant) -> Result<Found, String> {
     if !changes::stays_inside(path) {
         return Err(format!("{path} is not a path inside the checkout."));
     }
-    let status = changes::read_status(root, deadline).map_err(|error| error.to_string())?;
+    let status = changes::read_status(&Target::Local, root, deadline).map_err(|error| error.to_string())?;
     let born = status.born;
     let file = status
         .files
@@ -237,7 +238,7 @@ fn counted(mut found: Found, root: &str, deadline: Instant) -> Found {
 pub fn discard_plan(checkout: &str, path: &str, branch: Option<&str>) -> Plan {
     let deadline = Instant::now() + CHECKS;
     let read = || {
-        let root = changes::checkout_root(checkout, deadline).map_err(|error| error.to_string())?;
+        let root = changes::checkout_root(&Target::Local, checkout, deadline).map_err(|error| error.to_string())?;
         sync::current_branch(&root, branch, deadline).map_err(|refused| match refused {
             Outcome::Failed { message, .. } => message,
             Outcome::Done => String::new(),
@@ -369,7 +370,7 @@ fn not_trashed(path: &str, error: String) -> Outcome {
 /// changed, and a folder may not hold a repository of its own, which `git add`
 /// would turn into a gitlink.
 fn commit_files(root: &str, paths: &[String], deadline: Instant) -> Result<Vec<FileChange>, String> {
-    let status = changes::read_status(root, deadline).map_err(|error| error.to_string())?;
+    let status = changes::read_status(&Target::Local, root, deadline).map_err(|error| error.to_string())?;
     if !status.born {
         return Err("This branch has no commits yet. Make the first one in a terminal.".to_owned());
     }

@@ -2,9 +2,11 @@
 //! (tracked, and untracked ones not ignored), on request the ignored ones with
 //! the folders they fill read one at a time, and one file's contents for
 //! the file view: its text, or an image's bytes. `write` saves an edited
-//! text file back, unless something else changed it first.
+//! text file back, unless something else changed it first. The listings and
+//! `read` also run on a remote daemon's host, over its ssh login; nothing
+//! writes there.
 
-use crate::git;
+use crate::{git, herdr::Target, host_fs};
 use base64::Engine;
 use serde::Serialize;
 use std::{
@@ -41,6 +43,14 @@ pub enum Error {
     Read(#[source] std::io::Error),
     #[error("could not write the file")]
     Write(#[source] std::io::Error),
+    #[error("could not read it on the host: {0}")]
+    Host(String),
+}
+
+impl From<host_fs::Error> for Error {
+    fn from(error: host_fs::Error) -> Self {
+        Self::Host(error.to_string())
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -83,8 +93,9 @@ pub enum Contents {
 }
 
 /// The top folder of the checkout `directory` sits in.
-fn toplevel(directory: &str, deadline: Instant) -> Result<String, git::Error> {
-    git::text(
+fn toplevel(target: &Target, directory: &str, deadline: Instant) -> Result<String, git::Error> {
+    git::text_on(
+        target,
         directory,
         &["rev-parse", "--path-format=absolute", "--show-toplevel"],
         "find the checkout",
@@ -107,12 +118,13 @@ fn paths(listing: &[u8]) -> Vec<String> {
 /// The files of the checkout `directory` sits in, or `None` outside Git. With
 /// `ignored`, the ignored ones too, a folder Git ignores whole as one entry so
 /// `node_modules` costs a line.
-pub fn list(directory: &str, ignored: bool) -> Result<Option<Listing>, Error> {
-    let deadline = Instant::now() + DEADLINE;
-    let Ok(root) = toplevel(directory, deadline) else {
+pub fn list(target: &Target, directory: &str, ignored: bool) -> Result<Option<Listing>, Error> {
+    let deadline = host_fs::deadline(target, DEADLINE);
+    let Ok(root) = toplevel(target, directory, deadline) else {
         return Ok(None);
     };
-    let listing = git::run(
+    let listing = git::run_on(
+        target,
         &root,
         &[
             "ls-files",
@@ -130,7 +142,8 @@ pub fn list(directory: &str, ignored: bool) -> Result<Option<Listing>, Error> {
     let total_files = files.len();
     files.truncate(MAX_FILES);
     let ignored = if ignored {
-        let listing = git::run(
+        let listing = git::run_on(
+            target,
             &root,
             &[
                 "ls-files",
@@ -161,7 +174,10 @@ pub fn list(directory: &str, ignored: bool) -> Result<Option<Listing>, Error> {
 /// What the folder at `path` in the checkout at `root` holds, one level, as
 /// paths from the checkout with a trailing `/` on folders. For a folder Git
 /// ignores whole, whose files it never lists.
-pub fn list_folder(root: &str, path: &str) -> Result<Vec<String>, Error> {
+pub fn list_folder(target: &Target, root: &str, path: &str) -> Result<Vec<String>, Error> {
+    if let Target::Ssh(host) = target {
+        return list_remote_folder(host, root, path);
+    }
     let full = inside(root, path)?;
     let mut entries = Vec::new();
     for entry in fs::read_dir(&full).map_err(Error::Read)?.flatten() {
@@ -186,7 +202,7 @@ pub fn list_folder(root: &str, path: &str) -> Result<Vec<String>, Error> {
 pub fn find(directory: &str, name: &str) -> Option<FoundFile> {
     let deadline = Instant::now() + DEADLINE;
     let full = resolve(directory, name, deadline)?;
-    let root = toplevel(full.parent()?.to_str()?, deadline).ok()?;
+    let root = toplevel(&Target::Local, full.parent()?.to_str()?, deadline).ok()?;
     let path = full.strip_prefix(fs::canonicalize(&root).ok()?).ok()?;
     Some(FoundFile {
         path: path.to_str()?.to_owned(),
@@ -201,7 +217,7 @@ fn resolve(directory: &str, name: &str, deadline: Instant) -> Option<PathBuf> {
         Some(rest) => PathBuf::from(std::env::var_os("HOME")?).join(rest),
         None => PathBuf::from(name),
     };
-    let top = toplevel(directory, deadline).ok();
+    let top = toplevel(&Target::Local, directory, deadline).ok();
     [Some(directory), top.as_deref()]
         .into_iter()
         .flatten()
@@ -240,11 +256,7 @@ pub fn read_image(path: &str) -> Result<Contents, Error> {
 /// the checkout. The webview sends both back, so neither is trusted.
 pub fn inside(root: &str, path: &str) -> Result<PathBuf, Error> {
     let outside = || Error::OutsideCheckout(path.into());
-    if path.is_empty()
-        || !Path::new(path)
-            .components()
-            .all(|part| matches!(part, Component::Normal(_)))
-    {
+    if !plain(path) {
         return Err(outside());
     }
     let root = fs::canonicalize(root).map_err(|_| outside())?;
@@ -253,6 +265,90 @@ pub fn inside(root: &str, path: &str) -> Result<PathBuf, Error> {
         return Err(outside());
     }
     Ok(full)
+}
+
+/// `path` is made of plain names only, so joined to a folder it cannot climb out.
+fn plain(path: &str) -> bool {
+    !path.is_empty()
+        && Path::new(path)
+            .components()
+            .all(|part| matches!(part, Component::Normal(_)))
+}
+
+/// Opens `$1/$2` on a remote host as [`inside`] does here: through symlinks,
+/// and refused when it leaves the checkout. Exits 3 when it is not there.
+const REMOTE_INSIDE: &str = r#"root=$(realpath "$1") && full=$(realpath "$1/$2") || exit 3
+case "$full/" in "$root"/*) ;; *) exit 4 ;; esac
+"#;
+
+/// What a remote read's exit status means.
+fn remote_failure(done: &git::Captured, path: &str) -> Error {
+    match done.status.code() {
+        Some(3) => Error::Read(std::io::ErrorKind::NotFound.into()),
+        Some(4) => Error::OutsideCheckout(path.into()),
+        Some(5) => Error::NotFile(path.into()),
+        _ => Error::Host(done.details.clone()),
+    }
+}
+
+/// [`list_folder`] on a remote host: one level, a `/` after each folder.
+fn list_remote_folder(host: &str, root: &str, path: &str) -> Result<Vec<String>, Error> {
+    if !plain(path) || !root.starts_with('/') {
+        return Err(Error::OutsideCheckout(path.into()));
+    }
+    let script = format!(
+        r#"{REMOTE_INSIDE}cd "$full" || exit 5
+count=0
+for name in * .[!.]* ..?*; do
+    [ -e "$name" ] || [ -L "$name" ] || continue
+    if [ -d "$name" ]; then printf '%s/\000' "$name"; else printf '%s\000' "$name"; fi
+    count=$((count + 1))
+    [ "$count" -lt {MAX_FOLDER_ENTRIES} ] || break
+done"#
+    );
+    let done = host_fs::script(host, &script, &[root, path], Instant::now() + DEADLINE * 3, MAX_LISTING_BYTES)?;
+    if !done.status.success() {
+        return Err(remote_failure(&done, path));
+    }
+    if done.stdout.len() > MAX_LISTING_BYTES {
+        return Err(Error::Host("the folder lists too much".into()));
+    }
+    let mut entries: Vec<String> = paths(&done.stdout)
+        .into_iter()
+        .map(|name| format!("{path}/{name}"))
+        .collect();
+    entries.sort_unstable();
+    Ok(entries)
+}
+
+/// [`read`] on a remote host. The host prints the file's size, then the file
+/// when it is within the limit its name's kind allows.
+fn read_remote(host: &str, root: &str, path: &str) -> Result<Contents, Error> {
+    if !plain(path) || !root.starts_with('/') {
+        return Err(Error::OutsideCheckout(path.into()));
+    }
+    let mime = image_type(Path::new(path));
+    let limit = limit(mime);
+    let script = format!(
+        r#"{REMOTE_INSIDE}[ -f "$full" ] || exit 5
+size=$(wc -c < "$full") || exit 3
+echo $size
+[ "$size" -gt "$3" ] || exec cat -- "$full""#
+    );
+    let keep = MAX_IMAGE_BYTES as usize + 32;
+    let done = host_fs::script(host, &script, &[root, path, &limit.to_string()], Instant::now() + DEADLINE * 3, keep)?;
+    if !done.status.success() {
+        return Err(remote_failure(&done, path));
+    }
+    let no_size = || Error::Host("the host sent no size".into());
+    let newline = done.stdout.iter().position(|&byte| byte == b'\n').ok_or_else(no_size)?;
+    let (size, bytes) = (&done.stdout[..newline], &done.stdout[newline + 1..]);
+    let size: u64 = String::from_utf8_lossy(size).trim().parse().map_err(|_| no_size())?;
+    // A file that grew between the size and the copy is too large as well.
+    if size > limit || bytes.len() as u64 > limit {
+        return Ok(Contents::TooLarge { size });
+    }
+    Ok(contents(mime, bytes.to_vec(), size))
 }
 
 /// The media type an image file is shown with, by its extension.
@@ -282,32 +378,43 @@ fn read_bounded(path: &Path, limit: u64) -> Result<Option<Vec<u8>>, Error> {
 }
 
 /// The file at `path` in the checkout at `root`, as the file view shows it.
-pub fn read(root: &str, path: &str) -> Result<Contents, Error> {
+pub fn read(target: &Target, root: &str, path: &str) -> Result<Contents, Error> {
+    if let Target::Ssh(host) = target {
+        return read_remote(host, root, path);
+    }
     let full = inside(root, path)?;
     let metadata = fs::metadata(&full).map_err(Error::Read)?;
     if !metadata.is_file() {
         return Err(Error::NotFile(path.into()));
     }
     let size = metadata.len();
-    if let Some(mime) = image_type(&full) {
-        return Ok(match read_bounded(&full, MAX_IMAGE_BYTES)? {
-            Some(bytes) => Contents::Image {
-                mime,
-                data: base64::engine::general_purpose::STANDARD.encode(bytes),
-            },
-            None => Contents::TooLarge { size },
-        });
+    let mime = image_type(&full);
+    Ok(match read_bounded(&full, limit(mime))? {
+        Some(bytes) => contents(mime, bytes, size),
+        None => Contents::TooLarge { size },
+    })
+}
+
+/// The bytes the file view takes of a file of media type `mime`.
+fn limit(mime: Option<&str>) -> u64 {
+    if mime.is_some() { MAX_IMAGE_BYTES } else { MAX_TEXT_BYTES }
+}
+
+/// What the file view shows for a file's whole `bytes`.
+fn contents(mime: Option<&'static str>, bytes: Vec<u8>, size: u64) -> Contents {
+    if let Some(mime) = mime {
+        return Contents::Image {
+            mime,
+            data: base64::engine::general_purpose::STANDARD.encode(bytes),
+        };
     }
-    let Some(bytes) = read_bounded(&full, MAX_TEXT_BYTES)? else {
-        return Ok(Contents::TooLarge { size });
-    };
     if bytes.iter().take(BINARY_SNIFF).any(|&byte| byte == 0) {
-        return Ok(Contents::Binary { size });
+        return Contents::Binary { size };
     }
-    Ok(match String::from_utf8(bytes) {
+    match String::from_utf8(bytes) {
         Ok(text) => Contents::Text { text },
         Err(_) => Contents::Binary { size },
-    })
+    }
 }
 
 /// Puts `text` in the existing file at `path`, unless it no longer holds
@@ -376,7 +483,7 @@ mod tests {
     #[test]
     fn lists_tracked_and_untracked_files_but_not_ignored_ones() {
         let dir = repo();
-        let listing = list(&dir.path().join("src").to_string_lossy(), false)
+        let listing = list(&Target::Local, &dir.path().join("src").to_string_lossy(), false)
             .unwrap()
             .unwrap();
         assert_eq!(listing.files, [".gitignore", "new.txt", "src/a.rs"]);
@@ -395,19 +502,19 @@ mod tests {
         fs::write(dir.path().join(".env.local"), "SECRET=1\n").unwrap();
         fs::create_dir(dir.path().join("target/deep")).unwrap();
         fs::write(dir.path().join("target/deep/x"), "x\n").unwrap();
-        let listing = list(&root(&dir), true).unwrap().unwrap();
+        let listing = list(&Target::Local, &root(&dir), true).unwrap().unwrap();
         assert_eq!(listing.ignored, [".env.local", "target/"]);
         assert_eq!(
-            list_folder(&listing.root, "target").unwrap(),
+            list_folder(&Target::Local, &listing.root, "target").unwrap(),
             ["target/deep/", "target/out"]
         );
-        assert!(list_folder(&listing.root, "../x").is_err());
+        assert!(list_folder(&Target::Local, &listing.root, "../x").is_err());
     }
 
     #[test]
     fn finds_a_file_from_the_folder_then_the_checkouts_top() {
         let dir = repo();
-        let top = list(&root(&dir), false).unwrap().unwrap().root;
+        let top = list(&Target::Local, &root(&dir), false).unwrap().unwrap().root;
         let sub = format!("{top}/src");
         for (from, name) in [(&top, "src/a.rs"), (&sub, "a.rs"), (&sub, "src/a.rs"), (&sub, "../src/a.rs")] {
             let found = find(from, name).unwrap();
@@ -420,7 +527,7 @@ mod tests {
     #[test]
     fn a_file_in_a_worktree_belongs_to_the_worktree() {
         let dir = repo();
-        let top = list(&root(&dir), false).unwrap().unwrap().root;
+        let top = list(&Target::Local, &root(&dir), false).unwrap().unwrap().root;
         let worktree = format!("{top}/target/wt");
         git(dir.path(), &["worktree", "add", "-q", "-b", "wt", &worktree]);
         let found = find(&top, &format!("{worktree}/src/a.rs")).unwrap();
@@ -460,7 +567,7 @@ mod tests {
     #[test]
     fn outside_git_is_no_listing() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(list(&root(&dir), false).unwrap().is_none());
+        assert!(list(&Target::Local, &root(&dir), false).unwrap().is_none());
     }
 
     #[test]
@@ -468,21 +575,21 @@ mod tests {
         let dir = repo();
         let root = root(&dir);
         assert!(
-            matches!(read(&root, "src/a.rs").unwrap(), Contents::Text { text } if text == "fn a() {}\n")
+            matches!(read(&Target::Local, &root, "src/a.rs").unwrap(), Contents::Text { text } if text == "fn a() {}\n")
         );
         fs::write(dir.path().join("dot.png"), [0x89, b'P', b'N', b'G', 0]).unwrap();
         assert!(
-            matches!(read(&root, "dot.png").unwrap(), Contents::Image { mime: "image/png", data } if data == "iVBORwA=")
+            matches!(read(&Target::Local, &root, "dot.png").unwrap(), Contents::Image { mime: "image/png", data } if data == "iVBORwA=")
         );
         fs::write(dir.path().join("blob.bin"), [1, 0, 2]).unwrap();
         assert!(matches!(
-            read(&root, "blob.bin").unwrap(),
+            read(&Target::Local, &root, "blob.bin").unwrap(),
             Contents::Binary { size: 3 }
         ));
         let big = vec![b'a'; (MAX_TEXT_BYTES + 1) as usize];
         fs::write(dir.path().join("big.txt"), big).unwrap();
         assert!(matches!(
-            read(&root, "big.txt").unwrap(),
+            read(&Target::Local, &root, "big.txt").unwrap(),
             Contents::TooLarge { .. }
         ));
     }
@@ -493,11 +600,11 @@ mod tests {
         let root = root(&dir);
         for path in ["../etc/passwd", "/etc/passwd", "src/../../x", ""] {
             assert!(
-                matches!(read(&root, path), Err(Error::OutsideCheckout(_))),
+                matches!(read(&Target::Local, &root, path), Err(Error::OutsideCheckout(_))),
                 "{path}"
             );
         }
-        assert!(matches!(read(&root, "src"), Err(Error::NotFile(_))));
+        assert!(matches!(read(&Target::Local, &root, "src"), Err(Error::NotFile(_))));
     }
 
     #[test]
@@ -574,8 +681,55 @@ mod tests {
         fs::write(outside.path().join("secret"), "x").unwrap();
         std::os::unix::fs::symlink(outside.path().join("secret"), dir.path().join("link")).unwrap();
         assert!(matches!(
-            read(&root(&dir), "link"),
+            read(&Target::Local, &root(&dir), "link"),
             Err(Error::OutsideCheckout(_))
         ));
+    }
+
+    /// What the file view would show, comparable across machines.
+    fn shown(contents: Result<Contents, Error>) -> serde_json::Value {
+        serde_json::to_value(contents.unwrap()).unwrap()
+    }
+
+    #[test]
+    fn a_remote_host_reads_the_checkout_as_this_machine_does() {
+        let dir = repo();
+        let remote = Target::Ssh(crate::herdr::ssh::LOOPBACK.into());
+        fs::write(dir.path().join("dot.png"), [0x89, b'P', b'N', b'G', 0]).unwrap();
+        fs::write(dir.path().join("blob.bin"), [1, 0, 2]).unwrap();
+        fs::write(dir.path().join("it's here.txt"), "quoted\n").unwrap();
+        fs::write(dir.path().join("big.txt"), "x".repeat(MAX_TEXT_BYTES as usize + 1)).unwrap();
+        let here = list(&Target::Local, &root(&dir), true).unwrap().unwrap();
+        let there = list(&remote, &root(&dir), true).unwrap().unwrap();
+        assert_eq!((&there.root, &there.files, &there.ignored), (&here.root, &here.files, &here.ignored));
+        assert_eq!(
+            list_folder(&remote, &here.root, "target").unwrap(),
+            list_folder(&Target::Local, &here.root, "target").unwrap()
+        );
+        for path in ["src/a.rs", "dot.png", "blob.bin", "it's here.txt", "big.txt"] {
+            assert_eq!(
+                shown(read(&remote, &here.root, path)),
+                shown(read(&Target::Local, &here.root, path)),
+                "{path}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_remote_host_refuses_what_leaves_the_checkout() {
+        let dir = repo();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("secret"), "x").unwrap();
+        std::os::unix::fs::symlink(outside.path().join("secret"), dir.path().join("link")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("away")).unwrap();
+        let remote = Target::Ssh(crate::herdr::ssh::LOOPBACK.into());
+        let top = root(&dir);
+        assert!(matches!(read(&remote, &top, "link"), Err(Error::OutsideCheckout(_))));
+        assert!(matches!(read(&remote, &top, "../secret"), Err(Error::OutsideCheckout(_))));
+        assert!(matches!(list_folder(&remote, &top, "away"), Err(Error::OutsideCheckout(_))));
+        assert!(matches!(read(&remote, &top, "src"), Err(Error::NotFile(_))));
+        assert!(matches!(read(&remote, &top, "gone.txt"), Err(Error::Read(_))));
+        assert!(matches!(read(&remote, "relative", "src/a.rs"), Err(Error::OutsideCheckout(_))));
     }
 }
