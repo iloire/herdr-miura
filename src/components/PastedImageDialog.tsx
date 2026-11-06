@@ -2,13 +2,13 @@ import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import type { Controller } from "../app/controller";
 
-/// An image pasted into a session, from a ⌘-click on its `[Image #1]`. Esc or a
-/// click outside it closes.
+/// An image from a ⌘-click: one pasted into a session, from its `[Image #1]`,
+/// or a file outside any checkout. Esc or a click outside it closes.
 export function PastedImageDialog({ controller }: { controller: Controller }) {
   const image = useSyncExternalStore(controller.subscribe, () => controller.getState().pastedImage);
   if (!image) return null;
   const close = () => controller.closePastedImage();
-  const title = `Image #${image.paste}`;
+  const { title } = image;
 
   return createPortal(
     <div className="palette-backdrop pasted-image-backdrop" onMouseDown={(event) => event.target === event.currentTarget && close()}>

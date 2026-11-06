@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { IS_MAC } from "../app/catalog";
@@ -9,6 +10,9 @@ import { Painter, measure, popupOrigin } from "../terminal/painter";
 import type { Theme } from "../terminal/theme";
 import { pasteEvents, wheelEvents } from "../terminal/mouse";
 import { linkAt, type Link } from "../terminal/links";
+import { ContextMenu, type MenuAt } from "./ContextMenu";
+import { CopyIcon } from "./icons";
+import { linkMenu } from "./linkMenu";
 
 const BUTTONS: MouseButton[] = ["Left", "Middle", "Right"];
 
@@ -41,6 +45,8 @@ export function Terminal({
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   // A theme change repaints with the painter already there: nothing is
   // remeasured, resized or resubscribed.
   const themeRef = useRef(theme);
@@ -148,10 +154,36 @@ export function Terminal({
     let pressed: { pane: SurfacePane; button: MouseButton } | null = null;
     let splitDrag: { tabId: string; path: boolean[]; horizontal: boolean; start: number; size: number } | null = null;
 
+    // A right-click on a link offers what can be done with it; elsewhere it
+    // offers a paste, unless the program there takes the mouse itself.
+    const showMenu = (event: MouseEvent, pane: SurfacePane, link: Link | null) => {
+      const at = { x: event.clientX, y: event.clientY };
+      if (!pane.focused) controller.request("pane.focus", { pane_id: pane.pane_id });
+      if (!link) {
+        const paste = () =>
+          readText()
+            .then((text) => text && controller.sendInput(pasteEvents(text), pane.pane_id))
+            .catch(() => {}); // an empty or non-text clipboard has nothing to paste
+        setMenu({ ...at, items: [{ label: "Paste", icon: <CopyIcon />, onSelect: () => void paste() }] });
+        return;
+      }
+      const path = link.file ? controller.locateLinkFile(link.file, pane.pane_id) : Promise.resolve(null);
+      void path.then((path) => setMenu({ ...at, items: linkMenu(controller, link, pane.pane_id, path) }));
+    };
+    const onContextMenu = (event: MouseEvent) => event.preventDefault();
+
     const onMouseDown = (event: MouseEvent) => {
       event.preventDefault();
       input.focus();
       const at = cellAt(event);
+      if (event.button === 2 && !grid.popup) {
+        const pane = grid.paneAt(at.column, at.row);
+        const link = linkAt(grid, at.column, at.row);
+        if (pane && (link || !pane.mouse_reporting)) {
+          showMenu(event, pane, link);
+          return;
+        }
+      }
       if (event.metaKey && event.button === 0 && !grid.popup) {
         const link = linkAt(grid, at.column, at.row);
         const pane = grid.paneAt(at.column, at.row);
@@ -308,6 +340,7 @@ export function Terminal({
     };
 
     canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -332,6 +365,7 @@ export function Terminal({
       clearTimeout(resizeTimer);
       observer.disconnect();
       canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
       canvas.removeEventListener("wheel", onWheel);
@@ -359,6 +393,7 @@ export function Terminal({
         autoCorrect="off"
         spellCheck={false}
       />
+      {menu && createPortal(<ContextMenu menu={menu} onClose={closeMenu} />, document.body)}
     </div>
   );
 }

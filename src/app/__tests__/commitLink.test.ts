@@ -102,8 +102,42 @@ describe("openFileLink", () => {
     controller.openFileLink("and/or", "p1");
     await settled();
     expect(shown).not.toHaveBeenCalled();
-    expect(controller.getState().notice).toBe("No file and/or in a checkout from /repo");
+    expect(controller.getState().notice).toBe("No file and/or from /repo");
     expect(controller.getState().files).toBe(false);
+  });
+});
+
+describe("openFileLink outside any checkout", () => {
+  const settled = () => new Promise((done) => setTimeout(done));
+  const outside = (located: string, image: unknown = undefined) => {
+    invoke.mockReset();
+    invoke.mockImplementation(async (command) => {
+      if (command === "locate_file") return located;
+      if (command === "read_link_image") return image;
+      return command === "find_file" ? null : undefined;
+    });
+    const controller = new Controller();
+    controller.getState().snapshot = snapshot();
+    controller.showFile = vi.fn();
+    return controller;
+  };
+
+  it("shows an image over the window, named by its file", async () => {
+    const controller = outside("/tmp/x/preview.png", { type: "image", mime: "image/png", data: "aW1n" });
+    controller.openFileLink("/tmp/x/preview.png", "p1");
+    await settled();
+    expect(invoke).toHaveBeenCalledWith("locate_file", { directory: "/repo", name: "/tmp/x/preview.png" });
+    expect(invoke).toHaveBeenCalledWith("read_link_image", { path: "/tmp/x/preview.png" });
+    expect(controller.getState().pastedImage).toEqual({ mime: "image/png", data: "aW1n", title: "preview.png" });
+    expect(controller.getState().files).toBe(false);
+  });
+
+  it("opens anything else in its default app", async () => {
+    const controller = outside("/tmp/x/report.pdf");
+    controller.openFileLink("/tmp/x/report.pdf", "p1");
+    await settled();
+    expect(invoke).toHaveBeenCalledWith("open_link_file", { path: "/tmp/x/report.pdf", with: "default" });
+    expect(controller.getState().pastedImage).toBeNull();
   });
 });
 
@@ -130,7 +164,7 @@ describe("openImageLink", () => {
     expect(focus).toHaveBeenCalledWith("pane.focus", { pane_id: "p2" });
     await settled();
     expect(invoke).toHaveBeenCalledWith("pasted_image", { session: SESSION, paste: 3 });
-    expect(controller.getState().pastedImage).toEqual({ mime: "image/png", data: "aW1n", paste: 3 });
+    expect(controller.getState().pastedImage).toEqual({ mime: "image/png", data: "aW1n", title: "Image #3" });
   });
 
   it("says so when no prompt holds the image", async () => {

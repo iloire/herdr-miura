@@ -7,7 +7,7 @@ use crate::{
     claude_usage,
     connection::Connection,
     files::{self, Contents, FoundFile, Listing},
-    folder::{self, Opener},
+    folder::{self, FileAction, Opener},
     land, listening_ports,
     pasted_image::{self, PastedImage},
     prompts, queue,
@@ -830,6 +830,33 @@ pub fn open_folder(connection: State<'_, Connection>, path: String, with: Opener
 pub fn open_file(connection: State<'_, Connection>, root: String, path: String) -> Result<()> {
     connection.ensure_local()?;
     Ok(folder::open_file(&root, &path)?)
+}
+
+/// The full path of a file a terminal link names, in a checkout or not.
+#[tauri::command]
+pub async fn locate_file(
+    connection: State<'_, Connection>,
+    directory: String,
+    name: String,
+) -> Result<Option<String>> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::locate(&directory, &name));
+    Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// An image a terminal link names outside any checkout, by its full path.
+#[tauri::command]
+pub async fn read_link_image(connection: State<'_, Connection>, path: String) -> Result<Contents> {
+    connection.ensure_local()?;
+    let read = tauri::async_runtime::spawn_blocking(move || files::read_image(&path));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// Opens, reveals or edits a file a terminal link names, wherever it is.
+#[tauri::command]
+pub fn open_link_file(connection: State<'_, Connection>, path: String, with: FileAction) -> Result<()> {
+    connection.ensure_local()?;
+    Ok(folder::open_link_file(&path, with)?)
 }
 
 /// Copies a workspace's folder path, after checking it names a folder.

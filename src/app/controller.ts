@@ -1,6 +1,7 @@
 import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
 import { findFile, type FoundFile } from "../files/listing";
+import { isImagePath, locateFile, openLinkFile, readLinkImage } from "../files/linkFile";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
@@ -74,7 +75,8 @@ export interface State {
   /// A failure you have to read: it stays up until dismissed.
   alert: Alert | null;
   /// The pasted image open over the window, with its number.
-  pastedImage: (PastedImage & { paste: number }) | null;
+  /// An image over the window: one pasted into a prompt, or a file outside any checkout.
+  pastedImage: (PastedImage & { title: string }) | null;
   title: string | null;
   sidebar: boolean;
   /// The prompt library's palette is open.
@@ -640,12 +642,32 @@ export class Controller {
     if (!directory) return;
     if (paneId !== snapshot?.focused_pane_id) this.request("pane.focus", { pane_id: paneId });
     this.act(
-      findFile(directory, name).then((found) => {
-        if (!found) return this.set({ notice: `No file ${name} in a checkout from ${directory}` });
-        this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false });
-        this.showFile(found, directory);
+      findFile(directory, name).then(async (found) => {
+        if (found) {
+          this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false });
+          return this.showFile(found, directory);
+        }
+        const path = await locateFile(directory, name);
+        if (!path) return this.set({ notice: `No file ${name} from ${directory}` });
+        await this.openLooseFile(path);
       }),
     );
+  }
+
+  /// The full path of the file a pane's text names, read from that pane's
+  /// folder, or null when there is none.
+  locateLinkFile(name: string, paneId: string): Promise<string | null> {
+    const directory = paneDirectory(this.state.snapshot?.panes.find((pane) => pane.pane_id === paneId));
+    return directory ? locateFile(directory, name).catch(() => null) : Promise.resolve(null);
+  }
+
+  /// A file outside any checkout, which the file view cannot hold: an image
+  /// shows over the window, anything else opens in its own app.
+  private async openLooseFile(path: string): Promise<void> {
+    if (!isImagePath(path)) return openLinkFile(path, "default");
+    const contents = await readLinkImage(path);
+    if (contents.type !== "image") return this.set({ notice: `${path} is too large to show` });
+    this.set({ pastedImage: { mime: contents.mime, data: contents.data, title: path.split("/").pop() ?? path } });
   }
 
   /// Shows the image a pane's `[Image #1]` means, from the transcript of that
@@ -659,7 +681,7 @@ export class Controller {
     this.act(
       readPastedImage(session, paste).then((image) => {
         if (!image) return this.set({ notice: `Image #${paste} is not in this session's transcript` });
-        this.set({ pastedImage: { ...image, paste } });
+        this.set({ pastedImage: { ...image, title: `Image #${paste}` } });
       }),
     );
   }

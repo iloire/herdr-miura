@@ -185,21 +185,54 @@ pub fn list_folder(root: &str, path: &str) -> Result<Vec<String>, Error> {
 /// no such file is in a checkout.
 pub fn find(directory: &str, name: &str) -> Option<FoundFile> {
     let deadline = Instant::now() + DEADLINE;
-    let named = match name.strip_prefix("~/") {
-        Some(rest) => PathBuf::from(std::env::var_os("HOME")?).join(rest),
-        None => PathBuf::from(name),
-    };
-    let top = toplevel(directory, deadline).ok();
-    let full = [Some(directory), top.as_deref()]
-        .into_iter()
-        .flatten()
-        .filter_map(|folder| fs::canonicalize(Path::new(folder).join(&named)).ok())
-        .find(|full| full.is_file())?;
+    let full = resolve(directory, name, deadline)?;
     let root = toplevel(full.parent()?.to_str()?, deadline).ok()?;
     let path = full.strip_prefix(fs::canonicalize(&root).ok()?).ok()?;
     Some(FoundFile {
         path: path.to_str()?.to_owned(),
         root,
+    })
+}
+
+/// The existing file `name` means, read from `directory` or the top of its
+/// checkout, with `~/` as the home folder, through symlinks.
+fn resolve(directory: &str, name: &str, deadline: Instant) -> Option<PathBuf> {
+    let named = match name.strip_prefix("~/") {
+        Some(rest) => PathBuf::from(std::env::var_os("HOME")?).join(rest),
+        None => PathBuf::from(name),
+    };
+    let top = toplevel(directory, deadline).ok();
+    [Some(directory), top.as_deref()]
+        .into_iter()
+        .flatten()
+        .filter_map(|folder| fs::canonicalize(Path::new(folder).join(&named)).ok())
+        .find(|full| full.is_file())
+}
+
+/// The full path of the file a pane's text names, in a checkout or not, for
+/// the actions a terminal link offers.
+pub fn locate(directory: &str, name: &str) -> Option<String> {
+    let full = resolve(directory, name, Instant::now() + DEADLINE)?;
+    full.to_str().map(str::to_owned)
+}
+
+/// An image anywhere on disk, by its full path, for a terminal link to one
+/// outside any checkout. Anything but an image is refused.
+pub fn read_image(path: &str) -> Result<Contents, Error> {
+    let full = Path::new(path);
+    let not_image = || Error::NotFile(path.into());
+    if !full.is_absolute() || !full.is_file() {
+        return Err(not_image());
+    }
+    let mime = image_type(full).ok_or_else(not_image)?;
+    Ok(match read_bounded(full, MAX_IMAGE_BYTES)? {
+        Some(bytes) => Contents::Image {
+            mime,
+            data: base64::engine::general_purpose::STANDARD.encode(bytes),
+        },
+        None => Contents::TooLarge {
+            size: fs::metadata(full).map_err(Error::Read)?.len(),
+        },
     })
 }
 
@@ -404,6 +437,24 @@ mod tests {
         let outside = tempfile::tempdir().unwrap();
         fs::write(outside.path().join("a.txt"), "one\n").unwrap();
         assert!(find(&top, &format!("{}/a.txt", root(&outside))).is_none());
+    }
+
+    #[test]
+    fn locates_a_file_outside_git_and_reads_only_images_there() {
+        let dir = repo();
+        let top = root(&dir);
+        let outside = tempfile::tempdir().unwrap();
+        let far = fs::canonicalize(outside.path()).unwrap();
+        fs::write(far.join("a.png"), [1, 2, 3]).unwrap();
+        fs::write(far.join("a.txt"), "one\n").unwrap();
+        let png = far.join("a.png").to_string_lossy().into_owned();
+        assert_eq!(locate(&top, &png).as_deref(), Some(png.as_str()));
+        assert!(locate(&top, "src").is_none());
+        assert!(locate(&top, "missing.png").is_none());
+        assert!(matches!(read_image(&png), Ok(Contents::Image { mime: "image/png", .. })));
+        for refused in [far.join("a.txt").to_string_lossy().into_owned(), "a.png".into(), far.to_string_lossy().into_owned()] {
+            assert!(read_image(&refused).is_err(), "{refused}");
+        }
     }
 
     #[test]

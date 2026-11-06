@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-06 12:50 — Terminal links get a right-click menu, and open outside a checkout
+
+A path outside any checkout, such as a screenshot under `/tmp`, did nothing on ⌘-click but say there was no such file,
+and a right-click on the terminal showed the web view's own Reload / AutoFill menu. ⌘-click on such a path now shows an
+image over the window and opens anything else in its default app. A right-click on a link offers what can be done with
+it: a file opens here, in its default app or VS Code, shows in Finder, or has its full path copied; a URL opens or is
+copied; a commit shows or has its hash copied; an `[Image #1]` shows. Anywhere else the menu offers Paste, except in a
+program that takes the mouse itself, which still gets the click. The default app is refused for a file that would run,
+an executable or a script, since a link is only text a program printed.
+
 ## 2026-11-05 14:38 — The Files panel can show ignored files
 
 The Files panel listed only what `git ls-files` lists without ignored files, so `.env.local`, build output and the like
