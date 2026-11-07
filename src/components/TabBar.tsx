@@ -231,8 +231,7 @@ export function TabBar({
       [
         {
           label: "Close Tab",
-          hint: pinned ? "Unpin first" : controller.shortcutHint("close_tab"),
-          disabled: pinned,
+          hint: controller.shortcutHint("close_tab"),
           onSelect: () => controller.request("tab.close", { tab_id: tab.tab_id }),
         },
       ],
@@ -305,7 +304,7 @@ export function TabBar({
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => controller.request("tab.focus", { tab_id: tab.tab_id })}
                   onDoubleClick={() => setRenaming(tab.tab_id)}
-                  onAuxClick={(event) => event.button === 1 && !pinned && closeByPointer(tab)}
+                  onAuxClick={(event) => event.button === 1 && closeByPointer(tab)}
                 >
                   {pinned && (
                     <span className="tab-pin" title="Pinned" aria-label="Pinned">
@@ -324,18 +323,16 @@ export function TabBar({
                   <StatusMark status={waiting === null ? tab.agent_status : "blocked"} verified={tabVerifiedDone(own)} note={waiting} />
                 </button>
               )}
-              {!pinned && (
-                <button
-                  className="tab-close"
-                  aria-label={`Close ${tab.label}`}
-                  title="Close tab"
-                  onClick={() => closeByPointer(tab)}
-                >
-                  <svg viewBox="0 0 12 12" aria-hidden="true">
-                    <path d="M3 3l6 6M9 3l-6 6" />
-                  </svg>
-                </button>
-              )}
+              <button
+                className="tab-close"
+                aria-label={`Close ${tab.label}`}
+                title="Close tab"
+                onClick={() => closeByPointer(tab)}
+              >
+                <svg viewBox="0 0 12 12" aria-hidden="true">
+                  <path d="M3 3l6 6M9 3l-6 6" />
+                </svg>
+              </button>
             </div>
           );
         })}
