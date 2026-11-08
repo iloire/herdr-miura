@@ -16,7 +16,7 @@ pub enum Error {
     NotFolder(String),
     #[error("{0} is not a file in this folder")]
     NotFile(String),
-    #[error("{0} is not a file")]
+    #[error("{0} is not a file or folder")]
     NotLooseFile(String),
     #[error("{0} could run a program, so it is not opened from a link")]
     Runnable(String),
@@ -119,24 +119,24 @@ fn runnable(file: &Path) -> bool {
         .is_some_and(|extension| RUNNABLE.contains(&extension.to_ascii_lowercase().as_str()))
 }
 
-/// `path` when it is an existing absolute file.
+/// `path` when it is an existing absolute file or folder.
 fn loose_file(path: &str) -> Result<&Path, Error> {
     let file = Path::new(path);
-    if path.len() > MAX_PATH_BYTES || !file.is_absolute() || !file.is_file() {
+    if path.len() > MAX_PATH_BYTES || !file.is_absolute() || !file.exists() {
         return Err(Error::NotLooseFile(path.into()));
     }
     Ok(file)
 }
 
-/// Acts on a file a terminal link names, in a checkout or not. The default
-/// app is refused for anything it would run, as a link is only text a
-/// program printed.
+/// Acts on a file or folder a terminal link names, in a checkout or not. The
+/// default app is refused for anything it would run, as a link is only text a
+/// program printed, and for any folder, as an app bundle is one.
 pub fn open_link_file(path: &str, with: FileAction) -> Result<(), Error> {
     let file = loose_file(path)?;
     match with {
         FileAction::Reveal => tauri_plugin_opener::reveal_item_in_dir(file).map_err(Error::Open),
         FileAction::VsCode => tauri_plugin_opener::open_path(file, Opener::VsCode.app()).map_err(Error::Open),
-        FileAction::Default if runnable(file) => Err(Error::Runnable(path.into())),
+        FileAction::Default if file.is_dir() || runnable(file) => Err(Error::Runnable(path.into())),
         FileAction::Default => tauri_plugin_opener::open_path(file, None::<&str>).map_err(Error::Open),
     }
 }
@@ -183,7 +183,8 @@ mod tests {
                 .unwrap_or_else(|error| panic!("{error}"));
             assert!(runnable(&tool));
         }
-        assert!(loose_file(&dir.path().to_string_lossy()).is_err());
+        assert!(loose_file(&dir.path().to_string_lossy()).is_ok());
+        assert!(loose_file(&dir.path().join("missing").to_string_lossy()).is_err());
         assert!(loose_file("shot.png").is_err());
         assert!(loose_file(&dir.path().join("shot.png").to_string_lossy()).is_ok());
     }

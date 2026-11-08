@@ -167,8 +167,8 @@ export function Terminal({
         setMenu({ ...at, items: [{ label: "Paste", icon: <CopyIcon />, onSelect: () => void paste() }] });
         return;
       }
-      const path = link.file ? controller.locateLinkFile(link.file, pane.pane_id) : Promise.resolve(null);
-      void path.then((path) => setMenu({ ...at, items: linkMenu(controller, link, pane.pane_id, path) }));
+      const located = link.file ? controller.locateLinkFile(link.file, pane.pane_id) : Promise.resolve(null);
+      void located.then((located) => setMenu({ ...at, items: linkMenu(controller, link, pane.pane_id, located) }));
     };
     const onContextMenu = (event: MouseEvent) => event.preventDefault();
 

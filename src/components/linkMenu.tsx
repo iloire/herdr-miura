@@ -2,7 +2,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { IS_MAC } from "../app/catalog";
 import type { Controller } from "../app/controller";
-import { openLinkFile } from "../files/linkFile";
+import { type Located, openLinkFile } from "../files/linkFile";
 import type { Link } from "../terminal/links";
 import type { MenuItem } from "./ContextMenu";
 import { ChangesIcon, CodeIcon, CopyIcon, FileIcon, FolderIcon, GlobeIcon, OpenIcon } from "./icons";
@@ -10,9 +10,9 @@ import { ChangesIcon, CodeIcon, CopyIcon, FileIcon, FolderIcon, GlobeIcon, OpenI
 /// The click that does a link's first action, as a hint; ⌘ is Super off macOS.
 const CLICK = IS_MAC ? "⌘-click" : undefined;
 
-/// What a right-click on a link in a pane offers. `path` is the full path of
-/// a file link, or null when no file is there.
-export function linkMenu(controller: Controller, link: Link, paneId: string, path: string | null): MenuItem[][] {
+/// What a right-click on a link in a pane offers. `located` is where a file
+/// link leads, or null when nothing is there.
+export function linkMenu(controller: Controller, link: Link, paneId: string, located: Located | null): MenuItem[][] {
   const copy = (text: string) => controller.act(writeText(text));
   if (link.url) {
     return [
@@ -33,19 +33,30 @@ export function linkMenu(controller: Controller, link: Link, paneId: string, pat
   }
   const file = link.file;
   if (!file) return [];
-  if (!path) {
+  if (!located) {
     return [
       [{ label: "No such file", icon: <FileIcon />, disabled: true }],
       [{ label: "Copy Text", icon: <CopyIcon />, onSelect: () => copy(file) }],
     ];
   }
+  const path = located.path;
   const act = (action: "default" | "vs_code" | "reveal") => () => controller.act(openLinkFile(path, action));
+  const reveal = IS_MAC ? "Reveal in Finder" : "Show in Folder";
+  if (located.folder) {
+    return [
+      [
+        { label: reveal, icon: <FolderIcon />, hint: CLICK, onSelect: act("reveal") },
+        { label: "Open in VS Code", icon: <CodeIcon />, onSelect: act("vs_code") },
+      ],
+      [{ label: "Copy Path", icon: <CopyIcon />, onSelect: () => copy(path) }],
+    ];
+  }
   return [
     [{ label: "Open", icon: <FileIcon />, hint: CLICK, onSelect: () => controller.openFileLink(file, paneId) }],
     [
       { label: "Open with Default App", icon: <OpenIcon />, onSelect: act("default") },
       { label: "Open in VS Code", icon: <CodeIcon />, onSelect: act("vs_code") },
-      { label: IS_MAC ? "Reveal in Finder" : "Show in Folder", icon: <FolderIcon />, onSelect: act("reveal") },
+      { label: reveal, icon: <FolderIcon />, onSelect: act("reveal") },
     ],
     [{ label: "Copy Path", icon: <CopyIcon />, onSelect: () => copy(path) }],
   ];

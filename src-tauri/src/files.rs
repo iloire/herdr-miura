@@ -201,7 +201,7 @@ pub fn list_folder(target: &Target, root: &str, path: &str) -> Result<Vec<String
 /// no such file is in a checkout.
 pub fn find(directory: &str, name: &str) -> Option<FoundFile> {
     let deadline = Instant::now() + DEADLINE;
-    let full = resolve(directory, name, deadline)?;
+    let full = resolve(directory, name, deadline, Path::is_file)?;
     let root = toplevel(&Target::Local, full.parent()?.to_str()?, deadline).ok()?;
     let path = full.strip_prefix(fs::canonicalize(&root).ok()?).ok()?;
     Some(FoundFile {
@@ -210,9 +210,10 @@ pub fn find(directory: &str, name: &str) -> Option<FoundFile> {
     })
 }
 
-/// The existing file `name` means, read from `directory` or the top of its
-/// checkout, with `~/` as the home folder, through symlinks.
-fn resolve(directory: &str, name: &str, deadline: Instant) -> Option<PathBuf> {
+/// The existing path `name` means, read from `directory` or the top of its
+/// checkout, with `~/` as the home folder, through symlinks; the first one
+/// `accept` takes.
+fn resolve(directory: &str, name: &str, deadline: Instant, accept: fn(&Path) -> bool) -> Option<PathBuf> {
     let named = match name.strip_prefix("~/") {
         Some(rest) => PathBuf::from(std::env::var_os("HOME")?).join(rest),
         None => PathBuf::from(name),
@@ -222,14 +223,24 @@ fn resolve(directory: &str, name: &str, deadline: Instant) -> Option<PathBuf> {
         .into_iter()
         .flatten()
         .filter_map(|folder| fs::canonicalize(Path::new(folder).join(&named)).ok())
-        .find(|full| full.is_file())
+        .find(|full| accept(full))
 }
 
-/// The full path of the file a pane's text names, in a checkout or not, for
-/// the actions a terminal link offers.
-pub fn locate(directory: &str, name: &str) -> Option<String> {
-    let full = resolve(directory, name, Instant::now() + DEADLINE)?;
-    full.to_str().map(str::to_owned)
+/// A file or folder a pane's text names, by its full path.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Located {
+    path: String,
+    folder: bool,
+}
+
+/// The full path of the file or folder a pane's text names, in a checkout or
+/// not, for the actions a terminal link offers.
+pub fn locate(directory: &str, name: &str) -> Option<Located> {
+    let full = resolve(directory, name, Instant::now() + DEADLINE, |path| path.is_file() || path.is_dir())?;
+    Some(Located {
+        folder: full.is_dir(),
+        path: full.to_str()?.to_owned(),
+    })
 }
 
 /// An image anywhere on disk, by its full path, for a terminal link to one
@@ -556,8 +567,9 @@ mod tests {
         fs::write(far.join("a.png"), [1, 2, 3]).unwrap();
         fs::write(far.join("a.txt"), "one\n").unwrap();
         let png = far.join("a.png").to_string_lossy().into_owned();
-        assert_eq!(locate(&top, &png).as_deref(), Some(png.as_str()));
-        assert!(locate(&top, "src").is_none());
+        assert_eq!(locate(&top, &png), Some(Located { path: png.clone(), folder: false }));
+        let src = fs::canonicalize(Path::new(&top).join("src")).unwrap().to_string_lossy().into_owned();
+        assert_eq!(locate(&top, "src"), Some(Located { path: src, folder: true }));
         assert!(locate(&top, "missing.png").is_none());
         assert!(matches!(read_image(&png), Ok(Contents::Image { mime: "image/png", .. })));
         for refused in [far.join("a.txt").to_string_lossy().into_owned(), "a.png".into(), far.to_string_lossy().into_owned()] {

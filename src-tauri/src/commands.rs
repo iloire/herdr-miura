@@ -832,13 +832,13 @@ pub fn open_file(connection: State<'_, Connection>, root: String, path: String) 
     Ok(folder::open_file(&root, &path)?)
 }
 
-/// The full path of a file a terminal link names, in a checkout or not.
+/// The full path of a file or folder a terminal link names, in a checkout or not.
 #[tauri::command]
 pub async fn locate_file(
     connection: State<'_, Connection>,
     directory: String,
     name: String,
-) -> Result<Option<String>> {
+) -> Result<Option<files::Located>> {
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || files::locate(&directory, &name));
     Ok(read.await.map_err(changes::Error::Worker)?)

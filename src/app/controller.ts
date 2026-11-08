@@ -1,7 +1,7 @@
 import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
 import { findFile, type FoundFile } from "../files/listing";
-import { isImagePath, locateFile, openLinkFile, readLinkImage } from "../files/linkFile";
+import { isImagePath, type Located, locateFile, openLinkFile, readLinkImage } from "../files/linkFile";
 import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
@@ -635,7 +635,8 @@ export class Controller {
   showFile: (found: FoundFile, directory: string) => void = () => {};
 
   /// Opens the file a pane's text names, read from that pane's folder, in the
-  /// file's own checkout, which may be a worktree the pane is not in.
+  /// file's own checkout, which may be a worktree the pane is not in. A folder
+  /// is shown in the file manager.
   openFileLink(name: string, paneId: string): void {
     const snapshot = this.state.snapshot;
     const directory = paneDirectory(snapshot?.panes.find((pane) => pane.pane_id === paneId));
@@ -647,16 +648,17 @@ export class Controller {
           this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false });
           return this.showFile(found, directory);
         }
-        const path = await locateFile(directory, name);
-        if (!path) return this.set({ notice: `No file ${name} from ${directory}` });
-        await this.openLooseFile(path);
+        const located = await locateFile(directory, name);
+        if (!located) return this.set({ notice: `No file ${name} from ${directory}` });
+        if (located.folder) return openLinkFile(located.path, "reveal");
+        await this.openLooseFile(located.path);
       }),
     );
   }
 
-  /// The full path of the file a pane's text names, read from that pane's
-  /// folder, or null when there is none.
-  locateLinkFile(name: string, paneId: string): Promise<string | null> {
+  /// The file or folder a pane's text names, read from that pane's folder, or
+  /// null when there is none.
+  locateLinkFile(name: string, paneId: string): Promise<Located | null> {
     const directory = paneDirectory(this.state.snapshot?.panes.find((pane) => pane.pane_id === paneId));
     return directory ? locateFile(directory, name).catch(() => null) : Promise.resolve(null);
   }

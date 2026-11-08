@@ -109,10 +109,10 @@ describe("openFileLink", () => {
 
 describe("openFileLink outside any checkout", () => {
   const settled = () => new Promise((done) => setTimeout(done));
-  const outside = (located: string, image: unknown = undefined) => {
+  const outside = (path: string, image: unknown = undefined, folder = false) => {
     invoke.mockReset();
     invoke.mockImplementation(async (command) => {
-      if (command === "locate_file") return located;
+      if (command === "locate_file") return { path, folder };
       if (command === "read_link_image") return image;
       return command === "find_file" ? null : undefined;
     });
@@ -138,6 +138,14 @@ describe("openFileLink outside any checkout", () => {
     await settled();
     expect(invoke).toHaveBeenCalledWith("open_link_file", { path: "/tmp/x/report.pdf", with: "default" });
     expect(controller.getState().pastedImage).toBeNull();
+  });
+
+  it("shows a folder in the file manager", async () => {
+    const controller = outside("/tmp/x", undefined, true);
+    controller.openFileLink("~/x", "p1");
+    await settled();
+    expect(invoke).toHaveBeenCalledWith("open_link_file", { path: "/tmp/x", with: "reveal" });
+    expect(controller.getState().notice).toBeNull();
   });
 });
 

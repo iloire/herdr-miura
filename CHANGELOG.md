@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-08 20:12 — A link to a folder in a pane can be revealed or opened in VS Code
+
+Right-clicking a folder path an agent printed, like `~/code/some-worktree`, said "No such file" and offered only Copy
+Text, as only files were looked up. A folder now offers Reveal in Finder, Open in VS Code and Copy Path, and ⌘-click
+shows it in Finder. It never opens in its default app, since an app bundle is a folder.
+
 ## 2026-11-08 16:50 — The tab strip says when an idle agent was last active
 
 Next to when its session started, the strip now shows `active 3h 12m ago` for an agent that is not working, taken from
