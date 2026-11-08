@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-08 23:23 — The folder path over the terminal has a right-click menu
+
+The path the tab strip shows when the focused pane is away from its workspace's root now opens the folder menu on a
+right-click, as a tab or a sidebar card does: Open in VS Code, Open in GitHub Desktop, Open Folder and Copy Path.
+
 ## 2026-11-08 20:12 — A link to a folder in a pane can be revealed or opened in VS Code
 
 Right-clicking a folder path an agent printed, like `~/code/some-worktree`, said "No such file" and offered only Copy

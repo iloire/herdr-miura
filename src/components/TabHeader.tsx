@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { type StatusSince, statusAge, trackStatus } from "../app/agentAge";
 import { agentTitle, loopTag, needsYouNote, shownStatus, verifiedDone } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
@@ -29,6 +29,8 @@ import type { Controller } from "../app/controller";
 import { type SharedCheckout, sharedTitle } from "../app/sharedCheckout";
 import type { StrayPath } from "../app/workspaceRoot";
 import type { Agent, Snapshot } from "../protocol";
+import { ContextMenu, type MenuAt } from "./ContextMenu";
+import { folderMenu } from "./folderMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { BranchIcon, FolderIcon, LibraryIcon, QueueIcon } from "./icons";
 import { Ports } from "./Ports";
@@ -132,7 +134,7 @@ export function TabHeader({
             worktree
           </span>
         )}
-        {stray && <StrayFacts stray={stray} />}
+        {stray && <StrayFacts controller={controller} stray={stray} />}
         {git && <GitFacts git={git} />}
         <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
         {queued?.next && <span className="tab-queue">next: {title(queued.next.prompt, 40)}</span>}
@@ -164,16 +166,26 @@ export function TabHeader({
   );
 }
 
-function StrayFacts({ stray }: { stray: StrayPath }) {
+/// The focused pane's folder, whose right-click offers what a folder does
+/// elsewhere in the app.
+function StrayFacts({ controller, stray }: { controller: Controller; stray: StrayPath }) {
+  const [menu, setMenu] = useState<MenuAt | null>(null);
   return (
-    <span
-      className="tab-stray"
-      title={stray.full}
-      style={{ minWidth: `calc(16px + ${Math.min(stray.short.length, STRAY_FLOOR)}ch)` }}
-    >
-      <FolderIcon />
-      <span className="tab-stray-path">{stray.short}</span>
-    </span>
+    <>
+      <span
+        className="tab-stray"
+        title={stray.full}
+        style={{ minWidth: `calc(16px + ${Math.min(stray.short.length, STRAY_FLOOR)}ch)` }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY, items: [folderMenu(controller, stray.full)] });
+        }}
+      >
+        <FolderIcon />
+        <span className="tab-stray-path">{stray.short}</span>
+      </span>
+      {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
+    </>
   );
 }
 
