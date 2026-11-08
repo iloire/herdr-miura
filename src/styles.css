@@ -1200,18 +1200,22 @@ body.reordering * {
   color: var(--text);
 }
 
-/* A color the user chose, kept faint under the marks and the open tab's edge.
+/* A color the user chose, strong enough to tell tabs apart at a glance, and
+   edged in the same hue so a background tab reads as a shape, not a smudge.
    Its own variable: --hue here is the workspace's. */
 .tab.tinted {
-  background: color-mix(in srgb, var(--tab-tint) 10%, transparent);
+  background: color-mix(in srgb, var(--tab-tint) 24%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab-tint) 40%, transparent);
+  color: var(--text);
 }
 
 .tab.tinted:hover {
-  background: color-mix(in srgb, var(--tab-tint) 10%, var(--hover));
+  background: color-mix(in srgb, var(--tab-tint) 30%, var(--hover));
 }
 
 .tab.tinted[aria-selected="true"] {
-  background: color-mix(in srgb, var(--tab-tint) 10%, var(--active));
+  background: color-mix(in srgb, var(--tab-tint) 24%, var(--active));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tab-tint) 60%, var(--rule-strong));
 }
 
 .tab-label {
