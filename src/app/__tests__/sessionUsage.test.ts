@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeUsage } from "../claudeUsage";
-import { burn, contextLevel, formatTokens, type Minute, OLD_AFTER_MS, QUIET_AFTER_MS, quietAge, type SessionUsage, startedLabel, startedLevel, tokensSince, weighted, windowStart } from "../sessionUsage";
+import { burn, contextLevel, formatTokens, lastActiveAge, type Minute, OLD_AFTER_MS, QUIET_AFTER_MS, quietAge, type SessionUsage, startedLabel, startedLevel, tokensSince, weighted, windowStart } from "../sessionUsage";
 
 function minute(at: number, over: Partial<Minute> = {}): Minute {
   return { at, input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0, ...over };
@@ -93,6 +93,20 @@ describe("startedLabel", () => {
   it("gives the time today and the date before", () => {
     expect(startedLabel(new Date(2026, 9, 15, 9, 14).getTime(), now)).toMatch(/9:14/);
     expect(startedLabel(new Date(2026, 9, 14, 23, 59).getTime(), now)).toMatch(/Oct 14/);
+  });
+});
+
+describe("lastActiveAge", () => {
+  const now = 1_800_000_000_000;
+
+  it("says how long ago an idle session last wrote", () => {
+    expect(lastActiveAge(now - 3 * 3600_000 - 12 * 60_000, false, now)).toBe("3h 12m");
+    expect(lastActiveAge(now - 10_000, false, now)).toBe("<1m");
+  });
+
+  it("is absent while working or before a first write", () => {
+    expect(lastActiveAge(now - 3600_000, true, now)).toBeNull();
+    expect(lastActiveAge(null, false, now)).toBeNull();
   });
 });
 

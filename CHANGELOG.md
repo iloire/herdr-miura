@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-08 16:50 — The tab strip says when an idle agent was last active
+
+Next to when its session started, the strip now shows `active 3h 12m ago` for an agent that is not working, taken from
+when its transcript was last written, so unlike the status age it survives an app restart. While the agent works it is
+hidden: it is active now, and `quiet` already flags a stall.
+
 ## 2026-11-06 19:39 — The Changes and Files panels read a remote host's checkouts
 
 On a remote host the Changes and Files panels only said the workspace was on another machine. They now read the

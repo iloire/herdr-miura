@@ -9,6 +9,8 @@ import {
   contextLevel,
   contextTitle,
   formatTokens,
+  lastActiveAge,
+  lastActiveTitle,
   quietAge,
   quietTitle,
   type SessionUsage,
@@ -58,7 +60,7 @@ const AGE_TITLE = "Time in this status, counted from when the app first saw it, 
 /// tab, each opening its page. At the first line's right end the prompt library,
 /// whose prompts go to this tab's agent. The second line holds what matters about
 /// each of its agents at all times: status, model, when its session started, colored
-/// once that is hours back, time in its status, how long it has been quiet when that
+/// once that is hours back, when it was last active unless it is working now, time in its status, how long it has been quiet when that
 /// is long, context, spend this plan window, the last fifteen
 /// minutes' burn, a loop's next tick, and its title, or its latest prompt when it
 /// has none. What is only sometimes true shows only then. On a tight first line
@@ -253,6 +255,9 @@ function AgentFacts({
           {usage?.model && <span className="tab-agent-model"> · {shortModel(usage.model)}</span>}
         </span>
         {usage?.started_at != null && <Started at={usage.started_at * 1000} now={now * 1000} />}
+        {usage?.written_at != null && (
+          <LastActive at={usage.written_at * 1000} working={agent.agent_status === "working"} now={now * 1000} />
+        )}
         {age && (
           <span className={`tab-fact age-${agent.agent_status}`} title={AGE_TITLE}>
             {agent.agent_status} <b>{age}</b>
@@ -296,6 +301,16 @@ function Started({ at, now }: { at: number; now: number }) {
   return (
     <span className={`tab-fact started-${startedLevel(at, now)}`} title={startedTitle(at, now)}>
       started <b>{startedLabel(at, now)}</b>
+    </span>
+  );
+}
+
+function LastActive({ at, working, now }: { at: number; working: boolean; now: number }) {
+  const age = lastActiveAge(at, working, now);
+  if (!age) return null;
+  return (
+    <span className="tab-fact" title={lastActiveTitle(at, now)}>
+      active <b>{age} ago</b>
     </span>
   );
 }

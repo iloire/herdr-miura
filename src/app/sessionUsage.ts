@@ -199,6 +199,20 @@ export function startedTitle(started: number, now: number): string {
   return `Started ${formatMoment(started)}, ${formatSpan(now - started)} ago`;
 }
 
+/// How long ago an idle session last wrote to its transcript: `3h 12m`, or
+/// null while it works, as then it is active now and `quietAge` covers a stall.
+/// Unlike the status age it survives an app restart, the transcript being on disk.
+/// Milliseconds in.
+export function lastActiveAge(writtenAt: number | null, working: boolean, now: number): string | null {
+  if (working || writtenAt === null) return null;
+  return formatSpan(now - writtenAt);
+}
+
+/// The last activity's tooltip: `Last active Oct 29, 9:14 AM, 3d 2h ago`.
+export function lastActiveTitle(writtenAt: number, now: number): string {
+  return `Last active ${formatMoment(writtenAt)}, ${formatSpan(now - writtenAt)} ago: when its transcript was last written`;
+}
+
 /// `950`, `14k`, `1.8M`.
 export function formatTokens(count: number): string {
   if (count < 1000) return `${Math.round(count)}`;
