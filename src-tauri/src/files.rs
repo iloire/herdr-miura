@@ -276,8 +276,9 @@ fn plain(path: &str) -> bool {
 }
 
 /// Opens `$1/$2` on a remote host as [`inside`] does here: through symlinks,
-/// and refused when it leaves the checkout. Exits 3 when it is not there.
-const REMOTE_INSIDE: &str = r#"root=$(realpath "$1") && full=$(realpath "$1/$2") || exit 3
+/// and refused when it leaves the checkout. Exits 3 when it is not there:
+/// GNU `realpath` resolves a missing last name where BSD's fails, hence `-e`.
+const REMOTE_INSIDE: &str = r#"root=$(realpath "$1") && full=$(realpath "$1/$2") && [ -e "$full" ] || exit 3
 case "$full/" in "$root"/*) ;; *) exit 4 ;; esac
 "#;
 
