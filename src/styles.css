@@ -166,9 +166,11 @@ body.resizing .drawer {
 
 /* Sidebar */
 
+/* The border is an inset shadow, not a border, so the current workspace's card
+   can paint over it and open into the terminal beside it. */
 .sidebar {
   background: var(--peat);
-  border-right: 1px solid var(--rule);
+  box-shadow: inset -1px 0 0 var(--rule);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -187,6 +189,7 @@ body.resizing .drawer {
   height: var(--top-row);
   padding: 0 12px 0 var(--traffic-lights);
   background: var(--peat);
+  box-shadow: inset -1px 0 0 var(--rule);
   color: var(--lantern);
   font-weight: 600;
   white-space: nowrap;
@@ -653,11 +656,28 @@ body.reordering * {
   background: color-mix(in srgb, var(--hue) 10%, var(--hover));
 }
 
-/* The picked card takes a thicker, brighter rail over a gray wash. */
+/* The picked card is a folder tab: edged in its workspace's color (white when
+   it has none) on three sides, it runs over the sidebar's border and fades
+   into the terminal's background, so it reads as joined to the tabs on the
+   right rather than as one more tinted card. */
 .workspace.current {
   --rail: var(--bright);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--bright) 8%, var(--active)), var(--active));
-  box-shadow: inset 4px 0 0 var(--rail);
+  margin-right: -6px;
+  padding-right: 6px;
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rail) 14%, var(--ink)), var(--ink) 75%);
+  box-shadow:
+    inset 4px 0 0 var(--rail),
+    inset 0 1px 0 var(--rail),
+    inset 0 -1px 0 var(--rail);
+}
+
+.workspace.current.colored {
+  --rail: var(--hue);
+}
+
+.workspace.current .workspace-chevron {
+  right: 12px;
 }
 
 .workspace.current .workspace-label {
@@ -676,9 +696,13 @@ body.reordering * {
   animation: beckon-card 2.4s ease-in-out infinite;
 }
 
-.workspace.needs-you:hover,
-.workspace.needs-you.current {
+.workspace.needs-you:hover {
   background: linear-gradient(90deg, color-mix(in srgb, var(--lantern) 24%, transparent), color-mix(in srgb, var(--lantern) 8%, transparent));
+}
+
+/* Opaque, so the open tab still covers the sidebar's border. */
+.workspace.needs-you.current {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--lantern) 24%, var(--ink)), var(--ink));
 }
 
 .workspace.needs-you .workspace-label {
@@ -1193,10 +1217,11 @@ body.reordering * {
   background: var(--hover);
 }
 
-/* The open tab is a raised pill, edged in the workspace's hue. */
+/* The open tab is a raised pill, edged in the workspace's hue like the
+   current card in the sidebar, so the two read as one pair. */
 .tab[aria-selected="true"] {
   background: var(--active);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 30%, var(--rule-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 75%, var(--rule-strong));
   color: var(--text);
 }
 
