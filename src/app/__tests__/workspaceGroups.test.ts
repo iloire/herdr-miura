@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, showsFolded, workspaceGroups } from "../workspaceGroups";
+import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, workspaceGroups } from "../workspaceGroups";
 import type { Workspace } from "../../protocol";
 
 const workspace = (id: string, focused = false) => ({ workspace_id: id, label: id, focused }) as Workspace;
@@ -41,13 +41,6 @@ describe("workspace groups", () => {
       ["/notes#notes", null],
       ["/code/app-tree#tree", null],
     ]);
-  });
-
-  it("keeps the focused workspace and one that needs you in a folded group", () => {
-    const needs = (w: Workspace) => w.workspace_id === "b";
-    expect(showsFolded({ workspace: workspace("a", true), parent: null }, needs)).toBe(true);
-    expect(showsFolded({ workspace: workspace("b"), parent: null }, needs)).toBe(true);
-    expect(showsFolded({ workspace: workspace("c"), parent: null }, needs)).toBe(false);
   });
 
   it("remembers folded groups, and starts with none on bad storage", () => {

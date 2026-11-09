@@ -154,8 +154,9 @@ value is the group's name, so a group exists while a workspace is in it.
 - Workspaces in no group come first, without a header; then each group, in the order of its first workspace, under a
   header. A click on the header folds or unfolds the group. Its right-click has Show Only This Group (folds the others),
   Show All Groups, Rename Group… and Ungroup, which takes every workspace out and closes none.
-- A folded group keeps its agents' tally on the header and still shows the focused workspace and any workspace with an
-  agent waiting on you, so nothing that needs you is hidden. Which groups are folded is the window's, not the file's.
+- A folded group hides all its workspaces, the focused one too. Its header shows a folder icon, how many are hidden
+  and its agents' tally, so an agent waiting on you is still a mark there. Which groups are folded is the window's, not
+  the file's.
 - Groups show only when sorting by hand. Sorting by attention answers "what needs me", so the list goes flat.
 - A worktree goes where its main checkout goes. A workspace with no local folder, such as one on a remote host, can't
   be grouped. A rename in the sidebar takes the group along.

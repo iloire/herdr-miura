@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-09 19:58 — A folded group hides all its workspaces
+
+A folded group kept the focused workspace and any with an agent waiting on you, which read as if they were outside the
+group. Folding now hides every row. The header shows a folder icon and the agents' tally, whose gold mark still says
+something needs you.
+
 ## 2026-11-09 14:28 — Workspaces can be put in groups that fold away
 
 With twenty workspaces open, the list held far more than the work in hand, and closing them lost their tabs. A

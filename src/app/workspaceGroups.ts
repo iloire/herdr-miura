@@ -81,9 +81,3 @@ export function saveCollapsed(names: ReadonlySet<string>, storage: Pick<Storage,
     // A group that does not stay folded is only a convenience lost.
   }
 }
-
-/// Whether a row of a folded group still shows: the focused workspace is never
-/// hidden, nor is one with an agent waiting on you.
-export function showsFolded(row: Row, needsYou: (workspace: Workspace) => boolean): boolean {
-  return row.workspace.focused || needsYou(row.workspace);
-}

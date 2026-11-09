@@ -11,7 +11,7 @@ import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "
 import type { Settings } from "../app/settings";
 import { useAutoCards } from "../app/useAutoCards";
 import { groupWorktrees, type Row, workspaceOn } from "../app/worktreeGroups";
-import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, showsFolded, workspaceGroups } from "../app/workspaceGroups";
+import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, workspaceGroups } from "../app/workspaceGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
@@ -27,6 +27,7 @@ import {
   AttentionOrderIcon,
   CheckIcon,
   ChevronIcon,
+  FolderIcon,
   HandOrderIcon,
   PinIcon,
   QueueIcon,
@@ -116,8 +117,6 @@ export function Sidebar({
   );
   const workspaces = rows.map((row) => row.workspace);
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
-  const needsYou = (workspace: Workspace) =>
-    workspaceMarks(agents.get(workspace.workspace_id) ?? [], workspace.agent_status).some((mark) => mark.status === "blocked");
   // Groups by hand only: sorting by attention answers "what needs me", so the list goes flat.
   const groupOf = sort === "manual" ? workspaceGroups(rows, rootOf, groups) : new Map<string, string>();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -127,8 +126,8 @@ export function Sidebar({
   };
   const sections = groupSections(rows, groupOf).map((section) => {
     const folded = section.name !== null && collapsed.has(section.name);
-    // A folded group still shows the focused workspace and any that need you.
-    const shown = folded ? section.rows.filter((row) => showsFolded(row, needsYou)) : section.rows;
+    // A folded group hides every row; its header's icons say what waits inside.
+    const shown = folded ? [] : section.rows;
     return { ...section, folded, shown };
   });
   const shownRows = sections.flatMap((section) => section.shown);
@@ -395,7 +394,7 @@ export function Sidebar({
   };
   // A group's header: a click folds or unfolds it, and folded it carries its
   // workspaces' agent tally, so nothing waiting on you goes unseen.
-  const groupHead = (name: string, members: Row[], shown: number, folded: boolean) => {
+  const groupHead = (name: string, members: Row[], folded: boolean) => {
     const own = members.flatMap((row) => agents.get(row.workspace.workspace_id) ?? []);
     const marks = workspaceMarks(own, "unknown");
     const toggle = () => {
@@ -442,8 +441,9 @@ export function Sidebar({
         ) : (
           <button className="group-toggle" aria-expanded={!folded} title={folded ? "Show this group" : "Hide this group"} onClick={toggle}>
             <ChevronIcon />
+            {folded && <FolderIcon />}
             <span className="group-name">{name}</span>
-            {folded && members.length > shown && <span className="group-hidden">{members.length - shown} hidden</span>}
+            {folded && <span className="group-hidden">{members.length} hidden</span>}
           </button>
         )}
         {folded && cards.agentStatus && <AgentTally agents={own} marks={marks} />}
@@ -498,7 +498,7 @@ export function Sidebar({
           </li>
         )}
         {sections.flatMap((section) => {
-          const head = section.name === null ? [] : [groupHead(section.name, section.rows, section.shown.length, section.folded)];
+          const head = section.name === null ? [] : [groupHead(section.name, section.rows, section.folded)];
           return [...head, ...section.shown.map((row) => card(row, shownRows.indexOf(row)))];
         })}
       </ol>
