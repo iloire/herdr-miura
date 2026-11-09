@@ -46,9 +46,13 @@ enum Outbound<'a> {
         request_id: Option<&'a str>,
         reason: String,
     },
+    /// The ids name where a semantic notification came from, so its notice can go there.
     Notify {
         title: &'a str,
         body: Option<&'a str>,
+        workspace_id: Option<&'a str>,
+        tab_id: Option<&'a str>,
+        pane_id: Option<&'a str>,
     },
     Bell,
     Title {
@@ -190,10 +194,16 @@ fn pump(
                 ServerMessage::Notify { message, body, .. } => Outbound::Notify {
                     title: message,
                     body: body.as_deref(),
+                    workspace_id: None,
+                    tab_id: None,
+                    pane_id: None,
                 },
                 ServerMessage::SemanticNotification(note) => Outbound::Notify {
                     title: &note.title,
                     body: note.body.as_deref(),
+                    workspace_id: note.workspace_id.as_deref(),
+                    tab_id: note.tab_id.as_deref(),
+                    pane_id: note.pane_id.as_deref(),
                 },
                 ServerMessage::TerminalBell { .. } => Outbound::Bell,
                 ServerMessage::WindowTitle { title } => Outbound::Title {

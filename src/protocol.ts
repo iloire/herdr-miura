@@ -152,7 +152,15 @@ export type BridgeEvent =
   | ({ type: "frame" } & FrameUpdate)
   | { type: "response"; request_id: string; response: unknown }
   | { type: "rejected"; request_id: string | null; reason: string }
-  | { type: "notify"; title: string; body: string | null }
+  | {
+      type: "notify";
+      title: string;
+      body: string | null;
+      /// Where a semantic notification came from; null for a plain one.
+      workspace_id: string | null;
+      tab_id: string | null;
+      pane_id: string | null;
+    }
   | { type: "bell" }
   | { type: "title"; title: string | null }
   | { type: "shell_error"; message: string }

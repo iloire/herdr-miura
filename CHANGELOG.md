@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-09 14:18 — The status bar's "claude finished" notice goes to that agent's tab
+
+With many workspaces the agent that just finished was hard to find. An agent's notification in the status bar is now a
+button: clicking it focuses the tab and pane it came from, in whichever workspace. Any other notice, such as an error,
+stays plain text, and replacing the notice drops the old target so it never leads to a stale tab.
+
 ## 2026-11-08 23:23 — The folder path over the terminal has a right-click menu
 
 The path the tab strip shows when the focused pane is away from its workspace's root now opens the folder menu on a

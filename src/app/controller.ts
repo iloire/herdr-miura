@@ -1,3 +1,4 @@
+import { notifyNotice, withNoticeTarget, type NoticeTarget } from "./notice";
 import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
 import { findFile, type FoundFile } from "../files/listing";
@@ -72,6 +73,8 @@ export interface State {
   /// The latest local failure, such as a command the daemon refused. Never
   /// hides a disconnection: the status line shows `status` first.
   notice: string | null;
+  /// The tab the notice came from, for an agent's notification; null for any other notice.
+  noticeTarget: NoticeTarget | null;
   /// A failure you have to read: it stays up until dismissed.
   alert: Alert | null;
   /// The pasted image open over the window, with its number.
@@ -162,6 +165,7 @@ export class Controller {
     closeAsk: null,
     snapshot: null,
     notice: null,
+    noticeTarget: null,
     alert: null,
     pastedImage: null,
     title: null,
@@ -207,7 +211,7 @@ export class Controller {
 
   private set(patch: Partial<State>): void {
     const previous = this.state;
-    this.state = { ...this.state, ...patch };
+    this.state = { ...this.state, ...withNoticeTarget(patch) };
     const drawer = drawerOf(this.state);
     if (this.state.sidebar !== previous.sidebar || drawer !== drawerOf(previous)) {
       saveLayout({ sidebar: this.state.sidebar, drawer });
@@ -389,7 +393,7 @@ export class Controller {
         this.set({ title: event.title });
         break;
       case "notify":
-        this.set({ notice: event.body ? `${event.title}: ${event.body}` : event.title });
+        this.set(notifyNotice(event));
         break;
       case "bell":
         break;
@@ -431,6 +435,15 @@ export class Controller {
           return target ? this.daemon.sendInput(snapshot.boot_id, target, events) : Promise.resolve();
         })();
     send.catch((error) => this.notice(error));
+  }
+
+  /// Goes to the tab the notice came from, in whichever workspace, and to its pane.
+  goToNotice(): void {
+    const target = this.state.noticeTarget;
+    if (!target) return;
+    this.request("tab.focus", { tab_id: target.tabId });
+    if (target.paneId) this.request("pane.focus", { pane_id: target.paneId });
+    this.focusTerminal();
   }
 
   /// Runs a window-side action, such as opening a folder, showing its failure

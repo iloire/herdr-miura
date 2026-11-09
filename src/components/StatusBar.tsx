@@ -58,7 +58,15 @@ export function StatusBar({
         </button>
       )}
       <ClaudeUsage usage={usage} now={now} onOpen={onOpenUsage} />
-      {notice && status.phase === "connected" && <span className="notice">{notice}</span>}
+      {notice &&
+        status.phase === "connected" &&
+        (state.noticeTarget ? (
+          <button className="notice notice-link" title="Go to this tab" onClick={() => controller.goToNotice()}>
+            {notice}
+          </button>
+        ) : (
+          <span className="notice">{notice}</span>
+        ))}
       <span className="spacer" />
       {workspace && <span className="status-workspace">{workspace}</span>}
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
