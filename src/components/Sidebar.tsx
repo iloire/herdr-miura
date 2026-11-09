@@ -10,7 +10,8 @@ import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import type { Settings } from "../app/settings";
 import { useAutoCards } from "../app/useAutoCards";
-import { groupWorktrees, workspaceOn } from "../app/worktreeGroups";
+import { groupWorktrees, type Row, workspaceOn } from "../app/worktreeGroups";
+import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, showsFolded, workspaceGroups } from "../app/workspaceGroups";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
@@ -62,6 +63,8 @@ export function Sidebar({
   slots,
   onChooseColor,
   onMoveColor,
+  groups,
+  onSetGroups,
   cards,
 }: {
   controller: Controller;
@@ -95,6 +98,10 @@ export function Sidebar({
   onChooseColor: (key: string, slot: HueSlot | null) => void;
   /// Keeps a chosen color with a workspace whose name changed.
   onMoveColor: (from: string, to: string, slot: HueSlot) => void;
+  /// Each workspace's sidebar group, by `colorKey`.
+  groups: Settings["workspaceGroups"];
+  /// Puts workspaces in groups, by `colorKey`; `null` takes one out.
+  onSetGroups: (entries: [string, string | null][]) => void;
   /// What every card shows.
   cards: Settings["workspaceCards"];
 }) {
@@ -108,13 +115,34 @@ export function Sidebar({
     (workspace) => worktrees.get(workspace.workspace_id) ?? [],
   );
   const workspaces = rows.map((row) => row.workspace);
+  const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
+  const needsYou = (workspace: Workspace) =>
+    workspaceMarks(agents.get(workspace.workspace_id) ?? [], workspace.agent_status).some((mark) => mark.status === "blocked");
+  // Groups by hand only: sorting by attention answers "what needs me", so the list goes flat.
+  const groupOf = sort === "manual" ? workspaceGroups(rows, rootOf, groups) : new Map<string, string>();
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const fold = (next: Set<string>) => {
+    setCollapsed(next);
+    saveCollapsed(next);
+  };
+  const sections = groupSections(rows, groupOf).map((section) => {
+    const folded = section.name !== null && collapsed.has(section.name);
+    // A folded group still shows the focused workspace and any that need you.
+    const shown = folded ? section.rows.filter((row) => showsFolded(row, needsYou)) : section.rows;
+    return { ...section, folded, shown };
+  });
+  const shownRows = sections.flatMap((section) => section.shown);
+  const shownWorkspaces = shownRows.map((row) => row.workspace);
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null);
+  /// The workspace key a New Group… is being named for.
+  const [newGroupFor, setNewGroupFor] = useState<string | null>(null);
   // Rows are dragged where they show, but Herdr moves workspaces in its own
   // list, which keeps worktrees wherever they were opened: translate both.
   const drag = useRowDrag(sort === "manual", (from, slot) => {
     const daemon = snapshot?.workspaces ?? [];
-    const workspace = workspaces[from];
+    const workspace = shownWorkspaces[from];
     const at = (shown: Workspace | undefined) => (shown ? daemon.indexOf(shown) : daemon.length);
-    const index = workspace ? moveIndex(at(workspace), at(workspaces[slot])) : null;
+    const index = workspace ? moveIndex(at(workspace), at(shownWorkspaces[slot])) : null;
     if (workspace && index !== null) {
       controller.request("workspace.move", { workspace_id: workspace.workspace_id, insert_index: index });
     }
@@ -124,7 +152,6 @@ export function Sidebar({
     setSort(next);
     saveSort(next);
   };
-  const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
   const [openCards, setOpenCards] = useState(loadOpenCards);
   const automatic = cards.details === "auto";
   const autoCards = useAutoCards(
@@ -156,6 +183,273 @@ export function Sidebar({
   const focused = workspaces.find((workspace) => workspace.focused);
   const focusedFolder = focused && folderOf(focused);
   const asking = [...landsByRepo].find(([, land]) => land.phase === "asking");
+  const card = ({ workspace, parent }: Row, index: number) => {
+      const own = agents.get(workspace.workspace_id) ?? [];
+      const listed = cardAgents(own);
+      const path = snapshot && (rootOf(workspace) ?? workspaceDirectory(workspace, snapshot));
+      const marks = workspaceMarks(own, workspace.agent_status);
+      const needsYou = marks.some((mark) => mark.status === "blocked");
+      const colored = slots.has(workspace.workspace_id);
+      const listening = ports.get(workspace.workspace_id) ?? [];
+      const trees = worktrees.get(workspace.workspace_id) ?? [];
+      const pinnedTabs = pinned.get(workspace.workspace_id) ?? [];
+      const queue = queues.get(workspace.workspace_id) ?? null;
+      const openQueue = () => onOpenQueue(workspace.workspace_id);
+      // A card with nothing more to show has nothing to open.
+      const expandable = listed.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
+      const open = cardOpen(cards.details, expandable, automatic ? autoCards.shown(workspace.workspace_id) : openCards.has(workspace.workspace_id));
+      const focus = () => {
+        if (drag.consumeClick()) return;
+        controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
+      };
+      const openWorktrees = () => onOpenWorktrees(workspace.workspace_id);
+      const land: LandAction | null = lands && {
+        busy: (worktree) => landing(landsByRepo.get(worktree.repo)),
+        // Read when asked, not from this render: it is asked again after a long check.
+        start: (worktree) =>
+          void lands.ask(workspace.workspace_id, worktree, () =>
+            agentRefusal(worktree.path, controller.getState().snapshot),
+          ),
+      };
+      const landed = [...landsByRepo].find(([, land]) => land.card === workspace.workspace_id);
+      const gitLine = (
+        <WorkspaceGit
+          // A collapsed card is one line, so its branch waits in the name's tooltip.
+          branch={open ? workspace.branch : null}
+          aheadBehind={cards.gitStatus ? workspace.git_ahead_behind : null}
+          changed={cards.gitStatus ? (changedFiles.get(workspace.workspace_id) ?? 0) : 0}
+          worktrees={trees}
+          onOpenWorktrees={openWorktrees}
+        />
+      );
+      // The name line's end: everything that fits beside the name while collapsed.
+      const headEnd = (
+        <>
+          {open ? (
+            <PortsMark ports={listening} />
+          ) : (
+            <>
+              {gitLine}
+              <QueueChip queue={queue} onOpen={openQueue} />
+              <PinnedTabs tabs={pinnedTabs} />
+              <LoopMark tags={loopTags(own)} />
+            </>
+          )}
+          {cards.agentStatus && <AgentTally agents={own} marks={marks} />}
+        </>
+      );
+      return (
+        <li
+          key={workspace.workspace_id}
+          className={[drag.rowClass(index, shownWorkspaces.length), parent && "worktree-child"].filter(Boolean).join(" ") || undefined}
+        >
+          {/* A worktree hangs off its main checkout's card. */}
+          {parent && <span className="worktree-link" aria-hidden="true" />}
+          <div
+            className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored"].filter(Boolean).join(" ")}
+            style={colored ? ({ "--hue": workspaceHue(workspace, slots) } as CSSProperties) : undefined}
+            title={parent ? `A worktree of ${parent.label}` : undefined}
+            {...drag.handlers(index)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              const folder = folderOf(workspace);
+              const rename: MenuItem = {
+                label: "Rename…",
+                icon: <RenameIcon />,
+                onSelect: () => setRenaming(workspace.workspace_id),
+              };
+              // The agents as they stand now: one that finishes again before
+              // the pick has a new sequence, so its mark stays.
+              const finished = unseenDone(own);
+              const markSeen: MenuItem = {
+                label: "Mark as Seen",
+                icon: <CheckIcon />,
+                // Stays when there is nothing to mark, so the rows below don't jump.
+                disabled: finished.length === 0,
+                onSelect: () => onMarkSeen(finished),
+              };
+              // A worktree wears its main checkout's color, and only a local
+              // workspace has a root to keep the choice under.
+              const root = rootOf(workspace);
+              const colors = root !== null && !parent ? [colorSwatches("Workspace color", "Automatic", slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(colorKey(root, workspace.label), slot))] : [];
+              const key = root !== null && !parent ? colorKey(root, workspace.label) : null;
+              const current = groupOf.get(workspace.workspace_id) ?? null;
+              // A worktree goes where its main checkout goes, and a remote one has no key to keep.
+              const move: MenuItem[] =
+                key === null || sort !== "manual"
+                  ? []
+                  : [
+                      {
+                        label: "Move to Group",
+                        items: [
+                          groupNames(groups).map((name) => ({
+                            label: name,
+                            icon: name === current ? <CheckIcon /> : undefined,
+                            disabled: name === current,
+                            onSelect: () => onSetGroups([[key, name]]),
+                          })),
+                          [
+                            { label: "New Group…", onSelect: () => setNewGroupFor(key) },
+                            ...(current === null ? [] : [{ label: "Remove from Group", onSelect: () => onSetGroups([[key, null]]) }]),
+                          ],
+                        ],
+                      },
+                    ];
+              const items = [[rename, markSeen, ...colors, ...move]];
+              if (path && folder) {
+                const queue: MenuItem = {
+                  label: "Add to Queue…",
+                  icon: <QueueIcon />,
+                  onSelect: () => onOpenQueue(workspace.workspace_id),
+                };
+                items.push([newTeam(workspace.workspace_id, folder), queue], folderMenu(controller, path));
+              }
+              setMenu({ x: event.clientX, y: event.clientY, items });
+            }}
+          >
+            {/* While its name is edited the card is a plain box: a field cannot sit in a button. */}
+            {renaming === workspace.workspace_id ? (
+              <div className="workspace-main">
+                <span className="workspace-head">
+                  <RenameField
+                    className="workspace-rename"
+                    label="Workspace name"
+                    initial={workspace.label}
+                    onDone={(label) => {
+                      setRenaming(null);
+                      controller.focusTerminal();
+                      if (label !== null && label !== workspace.label) {
+                        controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
+                        const root = rootOf(workspace);
+                        const slot = slots.get(workspace.workspace_id);
+                        if (root !== null && slot && !parent) onMoveColor(colorKey(root, workspace.label), colorKey(root, label), slot);
+                    const group = root !== null && !parent ? groups[colorKey(root, workspace.label)] : undefined;
+                    if (root !== null && group) onSetGroups([[colorKey(root, label), group], [colorKey(root, workspace.label), null]]);
+                      }
+                    }}
+                  />
+                  {headEnd}
+                </span>
+                {open && gitLine}
+              </div>
+            ) : (
+              <button
+                className="workspace-main"
+                aria-current={workspace.focused ? "true" : undefined}
+                onClick={focus}
+                onDoubleClick={() => setRenaming(workspace.workspace_id)}
+              >
+                <span className="workspace-head">
+                  <span className="workspace-label" title={[path, shownBranch(workspace.branch)].filter(Boolean).join("\n") || undefined}>
+                    {workspace.label}
+                  </span>
+                  {headEnd}
+                </span>
+                {open && gitLine}
+              </button>
+            )}
+            {/* Beside the card's button, not in it, as is everything below:
+                a row can be a button of its own. */}
+            {expandable && hasChevron(cards.details) && (
+              <button
+                className="workspace-chevron"
+                title={open ? "Hide details" : "Show details"}
+                aria-label={`${open ? "Hide" : "Show"} details of ${workspace.label}`}
+                aria-expanded={open}
+                onClick={() => toggleOpen(workspace.workspace_id)}
+              >
+                <ChevronIcon />
+              </button>
+            )}
+            {snapshot &&
+              (open ? (
+                <>
+                  <div className="workspace-tray" onClick={focus}>
+                    <QueueChip queue={queue} onOpen={openQueue} />
+                    <PinnedTabs tabs={pinnedTabs} />
+                    <LoopMark tags={loopTags(own)} />
+                  </div>
+                  <CardDetails
+                    controller={controller}
+                    snapshot={snapshot}
+                    agents={listed}
+                    worktrees={trees}
+                    ports={listening}
+                    openOn={(worktree) => workspaceOn(worktree, workspaces, folderOf)}
+                    onOpenWorktrees={openWorktrees}
+                    land={land}
+                  />
+                </>
+              ) : (
+                <AttentionRows
+                  controller={controller}
+                  snapshot={snapshot}
+                  agents={own}
+                  onExpand={cards.details === "never" ? null : () => toggleOpen(workspace.workspace_id)}
+                />
+              ))}
+            {landed && <LandNote land={landed[1]} onDismiss={() => lands?.dismiss(landed[0])} />}
+          </div>
+        </li>
+      );
+  };
+  // A group's header: a click folds or unfolds it, and folded it carries its
+  // workspaces' agent tally, so nothing waiting on you goes unseen.
+  const groupHead = (name: string, members: Row[], shown: number, folded: boolean) => {
+    const own = members.flatMap((row) => agents.get(row.workspace.workspace_id) ?? []);
+    const marks = workspaceMarks(own, "unknown");
+    const toggle = () => {
+      const next = new Set(collapsed);
+      if (!next.delete(name)) next.add(name);
+      fold(next);
+    };
+    const names = [...new Set(groupOf.values())];
+    return (
+      <li
+        key={`group:${name}`}
+        className={["group-head", folded && "folded"].filter(Boolean).join(" ")}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({
+            x: event.clientX,
+            y: event.clientY,
+            items: [
+              [
+                { label: "Show Only This Group", onSelect: () => fold(new Set(names.filter((other) => other !== name))) },
+                { label: "Show All Groups", disabled: collapsed.size === 0, onSelect: () => fold(new Set()) },
+              ],
+              [
+                { label: "Rename Group…", icon: <RenameIcon />, onSelect: () => setRenamingGroup(name) },
+                { label: "Ungroup", hint: "Workspaces stay open", onSelect: () => onSetGroups(renameGroup(groups, name, null)) },
+              ],
+            ],
+          });
+        }}
+      >
+        {renamingGroup === name ? (
+          <RenameField
+            className="group-rename"
+            label="Group name"
+            initial={name}
+            onDone={(label) => {
+              setRenamingGroup(null);
+              controller.focusTerminal();
+              if (label === null || label === name) return;
+              onSetGroups(renameGroup(groups, name, label));
+              if (collapsed.has(name)) fold(new Set([...collapsed].filter((other) => other !== name).concat(label)));
+            }}
+          />
+        ) : (
+          <button className="group-toggle" aria-expanded={!folded} title={folded ? "Show this group" : "Hide this group"} onClick={toggle}>
+            <ChevronIcon />
+            <span className="group-name">{name}</span>
+            {folded && members.length > shown && <span className="group-hidden">{members.length - shown} hidden</span>}
+          </button>
+        )}
+        {folded && cards.agentStatus && <AgentTally agents={own} marks={marks} />}
+      </li>
+    );
+  };
   return (
     <nav className="sidebar" aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
@@ -189,190 +483,23 @@ export function Sidebar({
         className={["workspace-list", cards.compact && "compact", !hasChevron(cards.details) && "no-chevrons"].filter(Boolean).join(" ")}
         ref={drag.list}
       >
-        {rows.map(({ workspace, parent }, index) => {
-          const own = agents.get(workspace.workspace_id) ?? [];
-          const listed = cardAgents(own);
-          const path = snapshot && (rootOf(workspace) ?? workspaceDirectory(workspace, snapshot));
-          const marks = workspaceMarks(own, workspace.agent_status);
-          const needsYou = marks.some((mark) => mark.status === "blocked");
-          const colored = slots.has(workspace.workspace_id);
-          const listening = ports.get(workspace.workspace_id) ?? [];
-          const trees = worktrees.get(workspace.workspace_id) ?? [];
-          const pinnedTabs = pinned.get(workspace.workspace_id) ?? [];
-          const queue = queues.get(workspace.workspace_id) ?? null;
-          const openQueue = () => onOpenQueue(workspace.workspace_id);
-          // A card with nothing more to show has nothing to open.
-          const expandable = listed.length + trees.length + listening.length + pinnedTabs.length > 0 || shownBranch(workspace.branch) !== null;
-          const open = cardOpen(cards.details, expandable, automatic ? autoCards.shown(workspace.workspace_id) : openCards.has(workspace.workspace_id));
-          const focus = () => {
-            if (drag.consumeClick()) return;
-            controller.request("workspace.focus", { workspace_id: workspace.workspace_id });
-          };
-          const openWorktrees = () => onOpenWorktrees(workspace.workspace_id);
-          const land: LandAction | null = lands && {
-            busy: (worktree) => landing(landsByRepo.get(worktree.repo)),
-            // Read when asked, not from this render: it is asked again after a long check.
-            start: (worktree) =>
-              void lands.ask(workspace.workspace_id, worktree, () =>
-                agentRefusal(worktree.path, controller.getState().snapshot),
-              ),
-          };
-          const landed = [...landsByRepo].find(([, land]) => land.card === workspace.workspace_id);
-          const gitLine = (
-            <WorkspaceGit
-              // A collapsed card is one line, so its branch waits in the name's tooltip.
-              branch={open ? workspace.branch : null}
-              aheadBehind={cards.gitStatus ? workspace.git_ahead_behind : null}
-              changed={cards.gitStatus ? (changedFiles.get(workspace.workspace_id) ?? 0) : 0}
-              worktrees={trees}
-              onOpenWorktrees={openWorktrees}
+        {newGroupFor !== null && (
+          <li className="group-head">
+            <RenameField
+              className="group-rename"
+              label="New group name"
+              initial=""
+              onDone={(name) => {
+                setNewGroupFor(null);
+                controller.focusTerminal();
+                if (name !== null) onSetGroups([[newGroupFor, name]]);
+              }}
             />
-          );
-          // The name line's end: everything that fits beside the name while collapsed.
-          const headEnd = (
-            <>
-              {open ? (
-                <PortsMark ports={listening} />
-              ) : (
-                <>
-                  {gitLine}
-                  <QueueChip queue={queue} onOpen={openQueue} />
-                  <PinnedTabs tabs={pinnedTabs} />
-                  <LoopMark tags={loopTags(own)} />
-                </>
-              )}
-              {cards.agentStatus && <AgentTally agents={own} marks={marks} />}
-            </>
-          );
-          return (
-            <li
-              key={workspace.workspace_id}
-              className={[drag.rowClass(index, workspaces.length), parent && "worktree-child"].filter(Boolean).join(" ") || undefined}
-            >
-              {/* A worktree hangs off its main checkout's card. */}
-              {parent && <span className="worktree-link" aria-hidden="true" />}
-              <div
-                className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored"].filter(Boolean).join(" ")}
-                style={colored ? ({ "--hue": workspaceHue(workspace, slots) } as CSSProperties) : undefined}
-                title={parent ? `A worktree of ${parent.label}` : undefined}
-                {...drag.handlers(index)}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  const folder = folderOf(workspace);
-                  const rename: MenuItem = {
-                    label: "Rename…",
-                    icon: <RenameIcon />,
-                    onSelect: () => setRenaming(workspace.workspace_id),
-                  };
-                  // The agents as they stand now: one that finishes again before
-                  // the pick has a new sequence, so its mark stays.
-                  const finished = unseenDone(own);
-                  const markSeen: MenuItem = {
-                    label: "Mark as Seen",
-                    icon: <CheckIcon />,
-                    // Stays when there is nothing to mark, so the rows below don't jump.
-                    disabled: finished.length === 0,
-                    onSelect: () => onMarkSeen(finished),
-                  };
-                  // A worktree wears its main checkout's color, and only a local
-                  // workspace has a root to keep the choice under.
-                  const root = rootOf(workspace);
-                  const colors = root !== null && !parent ? [colorSwatches("Workspace color", "Automatic", slots.get(workspace.workspace_id) ?? null, (slot) => onChooseColor(colorKey(root, workspace.label), slot))] : [];
-                  const items = [[rename, markSeen, ...colors]];
-                  if (path && folder) {
-                    const queue: MenuItem = {
-                      label: "Add to Queue…",
-                      icon: <QueueIcon />,
-                      onSelect: () => onOpenQueue(workspace.workspace_id),
-                    };
-                    items.push([newTeam(workspace.workspace_id, folder), queue], folderMenu(controller, path));
-                  }
-                  setMenu({ x: event.clientX, y: event.clientY, items });
-                }}
-              >
-                {/* While its name is edited the card is a plain box: a field cannot sit in a button. */}
-                {renaming === workspace.workspace_id ? (
-                  <div className="workspace-main">
-                    <span className="workspace-head">
-                      <RenameField
-                        className="workspace-rename"
-                        label="Workspace name"
-                        initial={workspace.label}
-                        onDone={(label) => {
-                          setRenaming(null);
-                          controller.focusTerminal();
-                          if (label !== null && label !== workspace.label) {
-                            controller.request("workspace.rename", { workspace_id: workspace.workspace_id, label });
-                            const root = rootOf(workspace);
-                            const slot = slots.get(workspace.workspace_id);
-                            if (root !== null && slot && !parent) onMoveColor(colorKey(root, workspace.label), colorKey(root, label), slot);
-                          }
-                        }}
-                      />
-                      {headEnd}
-                    </span>
-                    {open && gitLine}
-                  </div>
-                ) : (
-                  <button
-                    className="workspace-main"
-                    aria-current={workspace.focused ? "true" : undefined}
-                    onClick={focus}
-                    onDoubleClick={() => setRenaming(workspace.workspace_id)}
-                  >
-                    <span className="workspace-head">
-                      <span className="workspace-label" title={[path, shownBranch(workspace.branch)].filter(Boolean).join("\n") || undefined}>
-                        {workspace.label}
-                      </span>
-                      {headEnd}
-                    </span>
-                    {open && gitLine}
-                  </button>
-                )}
-                {/* Beside the card's button, not in it, as is everything below:
-                    a row can be a button of its own. */}
-                {expandable && hasChevron(cards.details) && (
-                  <button
-                    className="workspace-chevron"
-                    title={open ? "Hide details" : "Show details"}
-                    aria-label={`${open ? "Hide" : "Show"} details of ${workspace.label}`}
-                    aria-expanded={open}
-                    onClick={() => toggleOpen(workspace.workspace_id)}
-                  >
-                    <ChevronIcon />
-                  </button>
-                )}
-                {snapshot &&
-                  (open ? (
-                    <>
-                      <div className="workspace-tray" onClick={focus}>
-                        <QueueChip queue={queue} onOpen={openQueue} />
-                        <PinnedTabs tabs={pinnedTabs} />
-                        <LoopMark tags={loopTags(own)} />
-                      </div>
-                      <CardDetails
-                        controller={controller}
-                        snapshot={snapshot}
-                        agents={listed}
-                        worktrees={trees}
-                        ports={listening}
-                        openOn={(worktree) => workspaceOn(worktree, workspaces, folderOf)}
-                        onOpenWorktrees={openWorktrees}
-                        land={land}
-                      />
-                    </>
-                  ) : (
-                    <AttentionRows
-                      controller={controller}
-                      snapshot={snapshot}
-                      agents={own}
-                      onExpand={cards.details === "never" ? null : () => toggleOpen(workspace.workspace_id)}
-                    />
-                  ))}
-                {landed && <LandNote land={landed[1]} onDismiss={() => lands?.dismiss(landed[0])} />}
-              </div>
-            </li>
-          );
+          </li>
+        )}
+        {sections.flatMap((section) => {
+          const head = section.name === null ? [] : [groupHead(section.name, section.rows, section.shown.length, section.folded)];
+          return [...head, ...section.shown.map((row) => card(row, shownRows.indexOf(row)))];
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
@@ -414,7 +541,11 @@ function useRowDrag(enabled: boolean, onDrop: (from: number, slot: number) => vo
   const [state, setState] = useState<{ from: number; slot: number } | null>(null);
 
   const slotAt = (y: number) =>
-    dropSlot(y, [...(list.current?.children ?? [])].map((row) => row.getBoundingClientRect()));
+    dropSlot(
+      y,
+      // A group's header is not a row: only workspaces count toward the gaps.
+      [...(list.current?.children ?? [])].filter((row) => !row.classList.contains("group-head")).map((row) => row.getBoundingClientRect()),
+    );
 
   const end = () => {
     press.current = null;

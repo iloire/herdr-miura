@@ -255,6 +255,75 @@ body.resizing .drawer {
   bottom: -1px;
 }
 
+/* A group of workspaces: a quiet caps label over its cards, as the list's own
+   head is. Folded, it keeps its agents' tally, so nothing waiting is missed. */
+.workspace-list > li.group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  padding-right: 10px;
+}
+
+.workspace-list > li.group-head:first-child {
+  margin-top: 0;
+}
+
+.group-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 4px 4px 2px;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.group-toggle:hover {
+  color: var(--text);
+}
+
+.group-toggle svg {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  transition: transform 120ms ease;
+}
+
+.group-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-hidden {
+  flex: none;
+  color: var(--faint);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.group-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--faint);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bright);
+  font: inherit;
+  outline: none;
+}
+
 body.reordering,
 body.reordering * {
   cursor: grabbing !important;

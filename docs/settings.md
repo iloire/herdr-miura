@@ -28,6 +28,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `tabs.wrap` | boolean | `true` | Tabs that do not fit wrap onto more rows. `false` keeps one row, which scrolls sideways with no scrollbar and keeps the open tab and the + in view. |
 | `new_tab.command` | string, one line, at most 1024 characters | none | What the tab strip's + and ⌘⇧T type into the new tab's shell, e.g. `"claude"`, as herdr-gpui's `plus_command`. ⌥-click on + or ⌘T always opens a plain shell, and + turns into an outlined terminal icon while ⌥ is held. |
 | `workspace_colors` | table of folder to color | none | A workspace's color, chosen in its right-click menu: each key is a workspace's folder as a full path, then `#` and its name (quoted in TOML), and each value is `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`. See below. |
+| `workspace_groups` | table of folder to group name | none | The sidebar group a workspace is in, chosen with Move to Group on its right-click menu, keyed as `workspace_colors` is. See below. |
 | `workspace_cards.git_status` | boolean | `true` | Show the Git counts on every card: ↑ to push, ↓ to pull, ± changed files. |
 | `workspace_cards.agent_status` | boolean | `true` | Show the agent status marks and tally on the head of every card. |
 | `workspace_cards.details` | `"manual"`, `"auto"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
@@ -137,3 +138,25 @@ cursor or yellow, the team's magenta) come from the palette. Those, the muted te
 just far enough to read as words, 4.5:1, on the background, the sidebar and a selected row; line numbers get 3:1. A solid
 fill of any of them holds words in the background color at the same ratio. Terminal cells always keep the colors their program asked for. Herdr Night keeps its own
 hand-drawn chrome.
+
+## Workspace groups
+
+A workspace's right-click menu has Move to Group: an existing group, New Group…, which names one in place at the top of
+the list, or Remove from Group. It writes `workspace_groups`, keyed by folder and name as `workspace_colors` is, and the
+value is the group's name, so a group exists while a workspace is in it.
+
+```toml
+[workspace_groups]
+"/Users/me/code/notes#notes" = "Life"
+"/Users/me/code/app#app" = "Work"
+```
+
+- Workspaces in no group come first, without a header; then each group, in the order of its first workspace, under a
+  header. A click on the header folds or unfolds the group. Its right-click has Show Only This Group (folds the others),
+  Show All Groups, Rename Group… and Ungroup, which takes every workspace out and closes none.
+- A folded group keeps its agents' tally on the header and still shows the focused workspace and any workspace with an
+  agent waiting on you, so nothing that needs you is hidden. Which groups are folded is the window's, not the file's.
+- Groups show only when sorting by hand. Sorting by attention answers "what needs me", so the list goes flat.
+- A worktree goes where its main checkout goes. A workspace with no local folder, such as one on a remote host, can't
+  be grouped. A rename in the sidebar takes the group along.
+- Dragging reorders within the daemon's list as before; it does not move a workspace between groups.

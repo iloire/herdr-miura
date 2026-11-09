@@ -18,6 +18,13 @@ describe("parseSettings", () => {
     }
   });
 
+  it("reads workspace groups, warning about a name that is not one", () => {
+    const { settings, warnings } = parseSettings({ workspace_groups: { "/a#a": " Work ", "/b#b": "", "/c#c": 3 } });
+    expect(settings.workspaceGroups).toEqual({ "/a#a": "Work" });
+    expect(warnings).toHaveLength(2);
+    expect(parseSettings({ workspace_groups: "Work" }).warnings[0]).toContain("[workspace_groups]");
+  });
+
   it("warns when workspace_colors is not a table", () => {
     const { settings, warnings } = parseSettings({ workspace_colors: "red" });
     expect(settings.workspaceColors).toEqual({});
@@ -59,6 +66,7 @@ describe("parseSettings", () => {
       tabsWrap: false,
       newTabCommand: "claude",
       workspaceColors: { "/code/notes": "cyan" },
+      workspaceGroups: {},
       workspaceCards: { gitStatus: false, agentStatus: false, details: "never", compact: true },
     });
   });

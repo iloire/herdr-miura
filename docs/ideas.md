@@ -5,7 +5,7 @@ own `docs/plan-*.md`.
 
 ## Workspace groups
 
-*Added 2026-11-01. Not planned.*
+*Added 2026-11-01. Step 1 built on the `workspace-groups` branch, 2026-11-09: see [settings.md](settings.md#workspace-groups).*
 
 Create two or three named groups in the sidebar, put workspaces in them, and expand or collapse each group. Today the list
 is flat: the only grouping is a worktree nesting under its main checkout, plus the sort by hand or by attention.

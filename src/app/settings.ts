@@ -35,6 +35,8 @@ export interface Settings {
   newTabCommand: string | null;
   /// The palette slot chosen for a workspace, by its folder.
   workspaceColors: Record<string, HueSlot>;
+  /// The sidebar group a workspace is in, by its folder and name as colors are.
+  workspaceGroups: Record<string, string>;
   /// What every workspace card shows. Nothing here may hide an agent that needs you.
   workspaceCards: {
     /// The Git counts: to push, to pull, changed files.
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tabsWrap: true,
   newTabCommand: null,
   workspaceColors: {},
+  workspaceGroups: {},
   workspaceCards: { gitStatus: true, agentStatus: true, details: "manual", compact: false },
 };
 
@@ -137,6 +140,15 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   } else if (colors !== undefined) {
     warnings.push("`workspace_colors` should be a [workspace_colors] table of workspaces; every workspace keeps its automatic color.");
   }
+  const groups = get("workspace_groups");
+  if (isObject(groups)) {
+    for (const [key, name] of Object.entries(groups)) {
+      if (typeof name === "string" && name.trim() && !/[\u0000-\u001f\u007f]/.test(name)) settings.workspaceGroups[key] = name.trim();
+      else warnings.push(`\`workspace_groups\` for ${key} should be a group name; that workspace is ungrouped.`);
+    }
+  } else if (groups !== undefined) {
+    warnings.push("`workspace_groups` should be a [workspace_groups] table of workspaces; every workspace is ungrouped.");
+  }
   const cards = settings.workspaceCards;
   cards.gitStatus = flag("workspace_cards.git_status", cards.gitStatus);
   cards.agentStatus = flag("workspace_cards.agent_status", cards.agentStatus);
@@ -173,6 +185,11 @@ export function saveSetting(key: string, value: string | number | boolean | null
 /// Chooses a workspace's color, by its folder; `null` goes back to automatic.
 export function saveWorkspaceColor(key: string, slot: HueSlot | null): Promise<void> {
   return invoke("settings_set_entry", { table: "workspace_colors", entry: key, value: slot });
+}
+
+/// Puts a workspace in a sidebar group, by its folder and name; `null` ungroups it.
+export function saveWorkspaceGroup(key: string, name: string | null): Promise<void> {
+  return invoke("settings_set_entry", { table: "workspace_groups", entry: key, value: name });
 }
 
 /// The terminal's font list: the chosen face, then the usual monospace fallbacks.

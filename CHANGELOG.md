@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-09 14:28 — Workspaces can be put in groups that fold away
+
+With twenty workspaces open, the list held far more than the work in hand, and closing them lost their tabs. A
+workspace's right-click now has Move to Group, and each group gets a header that folds it. Show Only This Group folds the
+rest. A folded group keeps its agents' tally, and still shows the focused workspace and any agent waiting on you. Groups
+live in the settings file's `workspace_groups`; sorting by attention ignores them.
+
 ## 2026-11-09 14:18 — The status bar's "claude finished" notice goes to that agent's tab
 
 With many workspaces the agent that just finished was hard to find. An agent's notification in the status bar is now a
