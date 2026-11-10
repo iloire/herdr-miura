@@ -7,8 +7,9 @@ import { TeamDialog } from "./TeamDialog";
 
 /// The focused workspace's team, under the workspace list: each role with a
 /// letter in its hue and what it is doing. A started role's row focuses its
-/// tab; one not started yet starts it. Nothing shows for a folder without a
-/// team file. The header opens the team in full, with what each role's agent
+/// tab; one not started yet starts it. While no role is started the team
+/// folds to its head line: the letters, each starting its role, and a button
+/// that starts them all. Nothing shows for a folder without a team file. The header opens the team in full, with what each role's agent
 /// file says.
 export function TeamSection({
   controller,
@@ -55,6 +56,37 @@ export function TeamSection({
     );
   }
   const rows = teamRows(team.members, workspace.workspace_id, snapshot);
+  if (rows.every(({ state }) => state === "absent")) {
+    return (
+      <section className="team" aria-label="Team">
+        <header className="sidebar-head team-idle">
+          {title(rows.length)}
+          <span className="team-avatars">
+            {rows.map(({ member }) => (
+              <button
+                key={member.role}
+                className="team-avatar"
+                style={{ "--hue": hueColor(member.role) } as CSSProperties}
+                title={`Start ${member.role}: claude --agent ${member.agent}, from ${TEAM_FILE}`}
+                aria-label={`Start ${member.role}`}
+                onClick={() => controller.act(startTeam(workspace.workspace_id, directory, [member]))}
+              >
+                {member.role[0]?.toUpperCase()}
+              </button>
+            ))}
+          </span>
+          <button
+            className="team-start-all"
+            title={`Start every role in ${TEAM_FILE}`}
+            onClick={() => controller.act(startTeam(workspace.workspace_id, directory, team.members))}
+          >
+            Start all
+          </button>
+        </header>
+        {dialog}
+      </section>
+    );
+  }
   return (
     <section className="team" aria-label="Team">
       <header className="sidebar-head">{title(rows.length)}</header>

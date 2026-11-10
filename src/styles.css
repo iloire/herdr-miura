@@ -3707,6 +3707,52 @@ body.resizing-rows .agents > :not(.agents-resizer) {
   outline: none;
 }
 
+/* No role started: the team on its head line, the letters dim until hovered,
+   each starting its role, and a button to start them all. */
+.team-idle {
+  gap: 8px;
+}
+
+.team-avatars {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.team-avatars .team-avatar {
+  border: 0;
+  cursor: pointer;
+  letter-spacing: 0;
+  opacity: 0.5;
+  padding: 0;
+}
+
+.team-avatars .team-avatar:hover,
+.team-avatars .team-avatar:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.team-start-all {
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 1px 4px;
+  text-transform: inherit;
+}
+
+.team-start-all:hover,
+.team-start-all:focus-visible {
+  background: var(--rule);
+  color: var(--text);
+  outline: none;
+}
+
 /* The team in full, in the worktrees dialog's frame: a card per role whose
    rail, letter and wash take the role's own hue, as its row in the sidebar
    does, so the roles read as lanes. A card whose agent file has a problem
