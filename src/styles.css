@@ -3490,6 +3490,65 @@ kbd {
 
 .agents .sidebar-head {
   flex: none;
+  padding-left: 8px;
+}
+
+/* Its head folds it to one line, keeping the count. */
+.agents-toggle {
+  flex: 0 1 auto;
+}
+
+/* Dragged to a height, it keeps it: no cap, and the list scrolls inside. */
+.agents.sized {
+  flex: none;
+  max-height: none;
+}
+
+/* A grab strip over its top border, lit while hovered, dragged or focused. */
+.agents {
+  position: relative;
+}
+
+.agents-resizer {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  z-index: 2;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.agents-resizer::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.agents-resizer:hover::after,
+.agents-resizer:focus-visible::after,
+.agents-resizer.dragging::after {
+  background: var(--lantern);
+}
+
+.agents-resizer:focus-visible {
+  outline: none;
+}
+
+body.resizing-rows {
+  cursor: row-resize;
+}
+
+body.resizing-rows .app > :not(.sidebar),
+body.resizing-rows .sidebar > :not(.agents),
+body.resizing-rows .agents > :not(.agents-resizer) {
+  pointer-events: none;
 }
 
 .agents-list {

@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-10 09:57 — Resize and fold the sidebar's Agents section
+
+The Agents section took what it needed up to a fixed share of the sidebar, so a long list of agents squeezed the
+workspaces with no way to give them the room back. Its top edge now drags up and down to set its height (double-click
+returns it to its natural size, arrow keys work when the edge is focused), and its head folds it to one line that keeps
+the count. Both are remembered by the window.
+
 ## 2026-11-10 00:54 — The sidebar's Agents section is back
 
 With many workspaces, and groups folded away, the cards no longer showed at a glance which agents were working: a
