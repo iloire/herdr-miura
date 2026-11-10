@@ -179,6 +179,14 @@ export const LibraryIcon = () => (
   </Icon>
 );
 
+/// A magnifier: finding a workspace.
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="7" cy="7" r="4" {...LINE} />
+    <path d="m10 10 3.5 3.5" {...LINE} />
+  </Icon>
+);
+
 export const RenameIcon = () => (
   <Icon>
     <path d="M10.5 3 13 5.5 6 12.5H3.5V10L10.5 3Z" {...LINE} />

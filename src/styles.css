@@ -217,10 +217,41 @@ body.resizing .drawer {
   padding: 0 6px;
 }
 
-.sort-toggle {
+.sidebar-search {
   margin-left: auto;
 }
 
+/* The filter (⌘⇧F) under the list's head; Enter goes to the first match, which
+   wears a dashed outline so you know where it leads. */
+.workspace-filter {
+  padding: 0 10px 8px 12px;
+}
+
+.workspace-filter input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--text);
+  font: calc(12px * var(--ui-scale))/1.3 var(--sans);
+  outline: none;
+}
+
+.workspace-filter input:focus {
+  border-color: var(--muted);
+}
+
+.workspace-filter input::placeholder {
+  color: var(--faint);
+}
+
+.workspace.filter-first {
+  outline: 1px dashed var(--muted);
+  outline-offset: -1px;
+}
+
+.sidebar-search svg,
 .sort-toggle svg {
   display: block;
   margin: auto;

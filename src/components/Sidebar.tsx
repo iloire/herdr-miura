@@ -1,4 +1,4 @@
-import { type CSSProperties, type PointerEvent, useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { type CSSProperties, type PointerEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Controller } from "../app/controller";
 import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
@@ -12,6 +12,7 @@ import type { Settings } from "../app/settings";
 import { useAutoCards } from "../app/useAutoCards";
 import { groupWorktrees, type Row, workspaceOn } from "../app/worktreeGroups";
 import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, workspaceGroups } from "../app/workspaceGroups";
+import { filterTerms, matchesTerms, workspaceText } from "../app/workspaceFilter";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
@@ -33,6 +34,7 @@ import {
   PinIcon,
   QueueIcon,
   RenameIcon,
+  SearchIcon,
   TeamIcon,
 } from "./icons";
 import { PortsMark } from "./Ports";
@@ -69,6 +71,7 @@ export function Sidebar({
   onSetGroups,
   cards,
   showAgents,
+  findAsked,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -109,6 +112,8 @@ export function Sidebar({
   cards: Settings["workspaceCards"];
   /// Lists every active agent under the workspaces (`ui.sidebar_agents`).
   showAgents: boolean;
+  /// Counts the asks to find a workspace (⌘⇧F): each new one opens the filter and puts the cursor in it.
+  findAsked: number;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -133,13 +138,33 @@ export function Sidebar({
     : [];
   // Groups by hand only: sorting by attention answers "what needs me", so the list goes flat.
   const groupOf = sort === "manual" ? workspaceGroups(rows, rootOf, groups) : new Map<string, string>();
+  // The filter: null while closed. Typing narrows the list to the workspaces
+  // whose name, folder, branch, tabs or agents hold every word.
+  const [filter, setFilter] = useState<string | null>(null);
+  const filterField = useRef<HTMLInputElement>(null);
+  const openFilter = () => {
+    setFilter((current) => current ?? "");
+    requestAnimationFrame(() => filterField.current?.select());
+  };
+  const closeFilter = () => {
+    setFilter(null);
+    controller.focusTerminal();
+  };
+  useEffect(() => {
+    if (findAsked > 0) openFilter();
+    // Only a new ask opens it, not a render.
+  }, [findAsked]);
+  const terms = filterTerms(filter ?? "");
+  const filtering = terms.length > 0;
+  const matching = filtering && snapshot ? rows.filter(({ workspace }) => matchesTerms(workspaceText(workspace, snapshot, folderOf(workspace)), terms)) : rows;
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const fold = (next: Set<string>) => {
     setCollapsed(next);
     saveCollapsed(next);
   };
-  const sections = groupSections(rows, groupOf).map((section) => {
-    const folded = section.name !== null && collapsed.has(section.name);
+  const sections = groupSections(matching, groupOf).map((section) => {
+    // A match shows even in a folded group: it is what you are looking for.
+    const folded = !filtering && section.name !== null && collapsed.has(section.name);
     // A folded group hides every row; its header's icons say what waits inside.
     const shown = folded ? [] : section.rows;
     return { ...section, folded, shown };
@@ -151,7 +176,7 @@ export function Sidebar({
   const [newGroupFor, setNewGroupFor] = useState<string | null>(null);
   // Rows are dragged where they show, but Herdr moves workspaces in its own
   // list, which keeps worktrees wherever they were opened: translate both.
-  const drag = useRowDrag(sort === "manual", (from, slot) => {
+  const drag = useRowDrag(sort === "manual" && !filtering, (from, slot) => {
     const daemon = snapshot?.workspaces ?? [];
     const workspace = shownWorkspaces[from];
     const at = (shown: Workspace | undefined) => (shown ? daemon.indexOf(shown) : daemon.length);
@@ -259,7 +284,7 @@ export function Sidebar({
           {/* A worktree hangs off its main checkout's card. */}
           {parent && <span className="worktree-link" aria-hidden="true" />}
           <div
-            className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored"].filter(Boolean).join(" ")}
+            className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored", filtering && index === 0 && "filter-first"].filter(Boolean).join(" ")}
             style={colored ? ({ "--hue": workspaceHue(workspace, slots) } as CSSProperties) : undefined}
             title={parent ? `A worktree of ${parent.label}` : undefined}
             {...drag.handlers(index)}
@@ -472,6 +497,15 @@ export function Sidebar({
       <header className="sidebar-head">
         <span>Workspaces</span>
         <button
+          className="icon-button sidebar-search"
+          title="Find a workspace (⌘⇧F)"
+          aria-label="Find a workspace"
+          aria-pressed={filter !== null}
+          onClick={() => (filter === null ? openFilter() : closeFilter())}
+        >
+          <SearchIcon />
+        </button>
+        <button
           className="icon-button sort-toggle"
           title={sort === "manual" ? "Sorted by hand. Click to sort by attention" : "Sorted by attention. Click to sort by hand"}
           aria-label={sort === "manual" ? "Sort by attention" : "Sort by hand"}
@@ -493,6 +527,34 @@ export function Sidebar({
           +
         </button>
       </header>
+      {filter !== null && (
+        <div className="workspace-filter">
+          <input
+            ref={filterField}
+            aria-label="Find a workspace"
+            placeholder="Name, folder, branch, tab or agent"
+            autoFocus
+            spellCheck={false}
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            // An empty field has nothing to keep it open.
+            onBlur={() => filter === "" && setFilter(null)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeFilter();
+              } else if (event.key === "Enter") {
+                // Enter goes to the first match, the one marked in the list.
+                event.preventDefault();
+                const first = shownWorkspaces[0];
+                if (!first) return;
+                controller.request("workspace.focus", { workspace_id: first.workspace_id });
+                closeFilter();
+              }
+            }}
+          />
+        </div>
+      )}
       <ol
         className={["workspace-list", cards.compact && "compact", !hasChevron(cards.details) && "no-chevrons"].filter(Boolean).join(" ")}
         ref={drag.list}
@@ -517,6 +579,7 @@ export function Sidebar({
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+      {snapshot && workspaces.length > 0 && filtering && matching.length === 0 && <p className="empty">No workspace matches.</p>}
       {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} />}
       {snapshot && focused && focusedFolder && (
         <TeamSection

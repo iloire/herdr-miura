@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-10 10:15 — Find a workspace by what is in it
+
+⌘⇧F (or the magnifier in the sidebar's head) opens a field under Workspaces that narrows the list as you type, to the
+workspaces whose name, folder, branch, tab names or agent titles hold every word. Matches show even inside folded
+groups. Enter goes to the first match, marked with a dashed outline, and Esc closes the filter.
+
 ## 2026-11-10 09:57 — Resize and fold the sidebar's Agents section
 
 The Agents section took what it needed up to a fixed share of the sidebar, so a long list of agents squeezed the

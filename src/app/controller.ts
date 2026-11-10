@@ -82,6 +82,8 @@ export interface State {
   pastedImage: (PastedImage & { title: string }) | null;
   title: string | null;
   sidebar: boolean;
+  /// Counts the asks to find a workspace: each one opens the sidebar's filter.
+  findWorkspace: number;
   /// The prompt library's palette is open.
   library: boolean;
   /// The Settings dialog is open.
@@ -170,6 +172,7 @@ export class Controller {
     pastedImage: null,
     title: null,
     sidebar: layout.sidebar,
+    findWorkspace: 0,
     library: false,
     settingsOpen: false,
     changes: layout.drawer === "changes",
@@ -576,6 +579,8 @@ export class Controller {
         return this.togglePanel("changes");
       case "browse_files":
         return this.togglePanel("files");
+      case "find_workspace":
+        return this.set({ sidebar: true, findWorkspace: this.state.findWorkspace + 1 });
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":
