@@ -17,6 +17,7 @@ import { useQueue } from "./app/useQueue";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
+import { useRestoreSessions } from "./app/useRestoreSessions";
 import { useRoots } from "./app/useRoots";
 import { useSeen } from "./app/useSeen";
 import { inLinkedWorktree, paneDirectory, sharedCheckout, tabDirectory, withSessionFolders } from "./app/sharedCheckout";
@@ -182,6 +183,7 @@ export default function App() {
 
   const local = state.status.phase === "connected" && state.host === null;
   const { roots, rootOf, queueFolderOf, moves, isOpenSplitOf, markSplit } = useRoots(state.snapshot, local);
+  useRestoreSessions(state.snapshot, local, controller);
   // Every workspace's changed-file count, one `git status` per folder, and
   // its checkout's linked worktrees, never two rounds at once. A workspace
   // with a fixed root reads that, not its active tab's folder. Reread on a

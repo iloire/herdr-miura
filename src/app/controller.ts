@@ -13,6 +13,7 @@ import { catalog, type CatalogEntry, IS_MAC, isWindowCommand, requestFor } from 
 import { type CloseAsk, closeAsk, focusAfterClose, withoutClosing } from "./closing";
 import { type Drawer, loadLayout, saveLayout } from "./layout";
 import { readRecentSessions, reopenTarget, resumeInNewTab, sessionTabs } from "./recentSessions";
+import { type OpenSession, restorable, resumeInPane } from "./restoreSessions";
 import { type PastedImage, readPastedImage, sessionOf } from "./sessionUsage";
 import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
@@ -766,6 +767,33 @@ export class Controller {
           resuming.delete(session);
           this.set({ resuming });
         }),
+    );
+  }
+
+  /// Resumes, one after another, the sessions a restart of the daemon took,
+  /// each in the pane it was in, and says how many came back.
+  restoreSessions(saved: OpenSession[]): void {
+    const snapshot = this.state.snapshot;
+    const entries = snapshot ? restorable(saved, snapshot) : [];
+    if (!entries.length) return;
+    const sessions = entries.map((entry) => entry.session);
+    this.set({ resuming: new Set([...this.state.resuming, ...sessions]) });
+    this.set({ notice: `Resuming ${entries.length} session${entries.length === 1 ? "" : "s"} from before the restart…` });
+    const restore = async () => {
+      const failed: string[] = [];
+      for (const entry of entries) {
+        await resumeInPane(entry).catch((error) => failed.push(String(error)));
+      }
+      const resumed = entries.length - failed.length;
+      const note = `Resumed ${resumed} of ${entries.length} session${entries.length === 1 ? "" : "s"} from before the restart`;
+      this.set({ notice: failed.length ? `${note}: ${failed[0]}` : note });
+    };
+    this.act(
+      restore().finally(() => {
+        const resuming = new Set(this.state.resuming);
+        for (const session of sessions) resuming.delete(session);
+        this.set({ resuming });
+      }),
     );
   }
 

@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-10 22:02 — Resume sessions after a restart
+
+When the Herdr daemon restarts, after a reboot most often, its tabs come back without the Claude Code sessions in them.
+The app now keeps a record of which session each pane holds, shared by Stable, Edge and dev windows, and the first window
+to see the new daemon resumes each session in the pane it was in, with `claude --resume`. A notice says how many came
+back. A pane that is gone, has moved, or already has an agent is left alone; its session stays in the Sessions panel.
+
 ## 2026-11-10 10:15 — Find a workspace by what is in it
 
 ⌘⇧F (or the magnifier in the sidebar's head) opens a field under Workspaces that narrows the list as you type, to the

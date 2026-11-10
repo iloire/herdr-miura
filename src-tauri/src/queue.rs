@@ -399,6 +399,15 @@ pub fn resume(workspace: &str, directory: &str, label: &str, name: &str, session
     open_tab(workspace, directory, label, name, "claude", &args, true)
 }
 
+/// Starts `claude --resume <session>` in the pane `pane_id` of `tab_id`, one
+/// already open, as after the daemon restored it. Blocking.
+pub fn resume_in(tab_id: &str, pane_id: &str, directory: &str, name: &str, session: &str) -> Result<Opened, Error> {
+    let args = ["--resume".to_owned(), session.to_owned()];
+    check_start(directory, "resume", name, "claude", &args)?;
+    let pane = CreatedPane { pane_id: pane_id.to_owned(), tab_id: tab_id.to_owned() };
+    start_agent(&herdr()?, &pane, directory, name, "claude", &args)
+}
+
 fn open_tab(
     workspace: &str,
     directory: &str,

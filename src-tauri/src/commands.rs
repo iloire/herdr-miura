@@ -8,7 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, FoundFile, Listing},
     folder::{self, FileAction, Opener},
-    land, listening_ports,
+    land, listening_ports, open_sessions,
     pasted_image::{self, PastedImage},
     prompts, queue,
     session_context::{self, SessionContext},
@@ -438,11 +438,50 @@ pub async fn session_resume(
         let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
         let sessions = projects.with_file_name("sessions");
         let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &session)?;
-        // `p`, as the prompt library's tabs. Herdr refuses a name in use, and two
-        // resumes can land in one second.
-        let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
-        let name = format!("p{}", millis % 1_000_000_000);
-        Ok(queue::resume(&workspace_id, &target.folder, &target.label, &name, &session)?)
+        Ok(queue::resume(&workspace_id, &target.folder, &target.label, &resume_name(), &session)?)
+    });
+    run.await.map_err(changes::Error::Worker)?
+}
+
+/// A resumed agent's name: `p`, as the prompt library's tabs. Herdr refuses a
+/// name in use, and several resumes can land in one millisecond after a restart.
+fn resume_name() -> String {
+    static COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let millis = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis());
+    let count = u128::from(COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+    format!("p{}", (millis + count) % 1_000_000_000)
+}
+
+/// Saves which session each pane holds for the daemon's boot `boot_id`, and
+/// returns the panes of the boot before, once, when this is a new one, for the
+/// window to resume. See `open_sessions`.
+#[tauri::command]
+pub async fn open_sessions_sync(
+    connection: State<'_, Connection>,
+    boot_id: String,
+    panes: Vec<open_sessions::OpenSession>,
+) -> Result<Vec<open_sessions::OpenSession>> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || open_sessions::sync(&open_sessions::path()?, &boot_id, panes));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Runs `claude --resume <session>` in the pane `pane_id`, which the daemon
+/// restored without its agent, unless something already has the session open.
+#[tauri::command]
+pub async fn session_resume_in(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    session: String,
+    tab_id: String,
+    pane_id: String,
+) -> Result<queue::Opened> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || -> Result<queue::Opened> {
+        let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
+        let sessions = projects.with_file_name("sessions");
+        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &session)?;
+        Ok(queue::resume_in(&tab_id, &pane_id, &target.folder, &resume_name(), &session)?)
     });
     run.await.map_err(changes::Error::Worker)?
 }

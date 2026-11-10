@@ -17,6 +17,7 @@ mod land;
 mod listening_ports;
 #[cfg(target_os = "macos")]
 mod menu;
+mod open_sessions;
 mod osc52;
 mod outcome;
 mod pasted_image;
@@ -70,6 +71,7 @@ pub fn run() {
             commands::find_file,
             commands::locate_file,
             commands::moving_commits,
+            commands::open_sessions_sync,
             commands::sync_checkout,
             commands::land_plan,
             commands::land_check,
@@ -110,6 +112,7 @@ pub fn run() {
             commands::recent_sessions,
             commands::session_preview,
             commands::session_resume,
+            commands::session_resume_in,
             commands::usage_history,
             commands::settings_load,
             commands::settings_set,
