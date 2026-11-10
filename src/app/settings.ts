@@ -26,6 +26,8 @@ export interface Settings {
   };
   ui: {
     fontSize: number;
+    /// Whether the sidebar lists every active agent under the workspaces.
+    sidebarAgents: boolean;
   };
   /// Ask before closing a tab or pane stops an agent mid-task.
   confirmCloseTab: boolean;
@@ -52,7 +54,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME_NAME,
   terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
-  ui: { fontSize: 13 },
+  ui: { fontSize: 13, sidebarAgents: true },
   confirmCloseTab: true,
   tabsWrap: true,
   newTabCommand: null,
@@ -125,6 +127,7 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   settings.terminal.fontSize = number("terminal.font_size", settings.terminal.fontSize);
   settings.terminal.lineHeight = number("terminal.line_height", settings.terminal.lineHeight);
   settings.ui.fontSize = number("ui.font_size", settings.ui.fontSize);
+  settings.ui.sidebarAgents = flag("ui.sidebar_agents", settings.ui.sidebarAgents);
   settings.confirmCloseTab = flag("confirm_close_tab", settings.confirmCloseTab);
   settings.tabsWrap = flag("tabs.wrap", settings.tabsWrap);
   const command = text("new_tab.command", "", true);

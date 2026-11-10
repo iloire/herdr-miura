@@ -10,7 +10,7 @@ import { StatusMark } from "./StatusMark";
 
 /// An agent on a workspace card: its status, then its name, and why it wants
 /// you if it does. A click goes to its tab.
-function AgentRow({ controller, snapshot, agent }: { controller: Controller; snapshot: Snapshot; agent: Agent }) {
+export function AgentRow({ controller, snapshot, agent }: { controller: Controller; snapshot: Snapshot; agent: Agent }) {
   const name = agentRowName(agent, snapshot.tabs, agentCountsByTab(snapshot));
   const status = shownStatus(agent);
   const note = needsYouNote(agent);

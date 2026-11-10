@@ -16,6 +16,7 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
+import { type AgentGroup, AgentsSection } from "./AgentsSection";
 import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -67,6 +68,7 @@ export function Sidebar({
   groups,
   onSetGroups,
   cards,
+  showAgents,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -105,6 +107,8 @@ export function Sidebar({
   onSetGroups: (entries: [string, string | null][]) => void;
   /// What every card shows.
   cards: Settings["workspaceCards"];
+  /// Lists every active agent under the workspaces (`ui.sidebar_agents`).
+  showAgents: boolean;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -117,6 +121,16 @@ export function Sidebar({
   );
   const workspaces = rows.map((row) => row.workspace);
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
+  const agentGroups: AgentGroup[] = showAgents
+    ? rows
+        .map(({ workspace }) => ({
+          workspaceId: workspace.workspace_id,
+          label: workspace.label,
+          hue: workspaceHue(workspace, slots),
+          agents: cardAgents(agents.get(workspace.workspace_id) ?? []),
+        }))
+        .filter((group) => group.agents.length > 0)
+    : [];
   // Groups by hand only: sorting by attention answers "what needs me", so the list goes flat.
   const groupOf = sort === "manual" ? workspaceGroups(rows, rootOf, groups) : new Map<string, string>();
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -451,7 +465,7 @@ export function Sidebar({
     );
   };
   return (
-    <nav className="sidebar" aria-label="Workspaces">
+    <nav className={agentGroups.length > 0 ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
         <span data-tauri-drag-region>{title}</span>
       </div>
@@ -503,6 +517,7 @@ export function Sidebar({
         })}
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} />}
       {snapshot && focused && focusedFolder && (
         <TeamSection
           controller={controller}

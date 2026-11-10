@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-10 00:54 — The sidebar's Agents section is back
+
+With many workspaces, and groups folded away, the cards no longer showed at a glance which agents were working: a
+collapsed card names only the ones waiting on you. A section at the foot of the sidebar again lists every agent that is
+working, waiting on you or finished unseen, under its workspace and on its card's color, folded groups included. A row
+goes to the agent's tab. It is on by default; `ui.sidebar_agents = false`, or Settings → Sidebar, turns it off.
+
 ## 2026-11-09 19:58 — A folded group hides all its workspaces
 
 A folded group kept the focused workspace and any with an agent waiting on you, which read as if they were outside the

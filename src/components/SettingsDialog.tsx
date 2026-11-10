@@ -112,6 +112,15 @@ export function SettingsDialog({
             </div>
           </section>
           <section>
+            <h3>Sidebar</h3>
+            <Check
+              label="List active agents"
+              hint="A section under the workspaces with every agent working, waiting on you or finished, by workspace. A row goes to the agent's tab."
+              checked={settings.ui.sidebarAgents}
+              onChange={saveFlag("ui.sidebar_agents", true)}
+            />
+          </section>
+          <section>
             <h3>Workspace cards</h3>
             <Check
               label="Show Git status"

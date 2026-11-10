@@ -3457,12 +3457,75 @@ kbd {
 
 /* The focused workspace's team: a role per row, its letter in the role's hue,
    what it is doing on the right; waiting on you in the blocked color. */
+/* Every active agent, above the team, when ui.sidebar_agents is on. The
+   sidebar then stops scrolling as a whole: the workspaces, the agents and the
+   team each scroll in their own space, so a long list pushes neither the team
+   off screen nor anything under the title row. Without agents to list, none
+   of this applies. */
+.sidebar.with-agents {
+  overflow: hidden;
+}
+
+.sidebar.with-agents .workspace-list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sidebar.with-agents .team {
+  flex: none;
+  max-height: 30%;
+  overflow-y: auto;
+}
+
+.agents {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 40%;
+  margin-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.agents .sidebar-head {
+  flex: none;
+}
+
+.agents-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 6px 10px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* A workspace's agents hang on a rail in its card's color. */
+.agents-group {
+  margin-bottom: 4px;
+  padding-left: 6px;
+  border-radius: 0 4px 4px 0;
+  box-shadow: inset 2px 0 0 var(--hue);
+}
+
+.agents-workspace {
+  display: block;
+  padding: 2px 6px 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .team {
   border-top: 1px solid var(--rule);
   margin-top: 8px;
 }
 
-.team-count {
+.team-count,
+.agents-count {
   margin-left: 4px;
   letter-spacing: 0;
 }

@@ -602,7 +602,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} showAgents={state.settings.ui.sidebarAgents} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}

@@ -39,7 +39,7 @@ describe("parseSettings", () => {
     expect(DEFAULT_SETTINGS).toMatchObject({
       theme: "Herdr Night",
       terminal: { fontFamily: "JetBrains Mono", fontSize: 13, lineHeight: 1.4 },
-      ui: { fontSize: 13 },
+      ui: { fontSize: 13, sidebarAgents: true },
       confirmCloseTab: true,
       newTabCommand: null,
       workspaceCards: { gitStatus: true, agentStatus: true, details: "manual", compact: false },
@@ -50,7 +50,7 @@ describe("parseSettings", () => {
     const { settings, warnings } = parseSettings({
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { font_family: "Menlo", font_size: 15, line_height: 1.2 },
-      ui: { font_size: 14 },
+      ui: { font_size: 14, sidebar_agents: false },
       confirm_close_tab: false,
       new_tab: { command: " claude " },
       tabs: { wrap: false },
@@ -61,7 +61,7 @@ describe("parseSettings", () => {
     expect(settings).toEqual({
       theme: "light:GitHub Light Default,dark:Herdr Night",
       terminal: { fontFamily: "Menlo", fontSize: 15, lineHeight: 1.2 },
-      ui: { fontSize: 14 },
+      ui: { fontSize: 14, sidebarAgents: false },
       confirmCloseTab: false,
       tabsWrap: false,
       newTabCommand: "claude",
