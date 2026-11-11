@@ -5,8 +5,8 @@
 The app in daily use is not built from this checkout: Stable and Edge run from their own clone
 ([docs/channels.md](docs/channels.md)), and Edge rebuilds itself when a commit lands on `main`.
 
-- Run a dev window on its own port so it doesn't collide with another on 1420. Use 1430, 1440, … and
-  pick one that is free:
+- Run a dev window on its own port so it doesn't collide with another on 1420. `npm run dev:app` takes the first free
+  one of 1430, 1440, … (`PORT=1450` to choose). It runs:
 
   ```sh
   npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'

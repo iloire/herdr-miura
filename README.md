@@ -124,10 +124,11 @@ socket variables and start that daemon with its own `HOME`. With the same `HOME`
 copy of your saved session and shares its state folder.
 
 A dev window on any branch but `main` has a colored strip along its foot naming its branch, so it can't be mistaken for
-another copy of the app. To run a branch beside the one you have open, give it its own port:
+another copy of the app. To run a branch beside the one you have open, give it its own port. This takes the first free
+one of 1430, 1440, … (or `PORT=1450`):
 
 ```sh
-npx tauri dev --config '{"build":{"devUrl":"http://localhost:1430","beforeDevCommand":"npx vite --port 1430 --strictPort"}}'
+npm run dev:app
 ```
 
 ## Check it
