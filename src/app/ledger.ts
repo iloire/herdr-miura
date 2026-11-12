@@ -40,6 +40,8 @@ export interface Outcome extends LedgerEntry {
   resolved: Resolution | null;
   /// A later entry from the same session took its place.
   superseded: boolean;
+  /// Open too long to still be listed: see `STALE_DAYS`.
+  stale: boolean;
 }
 
 export const EMPTY_LEDGER: Ledger = { entries: [], resolutions: [] };
@@ -48,8 +50,15 @@ export const EMPTY_LEDGER: Ledger = { entries: [], resolutions: [] };
 /// needs an answer first.
 export const asksForYou = (kind: string) => kind === "you" || kind === "not-started";
 
+const DAY_MS = 86_400_000;
+
+/// How long an open entry stays listed. Agents park more notes than anyone
+/// takes up, and an ask whose session closed days ago was answered elsewhere
+/// or no longer matters; the Day view still shows them on request.
+export const STALE_DAYS: Record<string, number> = { left: 7, you: 2, "not-started": 2 };
+
 /// Every entry, newest first, with what became of it.
-export function outcomes(ledger: Ledger): Outcome[] {
+export function outcomes(ledger: Ledger, now: number): Outcome[] {
   const resolved = new Map<string, Resolution>();
   for (const resolution of ledger.resolutions) resolved.set(resolution.resolves, resolution);
   const latest = new Map<string, number>();
@@ -62,6 +71,7 @@ export function outcomes(ledger: Ledger): Outcome[] {
       ...entry,
       resolved: resolved.get(entry.id) ?? null,
       superseded: !!entry.session && (latest.get(entry.session) ?? 0) > entry.time,
+      stale: entry.kind in STALE_DAYS && now - entry.time > STALE_DAYS[entry.kind] * DAY_MS,
     }))
     .sort((a, b) => b.time - a.time);
 }
@@ -74,13 +84,19 @@ export function isOpen(outcome: Outcome): boolean {
   return asksForYou(outcome.kind) && !outcome.superseded;
 }
 
-/// The open `left` entries of one main checkout: its queue's Parked list.
+/// Open and recent enough to list.
+export const isListed = (outcome: Outcome) => isOpen(outcome) && !outcome.stale;
+
+/// The listed `left` entries of one main checkout: its queue's Parked list.
 export const parkedFor = (list: Outcome[], directory: string) =>
-  list.filter((o) => o.kind === "left" && isOpen(o) && o.home === directory);
+  list.filter((o) => o.kind === "left" && isListed(o) && o.home === directory);
 
-export const allParked = (list: Outcome[]) => list.filter((o) => o.kind === "left" && isOpen(o));
+export const allParked = (list: Outcome[]) => list.filter((o) => o.kind === "left" && isListed(o));
 
-export const waitingOnYou = (list: Outcome[]) => list.filter((o) => asksForYou(o.kind) && isOpen(o));
+export const waitingOnYou = (list: Outcome[]) => list.filter((o) => asksForYou(o.kind) && isListed(o));
+
+/// Open, but too old to list unless asked.
+export const olderOpen = (list: Outcome[]) => list.filter((o) => isOpen(o) && o.stale);
 
 /// What waits on you from a session no tab holds any more: the Agents section
 /// and the tab's gold mark only know the live ones. An entry without a session
@@ -100,9 +116,10 @@ export const isDone = (kind: string) => kind === "verified" || kind === "unverif
 export const doneToday = (list: Outcome[], now: number) => list.filter((o) => isDone(o.kind) && o.time >= midnight(now));
 
 /// What the Day view lists: today's entries in local time, and whatever is
-/// still open from before, grouped by repo, the repo with the latest first.
-export function dayView(list: Outcome[], now: number): { home: string; outcomes: Outcome[] }[] {
-  const shown = list.filter((o) => o.time >= midnight(now) || isOpen(o));
+/// still listed from before (with `older`, also what went stale), grouped by
+/// repo, the repo with the latest first.
+export function dayView(list: Outcome[], now: number, older = false): { home: string; outcomes: Outcome[] }[] {
+  const shown = list.filter((o) => o.time >= midnight(now) || (older ? isOpen(o) : isListed(o)));
   const groups = new Map<string, Outcome[]>();
   for (const o of shown) groups.set(o.home, [...(groups.get(o.home) ?? []), o]);
   return [...groups].map(([home, outcomes]) => ({ home, outcomes }));

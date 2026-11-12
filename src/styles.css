@@ -6154,6 +6154,22 @@ body.resizing-rows .agents > :not(.agents-resizer) {
   overflow-y: auto;
 }
 
+.day-older {
+  align-self: flex-start;
+  margin: 0 28px 20px;
+  padding: 10px 0 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 400 calc(12px * var(--ui-scale)) var(--sans);
+  cursor: pointer;
+}
+
+.day-older:hover {
+  color: var(--bright);
+  text-decoration: underline;
+}
+
 .day-repo h3 {
   margin: 0 0 6px;
   color: var(--bright);

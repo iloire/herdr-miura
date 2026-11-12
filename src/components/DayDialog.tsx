@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { tildePath } from "../app/folder";
-import { asksForYou, dayView, doneToday, isOpen, type Outcome, repoName, waitingOnYou, allParked } from "../app/ledger";
+import { allParked, asksForYou, dayView, doneToday, isOpen, olderOpen, type Outcome, repoName, STALE_DAYS, waitingOnYou } from "../app/ledger";
 import { relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
 
@@ -41,7 +41,9 @@ export function DayDialog({
   onClose: () => void;
 }) {
   const home = useHome();
-  const groups = dayView(list, now);
+  const [older, setOlder] = useState(false);
+  const groups = dayView(list, now, older);
+  const hidden = olderOpen(list).length;
   const done = doneToday(list, now).length;
   const parked = allParked(list).length;
   const waiting = waitingOnYou(list).length;
@@ -96,6 +98,15 @@ export function DayDialog({
             ))}
           </div>
         )}
+        {hidden > 0 && (
+          <button
+            className="day-older"
+            title={`Parked notes older than ${STALE_DAYS.left} days and asks older than ${STALE_DAYS.you} days, still open`}
+            onClick={() => setOlder(!older)}
+          >
+            {older ? `Hide the ${hidden} older ones` : `Show ${hidden} older, still open`}
+          </button>
+        )}
       </div>
     </div>,
     document.body,
@@ -120,7 +131,9 @@ function Row({
   const { mark, words } = MARKS[outcome.kind] ?? { mark: "·", words: outcome.kind };
   const open = isOpen(outcome);
   const later = outcome.resolved ? RESOLVED[outcome.resolved.how] ?? outcome.resolved.how : outcome.superseded && asksForYou(outcome.kind) ? "answered" : null;
-  const facts = [words, outcome.branch, relativeTime(outcome.time / 1000), later].filter(Boolean).join(" · ");
+  const facts = [words, outcome.branch, relativeTime(outcome.time / 1000), later ?? (open && outcome.stale ? "older" : null)]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <li className={`day-row kind-${outcome.kind} ${open ? "open" : ""}`}>
       <span className="day-mark" aria-hidden>

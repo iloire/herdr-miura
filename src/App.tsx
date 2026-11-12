@@ -15,7 +15,7 @@ import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from
 import { isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { useLedger } from "./app/useLedger";
-import { allParked, doneToday, type Outcome, parkedFor, parkedPrompt, waitingClosed, waitingOnYou } from "./app/ledger";
+import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
@@ -606,8 +606,8 @@ export default function App() {
   useEffect(() => {
     controller.needsYouCleared = (sessions) => {
       const closing = new Set(sessions);
-      for (const outcome of waitingOnYou(ledger.list)) {
-        if (closing.has(outcome.session)) ledger.resolve(outcome.id, "cleared");
+      for (const outcome of ledger.list) {
+        if (asksForYou(outcome.kind) && isOpen(outcome) && closing.has(outcome.session)) ledger.resolve(outcome.id, "cleared");
       }
     };
   }, [controller, ledger]);

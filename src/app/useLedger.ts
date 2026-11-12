@@ -38,5 +38,5 @@ export function useLedger(controller: Controller): LedgerView {
     },
     [controller, refresh],
   );
-  return useMemo(() => ({ list: outcomes(ledger), resolve }), [ledger, resolve]);
+  return useMemo(() => ({ list: outcomes(ledger, Date.now()), resolve }), [ledger, resolve]);
 }

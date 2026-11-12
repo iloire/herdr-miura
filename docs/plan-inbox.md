@@ -27,6 +27,9 @@ Stable, Edge and a dev build read the same one.
 - The window appends what it does with an entry: `{"v":1,"resolves":"<id>","how":"queued|dismissed|todo|cleared","at":…}`.
   Append-only, one small line per write, so the script and several windows can share the file without locks.
 - An entry is **open** while nothing resolves it. A `you` is also closed by any later entry from the same session.
+- An open entry stops being listed once it is old: a `left` after 7 days, a `you` or `not-started` after 2
+  (`STALE_DAYS`). Four days of real outcomes held 44 parked notes and 22 asks from closed sessions, most of them
+  remarks or long since dealt with. The Day dialog still shows them behind "Show N older".
 
 ## Where it shows
 
