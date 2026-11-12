@@ -41,13 +41,13 @@ The Dock badge does not count parked items: they are for later, and counting the
 
 ## Steps
 
-1. `herdr-outcome` appends to the ledger, with bats tests (dotfiles, branch `outcome-ledger`).
-2. `ledger.rs`: `ledger_read(since)` and `ledger_resolve(id, how)`, with tests.
-3. `app/ledger.ts`: pure folding of entries into open / resolved, by folder and by day, with tests; `useLedger` polls
-   while the window is in front.
-4. Parked in the Queue panel; Queue it hands the note to `actions.add` as a prompt that stands on its own.
-5. The Day dialog and its status bar chip.
-6. Closed-session `you` rows in the Agents section; Clear Needs You resolves the entry.
+1. ~~`herdr-outcome` appends to the ledger, with bats tests (dotfiles, branch `outcome-ledger`).~~ ✅
+2. ~~`ledger.rs`: `ledger_read()` and `ledger_resolve(id, how)`, with tests.~~ ✅
+3. ~~`app/ledger.ts`: pure folding of entries into open / resolved, by folder and by day, with tests; `useLedger` polls
+   while the window is in front.~~ ✅
+4. ~~Parked in the Queue panel; Queue it hands the note to `actions.add` as a prompt that stands on its own.~~ ✅
+5. ~~The Day dialog and its status bar chip.~~ ✅
+6. ~~Closed-session `you` rows in the Agents section; Clear Needs You resolves the entry.~~ ✅
 7. Check it in a dev window, then README and architecture.
 
 ## Later
