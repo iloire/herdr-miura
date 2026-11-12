@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 21:17 — Changes panel: the repository and its actions get their own strip
+
+The repository link and the VS Code, Finder, terminal and clone-URL buttons moved from the header to a strip under it.
+The header shares its row with the drawer's switch, so they ran under it.
+
 ## 2026-11-12 21:02 — Changes panel: branches, stashes and a more readable commit list
 
 Clicking the branch name lists local branches by newest commit, with ↑/↓ against each one's upstream. A branch

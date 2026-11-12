@@ -2136,9 +2136,18 @@ body.reordering * {
   text-transform: uppercase;
 }
 
-/* The title takes the room, so the repository and actions sit right. */
-.changes-head > span:first-child {
-  margin-right: auto;
+/* Under the header rather than in it: the header shares its row with the drawer's switch, too narrow for these.
+   The repository sits left and the actions right. */
+.changes-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.changes-strip .changes-actions {
+  margin-left: auto;
 }
 
 /* Over the branch, so a worktree's panel cannot pass for the main checkout's. */

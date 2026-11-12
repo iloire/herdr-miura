@@ -194,47 +194,51 @@ export function ChangesPanel({
     <aside className="changes" aria-label="Changes">
       <header className="changes-head">
         <span>Changes</span>
-        {web && (
-          <button className="forge-repo" title={`Open ${web.path} on ${forgeName(web)}`} onClick={() => open(web.url)}>
-            <bdi>{web.path}</bdi>
-            <OpenIcon />
-          </button>
-        )}
-        {checkout && (
-          <span className="changes-actions">
-            {sync && (
-              <>
-                <button
-                  title="Open the checkout in VS Code"
-                  aria-label="Open in VS Code"
-                  onClick={() => controller.act(openFolder(checkout.path, "vs_code"))}
-                >
-                  <CodeIcon />
-                </button>
-                <button
-                  title="Open the checkout in Finder"
-                  aria-label="Open in Finder"
-                  onClick={() => controller.act(openFolder(checkout.path, "files"))}
-                >
-                  <FolderIcon />
-                </button>
-              </>
-            )}
-            <button title="A new terminal tab in the checkout" aria-label="New terminal tab here" onClick={() => newTab(checkout.path)}>
-              <TerminalIcon />
-            </button>
-            {checkout.origin_url && (
-              <button
-                title={`Copy the clone URL: ${checkout.origin_url}`}
-                aria-label="Copy clone URL"
-                onClick={() => copy(checkout.origin_url ?? "")}
-              >
-                <CopyIcon />
-              </button>
-            )}
-          </span>
-        )}
       </header>
+      {(web || checkout) && (
+        <div className="changes-strip">
+          {web && (
+            <button className="forge-repo" title={`Open ${web.path} on ${forgeName(web)}`} onClick={() => open(web.url)}>
+              <bdi>{web.path}</bdi>
+              <OpenIcon />
+            </button>
+          )}
+          {checkout && (
+            <span className="changes-actions">
+              {sync && (
+                <>
+                  <button
+                    title="Open the checkout in VS Code"
+                    aria-label="Open in VS Code"
+                    onClick={() => controller.act(openFolder(checkout.path, "vs_code"))}
+                  >
+                    <CodeIcon />
+                  </button>
+                  <button
+                    title="Open the checkout in Finder"
+                    aria-label="Open in Finder"
+                    onClick={() => controller.act(openFolder(checkout.path, "files"))}
+                  >
+                    <FolderIcon />
+                  </button>
+                </>
+              )}
+              <button title="A new terminal tab in the checkout" aria-label="New terminal tab here" onClick={() => newTab(checkout.path)}>
+                <TerminalIcon />
+              </button>
+              {checkout.origin_url && (
+                <button
+                  title={`Copy the clone URL: ${checkout.origin_url}`}
+                  aria-label="Copy clone URL"
+                  onClick={() => copy(checkout.origin_url ?? "")}
+                >
+                  <CopyIcon />
+                </button>
+              )}
+            </span>
+          )}
+        </div>
+      )}
       {state.phase === "idle" && <p className="empty">Focus a pane to see its checkout.</p>}
       {state.phase === "loading" && <p className="empty">Reading the checkout…</p>}
       {state.phase === "failed" && <p className="empty error">Could not read the checkout: {state.error}</p>}
