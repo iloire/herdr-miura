@@ -2,6 +2,17 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 21:02 — Changes panel: branches, stashes and a more readable commit list
+
+Clicking the branch name lists local branches by newest commit, with ↑/↓ against each one's upstream. A branch
+switches the checkout only on a clean tree with no rebase or merge under way; otherwise its row says why (uncommitted
+changes, a rebase, checked out in another worktree). Below, branches already merged into the default branch can be
+deleted after a confirmation, with `git branch -d` only, never one checked out in a worktree. The GitHub link moved to
+the icon beside the name. Commits now carry their author's initials, tags as round pills, a bar of the lines they
+changed, and sit under Today, Yesterday, This week and Older; a filter narrows them by subject, and Load more reads 50
+more, up to 1,000. A file's right-click has History, its last 20 commits. The stash is listed, read-only. The header
+opens the checkout in VS Code, Finder or a new terminal tab, and copies the clone URL.
+
 ## 2026-11-12 20:49 — The Changes panel links to GitHub, with the PR and CI state
 
 When `origin` is on GitHub (or GitLab), the panel's header opens the repository, and a pushed branch's name opens it

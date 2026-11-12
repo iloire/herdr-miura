@@ -2,7 +2,7 @@
 //! queues work on the connection's bounded command queue; none blocks.
 
 use crate::{
-    Error, Result,
+    Error, Result, branch_ops,
     changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff, FoundCommit},
     claude_usage,
     connection::Connection,
@@ -158,14 +158,69 @@ pub fn request(
 
 /// The checkout `directory` sits in, or `None` outside Git. Git runs on the
 /// blocking pool, never the main thread.
+/// `commits` is how many recent commits to list, as "load more" grows it.
 #[tauri::command]
 pub async fn checkout_changes(
     connection: State<'_, Connection>,
     directory: String,
+    commits: Option<usize>,
 ) -> Result<Option<CheckoutView>> {
     let target = connection.target();
-    let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&target, &directory));
+    let commits = commits.unwrap_or(0);
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_checkout(&target, &directory, commits));
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The checkout's local branches and the merged ones a delete may offer.
+#[tauri::command]
+pub async fn branches(connection: State<'_, Connection>, directory: String) -> Result<changes::branches::BranchesView> {
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || changes::branches::read_branches(&target, &directory));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// The last commits that changed one file.
+#[tauri::command]
+pub async fn file_history(
+    connection: State<'_, Connection>,
+    checkout: String,
+    path: String,
+) -> Result<Vec<CommitView>> {
+    let target = connection.target();
+    let read = tauri::async_runtime::spawn_blocking(move || changes::read_history(&target, &checkout, &path));
+    Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// Switches the checkout from `branch`, the one on show, to `to`. Refused on
+/// a remote host, and by the backend on a dirty tree.
+#[tauri::command]
+pub async fn switch_branch(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    to: String,
+    branch: Option<String>,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        branch_ops::switch_branch(&app.state::<sync::Running>(), &checkout, &to, branch.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Deletes a merged local branch with `git branch -d`.
+#[tauri::command]
+pub async fn delete_branch(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    name: String,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        branch_ops::delete_branch(&app.state::<sync::Running>(), &checkout, &name)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
 }
 
 #[tauri::command]

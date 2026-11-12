@@ -26,6 +26,17 @@ export interface RecentCommit {
   /// Seconds since the Unix epoch.
   time: number;
   refs: CommitRef[];
+  /// Lines the commit added and removed, where they were counted.
+  additions: number | null;
+  deletions: number | null;
+}
+
+/// One stash entry, listed only: the app never applies, pops or drops one.
+export interface Stash {
+  /// `stash@{0}`.
+  name: string;
+  message: string;
+  time: number;
 }
 
 export interface CheckoutChanges {
@@ -48,13 +59,21 @@ export interface CheckoutChanges {
   remotes: string[];
   /// Where `origin` lives on the web, when it is on GitHub or GitLab.
   web: WebRepo | null;
+  /// `origin`'s URL, to clone from.
+  origin_url: string | null;
   unmerged: [string, number] | null;
   files: ChangedFile[];
   total_files: number;
   added: number;
   removed: number;
   commits: RecentCommit[];
+  stashes: Stash[];
 }
+
+/// Recent commits a checkout read lists at first, and how many "load more" adds.
+export const COMMIT_PAGE = 50;
+/// The most "load more" reaches; the backend stops there too.
+export const MAX_COMMITS = 1000;
 
 /// One commit's whole message and the files it changed, against its first parent.
 export interface CommitFiles {
@@ -79,6 +98,8 @@ export class ChangesStore {
   private listeners = new Set<() => void>();
   private running = false;
   private queued: string | null = null;
+  /// Recent commits to read, grown by "load more" and reset by another checkout.
+  private limit = { directory: "", commits: COMMIT_PAGE };
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -104,6 +125,20 @@ export class ChangesStore {
     if ("directory" in this.state) this.refresh(this.state.directory);
   }
 
+  /// How many recent commits the reads of `directory` list.
+  commitLimit(directory: string): number {
+    return this.limit.directory === directory ? this.limit.commits : COMMIT_PAGE;
+  }
+
+  /// Lists another page of recent commits, from now on in this directory.
+  loadMore(): void {
+    if (!("directory" in this.state)) return;
+    const directory = this.state.directory;
+    const commits = Math.min(MAX_COMMITS, this.commitLimit(directory) + COMMIT_PAGE);
+    this.limit = { directory, commits };
+    this.refresh(directory);
+  }
+
   private async read(directory: string): Promise<void> {
     this.running = true;
     // Keep showing the last result for the same directory while it reloads.
@@ -111,7 +146,8 @@ export class ChangesStore {
       this.set({ phase: "loading", directory });
     }
     try {
-      const checkout = await invoke<CheckoutChanges | null>("checkout_changes", { directory });
+      const commits = this.commitLimit(directory);
+      const checkout = await invoke<CheckoutChanges | null>("checkout_changes", { directory, commits });
       this.set({ phase: "ready", directory, checkout, at: Date.now() });
     } catch (error) {
       this.set({ phase: "failed", directory, error: String(error) });
@@ -122,6 +158,11 @@ export class ChangesStore {
       if (next) this.refresh(next);
     }
   }
+}
+
+/// The last commits that changed `path`, newest first.
+export function fileHistory(checkout: string, path: string): Promise<RecentCommit[]> {
+  return invoke<RecentCommit[]>("file_history", { checkout, path });
 }
 
 export function commitFiles(checkout: string, sha: string): Promise<CommitFiles> {

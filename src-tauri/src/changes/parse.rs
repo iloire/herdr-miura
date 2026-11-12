@@ -1,5 +1,6 @@
 //! Git's machine-readable output, parsed: `status --porcelain=v2 --branch -z`,
-//! `diff --numstat -z`, and `log -z` with fields split by 0x1f.
+//! `diff --numstat -z`, `log -z` with fields split by 0x1f, local branches
+//! from `for-each-ref`, stashes, and each commit's `--shortstat`.
 
 use serde::Serialize;
 
@@ -259,6 +260,115 @@ fn parse_refs(text: &str) -> Vec<CommitRef> {
                 name: name.to_owned(),
                 current: on_head.is_some(),
             })
+        })
+        .collect()
+}
+
+/// One local branch as `for-each-ref` reads it with [`BRANCH_FORMAT`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Branch {
+    pub name: String,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    /// Its upstream's ref is gone, deleted on the remote and pruned here.
+    pub gone: bool,
+    /// Its newest commit's committer time, in seconds since the Unix epoch.
+    pub time: i64,
+    /// HEAD is on it, in the checkout that asked.
+    pub current: bool,
+    /// The checkout it is checked out in, this one included.
+    pub worktree: Option<String>,
+}
+
+/// `for-each-ref refs/heads` fields, split by 0x1f, one branch per line: a
+/// branch name cannot hold a newline. The full ref name, as the short one is
+/// `heads/x` when a tag is also called `x`.
+pub const BRANCH_FORMAT: &str =
+    "--format=%(HEAD)%1f%(refname)%1f%(upstream:short)%1f%(upstream:track,nobracket)%1f%(committerdate:unix)%1f%(worktreepath)";
+
+pub fn branches(text: &str) -> Vec<Branch> {
+    text.lines()
+        .filter_map(|line| {
+            let mut parts = line.splitn(6, '\x1f');
+            let head = parts.next()?;
+            let name = parts.next()?.strip_prefix("refs/heads/")?.to_owned();
+            let upstream = Some(parts.next()?).filter(|name| !name.is_empty()).map(str::to_owned);
+            let track = parts.next()?;
+            let time = parts.next()?.parse().unwrap_or(0);
+            let worktree = parts.next().filter(|path| !path.is_empty()).map(str::to_owned);
+            let (ahead, behind, gone) = tracking(track);
+            Some(Branch {
+                name,
+                upstream,
+                ahead,
+                behind,
+                gone,
+                time,
+                current: head == "*",
+                worktree,
+            })
+        })
+        .collect()
+}
+
+/// `%(upstream:track,nobracket)`: `ahead 2, behind 1`, either alone, `gone`,
+/// or nothing when level with the upstream or without one.
+fn tracking(text: &str) -> (u32, u32, bool) {
+    let (mut ahead, mut behind) = (0, 0);
+    for part in text.split(", ") {
+        if let Some(count) = part.strip_prefix("ahead ") {
+            ahead = count.parse().unwrap_or(0);
+        } else if let Some(count) = part.strip_prefix("behind ") {
+            behind = count.parse().unwrap_or(0);
+        }
+    }
+    (ahead, behind, text == "gone")
+}
+
+/// One stash entry. The app only lists them: applying, popping or dropping
+/// one could take another agent's work.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Stash {
+    /// `stash@{0}`.
+    pub name: String,
+    pub message: String,
+    pub time: i64,
+}
+
+/// `stash list -z --format=%gd%x1f%ct%x1f%gs`.
+pub fn stashes(text: &str) -> Vec<Stash> {
+    text.split('\0')
+        .filter_map(|record| {
+            let mut parts = record.trim_start_matches('\n').splitn(3, '\x1f');
+            let name = parts.next().filter(|name| !name.is_empty())?.to_owned();
+            let time = parts.next()?.parse().ok()?;
+            let message = parts.next()?.to_owned();
+            Some(Stash { name, message, time })
+        })
+        .collect()
+}
+
+/// Lines each commit added and removed, from `log --format=%x1e%H --shortstat`.
+/// The words of the stat line are translated with Git's locale; the `(+)` and
+/// `(-)` after the counts are not. A commit that changed nothing, as a merge
+/// does under plain `log`, has no line and so no entry.
+pub fn shortstats(text: &str) -> Vec<(String, u64, u64)> {
+    text.split('\x1e')
+        .filter_map(|record| {
+            let mut lines = record.lines();
+            let sha = lines.next()?.trim();
+            let stat = lines.find(|line| !line.trim().is_empty())?;
+            let (mut added, mut removed) = (0, 0);
+            for part in stat.split(", ") {
+                let count = || part.trim().split(' ').next()?.parse::<u64>().ok();
+                if part.ends_with("(+)") {
+                    added = count()?;
+                } else if part.ends_with("(-)") {
+                    removed = count()?;
+                }
+            }
+            (!sha.is_empty()).then(|| (sha.to_owned(), added, removed))
         })
         .collect()
 }

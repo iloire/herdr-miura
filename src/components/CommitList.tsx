@@ -1,6 +1,7 @@
-import { useEffect, useRef, type MouseEvent, type MutableRefObject } from "react";
+import { Fragment, useEffect, useRef, type CSSProperties, type MouseEvent, type MutableRefObject } from "react";
 import type { ChangedFile, RecentCommit } from "../changes/store";
-import { relativeTime } from "../app/time";
+import { formatMoment } from "../app/time";
+import { authorHue, groupByDay, initials, lineBar, rowTime } from "../changes/commitRows";
 import { MAX_REF_LABELS, refLabels } from "../changes/refLabels";
 import { CHECKS_LABEL, type Checks } from "../changes/forge";
 
@@ -70,8 +71,10 @@ export interface CommitRows {
   onMenu: (commit: RecentCommit, event: MouseEvent) => void;
 }
 
-/// Commits as one-line rows. Picking one opens it in the main area. `checks`
-/// marks one commit with its CI state.
+/// Commits as one-line rows under day separators. Each row has its author's
+/// initials, since several machines and agents commit to one checkout, its
+/// branches and tags, and a bar of the lines it changed. Picking one opens it in
+/// the main area. `checks` marks one commit with its CI state.
 export function CommitList({
   commits,
   rows,
@@ -89,45 +92,81 @@ export function CommitList({
   }, [holdsOpen, commits, listed]);
   // Arrow keys step from the main area, so the row must follow them here.
   useEffect(() => openRow.current?.scrollIntoView({ block: "nearest" }), [openCommit]);
+  const groups = groupByDay(commits, new Date());
   return (
     <ul className="commit-list">
-      {commits.map((commit) => {
-        const open = openCommit === commit.sha;
-        const labels = refLabels(commit.refs);
-        const hidden = labels.slice(MAX_REF_LABELS);
-        return (
-          <li key={commit.sha}>
-            <button
-              ref={open ? openRow : undefined}
-              className="commit"
-              aria-current={open ? "true" : undefined}
-              onClick={() => onToggle(commit)}
-              onContextMenu={(event) => onMenu(commit, event)}
-              title={[commit.sha, commit.author, ...commit.refs.map((ref) => ref.name)].join("\n")}
-            >
-              <span className="sha">{commit.short}</span>
-              <span className="subject">
-                {labels.slice(0, MAX_REF_LABELS).map((label) => (
-                  <span key={label.name} className={`commit-ref commit-ref-${label.kind}`} data-current={label.current}>
-                    {label.name}
-                    {label.remotes.map((remote) => (
-                      <span key={remote} className="commit-ref-also">
-                        {remote}
+      {groups.map((group, index) => (
+        <Fragment key={`${index}-${group.day}`}>
+          <li className="commit-day" role="presentation">
+            {group.day}
+          </li>
+          {group.commits.map((commit) => {
+            const open = openCommit === commit.sha;
+            const labels = refLabels(commit.refs);
+            const names = labels.filter((label) => label.kind !== "tag");
+            const tags = labels.filter((label) => label.kind === "tag");
+            // A tag takes one of the label places, so the subject keeps its room.
+            const shownNames = names.slice(0, tags.length > 0 ? MAX_REF_LABELS - 1 : MAX_REF_LABELS);
+            const hidden = names.length - shownNames.length + Math.max(0, tags.length - 1);
+            const bar = lineBar(commit.additions, commit.deletions);
+            return (
+              <li key={commit.sha}>
+                <button
+                  ref={open ? openRow : undefined}
+                  className="commit"
+                  aria-current={open ? "true" : undefined}
+                  onClick={() => onToggle(commit)}
+                  onContextMenu={(event) => onMenu(commit, event)}
+                  title={[
+                    commit.sha,
+                    `${commit.author}, ${formatMoment(commit.time * 1000)}`,
+                    commit.additions !== null ? `+${commit.additions} −${commit.deletions}` : "",
+                    ...commit.refs.map((ref) => ref.name),
+                  ]
+                    .filter(Boolean)
+                    .join("\n")}
+                >
+                  <span
+                    className="author"
+                    style={{ "--author-hue": authorHue(commit.author) } as CSSProperties}
+                    aria-label={commit.author}
+                  >
+                    {initials(commit.author)}
+                  </span>
+                  <span className="sha">{commit.short}</span>
+                  <span className="subject">
+                    {shownNames.map((label) => (
+                      <span key={label.name} className={`commit-ref commit-ref-${label.kind}`} data-current={label.current}>
+                        {label.name}
+                        {label.remotes.map((remote) => (
+                          <span key={remote} className="commit-ref-also">
+                            {remote}
+                          </span>
+                        ))}
                       </span>
                     ))}
+                    {tags[0] && <span className="commit-ref commit-ref-tag">{tags[0].name}</span>}
+                    {hidden > 0 && <span className="commit-ref">+{hidden}</span>}
+                    {commit.subject}
                   </span>
-                ))}
-                {hidden.length > 0 && <span className="commit-ref">+{hidden.length}</span>}
-                {commit.subject}
-              </span>
-              {checks?.sha === commit.sha && (
-                <span className={`ci ci-${checks.state}`} role="img" aria-label={CHECKS_LABEL[checks.state]} title={CHECKS_LABEL[checks.state]} />
-              )}
-              <span className="when">{relativeTime(commit.time)}</span>
-            </button>
-          </li>
-        );
-      })}
+                  {checks?.sha === commit.sha && (
+                    <span className={`ci ci-${checks.state}`} role="img" aria-label={CHECKS_LABEL[checks.state]} title={CHECKS_LABEL[checks.state]} />
+                  )}
+                  <span className="line-bar" aria-hidden="true">
+                    {bar && (
+                      <>
+                        <span className="line-bar-plus" style={{ width: bar.plus }} />
+                        <span className="line-bar-minus" style={{ width: bar.minus }} />
+                      </>
+                    )}
+                  </span>
+                  <span className="when">{rowTime(commit.time, group.day)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </Fragment>
+      ))}
     </ul>
   );
 }

@@ -22,7 +22,7 @@ use crate::{
         self,
         parse::{self, FileChange, Kind},
     },
-    git,
+    git::{self, LITERAL},
     herdr::Target,
     sync::{self, Outcome, Reason},
 };
@@ -42,8 +42,6 @@ const SYMLINK_MODE: &str = "120000";
 const SUBMODULE_MODE: &str = "160000";
 /// Files one commit may name: as many as the panel lists.
 const MAX_COMMIT_PATHS: usize = changes::MAX_FILES;
-/// Before every Git command that takes paths from a person.
-const LITERAL: &str = "--literal-pathspecs";
 
 /// What a discard does to a file, for the dialog to say.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

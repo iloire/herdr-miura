@@ -153,3 +153,51 @@ fn name_status_reads_every_kind_and_the_new_path_of_a_rename() {
         ]
     );
 }
+
+#[test]
+fn branches_read_tracking_worktrees_and_head() {
+    let text = "*\x1frefs/heads/main\x1forigin/main\x1fahead 2, behind 1\x1f1700000300\x1f/repo\n \x1frefs/heads/feat/x\x1forigin/feat/x\x1fgone\x1f1700000200\x1f\n \x1frefs/heads/old\x1f\x1f\x1f1700000100\x1f/repo/.claude/worktrees/old\n \x1frefs/heads/behind\x1forigin/behind\x1fbehind 4\x1f1700000000\x1f";
+    let read = branches(text);
+    let summary: Vec<_> = read
+        .iter()
+        .map(|b| (b.name.as_str(), b.upstream.as_deref(), b.ahead, b.behind, b.gone, b.current, b.worktree.as_deref()))
+        .collect();
+    assert_eq!(
+        summary,
+        vec![
+            ("main", Some("origin/main"), 2, 1, false, true, Some("/repo")),
+            ("feat/x", Some("origin/feat/x"), 0, 0, true, false, None),
+            ("old", None, 0, 0, false, false, Some("/repo/.claude/worktrees/old")),
+            ("behind", Some("origin/behind"), 0, 4, false, false, None),
+        ]
+    );
+    assert_eq!(read[0].time, 1_700_000_300);
+}
+
+#[test]
+fn branches_skip_anything_but_local_heads() {
+    assert_eq!(branches(" \x1frefs/tags/v1\x1f\x1f\x1f1\x1f\n"), []);
+    assert_eq!(branches(""), []);
+}
+
+#[test]
+fn stashes_read_name_time_and_message() {
+    let read = stashes("stash@{0}\x1f1700000000\x1fWIP on main: abc123 first\0stash@{1}\x1f1690000000\x1fOn feat: keep, this\0");
+    assert_eq!(
+        read,
+        vec![
+            Stash { name: "stash@{0}".into(), message: "WIP on main: abc123 first".into(), time: 1_700_000_000 },
+            Stash { name: "stash@{1}".into(), message: "On feat: keep, this".into(), time: 1_690_000_000 },
+        ]
+    );
+    assert_eq!(stashes(""), []);
+}
+
+#[test]
+fn shortstats_count_lines_in_any_locale_and_skip_empty_commits() {
+    let text = "\x1eaaa\n\n 2 files changed, 10 insertions(+), 3 deletions(-)\n\x1ebbb\n\x1eccc\n\n 1 file changed, 1 insertion(+)\n\x1eddd\n\n 1 Datei geändert, 4 Zeilen entfernt(-)\n";
+    assert_eq!(
+        shortstats(text),
+        vec![("aaa".into(), 10, 3), ("ccc".into(), 1, 0), ("ddd".into(), 0, 4)]
+    );
+}

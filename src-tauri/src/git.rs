@@ -15,6 +15,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Before every Git command that takes paths from a person: `*` is a legal
+/// filename character, and a glob would reach other files.
+pub const LITERAL: &str = "--literal-pathspecs";
 /// Output one call keeps by default.
 pub const OUTPUT: usize = 2 * 1024 * 1024;
 /// Stderr kept as a failure's details; the rest is noise.

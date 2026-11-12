@@ -2,6 +2,7 @@
 //! `herdr-client`. Everything the user sees is TypeScript in `src/`; this side
 //! owns the socket and the wire format and exposes them as Tauri commands.
 
+mod branch_ops;
 mod changes;
 mod claude_usage;
 mod commands;
@@ -56,6 +57,7 @@ pub fn run() {
     let result = builder
         .invoke_handler(tauri::generate_handler![
             // keep-sorted start
+            commands::branches,
             commands::change_counts,
             commands::checkout_changes,
             commands::claude_usage,
@@ -64,17 +66,20 @@ pub fn run() {
             commands::copy_path,
             commands::create_agent,
             commands::create_team,
+            commands::delete_branch,
             commands::discard_file,
             commands::discard_plan,
             commands::disconnect,
             commands::commit_files,
             commands::commit_paths,
+            commands::file_history,
             commands::find_commit,
             commands::forge_status,
             commands::find_file,
             commands::locate_file,
             commands::moving_commits,
             commands::open_sessions_sync,
+            commands::switch_branch,
             commands::sync_checkout,
             commands::land_plan,
             commands::land_check,

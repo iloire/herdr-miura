@@ -41,8 +41,8 @@ waits until nothing else there is at work and the tree is clean ([docs/plan-agen
 ## Review every change
 
 The Changes panel shows what changed in the checkout you are in, with each file's diff and what each recent commit did.
-Tick files to commit them, discard one to the Trash, and fetch, push or fast-forward without leaving the window. It
-never stages, merges, rebases or stashes behind your back ([docs/plan-changes.md](docs/plan-changes.md)).
+Tick files to commit them, discard one to the Trash, and fetch, push or fast-forward without leaving the window. Switch
+branch on a clean tree and delete the ones already merged. It never stages, merges, rebases or stashes behind your back ([docs/plan-changes.md](docs/plan-changes.md)).
 
 ![A syntax-highlighted diff of one file beside the list of changed files and recent commits](docs/screenshots/changes.png)
 

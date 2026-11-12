@@ -2118,10 +2118,15 @@ body.reordering * {
   padding-bottom: 16px;
 }
 
+/* Stays on top as a long commit list scrolls, so rows never pass under the drawer's switch. */
 .changes-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--peat);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 6px var(--panel-switch) 6px 16px;
   height: var(--top-row);
   border-bottom: 1px solid var(--rule);
@@ -2129,6 +2134,11 @@ body.reordering * {
   font-size: calc(11px * var(--ui-scale));
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* The title takes the room, so the repository and actions sit right. */
+.changes-head > span:first-child {
+  margin-right: auto;
 }
 
 /* Over the branch, so a worktree's panel cannot pass for the main checkout's. */
@@ -2165,15 +2175,175 @@ body.reordering * {
 }
 
 /* A pushed branch opens on GitHub or GitLab. */
-.branch-link {
+/* The branch name opens the branch list. */
+.branch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 0;
   text-align: left;
-  text-decoration: underline transparent;
-  text-underline-offset: 3px;
 }
 
-.branch-link:hover {
-  text-decoration-color: currentColor;
+.branch-toggle svg {
+  width: 11px;
+  height: 11px;
+  color: var(--muted);
+  transition: transform 120ms ease;
+}
+
+.branch-toggle:hover svg {
+  color: var(--text);
+}
+
+.branch-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+/* A pushed branch opens on GitHub or GitLab. */
+.branch-web {
+  align-self: center;
+  padding: 0;
+  color: var(--muted);
+}
+
+.branch-web svg {
+  width: 11px;
+  height: 11px;
+}
+
+.branch-web:hover {
+  color: var(--text);
+}
+
+.branch-list {
+  margin: 6px 10px 4px;
+  padding: 4px 0;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--ink);
+}
+
+.branch-list ul {
+  max-height: 260px;
+  margin: 0;
+  padding: 0 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.branch-list .empty,
+.branch-list .sync-result {
+  margin: 4px 8px;
+}
+
+.branch-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 4px;
+  align-items: baseline;
+  text-align: left;
+  font: calc(12px * var(--ui-scale))/1.4 var(--mono);
+}
+
+.branch-row:not(:disabled):hover {
+  background: var(--hover);
+}
+
+.branch-row:disabled {
+  cursor: default;
+}
+
+.branch-row[aria-current="true"] .branch-row-name {
+  color: var(--lantern);
+}
+
+.branch-row:disabled:not([aria-current="true"]) .branch-row-name {
+  color: var(--muted);
+}
+
+.branch-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-row-track {
+  color: var(--working);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.branch-row-hint {
+  color: var(--faint);
+  font-size: calc(11px * var(--ui-scale));
+  white-space: nowrap;
+}
+
+.branch-list-title {
+  margin: 8px 12px 2px;
+  color: var(--muted);
+  font: 600 calc(10px * var(--ui-scale))/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.branch-merged,
+.branch-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font: calc(12px * var(--ui-scale))/1.4 var(--mono);
+}
+
+.branch-merged .branch-row-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.branch-confirm {
+  flex-wrap: wrap;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--blocked) 10%, transparent);
+}
+
+.branch-confirm span {
+  flex: 1 1 100%;
+  font-family: var(--sans);
+}
+
+.sync-action.danger:not(:disabled) {
+  border-color: color-mix(in srgb, var(--blocked) 55%, transparent);
+  color: var(--blocked);
+}
+
+/* Open the checkout elsewhere, or copy where to clone it from. */
+.changes-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+
+.changes-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.changes-actions button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.changes-actions svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* The repository on the web, in the header. */
@@ -2550,7 +2720,8 @@ body.reordering * {
 
 .commit {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Author, SHA, subject, lines bar, time. */
+  grid-template-columns: auto auto 1fr auto auto;
   gap: 8px;
   width: 100%;
   padding: 4px 10px;
@@ -2565,7 +2736,7 @@ body.reordering * {
 
 /* HEAD's CI state, from GitHub through `gh`. */
 .commit:has(.ci) {
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto auto 1fr auto auto auto;
 }
 
 .ci {
@@ -2612,7 +2783,7 @@ body.reordering * {
 
 .commit-ref {
   display: inline-block;
-  max-width: 16ch;
+  max-width: 12ch;
   margin-right: 5px;
   padding: 0 4px;
   border: 1px solid var(--rule-strong);
@@ -2635,6 +2806,156 @@ body.reordering * {
 
 .commit-ref-also {
   margin-left: 5px;
+}
+
+/* A tag, round where branches are square. */
+.commit-ref-tag {
+  border-color: color-mix(in srgb, var(--team) 55%, transparent);
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--team);
+}
+
+/* Today, Yesterday, This week, Older: over the rows they date. */
+.commit-day {
+  padding: 8px 10px 2px;
+  color: var(--faint);
+  font: 600 calc(10px * var(--ui-scale))/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.commit-day:first-child {
+  padding-top: 0;
+}
+
+/* The author's initials, tinted per author so machines and agents tell apart. */
+.author {
+  align-self: center;
+  min-width: 2.4ch;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, hsl(var(--author-hue) 70% 55%) 22%, transparent);
+  color: color-mix(in srgb, hsl(var(--author-hue) 70% 65%) 75%, var(--text));
+  font: 600 calc(9px * var(--ui-scale))/1.5 var(--mono);
+  text-align: center;
+}
+
+/* Lines a commit added and removed, longer for a bigger change. */
+.line-bar {
+  display: flex;
+  align-self: center;
+  justify-content: flex-end;
+  width: 28px;
+  height: 4px;
+}
+
+.line-bar span {
+  height: 100%;
+}
+
+.line-bar-plus {
+  background: color-mix(in srgb, var(--done) 75%, transparent);
+}
+
+.line-bar-minus {
+  background: color-mix(in srgb, var(--blocked) 75%, transparent);
+}
+
+.line-bar-plus:first-child {
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+
+.line-bar-minus:last-child {
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+.commit-filter {
+  width: 9em;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--text);
+  font: calc(11px * var(--ui-scale))/1.6 var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.commit-filter:focus {
+  border-color: var(--rule-strong);
+  outline: none;
+}
+
+.load-more {
+  display: block;
+  margin: 4px 16px 0;
+  padding: 2px 0;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.5 var(--mono);
+}
+
+.load-more:hover {
+  color: var(--text);
+}
+
+.history-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-title bdi {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--mono);
+}
+
+.changes-section .history-close {
+  position: static;
+  flex: none;
+  line-height: 1;
+}
+
+/* The stash, listed only. */
+.stashes summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.stashes summary::-webkit-details-marker {
+  display: none;
+}
+
+.stashes summary::after {
+  content: "▸";
+}
+
+.stashes[open] summary::after {
+  content: "▾";
+}
+
+.stashes ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.stashes li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.stash-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty.error {

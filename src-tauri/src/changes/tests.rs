@@ -41,7 +41,7 @@ fn path(dir: &tempfile::TempDir) -> String {
 #[test]
 fn outside_git_is_no_checkout() {
     let dir = tempfile::tempdir().unwrap();
-    assert!(matches!(read_checkout(&Target::Local, &path(&dir)), Ok(None)));
+    assert!(matches!(read_checkout(&Target::Local, &path(&dir), 0), Ok(None)));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn commits_carry_the_names_that_point_at_them() {
     git(&dir, &["tag", "v1"]);
     fs::write(dir.path().join("a.txt"), "changed\n").unwrap();
     git(&dir, &["commit", "-q", "-am", "second"]);
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     let refs = |index: usize| -> Vec<&str> {
         let mut names: Vec<_> = view.commits[index].refs.iter().map(|name| name.name.as_str()).collect();
         names.sort_unstable();
@@ -68,7 +68,7 @@ fn lists_changed_and_untracked_files() {
     let dir = repo();
     fs::write(dir.path().join("a.txt"), "one\nTWO\nthree\n").unwrap();
     fs::write(dir.path().join("new.txt"), "fresh\n").unwrap();
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     assert_eq!(view.branch.as_deref(), Some("main"));
     assert_eq!(view.total_files, 2);
     let marks: Vec<_> = view
@@ -279,7 +279,7 @@ fn stops(dir: &Path, args: &[&str]) {
 
 #[test]
 fn a_clean_checkout_has_no_operation() {
-    let view = read_checkout(&Target::Local, &path(&repo())).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&repo()), 0).unwrap().unwrap();
     assert_eq!((view.operation, view.operation_step, view.conflicts), (None, None, 0));
 }
 
@@ -288,7 +288,7 @@ fn a_stopped_rebase_says_its_step_and_conflict() {
     let dir = repo();
     diverged(&dir, 3);
     stops(dir.path(), &["rebase", "main"]);
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     assert_eq!(view.operation, Some("rebase"));
     assert_eq!(view.operation_step, Some((1, 3)));
     assert_eq!(view.conflicts, 1);
@@ -303,11 +303,11 @@ fn a_rebase_in_a_linked_worktree_is_found_through_its_git_dir() {
     let linked = parent.path().join("linked");
     git(&dir, &["worktree", "add", "-q", linked.to_str().unwrap(), "work"]);
     stops(&linked, &["rebase", "main"]);
-    let view = read_checkout(&Target::Local, linked.to_str().unwrap()).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, linked.to_str().unwrap(), 0).unwrap().unwrap();
     assert_eq!(view.operation, Some("rebase"));
     assert_eq!(view.operation_step, Some((1, 2)));
     // The rebase is the worktree's: the checkout it came from has none.
-    assert_eq!(read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap().operation, None);
+    assert_eq!(read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap().operation, None);
 }
 
 #[test]
@@ -317,9 +317,9 @@ fn a_linked_worktree_names_its_main_checkout() {
     let linked = parent.path().join("linked");
     git(&dir, &["worktree", "add", "-q", "-b", "side", linked.to_str().unwrap()]);
     let main = dir.path().canonicalize().unwrap();
-    let view = read_checkout(&Target::Local, linked.to_str().unwrap()).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, linked.to_str().unwrap(), 0).unwrap().unwrap();
     assert_eq!(view.worktree_of.as_deref(), main.to_str());
-    assert_eq!(read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap().worktree_of, None);
+    assert_eq!(read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap().worktree_of, None);
 }
 
 #[test]
@@ -343,7 +343,7 @@ fn a_merge_has_no_step() {
     let dir = repo();
     diverged(&dir, 1);
     stops(dir.path(), &["merge", "main"]);
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     assert_eq!((view.operation, view.operation_step), (Some("merge"), None));
     assert_eq!(view.conflicts, 1);
 }
@@ -353,7 +353,7 @@ fn a_cherry_pick_is_an_operation() {
     let dir = repo();
     diverged(&dir, 1);
     stops(dir.path(), &["cherry-pick", "main"]);
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     assert_eq!((view.operation, view.conflicts), (Some("cherry-pick"), 1));
 }
 
@@ -374,7 +374,7 @@ fn counts_conflicts_past_the_files_it_lists() {
     git(&dir, &["switch", "-q", "main"]);
     write("main\n");
     stops(dir.path(), &["merge", "work"]);
-    let view = read_checkout(&Target::Local, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
     assert_eq!(view.files.len(), MAX_FILES);
     assert_eq!(view.conflicts, MAX_FILES + 5);
 }
@@ -394,8 +394,8 @@ fn a_remote_host_reads_the_checkout_as_this_machine_does() {
     let remote = Target::Ssh(crate::herdr::ssh::LOOPBACK.into());
     let linked = linked.to_str().unwrap();
     assert_eq!(
-        json(read_checkout(&remote, linked).unwrap()),
-        json(read_checkout(&Target::Local, linked).unwrap())
+        json(read_checkout(&remote, linked, 0).unwrap()),
+        json(read_checkout(&Target::Local, linked, 0).unwrap())
     );
     for (path, untracked) in [("a.txt", false), ("it's new.txt", true)] {
         assert_eq!(
@@ -420,6 +420,73 @@ fn a_remote_rebase_shows_its_step() {
     diverged(&dir, 2);
     stops(dir.path(), &["rebase", "main"]);
     let remote = Target::Ssh(crate::herdr::ssh::LOOPBACK.into());
-    let view = read_checkout(&remote, &path(&dir)).unwrap().unwrap();
+    let view = read_checkout(&remote, &path(&dir), 0).unwrap().unwrap();
     assert_eq!((view.operation, view.operation_step), (Some("rebase"), Some((1, 2))));
+}
+
+#[test]
+fn commits_carry_their_line_counts_and_the_limit_grows() {
+    let dir = repo();
+    for round in 0..60 {
+        fs::write(dir.path().join("a.txt"), format!("{round}\nline\n")).unwrap();
+        git(&dir, &["commit", "-q", "-am", &format!("round {round}")]);
+    }
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
+    assert_eq!(view.commits.len(), 50);
+    assert_eq!((view.commits[0].additions, view.commits[0].deletions), (Some(1), Some(1)));
+    let more = read_checkout(&Target::Local, &path(&dir), 100).unwrap().unwrap();
+    assert_eq!(more.commits.len(), 61);
+    assert_eq!(more.commits[60].additions, Some(2), "the first commit added two lines");
+}
+
+#[test]
+fn lists_the_stash_and_the_origin_url() {
+    let dir = repo();
+    git(&dir, &["remote", "add", "origin", "git@github.com:me/repo.git"]);
+    fs::write(dir.path().join("a.txt"), "stashed\n").unwrap();
+    git(&dir, &["stash", "push", "-q", "-m", "keep this"]);
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
+    assert_eq!(view.origin_url.as_deref(), Some("git@github.com:me/repo.git"));
+    assert_eq!(view.stashes.len(), 1);
+    assert_eq!(view.stashes[0].name, "stash@{0}");
+    assert!(view.stashes[0].message.ends_with("keep this"), "{}", view.stashes[0].message);
+}
+
+#[test]
+fn a_files_history_lists_only_its_commits() {
+    let dir = repo();
+    fs::write(dir.path().join("b*.txt"), "b\n").unwrap();
+    fs::write(dir.path().join("bc.txt"), "bc\n").unwrap();
+    git(&dir, &["add", "."]);
+    git(&dir, &["commit", "-q", "-m", "add b"]);
+    fs::write(dir.path().join("bc.txt"), "bc2\n").unwrap();
+    git(&dir, &["commit", "-q", "-am", "bc only"]);
+    let history = read_history(&Target::Local, &path(&dir), "b*.txt").unwrap();
+    let subjects: Vec<_> = history.iter().map(|commit| commit.subject.as_str()).collect();
+    assert_eq!(subjects, ["add b"], "the glob reaches no other file");
+    assert_eq!(read_history(&Target::Local, &path(&dir), "a.txt").unwrap().len(), 1);
+    assert!(read_history(&Target::Local, &path(&dir), "../x").is_err());
+}
+
+#[test]
+fn branches_list_newest_first_with_the_merged_ones() {
+    let dir = repo();
+    git(&dir, &["branch", "merged"]);
+    git(&dir, &["switch", "-q", "-c", "ahead"]);
+    fs::write(dir.path().join("b.txt"), "b\n").unwrap();
+    git(&dir, &["add", "."]);
+    git(&dir, &["-c", "committer.date=2030-01-01T00:00:00", "commit", "-q", "-m", "later"]);
+    git(&dir, &["switch", "-q", "main"]);
+    let view = serde_json::to_value(branches::read_branches(&Target::Local, &path(&dir)).unwrap()).unwrap();
+    assert_eq!(view["branches"][0]["name"], "ahead");
+    assert_eq!(view["base"], "main");
+    assert_eq!(view["merged"], serde_json::json!(["merged"]));
+    let current: Vec<_> = view["branches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|branch| branch["current"] == true)
+        .map(|branch| branch["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(current, ["main"]);
 }

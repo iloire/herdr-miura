@@ -11,20 +11,50 @@ import {
 } from "react";
 import { openFile } from "../app/agentFile";
 import type { Controller } from "../app/controller";
+import { openFolder } from "../app/folder";
+import { relativeTime } from "../app/time";
+import { filterCommits } from "../changes/commitRows";
 import { absolutePath, canOpen } from "../changes/fileActions";
 import { blobUrl, commitUrl, treeUrl, forgeName, onRemote, pushedBranch, type ForgeEntry, type ForgeStore } from "../changes/forge";
-import type { ChangedFile, ChangesStore, CheckoutChanges, RecentCommit } from "../changes/store";
+import {
+  MAX_COMMITS,
+  fileHistory,
+  type ChangedFile,
+  type ChangesStore,
+  type CheckoutChanges,
+  type RecentCommit,
+} from "../changes/store";
 import type { SyncStore } from "../changes/sync";
+import { BranchList } from "./BranchList";
 import { ChangesSync } from "./ChangesSync";
 import { ChangedFiles } from "./ChangedFiles";
 import { CommitList, type CommitRows } from "./CommitList";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { ForgeLinks } from "./ForgeLinks";
-import { BranchIcon, CodeIcon, CopyIcon, OpenIcon, QueueIcon, TrashIcon } from "./icons";
+import {
+  BranchIcon,
+  ChevronIcon,
+  CodeIcon,
+  CopyIcon,
+  FolderIcon,
+  HistoryIcon,
+  OpenIcon,
+  QueueIcon,
+  TerminalIcon,
+  TrashIcon,
+} from "./icons";
 
 const NO_FORGE: ReadonlyMap<string, ForgeEntry> = new Map();
 const noSubscription = () => () => {};
 const noForge = () => NO_FORGE;
+
+/// One file's last commits, shown in place of the recent ones.
+interface History {
+  checkout: string;
+  path: string;
+  commits: RecentCommit[] | null;
+  error: string | null;
+}
 
 /// The checkout under the focused pane: branch, its sync with the remote,
 /// changed files, recent commits. Picking a file opens its diff; picking a
@@ -67,6 +97,16 @@ export function ChangesPanel({
   // was opened from marks it.
   const [openedFrom, setOpenedFrom] = useState<"moving" | "recent">("recent");
   const [menu, setMenu] = useState<MenuAt | null>(null);
+  const [branchesOpen, setBranchesOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [history, setHistory] = useState<History | null>(null);
+  // The filter and the branch list belong to one checkout, so another starts without them.
+  const [scope, setScope] = useState(checkout?.path ?? null);
+  if (checkout && checkout.path !== scope) {
+    setScope(checkout.path);
+    setFilter("");
+    setBranchesOpen(false);
+  }
   const closeMenu = useCallback(() => setMenu(null), []);
   const showMenu = (event: MouseEvent, items: MenuItem[]) => {
     event.preventDefault();
@@ -105,8 +145,25 @@ export function ChangesPanel({
       const url = blobUrl(checkout.web, pushed, file.path);
       items.push({ label: `Open on ${forgeName(checkout.web)}`, icon: <OpenIcon />, onSelect: () => open(url) });
     }
+    if (file.mark !== "?" && file.mark !== "A" && checkout.born) {
+      items.push({ label: "History", icon: <HistoryIcon />, onSelect: () => showHistory(checkout.path, file.path) });
+    }
     if (sync) items.push({ label: "Discard Changes…", icon: <TrashIcon />, onSelect: () => onDiscard(file) });
     return items;
+  };
+  const showHistory = (path: string, file: string) => {
+    setHistory({ checkout: path, path: file, commits: null, error: null });
+    const settle = (update: Partial<History>) =>
+      setHistory((shown) => (shown?.checkout === path && shown.path === file ? { ...shown, ...update } : shown));
+    fileHistory(path, file).then(
+      (commits) => settle({ commits }),
+      (error) => settle({ error: String(error) }),
+    );
+  };
+  const shownHistory = history && checkout && history.checkout === checkout.path ? history : null;
+  const newTab = (path: string) => {
+    const workspaceId = controller.getState().snapshot?.focused_workspace_id;
+    if (workspaceId) controller.request("tab.create", { workspace_id: workspaceId, cwd: path, focus: true });
   };
   const rows = (from: "moving" | "recent"): CommitRows => ({
     openCommit: openedFrom === from ? openCommit : null,
@@ -143,6 +200,40 @@ export function ChangesPanel({
             <OpenIcon />
           </button>
         )}
+        {checkout && (
+          <span className="changes-actions">
+            {sync && (
+              <>
+                <button
+                  title="Open the checkout in VS Code"
+                  aria-label="Open in VS Code"
+                  onClick={() => controller.act(openFolder(checkout.path, "vs_code"))}
+                >
+                  <CodeIcon />
+                </button>
+                <button
+                  title="Open the checkout in Finder"
+                  aria-label="Open in Finder"
+                  onClick={() => controller.act(openFolder(checkout.path, "files"))}
+                >
+                  <FolderIcon />
+                </button>
+              </>
+            )}
+            <button title="A new terminal tab in the checkout" aria-label="New terminal tab here" onClick={() => newTab(checkout.path)}>
+              <TerminalIcon />
+            </button>
+            {checkout.origin_url && (
+              <button
+                title={`Copy the clone URL: ${checkout.origin_url}`}
+                aria-label="Copy clone URL"
+                onClick={() => copy(checkout.origin_url ?? "")}
+              >
+                <CopyIcon />
+              </button>
+            )}
+          </span>
+        )}
       </header>
       {state.phase === "idle" && <p className="empty">Focus a pane to see its checkout.</p>}
       {state.phase === "loading" && <p className="empty">Reading the checkout…</p>}
@@ -160,16 +251,23 @@ export function ChangesPanel({
             </div>
           )}
           <div className="branch-line">
-            {web && pushed ? (
+            {checkout.born ? (
               <button
-                className="branch branch-link"
-                title={`Open ${pushed} on ${forgeName(web)}`}
-                onClick={() => open(treeUrl(web, pushed))}
+                className="branch branch-toggle"
+                aria-expanded={branchesOpen}
+                title={branchesOpen ? "Hide the branches" : "Show the local branches"}
+                onClick={() => setBranchesOpen(!branchesOpen)}
               >
-                {checkout.branch}
+                {checkout.branch ?? "detached HEAD"}
+                <ChevronIcon />
               </button>
             ) : (
               <span className="branch">{checkout.branch ?? "detached HEAD"}</span>
+            )}
+            {web && pushed && (
+              <button className="branch-web" title={`Open ${pushed} on ${forgeName(web)}`} onClick={() => open(treeUrl(web, pushed))}>
+                <OpenIcon />
+              </button>
             )}
             {checkout.unmerged && checkout.unmerged[1] > 0 && (
               <span className="counts" title={`Commits ${checkout.unmerged[0]} does not have`}>
@@ -177,6 +275,7 @@ export function ChangesPanel({
               </span>
             )}
           </div>
+          {branchesOpen && checkout.born && <BranchList checkout={checkout} writable={sync !== null} onWritten={onCommitted} />}
           {web && pushed && (
             <ForgeLinks web={web} checkout={checkout} branch={pushed} status={forgeStatus} open={open} />
           )}
@@ -197,15 +296,69 @@ export function ChangesPanel({
           {checkout.total_files > checkout.files.length && (
             <p className="empty">and {checkout.total_files - checkout.files.length} more not listed</p>
           )}
-          {checkout.commits.length > 0 && (
+          {shownHistory ? (
             <>
-              <h3 className="changes-section">Recent commits</h3>
-              <CommitList
-                commits={checkout.commits}
-                rows={rows("recent")}
-                checks={head && forgeStatus?.checks ? { sha: head, state: forgeStatus.checks } : undefined}
-              />
+              <h3 className="changes-section">
+                <span className="history-title" title={shownHistory.path}>
+                  History · <bdi>{shownHistory.path.split("/").pop()}</bdi>
+                </span>
+                <button className="sync-dismiss history-close" aria-label="Back to recent commits" title="Back to recent commits" onClick={() => setHistory(null)}>
+                  ×
+                </button>
+              </h3>
+              {shownHistory.error && <p className="empty error">Could not read its history: {shownHistory.error}</p>}
+              {!shownHistory.error && !shownHistory.commits && <p className="empty">Reading its history…</p>}
+              {shownHistory.commits?.length === 0 && <p className="empty">No commit has changed it.</p>}
+              {shownHistory.commits && shownHistory.commits.length > 0 && (
+                <CommitList commits={shownHistory.commits} rows={rows("recent")} />
+              )}
             </>
+          ) : (
+            checkout.commits.length > 0 && (
+              <>
+                <h3 className="changes-section">
+                  Recent commits
+                  <input
+                    type="search"
+                    className="commit-filter"
+                    placeholder="Filter"
+                    aria-label="Filter commits by subject"
+                    value={filter}
+                    onChange={(event) => setFilter(event.target.value)}
+                    onKeyDown={(event) => event.key === "Escape" && setFilter("")}
+                  />
+                </h3>
+                <CommitList
+                  commits={filterCommits(checkout.commits, filter)}
+                  rows={rows("recent")}
+                  checks={head && forgeStatus?.checks ? { sha: head, state: forgeStatus.checks } : undefined}
+                />
+                {filter.trim() !== "" && filterCommits(checkout.commits, filter).length === 0 && (
+                  <p className="empty">No subject among these {checkout.commits.length} matches.</p>
+                )}
+                {checkout.commits.length >= store.commitLimit(state.phase === "ready" ? state.directory : "") &&
+                  checkout.commits.length < MAX_COMMITS && (
+                    <button className="load-more" onClick={() => store.loadMore()}>
+                      Load more
+                    </button>
+                  )}
+              </>
+            )
+          )}
+          {checkout.stashes.length > 0 && (
+            <details className="stashes">
+              <summary className="changes-section" title="Listed only: Herdr never applies, pops or drops a stash">
+                Stashes · {checkout.stashes.length}
+              </summary>
+              <ul>
+                {checkout.stashes.map((stash) => (
+                  <li key={stash.name} title={`${stash.name}: ${stash.message}`}>
+                    <span className="stash-message">{stash.message}</span>
+                    <span className="when">{relativeTime(stash.time)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </Fragment>
       )}

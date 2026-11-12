@@ -3,10 +3,11 @@
 //! blocking pool under a deadline and contacts no remote; nothing here writes. The panel's reads take
 //! the machine the workspace is on, so a remote daemon's checkouts are read on its host over ssh.
 
+pub(crate) mod branches;
 pub(crate) mod parse;
 
 use crate::{forge, git, herdr::Target, host_fs};
-use parse::{Commit, CommitRef, FileChange, Kind};
+use parse::{Commit, CommitRef, FileChange, Kind, Stash};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Component, Path, PathBuf},
@@ -21,8 +22,14 @@ pub const MAX_DIFF_BYTES: usize = 1024 * 1024;
 const MAX_TEXT_BYTES: u64 = 1024 * 1024;
 /// Files listed per checkout; the rest are only counted.
 pub const MAX_FILES: usize = 50;
-/// Commits listed per checkout.
+/// Commits listed per checkout, unless the panel asks for more.
 const MAX_COMMITS: usize = 50;
+/// Commits the panel may ask for with "load more".
+const MAX_LOADED: usize = 1000;
+/// Commits listed in one file's history.
+const MAX_HISTORY: usize = 20;
+/// Stashes listed per checkout.
+const MAX_STASHES: usize = 50;
 /// Files listed per commit; the rest are only counted.
 const MAX_COMMIT_FILES: usize = 300;
 /// Commits listed per direction of a push or pull; the panel counts the rest.
@@ -70,6 +77,8 @@ pub struct CheckoutView {
     remotes: Vec<String>,
     /// Where `origin` lives on the web, when it is on GitHub or GitLab.
     web: Option<forge::WebRepo>,
+    /// `origin`'s URL as Git would use it, to clone from.
+    origin_url: Option<String>,
     /// Commits the remote's default branch lacks, and that branch.
     unmerged: Option<(String, u32)>,
     files: Vec<FileView>,
@@ -77,6 +86,8 @@ pub struct CheckoutView {
     added: u64,
     removed: u64,
     commits: Vec<CommitView>,
+    /// The stash, newest first. Listed only: the app never stashes or applies.
+    stashes: Vec<Stash>,
 }
 
 #[derive(Debug, Serialize)]
@@ -96,6 +107,9 @@ pub struct CommitView {
     author: String,
     time: i64,
     refs: Vec<CommitRef>,
+    /// Lines the commit added and removed, where they were counted.
+    additions: Option<u64>,
+    deletions: Option<u64>,
 }
 
 impl From<FileChange> for FileView {
@@ -118,6 +132,8 @@ impl From<Commit> for CommitView {
             author: commit.author,
             time: commit.time,
             refs: commit.refs,
+            additions: None,
+            deletions: None,
         }
     }
 }
@@ -139,8 +155,10 @@ pub enum FileDiff {
 }
 
 /// `None` when `directory` is outside Git, which the panel shows as an
-/// empty state rather than an error.
-pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<CheckoutView>, Error> {
+/// empty state rather than an error. `commits` is how many recent commits to
+/// list, at least [`MAX_COMMITS`] and at most [`MAX_LOADED`].
+pub fn read_checkout(target: &Target, directory: &str, commits: usize) -> Result<Option<CheckoutView>, Error> {
+    let limit = commits.clamp(MAX_COMMITS, MAX_LOADED);
     let deadline = host_fs::deadline(target, DEADLINE);
     let Ok(path) = checkout_root(target, directory, deadline) else {
         return Ok(None);
@@ -148,6 +166,7 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
     let status = read_status(target, &path, deadline)?;
     let mut files = status.files;
     let mut commits = Vec::new();
+    let mut stashes = Vec::new();
     let mut unmerged = None;
     // An unborn branch has no HEAD to count lines against or log from.
     if status.born {
@@ -161,14 +180,9 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
         ) {
             parse::apply_numstat(&mut files, &numstat);
         }
-        let format = format!("--max-count={MAX_COMMITS}");
-        commits = parse::log(&git::text_on(
-            target,
-            &path,
-            &["log", &format, "-z", FULL_REFS, LOG_FORMAT],
-            "read recent commits",
-            deadline,
-        )?);
+        let format = format!("--max-count={limit}");
+        commits = read_log(target, &path, &[&format], deadline)?;
+        stashes = read_stashes(target, &path, deadline);
         // The branch tracking the default branch already says this through ahead.
         unmerged = default_branch(target, &path, deadline)
             .filter(|base| status.upstream.as_ref() != Some(base))
@@ -194,11 +208,12 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
     let remotes: Vec<String> = git::text_on(target, &path, &["remote"], "list the remotes", deadline)
         .map(|remotes| remotes.lines().map(str::to_owned).collect())
         .unwrap_or_default();
-    let web = if remotes.iter().any(|remote| remote == "origin") {
-        origin_repo(target, &path, deadline)
+    let origin_url = if remotes.iter().any(|remote| remote == "origin") {
+        origin_url(target, &path, deadline)
     } else {
         None
     };
+    let web = origin_url.as_deref().and_then(forge::parse_remote);
     let total_files = files.len();
     let conflicts = files.iter().filter(|file| file.kind == Kind::Conflicted).count();
     files.truncate(MAX_FILES);
@@ -222,13 +237,60 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
         conflicts,
         remotes,
         web,
+        origin_url,
         unmerged,
         files: files.into_iter().map(FileView::from).collect(),
         total_files,
         added,
         removed,
-        commits: commits.into_iter().map(CommitView::from).collect(),
+        commits,
+        stashes,
     }))
+}
+
+/// `git log` of `selection` (a limit, a range, `-- <path>`), with each
+/// commit's added and removed lines. The counts come from a second run, as a
+/// nicety: if it fails, the commits stay without them.
+fn read_log(target: &Target, checkout: &str, selection: &[&str], deadline: Instant) -> Result<Vec<CommitView>, Error> {
+    let start = [git::LITERAL, "log", "-z", FULL_REFS, LOG_FORMAT];
+    let log = git::text_on(target, checkout, &[&start[..], selection].concat(), "read recent commits", deadline)?;
+    let mut commits: Vec<CommitView> = parse::log(&log).into_iter().map(CommitView::from).collect();
+    let start = [git::LITERAL, "log", "--format=%x1e%H", "--shortstat", "--no-ext-diff"];
+    if let Ok(stats) = git::text_on(target, checkout, &[&start[..], selection].concat(), "count commit lines", deadline) {
+        for (sha, added, removed) in parse::shortstats(&stats) {
+            if let Some(commit) = commits.iter_mut().find(|commit| commit.sha == sha) {
+                commit.additions = Some(added);
+                commit.deletions = Some(removed);
+            }
+        }
+    }
+    Ok(commits)
+}
+
+/// The stash, newest first; a failure lists none.
+fn read_stashes(target: &Target, checkout: &str, deadline: Instant) -> Vec<Stash> {
+    let limit = format!("--max-count={MAX_STASHES}");
+    git::text_on(
+        target,
+        checkout,
+        &["stash", "list", &limit, "-z", "--format=%gd%x1f%ct%x1f%gs"],
+        "list the stash",
+        deadline,
+    )
+    .map(|text| parse::stashes(&text))
+    .unwrap_or_default()
+}
+
+/// The last [`MAX_HISTORY`] commits that changed `path`, newest first, with
+/// that file's lines. `path` comes back from the webview, so one that could
+/// leave the checkout is refused.
+pub fn read_history(target: &Target, checkout: &str, path: &str) -> Result<Vec<CommitView>, Error> {
+    if !stays_inside(path) {
+        return Err(Error::OutsideCheckout(path.into()));
+    }
+    let deadline = host_fs::deadline(target, DEADLINE);
+    let limit = format!("--max-count={MAX_HISTORY}");
+    read_log(target, checkout, &[&limit, "--", path], deadline)
 }
 
 /// Where Git keeps a checkout's state: its own folder, the one its worktrees
@@ -480,15 +542,20 @@ pub fn read_moving(checkout: &str, direction: Direction) -> Result<Vec<CommitVie
 /// Where `origin` lives on the web, from its URL as Git would use it
 /// (`insteadOf` applied). A local read: nothing is contacted.
 pub fn origin_repo(target: &Target, checkout: &str, deadline: Instant) -> Option<forge::WebRepo> {
-    let url = git::text_on(
+    forge::parse_remote(&origin_url(target, checkout, deadline)?)
+}
+
+/// `origin`'s URL as Git would use it.
+fn origin_url(target: &Target, checkout: &str, deadline: Instant) -> Option<String> {
+    git::text_on(
         target,
         checkout,
         &["remote", "get-url", "origin"],
         "read the origin's URL",
         deadline,
     )
-    .ok()?;
-    forge::parse_remote(&url)
+    .ok()
+    .filter(|url| !url.is_empty())
 }
 
 /// The remote's default branch as last fetched: what `origin/HEAD` names,

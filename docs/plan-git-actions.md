@@ -23,8 +23,9 @@ because it can be undone and it refuses to act on a file that moved since you lo
   next `git commit` any agent runs, and neither side would see it happen. Commit takes paths instead, so the
   panel never leaves anything staged. A file an agent has staged stays staged and out of the commit.
 - **Discard all.** One click must not reach every agent's work.
-- **Stash, reset, clean, amend, switching branch, force.** These stay refused for the reasons in
-  [plan-changes.md](plan-changes.md).
+- **Stash, reset, clean, amend, force.** These stay refused for the reasons in
+  [plan-changes.md](plan-changes.md). Switching branch is allowed only on a clean tree with nothing under way, and
+  deleting a branch only with `git branch -d` once it is merged (see [Branches](#branches)).
 
 ## Discard
 
@@ -147,6 +148,21 @@ daemon; `agentRefusal` has unit tests.
 
 Each write test must be seen to fail once: remove `--literal-pathspecs` and the fingerprint check, and watch the
 tests go red.
+
+## Branches
+
+The branch name opens a list of local branches, newest commit first, with ↑/↓ against each upstream
+(`changes/branches.rs`, read only). Two writes, in `branch_ops.rs` under the same claim as a sync:
+
+- **Switch** runs `git switch --no-guess` only when `git status` lists nothing, untracked files included, no rebase or
+  merge is under way, and the checkout is still on the branch on show. All agents in a checkout work on its tree, and
+  Git would carry their changes across or stop halfway, so a dirty tree is refused rather than stashed. Each row that
+  cannot switch says why.
+- **Delete** lists only branches merged into the default branch (`origin/HEAD`, else `origin/main` or `master`, else a
+  local `main` or `master`), not checked out in any worktree and not that base. It confirms inline, reads all of that
+  again at the click, and runs `git branch -d`, never `-D`, so Git still refuses a branch whose commits it would lose.
+
+The stash is listed under the commits and nothing more: no apply, pop or drop.
 
 ## Later
 

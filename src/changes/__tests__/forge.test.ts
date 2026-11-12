@@ -31,12 +31,14 @@ const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   conflicts: 0,
   remotes: ["origin"],
   web: github,
+  origin_url: null,
   unmerged: ["origin/main", 2],
   files: [],
   total_files: 0,
   added: 0,
   removed: 0,
   commits: [],
+  stashes: [],
   ...over,
 });
 
