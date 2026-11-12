@@ -5,8 +5,8 @@ Newest first. Times are UTC.
 ## 2026-11-12 20:12 — Back to the tab you came from
 
 A ← button at the start of the tab bar, and ⌘[ (Ctrl+Shift+[ elsewhere), returns to the tab focused before, in
-whichever workspace it is: after jumping to an agent's card and dealing with it, one press brings you back. ⌘] goes
-forward again. The history skips closed tabs and starts over on reconnect.
+whichever workspace it is: after jumping to an agent's card and dealing with it, one press brings you back. The →
+beside it, or ⌘], goes forward again. The history skips closed tabs and starts over on reconnect.
 
 ## 2026-11-12 13:33 — Right-click menu in the Files tab
 

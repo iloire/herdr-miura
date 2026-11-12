@@ -137,6 +137,13 @@ export const BackIcon = () => (
   </Icon>
 );
 
+/// The same arrow pointing right: forward again after a step back.
+export const ForwardIcon = () => (
+  <Icon>
+    <path d="M3 8h9.5M8.5 4l4 4-4 4" {...LINE} />
+  </Icon>
+);
+
 /// A session `/loop` will run again.
 export const LoopIcon = () => (
   <Icon>

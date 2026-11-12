@@ -1253,11 +1253,15 @@ body.reordering * {
   border-bottom: 1px solid var(--rule);
 }
 
-/* Back to the tab focused before, held at the first row's start when tabs wrap. */
-.tabbar .tab-back {
+/* Back and Forward through the tabs focused before, held at the first row's start when tabs wrap. */
+.tabbar .tab-step {
   flex: none;
   align-self: flex-start;
-  margin: 1px 4px 0 0;
+  margin-top: 1px;
+}
+
+.tabbar .tab-step.forward {
+  margin-right: 4px;
 }
 
 .workarea:has(.drawer.open) .tabbar {
