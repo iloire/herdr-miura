@@ -605,6 +605,30 @@ body.reordering * {
   overflow-wrap: anywhere;
 }
 
+.commit-action-subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.commit-action-name {
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--text);
+  font: calc(12px * var(--ui-scale)) var(--mono);
+}
+
+.commit-action-name:focus {
+  outline: none;
+  border-color: var(--lantern);
+}
+
 .discard-details {
   max-height: 140px;
   margin: 0 0 12px;
@@ -3137,6 +3161,23 @@ body.reordering * {
 .line.removed .sign,
 .line.removed .number {
   color: var(--blocked);
+}
+
+/* A line number with a page on GitHub or GitLab: a click copies the link. */
+.line-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.line-link:hover,
+.line-link:focus-visible {
+  color: var(--lantern);
+  text-decoration: underline;
+  outline: none;
 }
 
 /* Dialogs: the backdrop and box every one shares, and the prompt library's search and list */

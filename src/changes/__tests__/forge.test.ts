@@ -5,6 +5,8 @@ import {
   blobUrl,
   commitUrl,
   compareUrl,
+  diffLineUrl,
+  lineUrl,
   comparison,
   forgeDue,
   onRemote,
@@ -47,6 +49,7 @@ describe("links", () => {
     expect(treeUrl(github, "feat/a b")).toBe("https://github.com/o/r/tree/feat/a%20b");
     expect(commitUrl(github, "abc")).toBe("https://github.com/o/r/commit/abc");
     expect(blobUrl(github, "feat/x", "src/a#b.ts")).toBe("https://github.com/o/r/blob/feat/x/src/a%23b.ts");
+    expect(lineUrl(github, "abc123", "src/a b.ts", 42)).toBe("https://github.com/o/r/blob/abc123/src/a%20b.ts#L42");
     expect(compareUrl(github, "main", "feat/x")).toBe("https://github.com/o/r/compare/main...feat/x");
     expect(compareUrl(github, "main", "feat/x", true)).toBe("https://github.com/o/r/compare/main...feat/x?expand=1");
     expect(actionsUrl(github, "feat/x")).toBe("https://github.com/o/r/actions?query=branch%3Afeat%2Fx");
@@ -57,6 +60,19 @@ describe("links", () => {
     expect(commitUrl(gitlab, "abc")).toBe("https://gitlab.com/g/s/p/-/commit/abc");
     expect(compareUrl(gitlab, "main", "dev", true)).toBe("https://gitlab.com/g/s/p/-/compare/main...dev");
     expect(actionsUrl(gitlab, "dev")).toBe("https://gitlab.com/g/s/p/-/pipelines?ref=dev");
+  });
+});
+
+describe("diffLineUrl", () => {
+  const links = { repo: github, path: "src/a.ts", old: "aaa", new: null };
+  it("points each side's number at the commit it was read from", () => {
+    expect(diffLineUrl(links, "old", 7)).toBe("https://github.com/o/r/blob/aaa/src/a.ts#L7");
+    expect(diffLineUrl({ ...links, old: null, new: "bbb" }, "new", 3)).toBe("https://github.com/o/r/blob/bbb/src/a.ts#L3");
+    expect(diffLineUrl({ ...links, repo: gitlab }, "old", 1)).toBe("https://gitlab.com/g/s/p/-/blob/aaa/src/a.ts#L1");
+  });
+
+  it("is null for a side with no commit, as the working tree's", () => {
+    expect(diffLineUrl(links, "new", 7)).toBeNull();
   });
 });
 

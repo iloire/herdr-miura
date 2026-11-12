@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 21:45 — Changes panel: check out, branch from and revert a commit, and line links
+
+A commit's right-click menu can check it out detached, start a branch at it, and revert it after a confirmation. All
+three need a clean tree with nothing under way, and the menu says why when they can't run. A merge commit is not
+reverted, and a revert that conflicts is left for you to finish, with the panel showing it under way. Ask Claude to
+Review This Commit joins Ask Claude about it. In a diff, a line number copies its GitHub or GitLab link; ⌘-click opens it.
+
 ## 2026-11-12 21:17 — Changes panel: the repository and its actions get their own strip
 
 The repository link and the VS Code, Finder, terminal and clone-URL buttons moved from the header to a strip under it.

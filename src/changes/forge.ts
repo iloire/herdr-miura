@@ -43,6 +43,28 @@ export const commitUrl = (repo: WebRepo, sha: string) => page(repo, `commit/${sh
 export const blobUrl = (repo: WebRepo, branch: string, path: string) =>
   page(repo, `blob/${segments(branch)}/${segments(path)}`);
 
+/// One line of a file at `ref` (a commit or a branch). GitHub and GitLab
+/// both mark a line with `#L<n>`.
+export const lineUrl = (repo: WebRepo, ref: string, path: string, line: number) =>
+  `${blobUrl(repo, ref, path)}#L${line}`;
+
+/// Where a diff's line numbers lead on the web: the commit each side of the
+/// diff was read from, or null where that side is not a commit (the working
+/// tree) or is not known.
+export interface LineLinks {
+  repo: WebRepo;
+  path: string;
+  old: string | null;
+  new: string | null;
+}
+
+/// The URL for a line number on one side of a diff, or null where that side
+/// has no commit to point at.
+export function diffLineUrl(links: LineLinks, side: "old" | "new", line: number): string | null {
+  const ref = links[side];
+  return ref ? lineUrl(links.repo, ref, links.path, line) : null;
+}
+
 /// The branch against `base`; `expand` opens GitHub's new pull request form.
 export function compareUrl(repo: WebRepo, base: string, branch: string, expand = false): string {
   const range = `${segments(base)}...${segments(branch)}`;

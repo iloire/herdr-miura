@@ -25,7 +25,8 @@ because it can be undone and it refuses to act on a file that moved since you lo
 - **Discard all.** One click must not reach every agent's work.
 - **Stash, reset, clean, amend, force.** These stay refused for the reasons in
   [plan-changes.md](plan-changes.md). Switching branch is allowed only on a clean tree with nothing under way, and
-  deleting a branch only with `git branch -d` once it is merged (see [Branches](#branches)).
+  deleting a branch only with `git branch -d` once it is merged (see [Branches](#branches)). Checking out a commit,
+  branching from it and reverting it follow the same rule (see [Commits](#commits)).
 
 ## Discard
 
@@ -164,13 +165,41 @@ The branch name opens a list of local branches, newest commit first, with ↑/�
 
 The stash is listed under the commits and nothing more: no apply, pop or drop.
 
+## Commits
+
+The commit row's menu has three writes, in `commit_ops.rs` under the same claim as a sync. Each needs what a switch
+needs: `git status` lists nothing, untracked files included, and no rebase, merge, cherry-pick or revert is under way.
+A row that cannot act is disabled and says why. Nothing is stashed to make room.
+
+- **Check Out (Detached)** runs `git switch --detach <sha>` with no confirmation: on a clean tree it loses nothing, and
+  the branch is still there to switch back to.
+- **New Branch Here…** asks for a name and runs `git switch -c <name> <sha>`. The name must pass
+  `git check-ref-format --branch`, cannot start with `-` or hold `@{`, and must not exist.
+- **Revert…** names the commit in a confirmation and runs `git revert --no-edit <sha>` on the branch on show. A merge
+  commit is refused, as reverting one means choosing a parent, and so is a commit outside HEAD's history. On a
+  conflict Git's state is left as it is: `REVERT_HEAD` now counts as an operation under way, so the panel's band and the
+  tab header show `A revert is in progress.` and `reverting`, and every write waits until it is finished or aborted in a
+  terminal. Nothing aborts or resolves it for you.
+
+Ask Claude to Review This Commit sits beside Ask Claude about This Commit and goes through the same queue.
+
+A line number in a diff copies its GitHub or GitLab URL, `/blob/<sha>/<path>#L<n>`, and ⌘-click opens it. A commit's
+diff links its new side to the commit; the working-tree diff links its old side to HEAD. A commit not pushed yet gives
+a URL that does not open until it is.
+
+Checked on 2026-11-12 in a dev window against a scratch repo and a throwaway daemon, driven by a step module that was
+not committed: detach and branch-from worked on a clean tree and were disabled with "2 uncommitted changes" on a dirty
+one, a revert made `Revert "second"`, a merge commit's revert was refused with its reason, and a revert that conflicted
+left `REVERT_HEAD` with the band showing and every write disabled as "revert under way".
+
 ## Later
 
 - **Discard a hunk.** `git apply -R` on one hunk from the diff, under the same fingerprint. It needs a real patch
   built from `changes/diff.ts`, so it comes after whole-file discard has proved itself.
 - **Discard an untracked folder.** Needs a check for nested repositories first: a live worktree under
   `.claude/worktrees/` shows up as one when it is not ignored.
-- **Add to .gitignore**, and **Revert commit**, which adds a commit and rewrites nothing.
+- **Add to .gitignore**.
+- ~~**Revert commit**, which adds a commit and rewrites nothing.~~ ✅ See [Commits](#commits).
 
 ## Known limits
 

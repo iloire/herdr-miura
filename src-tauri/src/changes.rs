@@ -298,7 +298,8 @@ pub fn read_history(target: &Target, checkout: &str, path: &str) -> Result<Vec<C
 struct Layout {
     git_dir: String,
     common_dir: String,
-    /// `rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`.
+    /// `rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`,
+    /// `REVERT_HEAD`.
     states: Vec<String>,
 }
 
@@ -321,6 +322,8 @@ fn read_layout(target: &Target, checkout: &str, deadline: Instant) -> Option<Lay
             "MERGE_HEAD",
             "--git-path",
             "CHERRY_PICK_HEAD",
+            "--git-path",
+            "REVERT_HEAD",
         ],
         "find where Git keeps the checkout",
         deadline,
@@ -332,7 +335,7 @@ fn read_layout(target: &Target, checkout: &str, deadline: Instant) -> Option<Lay
         common_dir: lines.next()?,
         states: lines.collect(),
     };
-    (layout.states.len() == 4).then_some(layout)
+    (layout.states.len() == 5).then_some(layout)
 }
 
 /// The main checkout of a linked worktree, whose own folder is
@@ -392,7 +395,7 @@ fn find_operation(target: &Target, layout: &Layout, deadline: Instant) -> Option
     host_fs::existing(target, &states, deadline)
         .into_iter()
         .zip(states)
-        .zip(["rebase", "rebase", "merge", "cherry-pick"])
+        .zip(["rebase", "rebase", "merge", "cherry-pick", "revert"])
         .find(|((exists, _), _)| *exists)
         .map(|((_, path), operation)| (operation, PathBuf::from(path)))
 }

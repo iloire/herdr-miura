@@ -4,6 +4,7 @@
 
 mod branch_ops;
 mod changes;
+mod commit_ops;
 mod claude_usage;
 mod commands;
 mod connection;
@@ -66,6 +67,9 @@ pub fn run() {
             commands::copy_path,
             commands::create_agent,
             commands::create_team,
+            commands::checkout_commit,
+            commands::branch_from_commit,
+            commands::revert_commit,
             commands::delete_branch,
             commands::discard_file,
             commands::discard_plan,

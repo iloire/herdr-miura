@@ -3,6 +3,7 @@
 
 use crate::{
     Error, Result, branch_ops,
+    commit_ops,
     changes::{self, CheckoutView, CommitFilesView, CommitView, FileDiff, FoundCommit},
     claude_usage,
     connection::Connection,
@@ -204,6 +205,55 @@ pub async fn switch_branch(
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || {
         branch_ops::switch_branch(&app.state::<sync::Running>(), &checkout, &to, branch.as_deref())
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Checks a commit out on a detached HEAD. Refused on a remote host, and by
+/// the backend on a dirty tree or with an operation under way.
+#[tauri::command]
+pub async fn checkout_commit(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    sha: String,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        commit_ops::checkout_commit(&app.state::<sync::Running>(), &checkout, &sha)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Starts the branch `name` at a commit and switches to it, under the same
+/// checks as [`checkout_commit`].
+#[tauri::command]
+pub async fn branch_from_commit(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    sha: String,
+    name: String,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        commit_ops::branch_from(&app.state::<sync::Running>(), &checkout, &sha, &name)
+    });
+    Ok(run.await.map_err(changes::Error::Worker)?)
+}
+
+/// Adds a commit undoing `sha` on `branch`, the branch the panel showed.
+#[tauri::command]
+pub async fn revert_commit(
+    app: AppHandle,
+    connection: State<'_, Connection>,
+    checkout: String,
+    sha: String,
+    branch: Option<String>,
+) -> Result<sync::Outcome> {
+    connection.ensure_local()?;
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        commit_ops::revert_commit(&app.state::<sync::Running>(), &checkout, &sha, branch.as_deref())
     });
     Ok(run.await.map_err(changes::Error::Worker)?)
 }

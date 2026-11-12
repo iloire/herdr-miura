@@ -13,6 +13,7 @@ import { openFile } from "../app/agentFile";
 import type { Controller } from "../app/controller";
 import { openFolder } from "../app/folder";
 import { relativeTime } from "../app/time";
+import { checkoutCommit, commitBlock, revertBlock } from "../changes/commitActions";
 import { filterCommits } from "../changes/commitRows";
 import { absolutePath, canOpen } from "../changes/fileActions";
 import { blobUrl, commitUrl, treeUrl, forgeName, onRemote, pushedBranch, type ForgeEntry, type ForgeStore } from "../changes/forge";
@@ -28,6 +29,7 @@ import type { SyncStore } from "../changes/sync";
 import { BranchList } from "./BranchList";
 import { ChangesSync } from "./ChangesSync";
 import { ChangedFiles } from "./ChangedFiles";
+import { CommitActionDialog, type CommitAction } from "./CommitActionDialog";
 import { CommitList, type CommitRows } from "./CommitList";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { ForgeLinks } from "./ForgeLinks";
@@ -35,11 +37,13 @@ import {
   BranchIcon,
   ChevronIcon,
   CodeIcon,
+  CommitIcon,
   CopyIcon,
   FolderIcon,
   HistoryIcon,
   OpenIcon,
   QueueIcon,
+  RevertIcon,
   TerminalIcon,
   TrashIcon,
 } from "./icons";
@@ -100,6 +104,7 @@ export function ChangesPanel({
   const [branchesOpen, setBranchesOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [history, setHistory] = useState<History | null>(null);
+  const [acting, setActing] = useState<{ action: CommitAction; commit: RecentCommit; checkout: string } | null>(null);
   // The filter and the branch list belong to one checkout, so another starts without them.
   const [scope, setScope] = useState(checkout?.path ?? null);
   if (checkout && checkout.path !== scope) {
@@ -108,7 +113,7 @@ export function ChangesPanel({
     setBranchesOpen(false);
   }
   const closeMenu = useCallback(() => setMenu(null), []);
-  const showMenu = (event: MouseEvent, items: MenuItem[]) => {
+  const showMenu = (event: MouseEvent, items: MenuItem[] | MenuItem[][]) => {
     event.preventDefault();
     setMenu({ x: event.clientX, y: event.clientY, items });
   };
@@ -174,21 +179,69 @@ export function ChangesPanel({
     },
     onMenu: (commit, event) => showMenu(event, commitMenu(commit)),
   });
-  const commitMenu = (commit: RecentCommit): MenuItem[] => {
-    const items: MenuItem[] = [
+  /// Detaching asks nothing, as it loses nothing: the tree is clean, and the
+  /// branch is still there to switch back to.
+  const detach = async (path: string, commit: RecentCommit) => {
+    try {
+      const outcome = await checkoutCommit(path, commit.sha);
+      if (outcome.kind === "failed") {
+        controller.alert("Nothing was checked out", [outcome.message, outcome.details].filter(Boolean).join("\n\n"));
+      }
+    } catch (error) {
+      controller.alert("Nothing was checked out", String(error));
+    }
+    onCommitted();
+  };
+  const commitMenu = (commit: RecentCommit): MenuItem[][] => {
+    const copies: MenuItem[] = [
       { label: "Copy SHA", icon: <CopyIcon />, onSelect: () => copy(commit.sha) },
       { label: "Copy Short SHA", icon: <CopyIcon />, onSelect: () => copy(commit.short) },
       { label: "Copy Subject", icon: <CopyIcon />, onSelect: () => copy(commit.subject) },
     ];
     if (web) {
       const url = commitUrl(web, commit.sha);
-      items.push({ label: `Open on ${forgeName(web)}`, icon: <OpenIcon />, onSelect: () => open(url) });
+      copies.push({ label: `Open on ${forgeName(web)}`, icon: <OpenIcon />, onSelect: () => open(url) });
     }
+    // Writes need this Mac, so a remote host's checkout offers none.
+    const writes: MenuItem[] = [];
+    if (sync && checkout) {
+      const path = checkout.path;
+      const block = commitBlock(checkout);
+      const revert = revertBlock(checkout);
+      writes.push(
+        {
+          label: "Check Out (Detached)",
+          icon: <CommitIcon />,
+          disabled: block !== null,
+          hint: block ?? undefined,
+          onSelect: () => void detach(path, commit),
+        },
+        {
+          label: "New Branch Here…",
+          icon: <BranchIcon />,
+          disabled: block !== null,
+          hint: block ?? undefined,
+          onSelect: () => setActing({ action: "branch", commit, checkout: path }),
+        },
+        {
+          label: "Revert…",
+          icon: <RevertIcon />,
+          disabled: revert !== null,
+          hint: revert ?? undefined,
+          onSelect: () => setActing({ action: "revert", commit, checkout: path }),
+        },
+      );
+    }
+    const asks: MenuItem[] = [];
     if (onAsk && checkout) {
-      const prompt = `Explain commit ${commit.sha} in ${checkout.path}: what it changes and why`;
-      items.push({ label: "Ask Claude about This Commit", icon: <QueueIcon />, onSelect: () => onAsk(prompt) });
+      const explain = `Explain commit ${commit.sha} in ${checkout.path}: what it changes and why`;
+      const review = `Review commit ${commit.sha} in ${checkout.path} for bugs and risks`;
+      asks.push(
+        { label: "Ask Claude about This Commit", icon: <QueueIcon />, onSelect: () => onAsk(explain) },
+        { label: "Ask Claude to Review This Commit", icon: <QueueIcon />, onSelect: () => onAsk(review) },
+      );
     }
-    return items;
+    return [copies, writes, asks];
   };
   return (
     <aside className="changes" aria-label="Changes">
@@ -367,6 +420,17 @@ export function ChangesPanel({
         </Fragment>
       )}
       {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
+      {acting && checkout && acting.checkout === checkout.path && (
+        <CommitActionDialog
+          key={`${acting.action} ${acting.commit.sha}`}
+          action={acting.action}
+          checkout={acting.checkout}
+          branch={checkout.branch}
+          commit={acting.commit}
+          onClose={() => setActing(null)}
+          onDone={onCommitted}
+        />
+      )}
     </aside>
   );
 }

@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatMoment, relativeTime } from "../app/time";
 import { splitMessage } from "../changes/commit";
 import { clean } from "../changes/diff";
+import type { WebRepo } from "../changes/forge";
 import type { ChangedFile, RecentCommit } from "../changes/store";
 import { useCommitDiffs } from "../changes/useCommitDiffs";
 import type { CommitFilesState } from "../changes/useCommitFiles";
 import { FileRow } from "./CommitList";
-import { DiffBody } from "./DiffBody";
+import { DiffBody, type DiffLinks, type OnLineLink } from "./DiffBody";
 
 const NO_FILES: ChangedFile[] = [];
 
@@ -18,16 +19,31 @@ export function CommitDiffView({
   checkout,
   commit,
   state,
+  web,
+  onLineLink,
   onStep,
   onClose,
 }: {
   checkout: string;
   commit: RecentCommit;
   state: CommitFilesState | null;
+  /// `origin` on GitHub or GitLab, where the new side's line numbers link to.
+  web: WebRepo | null;
+  onLineLink: OnLineLink;
   onStep: (by: number) => void;
   onClose: () => void;
 }) {
   const files = state?.phase === "ready" ? state.files : NO_FILES;
+  // The new side is the file in this commit; the old side would need its parent.
+  const links = useMemo(() => {
+    const byPath = new Map<string, DiffLinks>();
+    if (web) {
+      for (const file of files) {
+        byPath.set(file.path, { links: { repo: web, path: file.path, old: null, new: commit.sha }, onLink: onLineLink });
+      }
+    }
+    return byPath;
+  }, [web, files, commit.sha, onLineLink]);
   const diffs = useCommitDiffs(checkout, commit.sha, files);
   const rootRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -176,7 +192,7 @@ export function CommitDiffView({
                 </span>
               )}
             </header>
-            <DiffBody loaded={diffs.get(file.path) ?? { phase: "loading" }} path={file.path} />
+            <DiffBody loaded={diffs.get(file.path) ?? { phase: "loading" }} path={file.path} links={links.get(file.path)} />
           </section>
         ))}
         {state?.phase === "ready" && state.total_files > files.length && (

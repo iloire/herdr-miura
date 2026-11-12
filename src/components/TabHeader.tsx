@@ -53,7 +53,7 @@ const AGE_TITLE = "Time in this status, counted from when the app first saw it, 
 /// both, even with no agent, as a height that came and went would resize the
 /// terminal under whatever runs there. First, for a tab the queue opened, that it did: the tab itself looks
 /// like any other. Then what makes a new prompt risky: a warning when other
-/// agents can write in this checkout, and a rebase, merge or cherry-pick under
+/// agents can write in this checkout, and a rebase, merge, cherry-pick or revert under
 /// way or files in conflict. Then a chip for a linked worktree, which is easy
 /// to take for the main checkout. Then where the focused pane is, when that is not
 /// the workspace's root, to catch an agent working in the wrong place. Then the
@@ -189,7 +189,7 @@ function StrayFacts({ controller, stray }: { controller: Controller; stray: Stra
   );
 }
 
-/// A rebase, merge or cherry-pick under way, and conflicts. Ahead of the path
+/// A rebase, merge, cherry-pick or revert under way, and conflicts. Ahead of the path
 /// and the branch, whose floors would otherwise push them off a tight strip.
 function GitUnderWay({ git }: { git: TabGit }) {
   if (!git.operation && git.conflicts === 0) return null;

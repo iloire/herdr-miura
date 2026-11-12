@@ -1,5 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { attentionCount } from "./app/attention";
 import { tabGit } from "./app/gitLine";
@@ -487,6 +489,12 @@ export default function App() {
     controller.focusTerminal();
   };
 
+  // A diff's line number: a click copies its URL on the web, ⌘-click opens it.
+  const lineLink = useMemo(
+    () => (url: string, open: boolean) => controller.act(open ? openUrl(url) : writeText(url)),
+    [controller],
+  );
+
   const checkoutWritten = () => {
     changesStore.reread();
     setWritesEnded((ended) => ended + 1);
@@ -740,6 +748,9 @@ export default function App() {
                   onClose={closeDiff}
                   onDiscard={local ? () => setDiscarding(shownFile) : null}
                   covered={discarding !== null}
+                  web={checkout.web}
+                  head={checkout.commits[0]?.sha ?? null}
+                  onLineLink={lineLink}
                 />
               )}
               {shownCommit && checkout && (
@@ -747,6 +758,8 @@ export default function App() {
                   checkout={checkout.path}
                   commit={shownCommit}
                   state={commitFiles}
+                  web={checkout.web}
+                  onLineLink={lineLink}
                   onStep={stepCommit}
                   onClose={closeDiff}
                 />

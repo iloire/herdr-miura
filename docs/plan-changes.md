@@ -3,8 +3,8 @@
 Shows what changed in the checkout you are working in, and the diff of any file, without leaving the app.
 It keeps a branch in step with its remote too: background fetch, push, publish and pull, with the
 commits each would move. You can discard one file's change, which goes to the Trash first and is refused if
-the file moved since you looked, commit the files you tick, switch branch on a clean tree, and delete a merged
-branch ([plan-git-actions.md](plan-git-actions.md)). It does not stage, stash, merge or rebase. All agents in a checkout share one index, so anything staged here would go
+the file moved since you looked, commit the files you tick, switch branch on a clean tree, delete a merged
+branch, and check out, branch from or revert a commit on a clean tree ([plan-git-actions.md](plan-git-actions.md)). It does not stage, stash, merge or rebase. All agents in a checkout share one index, so anything staged here would go
 into the next commit any of them makes, and a stash could destroy another agent's work.
 
 ## Where the data comes from

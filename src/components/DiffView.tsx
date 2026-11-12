@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readDiff, type ChangedFile } from "../changes/store";
-import { DiffBody, type Loaded } from "./DiffBody";
+import { onRemote, type WebRepo } from "../changes/forge";
+import { DiffBody, type DiffLinks, type Loaded, type OnLineLink } from "./DiffBody";
 
 /// One file's uncommitted change over the terminal area. ↑/↓ (or k/j) step
 /// through the checkout's `files`, Esc closes.
@@ -12,6 +13,9 @@ export function DiffView({
   onClose,
   onDiscard,
   covered,
+  web,
+  head,
+  onLineLink,
 }: {
   checkout: string;
   files: ChangedFile[];
@@ -22,9 +26,20 @@ export function DiffView({
   onDiscard: (() => void) | null;
   /// A dialog holds the keys; they come back here once it closes.
   covered: boolean;
+  /// `origin` on GitHub or GitLab, and HEAD's commit: the old side's line
+  /// numbers link to the file there. The new side is not committed yet.
+  web: WebRepo | null;
+  head: string | null;
+  onLineLink: OnLineLink;
 }) {
   const [loaded, setLoaded] = useState<Loaded>({ phase: "loading" });
   const rootRef = useRef<HTMLDivElement>(null);
+  // A new file has no old side, and a rename's is under its old path.
+  const oldOnWeb = onRemote(file.mark);
+  const links = useMemo<DiffLinks | null>(
+    () => (web && head && oldOnWeb ? { links: { repo: web, path: file.path, old: head, new: null }, onLink: onLineLink } : null),
+    [web, head, oldOnWeb, file.path, onLineLink],
+  );
 
   useEffect(() => {
     let current = true;
@@ -89,7 +104,7 @@ export function DiffView({
         </button>
       </header>
       <div className="diff-body">
-        <DiffBody loaded={loaded} path={file.path} />
+        <DiffBody loaded={loaded} path={file.path} links={links} />
       </div>
     </div>
   );

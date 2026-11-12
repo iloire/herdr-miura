@@ -147,6 +147,7 @@ describe("operationLabel", () => {
     expect(operationLabel({ operation: "rebase", operation_step: null })).toBe("rebasing");
     expect(operationLabel({ operation: "merge", operation_step: null })).toBe("merging");
     expect(operationLabel({ operation: "cherry-pick", operation_step: null })).toBe("cherry-picking");
+    expect(operationLabel({ operation: "revert", operation_step: null })).toBe("reverting");
   });
 
   it("is null with nothing under way", () => {

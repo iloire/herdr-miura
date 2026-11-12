@@ -28,7 +28,7 @@ export interface TabGit {
   conflicts: number;
 }
 
-const OPERATIONS = { rebase: "rebasing", merge: "merging", "cherry-pick": "cherry-picking" };
+const OPERATIONS = { rebase: "rebasing", merge: "merging", "cherry-pick": "cherry-picking", revert: "reverting" };
 
 /// `rebasing 3/7`, `merging`, or null with nothing under way.
 export function operationLabel({ operation, operation_step: step }: Pick<CheckoutChanges, "operation" | "operation_step">): string | null {

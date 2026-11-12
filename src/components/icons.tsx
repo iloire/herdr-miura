@@ -212,3 +212,18 @@ export const TrashIcon = () => (
     <path {...LINE} d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M6.8 7v3.8M9.2 7v3.8" />
   </Icon>
 );
+
+/// A commit on its line, for moving HEAD onto one.
+export const CommitIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="2.5" {...LINE} />
+    <path d="M1.75 8h3.75M10.5 8h3.75" {...LINE} />
+  </Icon>
+);
+
+/// An arrow turning back, for a commit that undoes another.
+export const RevertIcon = () => (
+  <Icon>
+    <path d="M5.5 3 2.75 5.75 5.5 8.5M2.75 5.75h6.5a3.75 3.75 0 0 1 0 7.5H6" {...LINE} />
+  </Icon>
+);
