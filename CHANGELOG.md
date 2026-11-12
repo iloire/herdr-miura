@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 13:33 — Right-click menu in the Files tab
+
+Right-clicking a file or folder in the Files tab opens Herdr's own menu instead of the webview's Reload. A file offers
+Open, Open with Default App, Open in VS Code and Reveal in Finder; a folder Expand or Collapse, Open in VS Code and Reveal
+in Finder. Both can paste their path into the terminal (handy for a Claude prompt) and copy the full path, the path
+relative to the checkout, or the name.
+
 ## 2026-11-10 22:02 — Resume sessions after a restart
 
 When the Herdr daemon restarts, after a reboot most often, its tabs come back without the Claude Code sessions in them.

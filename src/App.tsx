@@ -711,6 +711,7 @@ export default function App() {
               />
             ) : state.files ? (
               <FilesPanel
+                controller={controller}
                 state={listing}
                 changed={changedMarks}
                 selected={shownTreeFile ? filePick : null}

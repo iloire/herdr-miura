@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Controller } from "../app/controller";
 import { type ListingState, listFolder } from "../files/listing";
 import { ancestors, buildTree, matchingRows, visibleRows } from "../files/tree";
+import { ContextMenu, type MenuAt } from "./ContextMenu";
+import { treeMenu } from "./treeMenu";
 import { FileIcon, FolderIcon } from "./icons";
 
 /// Rows drawn at most; a filter that matches more asks for more letters.
@@ -10,6 +13,7 @@ const MAX_ROWS = 2000;
 /// changed ones marked and a filter on top, as herdr-gpui's Files section.
 /// Picking a file opens it over the terminal.
 export function FilesPanel({
+  controller,
   state,
   changed,
   selected,
@@ -18,6 +22,7 @@ export function FilesPanel({
   showIgnored,
   onToggleIgnored,
 }: {
+  controller: Controller;
   state: ListingState;
   /// Changed paths and their `git status --short` letter.
   changed: ReadonlyMap<string, string>;
@@ -71,6 +76,9 @@ export function FilesPanel({
     onOpen(path);
   };
 
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+
   const name = root?.split("/").pop() ?? "Files";
   return (
     <aside className="changes files" aria-label="Files">
@@ -123,6 +131,17 @@ export function FilesPanel({
                 aria-current={!folder && node.path === selected ? "true" : undefined}
                 title={node.path}
                 onClick={() => (folder ? !filter && toggle(node.path) : open(node.path))}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  if (!root) return;
+                  const items = treeMenu(controller, root, node.path, {
+                    folder,
+                    expanded: folder && expanded.has(node.path),
+                    onOpen: () => open(node.path),
+                    onToggle: filter ? undefined : () => toggle(node.path),
+                  });
+                  setMenu({ x: event.clientX, y: event.clientY, items });
+                }}
               >
                 <span className="chevron">{folder ? "›" : ""}</span>
                 {folder ? <FolderIcon /> : <FileIcon />}
@@ -142,6 +161,7 @@ export function FilesPanel({
       {listing && listing.total_files > listing.files.length && (
         <p className="empty">Only the first {listing.files.length} of {listing.total_files} files are listed.</p>
       )}
+      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
     </aside>
   );
 }
