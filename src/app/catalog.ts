@@ -169,6 +169,8 @@ const DEFINITIONS: Definition[] = [
   { name: "split_down", label: "Split Down", mac: ["cmd-shift-d"], other: ["ctrl-alt-shift-d"], action: split("down") },
   { name: "next_tab", label: "Next Tab", mac: ["cmd-shift-]"], other: ["ctrl-pagedown"], action: stepTab(1) },
   { name: "previous_tab", label: "Previous Tab", mac: ["cmd-shift-["], other: ["ctrl-pageup"], action: stepTab(-1) },
+  { name: "go_back", label: "Go Back", mac: ["cmd-["], other: ["ctrl-shift-["], action: "window" },
+  { name: "go_forward", label: "Go Forward", mac: ["cmd-]"], other: ["ctrl-shift-]"], action: "window" },
   { name: "move_tab_previous", label: "Move Tab Left", mac: [], other: [], action: moveTab(false) },
   { name: "move_tab_next", label: "Move Tab Right", mac: [], other: [], action: moveTab(true) },
   ...directional(

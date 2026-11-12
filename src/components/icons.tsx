@@ -130,6 +130,13 @@ export const NewTabIcon = () => (
   </Icon>
 );
 
+/// An arrow pointing left: back to the tab focused before.
+export const BackIcon = () => (
+  <Icon>
+    <path d="M13 8H3.5M7.5 4 3.5 8l4 4" {...LINE} />
+  </Icon>
+);
+
 /// A session `/loop` will run again.
 export const LoopIcon = () => (
   <Icon>

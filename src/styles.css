@@ -1253,6 +1253,13 @@ body.reordering * {
   border-bottom: 1px solid var(--rule);
 }
 
+/* Back to the tab focused before, held at the first row's start when tabs wrap. */
+.tabbar .tab-back {
+  flex: none;
+  align-self: flex-start;
+  margin: 1px 4px 0 0;
+}
+
 .workarea:has(.drawer.open) .tabbar {
   padding-right: 6px;
 }

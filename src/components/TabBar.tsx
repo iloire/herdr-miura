@@ -17,7 +17,7 @@ import { CloseDialog } from "./CloseDialog";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
-import { BranchIcon, CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
+import { BackIcon, BranchIcon, CheckIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
@@ -79,6 +79,12 @@ export function TabBar({
   // Without a command the button opens a plain terminal either way, so ⌥ changes nothing.
   const plainTab = useOptionHeld() && !!newTabCommand;
   const newTabHint = newTabCommand ? "New tab (⌥-click for a plain terminal)" : "New tab";
+
+  // The controller's history moves in the same update as the snapshot, so it is current here.
+  const back = controller.tabStep("back");
+  const backTab = back ? snapshot?.tabs.find((tab) => tab.tab_id === back) : undefined;
+  const backKey = controller.shortcutHint("go_back");
+  const backHint = `${backTab ? `Back to ${backTab.label}` : "Back"}${backKey ? ` (${backKey})` : ""}`;
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
@@ -240,6 +246,17 @@ export function TabBar({
 
   return (
     <div className="tabbar" data-tauri-drag-region>
+      <button
+        className="icon-button tab-back"
+        title={backHint}
+        aria-label={backHint}
+        disabled={!back}
+        // Typing stays with the terminal, which the tab moved to takes over.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => controller.run("go_back")}
+      >
+        <BackIcon />
+      </button>
       <div
         ref={rows}
         className={wrap ? "tab-rows" : "tab-rows one-row"}

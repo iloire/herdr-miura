@@ -18,6 +18,7 @@ import { type OpenSession, restorable, resumeInPane } from "./restoreSessions";
 import { type PastedImage, readPastedImage, sessionOf } from "./sessionUsage";
 import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
+import { type Direction, EMPTY_HISTORY, stepTarget, type TabHistory, visit } from "./tabHistory";
 
 export type Status =
   | { phase: "connecting" }
@@ -108,6 +109,8 @@ export interface State {
   /// What the settings file says, with defaults for what it leaves out.
   settings: Settings;
   commands: Command[];
+  /// The tabs focused before and after this one, for Back and Forward.
+  tabHistory: TabHistory;
 }
 
 /// Shortcuts beyond the catalog's defaults, the Option-arrows herdr-gpui
@@ -187,6 +190,7 @@ export class Controller {
     theme: HERDR_NIGHT,
     settings: DEFAULT_SETTINGS,
     commands: [],
+    tabHistory: EMPTY_HISTORY,
   };
   private listeners = new Set<() => void>();
   private frameListeners = new Set<(dirty: Set<number>) => void>();
@@ -200,6 +204,8 @@ export class Controller {
   private newTabCommands = new Map<string, string>();
   /// Each `tab.close` request in flight, by request ID, to its tab.
   private closeRequests = new Map<string, string>();
+  /// The step through the tab history waiting for its focus to show in a snapshot.
+  private stepping: { direction: Direction; target: string } | null = null;
   private readonly daemon = new Daemon((event) => this.handle(event));
 
   // State store, shaped for `useSyncExternalStore`.
@@ -295,7 +301,8 @@ export class Controller {
     this.closing.clear();
     this.closeRequests.clear();
     const status: Status = retrying ? this.state.status : { phase: "connecting" };
-    this.set({ status, snapshot: null, notice: null, closeAsk: null });
+    this.stepping = null;
+    this.set({ status, snapshot: null, notice: null, closeAsk: null, tabHistory: EMPTY_HISTORY });
     try {
       await this.daemon.connect(this.surface, this.state.host);
     } catch (error) {
@@ -539,7 +546,24 @@ export class Controller {
   }
 
   private showSnapshot(): void {
-    this.set({ snapshot: this.daemonSnapshot && withoutClosing(this.daemonSnapshot, this.closing) });
+    const snapshot = this.daemonSnapshot && withoutClosing(this.daemonSnapshot, this.closing);
+    const tabHistory = visit(this.state.tabHistory, snapshot?.focused_tab_id ?? null, this.stepping);
+    if (tabHistory !== this.state.tabHistory) this.stepping = null;
+    this.set({ snapshot, tabHistory });
+  }
+
+  /// The tab a step back or forward would focus, or null when there is none.
+  tabStep(direction: Direction): string | null {
+    const open = new Set(this.state.snapshot?.tabs.map((tab) => tab.tab_id));
+    return stepTarget(this.state.tabHistory, direction, open);
+  }
+
+  /// Focuses the tab before (or after) this one in the history, in whichever workspace.
+  stepTab(direction: Direction): void {
+    const target = this.tabStep(direction);
+    if (!target) return;
+    this.stepping = { direction, target };
+    this.request("tab.focus", { tab_id: target });
   }
 
   setWindowFocus(focused: boolean): void {
@@ -599,6 +623,10 @@ export class Controller {
         if (target) this.request("workspace.focus", { workspace_id: target.workspace_id });
         return;
       }
+      case "go_back":
+        return this.stepTab("back");
+      case "go_forward":
+        return this.stepTab("forward");
       case "reconnect":
         void this.connect();
         return;
