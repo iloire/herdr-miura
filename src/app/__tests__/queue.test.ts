@@ -3,12 +3,14 @@ import type { Agent, AgentStatus, Snapshot, Workspace } from "../../protocol";
 import {
   addItem,
   bringBack,
+  busyQueues,
   dropItem,
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
   moveQueue,
   foldSplitQueues,
+  holdNewQueues,
   type InboxEntry,
   type Item,
   INBOX_MAX_AGE_MS,
@@ -633,5 +635,29 @@ describe("moveQueue", () => {
 
   it("does nothing without a queue to move", () => {
     expect(moveQueue(EMPTY_FILE, OLD, NEW)).toBe(EMPTY_FILE);
+  });
+});
+
+describe("busyQueues", () => {
+  it("lists queues with work or a pause, the working one first, then by what waits", () => {
+    let file = addItem(EMPTY_FILE, "/a", "one", false, 0);
+    file = addItem(file, "/b", "one", false, 0);
+    file = addItem(file, "/b", "two", false, 0);
+    const c = { ...running(queued("x")), folder: "/c" };
+    const quiet = emptyQueue("/quiet");
+    const paused = { ...emptyQueue("/paused"), paused: { reason: "Paused by you." } };
+    file = { ...file, queues: { ...file.queues, [queueKey("/c")]: c, [queueKey("/quiet")]: quiet, [queueKey("/paused")]: paused } };
+    expect(busyQueues(file).map((q) => q.folder)).toEqual(["/c", "/b", "/a", "/paused"]);
+  });
+});
+
+describe("holdNewQueues", () => {
+  it("pauses only the queues that were not there before", () => {
+    const before = addItem(EMPTY_FILE, "/a", "one", false, 0);
+    const after = addItem(addItem(before, "/a", "two", false, 0), "/b", "one", false, 0);
+    const held = holdNewQueues(before, after, "Test queue.");
+    expect(held.queues[queueKey("/a")].paused).toBeNull();
+    expect(held.queues[queueKey("/b")].paused).toEqual({ reason: "Test queue." });
+    expect(holdNewQueues(after, after, "x")).toBe(after);
   });
 });

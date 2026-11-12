@@ -19,6 +19,7 @@ import {
   end,
   type FolderOf,
   foldSplitQueues,
+  holdNewQueues,
   moveQueue,
   holdBack,
   isAway,
@@ -54,6 +55,8 @@ const LOAD_RETRY_MS = 5000;
 /// on a feature branch with this id has no queue at all, so the daily queue
 /// is only ever run by `main`'s code (Stable, in daily use).
 const DAILY_ID = "com.herdr.tauri";
+/// Why a queue a dev window made is paused (`holdNewQueues`).
+const TEST_HOLD = "This dev window's queue starts paused, so trying it never starts an agent by itself.";
 
 /// Whether this window has the queue, and which one it is.
 export type QueueAccess =
@@ -93,6 +96,8 @@ export function useQueue(
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
+  /// A dev build's own queue: what it makes starts paused.
+  const separate = useRef(false);
   const latest = useRef({ snapshot, local, folderOf, rootOf, isOpenSplit, moves });
   latest.current = { snapshot, local, folderOf, rootOf, isOpenSplit, moves };
 
@@ -136,7 +141,8 @@ export function useQueue(
       loadQueue()
         .then((loaded) => {
           if (!live) return;
-          setAccess({ kind: "ready", separate: id !== DAILY_ID });
+          separate.current = id !== DAILY_ID;
+          setAccess({ kind: "ready", separate: separate.current });
           void commit(recover(loaded, Date.now()));
         })
         .catch((error) => {
@@ -269,6 +275,7 @@ export function useQueue(
       const file = current.current;
       if (!entries.length || !snapshot || !local) return;
       const result = takeInbox(file, entries, snapshot, Date.now(), folderOf);
+      if (separate.current) result.file = holdNewQueues(file, result.file, TEST_HOLD);
       for (const { name, reason } of result.rejected) await settleInbox(name, reason);
       if (!result.added.length) return;
       for (const name of result.added) taken.current.add(name);
@@ -300,7 +307,8 @@ export function useQueue(
     () => ({
       add(folder, prompt, front) {
         if (!current.current || !prompt.trim()) return;
-        commit(addItem(current.current, folder, prompt, front, Date.now()));
+        const next = addItem(current.current, folder, prompt, front, Date.now());
+        commit(separate.current ? holdNewQueues(current.current, next, TEST_HOLD) : next);
         tick();
       },
       edit(folder, id, prompt) {

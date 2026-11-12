@@ -1,4 +1,4 @@
-import { type CSSProperties, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
 import type { Outcome } from "../app/ledger";
@@ -7,6 +7,7 @@ import { useHome } from "../app/useHome";
 import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, queueDirectory, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
+import { AllQueues, type QueueOwner } from "./AllQueues";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 import { QueueItemDialog } from "./QueueItemDialog";
@@ -31,6 +32,8 @@ export function QueuePanel({
   actions,
   parked,
   onParked,
+  all,
+  ownerOf,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -46,8 +49,12 @@ export function QueuePanel({
   parked: Outcome[];
   /// Queues a parked note as a prompt, or dismisses it.
   onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
+  /// Every queue with something in it, for the All view.
+  all: Queue[];
+  ownerOf: (folder: string) => QueueOwner | null;
 }) {
   const composer = useRef<HTMLTextAreaElement>(null);
+  const [showAll, setShowAll] = useState(false);
   // Only a hand opening the panel moves the cursor. The body below remounts
   // whenever the folder goes unknown, as on a `cd` in a lone shell, and the
   // workspace can change without a key pressed: neither may take the keyboard.
@@ -80,6 +87,38 @@ export function QueuePanel({
       </aside>
     );
   }
+  const scope = (
+    <span className="queue-scope" role="group" aria-label="Which queues">
+      <button aria-pressed={!showAll} disabled={!workspace} onClick={() => setShowAll(false)}>
+        This workspace
+      </button>
+      <button aria-pressed={showAll} onClick={() => setShowAll(true)}>
+        All{all.length > 0 && ` ${all.length}`}
+      </button>
+    </span>
+  );
+  if (actions && (showAll || !workspace)) {
+    return (
+      <aside className="changes queue-panel" aria-label="Queue">
+        <header className="changes-head queue-head">
+          <span className="queue-head-title">
+            Queue <b>every workspace</b>
+          </span>
+        </header>
+        <div className="queue-scope-row">{scope}</div>
+        <AllQueues
+          queues={all}
+          ownerOf={ownerOf}
+          actions={actions}
+          onOpen={(workspaceId) => {
+            setShowAll(false);
+            controller.request("workspace.focus", { workspace_id: workspaceId });
+          }}
+          onGo={(tabId) => controller.request("tab.focus", { tab_id: tabId })}
+        />
+      </aside>
+    );
+  }
   if (!workspace || !folder || !actions) {
     return (
       <aside className="changes queue-panel" aria-label="Queue">
@@ -103,6 +142,7 @@ export function QueuePanel({
       composer={composer}
       parked={parked}
       onParked={onParked}
+      scope={scope}
     />
   );
 }
@@ -119,6 +159,7 @@ function QueueBody({
   composer,
   parked,
   onParked,
+  scope,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -132,6 +173,8 @@ function QueueBody({
   composer: RefObject<HTMLTextAreaElement | null>;
   parked: Outcome[];
   onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
+  /// The This workspace / All switch.
+  scope: ReactNode;
 }) {
   const home = useHome();
   const directory = queueDirectory(folder);
@@ -187,6 +230,7 @@ function QueueBody({
           {queue.paused ? <PlayIcon /> : <PauseIcon />}
         </button>
       </header>
+      <div className="queue-scope-row">{scope}</div>
 
       {separate && (
         <div className="queue-banner" role="status">

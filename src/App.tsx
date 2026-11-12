@@ -12,7 +12,7 @@ import { type ListeningPort, readPorts, samePorts } from "./app/ports";
 import { sessionFolders } from "./app/recentSessions";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
-import { isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
+import { busyQueues, isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { useLedger } from "./app/useLedger";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
@@ -43,6 +43,7 @@ import { FilesPanel } from "./components/FilesPanel";
 import { FileView } from "./components/FileView";
 import { HostKeyDialog } from "./components/HostKeyDialog";
 import { PromptPalette } from "./components/PromptPalette";
+import type { QueueOwner } from "./components/AllQueues";
 import { QueuePanel } from "./components/QueuePanel";
 import { SessionsPanel } from "./components/SessionsPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -585,6 +586,11 @@ export default function App() {
     () => (local && queueFolder ? parkedFor(ledger.list, queueDirectory(queueFolder)) : []),
     [local, queueFolder, ledger.list],
   );
+  const allQueues = useMemo(() => (local && queueFile ? busyQueues(queueFile) : []), [local, queueFile]);
+  const queueOwner = (folder: string): QueueOwner | null => {
+    const owner = state.snapshot?.workspaces.find((w) => queueFolderOf(w) === folder);
+    return owner ? { workspaceId: owner.workspace_id, label: owner.label, hue: workspaceHue(owner, slots) } : null;
+  };
   const onParked = (outcome: Outcome, how: "queued" | "dismissed") => {
     if (how === "queued") {
       if (!queueFolder || !queueActions) return;
@@ -759,6 +765,8 @@ export default function App() {
                 actions={local ? queueActions : null}
                 parked={focusedParked}
                 onParked={onParked}
+                all={allQueues}
+                ownerOf={queueOwner}
               />
             ) : state.sessions && state.snapshot ? (
               <SessionsPanel

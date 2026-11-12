@@ -529,6 +529,27 @@ export function summary(queue: Queue): string {
   return parts.filter(Boolean).join(" · ");
 }
 
+/// Every queue with something in it or paused, for the panel's All view: those
+/// at work first, then by how much waits.
+export function busyQueues(file: QueueFile): Queue[] {
+  const waiting = (q: Queue) => q.items.filter((i) => i.state === "queued").length;
+  const working = (q: Queue) => (q.items.some(isActive) ? 1 : 0);
+  return Object.values(file.queues)
+    .filter((q) => q.items.length > 0 || q.paused)
+    .sort((a, b) => working(b) - working(a) || waiting(b) - waiting(a) || a.folder.localeCompare(b.folder));
+}
+
+/// Pauses every queue `after` has and `before` did not. A dev window's queue
+/// is for trying things, so a queue it makes waits for a hand to resume it
+/// rather than start an agent on a real repo by itself.
+export function holdNewQueues(before: QueueFile, after: QueueFile, reason: string): QueueFile {
+  const fresh = Object.keys(after.queues).filter((key) => !(key in before.queues));
+  if (!fresh.length) return after;
+  const queues = { ...after.queues };
+  for (const key of fresh) queues[key] = { ...queues[key], paused: { reason } };
+  return { ...after, queues };
+}
+
 export const loadQueue = () => invoke<QueueFile>("queue_load");
 export const saveQueue = (data: QueueFile) => invoke<void>("queue_save", { data });
 
