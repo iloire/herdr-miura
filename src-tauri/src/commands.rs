@@ -8,7 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, FoundFile, Listing},
     folder::{self, FileAction, Opener},
-    land, listening_ports, open_sessions,
+    land, ledger, listening_ports, open_sessions,
     pasted_image::{self, PastedImage},
     prompts, queue,
     session_context::{self, SessionContext},
@@ -653,6 +653,21 @@ pub async fn move_tab_to_new_workspace(
 pub async fn clear_outcome(connection: State<'_, Connection>, panes: Vec<String>) -> Result<()> {
     connection.ensure_local()?;
     let run = tauri::async_runtime::spawn_blocking(move || crate::outcome::clear(&panes));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// The outcome ledger as it stands (`ledger.rs`). This computer's, whichever
+/// host the window is attached to, as the agents that write it run here.
+#[tauri::command]
+pub async fn ledger_read() -> Result<ledger::Ledger> {
+    let run = tauri::async_runtime::spawn_blocking(|| ledger::read(&ledger::path()?));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Records that the ledger entry `id` was dealt with, `how`.
+#[tauri::command]
+pub async fn ledger_resolve(id: String, how: String) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || ledger::resolve(&ledger::path()?, &id, &how));
     Ok(run.await.map_err(changes::Error::Worker)??)
 }
 

@@ -17,7 +17,7 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
-import { type AgentGroup, AgentsSection } from "./AgentsSection";
+import { type AgentGroup, AgentsSection, type ClosedAsks } from "./AgentsSection";
 import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -72,6 +72,7 @@ export function Sidebar({
   cards,
   showAgents,
   findAsked,
+  closedAsks,
 }: {
   controller: Controller;
   /// The app's name, over the list, and the window's title on hover.
@@ -114,6 +115,8 @@ export function Sidebar({
   showAgents: boolean;
   /// Counts the asks to find a workspace (⌘⇧F): each new one opens the filter and puts the cursor in it.
   findAsked: number;
+  /// What waits on you from closed sessions, listed under the agents.
+  closedAsks: ClosedAsks;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
   const [sort, setSort] = useState(loadSort);
@@ -490,7 +493,7 @@ export function Sidebar({
     );
   };
   return (
-    <nav className={agentGroups.length > 0 ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
+    <nav className={agentGroups.length > 0 || (showAgents && closedAsks.outcomes.length > 0) ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
         <span data-tauri-drag-region>{title}</span>
       </div>
@@ -580,7 +583,7 @@ export function Sidebar({
       </ol>
       {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
       {snapshot && workspaces.length > 0 && filtering && matching.length === 0 && <p className="empty">No workspace matches.</p>}
-      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} />}
+      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} closed={showAgents ? closedAsks : { ...closedAsks, outcomes: [] }} />}
       {snapshot && focused && focusedFolder && (
         <TeamSection
           controller={controller}

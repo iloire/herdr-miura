@@ -1,9 +1,11 @@
 import { type CSSProperties, useRef, useState } from "react";
 import { type AgentsPanel, clampAgentsHeight, loadAgentsPanel, saveAgentsPanel } from "../app/agentsPanel";
 import type { Controller } from "../app/controller";
+import { type Outcome, repoName } from "../app/ledger";
 import type { Agent, Snapshot } from "../protocol";
 import { AgentRow } from "./CardDetails";
 import { ChevronIcon } from "./icons";
+import { StatusMark } from "./StatusMark";
 
 const KEY_STEP = 16;
 
@@ -20,13 +22,31 @@ export interface AgentGroup {
 /// workspaces the cards no longer show at a glance who is working. A row goes
 /// to the agent's tab. Nothing shows when no agent is active. Its top edge
 /// drags to make it taller or shorter, and its head folds it to one line.
-export function AgentsSection({ controller, snapshot, groups }: { controller: Controller; snapshot: Snapshot; groups: AgentGroup[] }) {
+/// What waits on you from a session no tab holds any more, from the outcome
+/// ledger: a row resumes the session, its × says it was dealt with.
+export interface ClosedAsks {
+  outcomes: Outcome[];
+  onResume: (outcome: Outcome) => void;
+  onClear: (outcome: Outcome) => void;
+}
+
+export function AgentsSection({
+  controller,
+  snapshot,
+  groups,
+  closed,
+}: {
+  controller: Controller;
+  snapshot: Snapshot;
+  groups: AgentGroup[];
+  closed: ClosedAsks;
+}) {
   const [panel, setPanel] = useState(loadAgentsPanel);
   const section = useRef<HTMLElement>(null);
   const drag = useRef<{ startY: number; startHeight: number; room: number; height: number } | null>(null);
   const [dragging, setDragging] = useState(false);
-  if (groups.length === 0) return null;
-  const total = groups.reduce((sum, group) => sum + group.agents.length, 0);
+  if (groups.length === 0 && closed.outcomes.length === 0) return null;
+  const total = groups.reduce((sum, group) => sum + group.agents.length, 0) + closed.outcomes.length;
   const commit = (next: AgentsPanel) => {
     setPanel(next);
     saveAgentsPanel(next);
@@ -111,6 +131,29 @@ export function AgentsSection({ controller, snapshot, groups }: { controller: Co
               ))}
             </li>
           ))}
+          {closed.outcomes.length > 0 && (
+            <li className="agents-group agents-closed">
+              <span className="agents-workspace">Closed sessions</span>
+              {closed.outcomes.map((outcome) => (
+                <div key={outcome.id} className="agents-closed-row">
+                  <button
+                    className="card-row"
+                    title={`${repoName(outcome.home)}: ${outcome.note}\n${outcome.session ? "Click to resume the session" : "No session to resume"}`}
+                    disabled={!outcome.session}
+                    onClick={() => closed.onResume(outcome)}
+                  >
+                    <StatusMark status="blocked" note={outcome.note} />
+                    <span className="card-row-name">
+                      {repoName(outcome.home)}: {outcome.note}
+                    </span>
+                  </button>
+                  <button className="agents-closed-clear" title="Dealt with: stop listing it" aria-label="Clear" onClick={() => closed.onClear(outcome)}>
+                    ×
+                  </button>
+                </div>
+              ))}
+            </li>
+          )}
         </ul>
       )}
     </section>

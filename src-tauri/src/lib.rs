@@ -14,6 +14,7 @@ mod git;
 mod herdr;
 mod host_fs;
 mod land;
+mod ledger;
 mod listening_ports;
 #[cfg(target_os = "macos")]
 mod menu;
@@ -76,6 +77,8 @@ pub fn run() {
             commands::land_plan,
             commands::land_check,
             commands::land_finish,
+            commands::ledger_read,
+            commands::ledger_resolve,
             commands::file_diff,
             commands::listening_ports,
             commands::list_files,

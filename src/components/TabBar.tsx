@@ -190,7 +190,7 @@ export function TabBar({
               {
                 label: "Clear Needs You",
                 icon: <CheckIcon />,
-                onSelect: () => controller.act(invoke("clear_outcome", { panes: needYou.map((agent) => agent.pane_id) })),
+                onSelect: () => controller.clearNeedsYou(needYou),
               },
             ]
           : []),

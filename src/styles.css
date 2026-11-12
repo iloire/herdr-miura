@@ -4707,6 +4707,72 @@ body.resizing-rows .agents > :not(.agents-resizer) {
   background: color-mix(in srgb, var(--hue) 14%, transparent);
 }
 
+/* Notes sessions left for later (the outcome ledger), above the track: not
+   prompts yet, so drawn off the line, dashed where the track is solid. */
+.queue-parked {
+  padding: 4px 6px 2px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.queue-parked ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 8px;
+  list-style: none;
+}
+
+.queue-parked-item {
+  padding: 7px 9px;
+  border: 1px dashed color-mix(in srgb, var(--hue) 40%, var(--rule));
+  border-radius: 7px;
+}
+
+.queue-parked-note {
+  display: -webkit-box;
+  margin: 0 0 5px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.queue-parked-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-parked-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-parked-row button {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 5px;
+  color: var(--hue);
+  font: 600 calc(11px * var(--ui-scale)) var(--sans);
+}
+
+.queue-parked-row button:hover {
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+}
+
+.queue-parked-row .queue-parked-dismiss {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 /* Finished prompts, folded under one row at the foot. */
 .queue-done-list {
   margin-top: auto;
@@ -6041,4 +6107,181 @@ body.resizing-rows .agents > :not(.agents-resizer) {
   margin: 0;
   color: var(--muted);
   font-size: calc(12px * var(--ui-scale));
+}
+
+/* The outcome ledger's chip on the app-wide half of the status bar: done
+   today, parked, and what waits on you from a closed session. */
+.ledger-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+}
+
+.ledger-chip:hover {
+  color: var(--text);
+}
+
+.ledger-chip .done {
+  color: var(--done);
+}
+
+.ledger-chip .you {
+  color: var(--lantern);
+  font-weight: 600;
+}
+
+/* The Day dialog: one section a repo, a row an outcome. */
+.day-dialog {
+  --hue: var(--lantern);
+}
+
+.day-dialog:focus {
+  outline: none;
+}
+
+.day-empty {
+  margin: 0;
+  padding: 8px 28px 28px;
+  color: var(--muted);
+}
+
+.day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 6px 28px 28px;
+  overflow-y: auto;
+}
+
+.day-repo h3 {
+  margin: 0 0 6px;
+  color: var(--bright);
+  font: 600 calc(14px * var(--ui-scale)) var(--sans);
+}
+
+.day-repo h3 span {
+  margin-left: 6px;
+  color: var(--muted);
+  font: 400 calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.day-repo ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.day-row:hover {
+  background: color-mix(in srgb, var(--rule) 60%, transparent);
+}
+
+.day-mark {
+  flex: none;
+  width: 16px;
+  color: var(--muted);
+  font: 600 calc(13px * var(--ui-scale))/20px var(--sans);
+  text-align: center;
+}
+
+.day-row.kind-verified .day-mark {
+  color: var(--done);
+}
+
+.day-row.kind-unverified .day-mark {
+  color: var(--working);
+}
+
+.day-row.open .day-mark {
+  color: var(--lantern);
+}
+
+.day-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-text p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: calc(13px * var(--ui-scale));
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.day-row:not(.open) .day-text p {
+  color: var(--muted);
+}
+
+.day-facts {
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.day-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.day-actions button {
+  padding: 2px 8px;
+  border-radius: 5px;
+  color: var(--lantern);
+  font: 600 calc(12px * var(--ui-scale)) var(--sans);
+}
+
+.day-actions button:hover {
+  background: color-mix(in srgb, var(--lantern) 14%, transparent);
+}
+
+.day-actions .day-quiet {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* What waits on you from a closed session (the outcome ledger), under the
+   live agents: a row resumes it, the × clears it. */
+.agents-closed {
+  --hue: var(--lantern);
+}
+
+.agents-closed-row {
+  display: flex;
+  align-items: center;
+}
+
+.agents-closed-row .card-row {
+  flex: 1;
+}
+
+.agents-closed-clear {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--muted);
+  line-height: 1;
+  visibility: hidden;
+}
+
+.agents-closed-row:hover .agents-closed-clear,
+.agents-closed-clear:focus-visible {
+  visibility: visible;
+}
+
+.agents-closed-clear:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
 }

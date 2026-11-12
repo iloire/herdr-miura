@@ -1,7 +1,8 @@
 import { type CSSProperties, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
-import { formatSpan } from "../app/time";
+import type { Outcome } from "../app/ledger";
+import { formatSpan, relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
 import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, queueDirectory, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
@@ -28,6 +29,8 @@ export function QueuePanel({
   queue: saved,
   access,
   actions,
+  parked,
+  onParked,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -39,6 +42,10 @@ export function QueuePanel({
   queue: Queue | null;
   access: QueueAccess;
   actions: QueueActions | null;
+  /// What sessions in this checkout left for later (`herdr-outcome left`).
+  parked: Outcome[];
+  /// Queues a parked note as a prompt, or dismisses it.
+  onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
 }) {
   const composer = useRef<HTMLTextAreaElement>(null);
   // Only a hand opening the panel moves the cursor. The body below remounts
@@ -94,6 +101,8 @@ export function QueuePanel({
       separate={access.separate}
       actions={actions}
       composer={composer}
+      parked={parked}
+      onParked={onParked}
     />
   );
 }
@@ -108,6 +117,8 @@ function QueueBody({
   separate,
   actions,
   composer,
+  parked,
+  onParked,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -119,6 +130,8 @@ function QueueBody({
   separate: boolean;
   actions: QueueActions;
   composer: RefObject<HTMLTextAreaElement | null>;
+  parked: Outcome[];
+  onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
 }) {
   const home = useHome();
   const directory = queueDirectory(folder);
@@ -195,6 +208,8 @@ function QueueBody({
           </button>
         </div>
       )}
+
+      {parked.length > 0 && <Parked parked={parked} onParked={onParked} />}
 
       <ol className="queue-track">
         {active && (
@@ -329,6 +344,47 @@ function QueueBody({
         />
       )}
     </aside>
+  );
+}
+
+/// Notes sessions here left for later, not yet prompts: Queue it writes one
+/// that stands on its own and puts it at the end of the line.
+function Parked({ parked, onParked }: { parked: Outcome[]; onParked: (outcome: Outcome, how: "queued" | "dismissed") => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <section className="queue-parked">
+      <button
+        className="queue-done-toggle queue-parked-toggle"
+        aria-expanded={open}
+        title="What sessions in this checkout left for later (herdr-outcome left)"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="chevron">›</span>
+        {parked.length} parked
+      </button>
+      {open && (
+        <ul>
+          {parked.map((outcome) => (
+            <li key={outcome.id} className="queue-parked-item">
+              <p className="queue-parked-note" title={outcome.note}>
+                {outcome.note}
+              </p>
+              <div className="queue-parked-row">
+                <span className="queue-parked-meta" title={outcome.cwd}>
+                  {[outcome.branch, relativeTime(outcome.time / 1000)].filter(Boolean).join(" · ")}
+                </span>
+                <button title="Add it to the end of this queue as a prompt" onClick={() => onParked(outcome, "queued")}>
+                  Queue it
+                </button>
+                <button className="queue-parked-dismiss" title="Nothing to do about it" onClick={() => onParked(outcome, "dismissed")}>
+                  Dismiss
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

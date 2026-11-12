@@ -1,9 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
 import { notifyNotice, withNoticeTarget, type NoticeTarget } from "./notice";
 import { findCommit, type FoundCommit } from "../changes/store";
 import { Daemon, type Fingerprint } from "../daemon";
 import { findFile, type FoundFile } from "../files/listing";
 import { isImagePath, type Located, locateFile, openLinkFile, readLinkImage } from "../files/linkFile";
-import type { BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
+import type { Agent, BridgeEvent, PaneInputEvent, Snapshot, Surface } from "../protocol";
 import { Grid } from "../terminal/grid";
 import { applyTheme } from "../themes/active";
 import { HERDR_NIGHT, type NamedTheme } from "../themes/catalog";
@@ -735,6 +736,16 @@ export class Controller {
 
   /// Set by `App`, which knows the focused workspace's folders.
   reopenSession: () => void = () => {};
+
+  /// Set by `App`: closes the outcome ledger's open asks of these sessions.
+  needsYouCleared: (sessions: string[]) => void = () => {};
+
+  /// Clear Needs You: drops the agents' outcome tokens and closes their asks in
+  /// the ledger, or they would come back as closed-session rows once the tab goes.
+  clearNeedsYou(agents: Agent[]): void {
+    this.act(invoke("clear_outcome", { panes: agents.map((agent) => agent.pane_id) }));
+    this.needsYouCleared(agents.map(sessionOf).filter((id) => id !== null));
+  }
 
   /// Resumes the newest closed session of `folders` in `workspaceId`. Asks at
   /// the key press, so a second press finds the next one back.

@@ -14,6 +14,8 @@ import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsa
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
 import { isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
+import { useLedger } from "./app/useLedger";
+import { allParked, doneToday, type Outcome, parkedFor, parkedPrompt, waitingClosed, waitingOnYou } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
@@ -52,6 +54,7 @@ import { PaneResizer } from "./components/PaneResizer";
 import { PanelSwitch } from "./components/PanelSwitch";
 import { TabHeader } from "./components/TabHeader";
 import { UsageDialog } from "./components/UsageDialog";
+import { DayDialog } from "./components/DayDialog";
 import { ContextDialog } from "./components/ContextDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
@@ -105,6 +108,7 @@ export default function App() {
   // The workspace whose worktrees the details dialog shows.
   const [worktreesOf, setWorktreesOf] = useState<string | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [dayOpen, setDayOpen] = useState(false);
   const [contextOf, setContextOf] = useState<string | null>(null);
   // Kept here, not in the tab bar, so the sidebar can mark workspaces with pinned tabs.
   const [pins, setPins] = useState(loadPins);
@@ -273,6 +277,8 @@ export default function App() {
       entries.reduce((done, [key, name]) => done.then(() => saveWorkspaceGroup(key, name)), Promise.resolve()).then(settings.reload),
     );
 
+  // Every outcome agents reported, kept past their panes (docs/plan-inbox.md).
+  const ledger = useLedger(controller);
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
   const queues = useMemo(() => {
@@ -575,6 +581,58 @@ export default function App() {
   // when that workspace has prompts queued or running.
   const queueFolder = focusedWorkspace ? queueFolderOf(focusedWorkspace) : null;
   const focusedQueue = queues.get(focusedWorkspace?.workspace_id ?? "") ?? null;
+  const focusedParked = useMemo(
+    () => (local && queueFolder ? parkedFor(ledger.list, queueDirectory(queueFolder)) : []),
+    [local, queueFolder, ledger.list],
+  );
+  const onParked = (outcome: Outcome, how: "queued" | "dismissed") => {
+    if (how === "queued") {
+      if (!queueFolder || !queueActions) return;
+      queueActions.add(queueFolder, parkedPrompt(outcome), false);
+    }
+    ledger.resolve(outcome.id, how);
+  };
+  // Which tab holds each live Claude session, for the ledger's rows; only this
+  // computer's snapshot can hold the sessions its ledger names.
+  const liveSessions = useMemo(() => {
+    const tabs = new Map<string, string>();
+    if (!local) return tabs;
+    for (const agent of state.snapshot?.agents ?? []) {
+      const session = sessionOf(agent);
+      if (session) tabs.set(session, agent.tab_id);
+    }
+    return tabs;
+  }, [local, state.snapshot]);
+  useEffect(() => {
+    controller.needsYouCleared = (sessions) => {
+      const closing = new Set(sessions);
+      for (const outcome of waitingOnYou(ledger.list)) {
+        if (closing.has(outcome.session)) ledger.resolve(outcome.id, "cleared");
+      }
+    };
+  }, [controller, ledger]);
+  // Only this computer's snapshot can say which of its sessions are closed.
+  const closedOutcomes = useMemo(
+    () => (local ? waitingClosed(ledger.list, new Set(liveSessions.keys())) : []),
+    [local, ledger.list, liveSessions],
+  );
+  const ledgerCounts = {
+    done: doneToday(ledger.list, usage.now).length,
+    parked: allParked(ledger.list).length,
+    waiting: closedOutcomes.length,
+  };
+  const closedAsks = {
+    outcomes: closedOutcomes,
+    onResume: (outcome: Outcome) => resumeOutcome(outcome),
+    onClear: (outcome: Outcome) => ledger.resolve(outcome.id, "cleared"),
+  };
+  // A closed session resumes in a workspace on its repo, else the focused one.
+  const resumeOutcome = (outcome: Outcome) => {
+    const workspace = state.snapshot?.workspaces.find((w) => queueFolderOf(w) === outcome.home) ?? focusedWorkspace;
+    if (!local || !workspace) return controller.act(Promise.reject("Resuming a session works on this computer's workspaces only"));
+    setDayOpen(false);
+    controller.resumeSession(workspace.workspace_id, outcome.session);
+  };
   const queueBusy = Boolean(focusedQueue?.items.some((item) => item.state === "queued" || isActive(item)));
   useEffect(() => controller.followQueue(queueBusy), [controller, queueBusy, focusedWorkspace?.workspace_id]);
   // The chip on a card focuses that workspace too, so the panel shows its queue.
@@ -604,7 +662,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} showAgents={state.settings.ui.sidebarAgents} findAsked={state.findWorkspace} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} showAgents={state.settings.ui.sidebarAgents} findAsked={state.findWorkspace} closedAsks={closedAsks} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}
@@ -679,7 +737,7 @@ export default function App() {
               )}
               {shownTreeFile && <FileView root={listingRoot} path={filePick} readOnly={!local} onOpen={setFilePick} onClose={closeFile} onSaved={checkoutWritten} />}
             </div>
-            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} />
+            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} ledger={ledgerCounts} onOpenDay={() => setDayOpen(true)} />
           </main>
           {drawerOpen && (
             <PaneResizer pane={DRAWER} width={drawerWidth} clamp={fitDrawer} onChange={setWantedDrawer} onCommit={commitDrawerWidth} />
@@ -699,6 +757,8 @@ export default function App() {
                 queue={focusedQueue}
                 access={queueAccess}
                 actions={local ? queueActions : null}
+                parked={focusedParked}
+                onParked={onParked}
               />
             ) : state.sessions && state.snapshot ? (
               <SessionsPanel
@@ -778,6 +838,31 @@ export default function App() {
             }}
             onClose={() => {
               setUsageOpen(false);
+              controller.focusTerminal();
+            }}
+          />
+        )}
+        {dayOpen && (
+          <DayDialog
+            list={ledger.list}
+            now={Date.now()}
+            live={liveSessions}
+            onGo={(tabId) => {
+              setDayOpen(false);
+              controller.request("tab.focus", { tab_id: tabId });
+            }}
+            onResume={resumeOutcome}
+            onQueue={
+              local && queueActions
+                ? (outcome) => {
+                    queueActions.add(outcome.home, parkedPrompt(outcome), false);
+                    ledger.resolve(outcome.id, "queued");
+                  }
+                : null
+            }
+            onResolve={(outcome, how) => ledger.resolve(outcome.id, how)}
+            onClose={() => {
+              setDayOpen(false);
               controller.focusTerminal();
             }}
           />

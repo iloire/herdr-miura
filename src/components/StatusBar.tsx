@@ -3,6 +3,7 @@ import type { ClaudeUsage as Usage } from "../app/claudeUsage";
 import type { ListeningPort } from "../app/ports";
 import { ClaudeUsage } from "./ClaudeUsage";
 import { HostPicker } from "./HostPicker";
+import { LedgerChip } from "./LedgerChip";
 import { GearIcon } from "./icons";
 import { Ports } from "./Ports";
 import { QueueChip } from "./QueueChip";
@@ -23,6 +24,8 @@ export function StatusBar({
   usage,
   now,
   onOpenUsage,
+  ledger,
+  onOpenDay,
 }: {
   controller: Controller;
   state: State;
@@ -41,6 +44,9 @@ export function StatusBar({
   usage: Usage | null;
   now: number;
   onOpenUsage: () => void;
+  /// The outcome ledger's counts, this computer's like the usage.
+  ledger: { done: number; parked: number; waiting: number };
+  onOpenDay: () => void;
 }) {
   const { status, notice } = state;
   return (
@@ -58,6 +64,7 @@ export function StatusBar({
         </button>
       )}
       <ClaudeUsage usage={usage} now={now} onOpen={onOpenUsage} />
+      <LedgerChip {...ledger} onOpen={onOpenDay} />
       {notice &&
         status.phase === "connected" &&
         (state.noticeTarget ? (
