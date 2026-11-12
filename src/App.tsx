@@ -31,6 +31,7 @@ import { readWorktrees, type Worktree } from "./changes/worktrees";
 import { ChangesStore, type ChangedFile, type CheckoutChanges, type FoundCommit, type RecentCommit } from "./changes/store";
 import { fileAfter } from "./changes/discard";
 import { agentRefusal, LandStore } from "./changes/land";
+import { ForgeStore } from "./changes/forge";
 import { SyncStore } from "./changes/sync";
 import { commitBeside } from "./changes/commit";
 import { useCommitFiles } from "./changes/useCommitFiles";
@@ -97,7 +98,16 @@ function focusedDirectory(snapshot: Snapshot | null): string | null {
 export default function App() {
   const controller = useMemo(() => new Controller(), []);
   const changesStore = useMemo(() => new ChangesStore(), []);
-  const syncStore = useMemo(() => new SyncStore(() => changesStore.reread()), [changesStore]);
+  const forgeStore = useMemo(() => new ForgeStore(), []);
+  // A fetch or push may bring a pull request or a CI run, so GitHub is asked again.
+  const syncStore = useMemo(
+    () =>
+      new SyncStore((checkout, op) => {
+        changesStore.reread();
+        if (op !== "pull") forgeStore.stale(checkout);
+      }),
+    [changesStore, forgeStore],
+  );
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const changes = useSyncExternalStore(changesStore.subscribe, changesStore.getState);
   const settings = useSettings(controller);
@@ -793,6 +803,15 @@ export default function App() {
                 controller={controller}
                 store={changesStore}
                 sync={local ? syncStore : null}
+                forge={local ? forgeStore : null}
+                onAsk={
+                  local && queueFolder && queueAccess.kind === "ready"
+                    ? (prompt) => {
+                        queueActions.add(queueFolder, prompt, false);
+                        controller.openQueue();
+                      }
+                    : null
+                }
                 selected={shownFile ?? null}
                 openCommit={openCommit?.sha ?? null}
                 listedCommits={listedCommits}

@@ -10,11 +10,9 @@
 //! the tab in it, and no shell of its own to close. It takes its folder from
 //! the pane, and the pane's process carries on untouched.
 
+use crate::process;
 use serde::Deserialize;
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -45,18 +43,6 @@ pub enum Error {
     },
 }
 
-/// Where a GUI app opened from the Dock may not look, as herdr-gpui's host
-/// scripts add them.
-const EXTRA_DIRS: &[&str] = &[
-    ".local/bin",
-    ".local/share/mise/shims",
-    ".bun/bin",
-    ".cargo/bin",
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    ".nix-profile/bin",
-];
-
 /// An id the CLI takes as one argument: non-empty, never read as an option,
 /// and free of control characters.
 pub(crate) fn checked(id: &str) -> Result<&str, Error> {
@@ -67,19 +53,7 @@ pub(crate) fn checked(id: &str) -> Result<&str, Error> {
 }
 
 pub(crate) fn herdr() -> Result<PathBuf, Error> {
-    let home = env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
-    let path = env::var_os("PATH").unwrap_or_default();
-    env::split_paths(&path)
-        .chain(EXTRA_DIRS.iter().map(|dir| {
-            if Path::new(dir).is_absolute() {
-                PathBuf::from(dir)
-            } else {
-                home.join(dir)
-            }
-        }))
-        .map(|dir| dir.join("herdr"))
-        .find(|candidate| candidate.is_file())
-        .ok_or(Error::MissingCli)
+    process::find("herdr").ok_or(Error::MissingCli)
 }
 
 #[derive(Deserialize)]

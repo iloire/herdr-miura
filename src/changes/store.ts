@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { addedFile, parseUnified, type ParsedDiff } from "./diff";
+import type { WebRepo } from "./forge";
 
 export interface ChangedFile {
   path: string;
@@ -45,6 +46,8 @@ export interface CheckoutChanges {
   /// Files with unresolved conflicts, all of them though `files` stops short.
   conflicts: number;
   remotes: string[];
+  /// Where `origin` lives on the web, when it is on GitHub or GitLab.
+  web: WebRepo | null;
   unmerged: [string, number] | null;
   files: ChangedFile[];
   total_files: number;

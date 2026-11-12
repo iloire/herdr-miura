@@ -2164,6 +2164,94 @@ body.reordering * {
   color: var(--lantern);
 }
 
+/* A pushed branch opens on GitHub or GitLab. */
+.branch-link {
+  padding: 0;
+  text-align: left;
+  text-decoration: underline transparent;
+  text-underline-offset: 3px;
+}
+
+.branch-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The repository on the web, in the header. */
+.forge-repo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.3 var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.forge-repo bdi {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forge-repo svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+
+.forge-repo:hover {
+  color: var(--text);
+}
+
+/* The branch's pull request and its pages on the web. */
+.forge-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 4px 16px 2px;
+}
+
+.forge-link,
+.forge-pr {
+  padding: 1px 6px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.5 var(--mono);
+}
+
+.forge-link:hover,
+.forge-pr:hover {
+  border-color: var(--rule-strong);
+  color: var(--text);
+}
+
+.forge-pr {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--bright);
+  border-color: color-mix(in srgb, var(--done) 55%, transparent);
+}
+
+.forge-pr span {
+  color: var(--muted);
+}
+
+.forge-pr-draft {
+  border-color: var(--rule-strong);
+}
+
+.forge-pr[data-review="approved"] span:last-child {
+  color: var(--done);
+}
+
+.forge-pr[data-review="changes_requested"] span:last-child {
+  color: var(--blocked);
+}
+
 .counts,
 .checkout-path,
 .dir,
@@ -2473,6 +2561,43 @@ body.reordering * {
 
 .commit:hover {
   background: var(--hover);
+}
+
+/* HEAD's CI state, from GitHub through `gh`. */
+.commit:has(.ci) {
+  grid-template-columns: auto 1fr auto auto;
+}
+
+.ci {
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.ci-pass {
+  background: var(--done);
+}
+
+.ci-fail {
+  background: var(--blocked);
+}
+
+.ci-running {
+  border: 1.5px solid var(--working);
+  animation: ci-running 1.6s ease-in-out infinite;
+}
+
+@keyframes ci-running {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ci-running {
+    animation: none;
+  }
 }
 
 .commit[aria-current="true"] {

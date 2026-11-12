@@ -2,6 +2,7 @@ import { useEffect, useRef, type MouseEvent, type MutableRefObject } from "react
 import type { ChangedFile, RecentCommit } from "../changes/store";
 import { relativeTime } from "../app/time";
 import { MAX_REF_LABELS, refLabels } from "../changes/refLabels";
+import { CHECKS_LABEL, type Checks } from "../changes/forge";
 
 const MARK_LABEL: Record<string, string> = {
   "?": "Untracked",
@@ -69,8 +70,17 @@ export interface CommitRows {
   onMenu: (commit: RecentCommit, event: MouseEvent) => void;
 }
 
-/// Commits as one-line rows. Picking one opens it in the main area.
-export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: CommitRows }) {
+/// Commits as one-line rows. Picking one opens it in the main area. `checks`
+/// marks one commit with its CI state.
+export function CommitList({
+  commits,
+  rows,
+  checks,
+}: {
+  commits: RecentCommit[];
+  rows: CommitRows;
+  checks?: { sha: string; state: Checks };
+}) {
   const { openCommit, listed, onToggle, onMenu } = rows;
   const openRow = useRef<HTMLButtonElement>(null);
   const holdsOpen = commits.some((commit) => commit.sha === openCommit);
@@ -110,6 +120,9 @@ export function CommitList({ commits, rows }: { commits: RecentCommit[]; rows: C
                 {hidden.length > 0 && <span className="commit-ref">+{hidden.length}</span>}
                 {commit.subject}
               </span>
+              {checks?.sha === commit.sha && (
+                <span className={`ci ci-${checks.state}`} role="img" aria-label={CHECKS_LABEL[checks.state]} title={CHECKS_LABEL[checks.state]} />
+              )}
               <span className="when">{relativeTime(commit.time)}</span>
             </button>
           </li>

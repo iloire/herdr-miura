@@ -8,6 +8,7 @@ use crate::{
     connection::Connection,
     files::{self, Contents, FoundFile, Listing},
     folder::{self, FileAction, Opener},
+    forge,
     land, ledger, listening_ports, open_sessions,
     pasted_image::{self, PastedImage},
     prompts, queue,
@@ -198,6 +199,23 @@ pub async fn find_commit(
     let target = connection.target();
     let read = tauri::async_runtime::spawn_blocking(move || changes::find_commit(&target, &directory, &name));
     Ok(read.await.map_err(changes::Error::Worker)??)
+}
+
+/// GitHub's word on a branch: its open pull request and HEAD's checks, through
+/// `gh`. Asked on its own call, never with the panel's reads, as it waits on
+/// the network. `None` on a remote host and whenever `gh` cannot answer.
+#[tauri::command]
+pub async fn forge_status(
+    connection: State<'_, Connection>,
+    checkout: String,
+    branch: String,
+    sha: String,
+) -> Result<Option<forge::ForgeStatus>> {
+    if connection.ensure_local().is_err() {
+        return Ok(None);
+    }
+    let read = tauri::async_runtime::spawn_blocking(move || forge::status(&checkout, &branch, &sha));
+    Ok(read.await.map_err(changes::Error::Worker)?)
 }
 
 /// The commits a push or a pull would move, as the last fetch knows them.

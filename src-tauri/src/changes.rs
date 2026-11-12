@@ -5,7 +5,7 @@
 
 pub(crate) mod parse;
 
-use crate::{git, herdr::Target, host_fs};
+use crate::{forge, git, herdr::Target, host_fs};
 use parse::{Commit, CommitRef, FileChange, Kind};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -68,6 +68,8 @@ pub struct CheckoutView {
     /// Files with unresolved conflicts, all of them though `files` stops at [`MAX_FILES`].
     conflicts: usize,
     remotes: Vec<String>,
+    /// Where `origin` lives on the web, when it is on GitHub or GitLab.
+    web: Option<forge::WebRepo>,
     /// Commits the remote's default branch lacks, and that branch.
     unmerged: Option<(String, u32)>,
     files: Vec<FileView>,
@@ -189,9 +191,14 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
     // Neither is worth losing the panel for: without them it offers less.
     let layout = read_layout(target, &path, deadline);
     let under_way = layout.as_ref().and_then(|layout| find_operation(target, layout, deadline));
-    let remotes = git::text_on(target, &path, &["remote"], "list the remotes", deadline)
+    let remotes: Vec<String> = git::text_on(target, &path, &["remote"], "list the remotes", deadline)
         .map(|remotes| remotes.lines().map(str::to_owned).collect())
         .unwrap_or_default();
+    let web = if remotes.iter().any(|remote| remote == "origin") {
+        origin_repo(target, &path, deadline)
+    } else {
+        None
+    };
     let total_files = files.len();
     let conflicts = files.iter().filter(|file| file.kind == Kind::Conflicted).count();
     files.truncate(MAX_FILES);
@@ -214,6 +221,7 @@ pub fn read_checkout(target: &Target, directory: &str) -> Result<Option<Checkout
         operation_step: under_way.as_ref().and_then(|(_, state)| rebase_step(target, state, deadline)),
         conflicts,
         remotes,
+        web,
         unmerged,
         files: files.into_iter().map(FileView::from).collect(),
         total_files,
@@ -342,7 +350,7 @@ fn rebase_step(target: &Target, state: &Path, deadline: Instant) -> Option<(u32,
 /// A commit's full name, as the webview sends it back: 40 lowercase hex
 /// digits, or 64 in a SHA-256 repository, so Git cannot take it for an
 /// option, a range, or a ref.
-fn commit_name(sha: &str) -> Result<&str, Error> {
+pub(crate) fn commit_name(sha: &str) -> Result<&str, Error> {
     let valid = matches!(sha.len(), 40 | 64)
         && sha
             .bytes()
@@ -467,6 +475,20 @@ pub fn read_moving(checkout: &str, direction: Direction) -> Result<Vec<CommitVie
         Instant::now() + DEADLINE,
     )?;
     Ok(parse::log(&log).into_iter().map(CommitView::from).collect())
+}
+
+/// Where `origin` lives on the web, from its URL as Git would use it
+/// (`insteadOf` applied). A local read: nothing is contacted.
+pub fn origin_repo(target: &Target, checkout: &str, deadline: Instant) -> Option<forge::WebRepo> {
+    let url = git::text_on(
+        target,
+        checkout,
+        &["remote", "get-url", "origin"],
+        "read the origin's URL",
+        deadline,
+    )
+    .ok()?;
+    forge::parse_remote(&url)
 }
 
 /// The remote's default branch as last fetched: what `origin/HEAD` names,

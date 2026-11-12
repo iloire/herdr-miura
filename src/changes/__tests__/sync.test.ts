@@ -18,6 +18,7 @@ const checkout = (over: Partial<CheckoutChanges> = {}): CheckoutChanges => ({
   operation_step: null,
   conflicts: 0,
   remotes: ["origin"],
+  web: null,
   unmerged: null,
   files: [],
   total_files: 0,

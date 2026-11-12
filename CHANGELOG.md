@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 20:49 — The Changes panel links to GitHub, with the PR and CI state
+
+When `origin` is on GitHub (or GitLab), the panel's header opens the repository, and a pushed branch's name opens it
+there. Under the branch sit Compare, when it is ahead of the default branch, and Actions. With the `gh` CLI logged in,
+the branch's open pull request shows as a badge (number, draft or open, review state) and HEAD's checks as a dot beside
+the top commit; with no pull request, Create PR opens GitHub's form. `gh` is asked when the branch or HEAD changes, on
+focus at most once a minute, and after a fetch or push. Without `gh`, on a remote host, or with no recognised remote,
+those parts stay hidden. A commit's right-click adds Copy Short SHA, Copy Subject, Open on GitHub, and Ask Claude about
+This Commit, which queues a prompt to explain it; a file's adds Open on GitHub when the pushed branch has it.
+
 ## 2026-11-12 20:13 — Workspaces and Agents as two sidebar tabs
 
 The sidebar's head now has two tabs instead of the workspaces with an Agents section under them. Workspaces is the

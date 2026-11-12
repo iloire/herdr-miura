@@ -104,7 +104,7 @@ export class SyncStore {
   private listeners = new Set<() => void>();
 
   /// `onSettled` runs after each operation, to reread the checkout.
-  constructor(private onSettled: () => void) {}
+  constructor(private onSettled: (checkout: string, op: SyncOp) => void) {}
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -141,7 +141,7 @@ export class SyncStore {
       outcome = { kind: "failed", reason: "other", message: String(error), details: "" };
     }
     this.set(checkout, settled(this.of(checkout), op, outcome, Date.now()));
-    this.onSettled();
+    this.onSettled(checkout, op);
     // A rejected push usually means the remote moved, so show by how much.
     if (outcome.kind === "failed" && outcome.reason === "rejected") {
       await this.run(checkout, "fetch", null);

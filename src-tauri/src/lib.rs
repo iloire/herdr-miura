@@ -9,6 +9,7 @@ mod connection;
 mod error;
 mod files;
 mod folder;
+mod forge;
 mod frame;
 mod git;
 mod herdr;
@@ -69,6 +70,7 @@ pub fn run() {
             commands::commit_files,
             commands::commit_paths,
             commands::find_commit,
+            commands::forge_status,
             commands::find_file,
             commands::locate_file,
             commands::moving_commits,

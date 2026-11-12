@@ -93,7 +93,8 @@ under its own name from a terminal. A hook slower than 60 s is stopped.
 
 ## Later, not in this step
 
-Side-by-side view, word-level emphasis, and pull requests (`herdr-github`). Acting on changes has its own list in
+Side-by-side view, word-level emphasis, and a pull request's timeline (`herdr-github`). The open pull request's badge
+and HEAD's check state come from `gh` already (`forge.rs`), and links open GitHub; nothing creates a PR from the app. Acting on changes has its own list in
 [plan-git-actions.md](plan-git-actions.md#later); staging stays out, for the reason above.
 
 ## Ideas from codeflow (gimenete/codeflow)
