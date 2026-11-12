@@ -217,6 +217,7 @@ const DEFINITIONS: Definition[] = [
   ...tabNumbers(),
   { name: "toggle_sidebar", label: "Toggle Sidebar", mac: ["cmd-b"], other: ["ctrl-shift-b"], action: "window" },
   { name: "find_workspace", label: "Find Workspace", mac: ["cmd-shift-f"], other: ["ctrl-shift-f"], action: "window" },
+  { name: "switch_sidebar_view", label: "Switch Workspaces/Agents", mac: ["cmd-shift-g"], other: ["ctrl-shift-g"], action: "window" },
   {
     name: "increase_font_size",
     label: "Increase Font Size",

@@ -3499,123 +3499,94 @@ kbd {
 
 /* The focused workspace's team: a role per row, its letter in the role's hue,
    what it is doing on the right; waiting on you in the blocked color. */
-/* Every active agent, above the team, when ui.sidebar_agents is on. The
-   sidebar then stops scrolling as a whole: the workspaces, the agents and the
-   team each scroll in their own space, so a long list pushes neither the team
-   off screen nor anything under the title row. Without agents to list, none
-   of this applies. */
-.sidebar.with-agents {
+/* The head's two views of the agents: Workspaces by folder, Agents by status.
+   The Agents tab carries the needs-you badge, so it shows from either. */
+.sidebar-tabs {
+  display: flex;
+  flex: none;
+  gap: 1px;
+  margin: 0 6px 0 -6px;
+}
+
+.sidebar-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: inherit;
+}
+
+.sidebar-tab:hover {
+  color: var(--text);
+}
+
+.sidebar-tab[aria-selected="true"] {
+  background: var(--active);
+  color: var(--bright);
+}
+
+.sidebar-tab .mark {
+  letter-spacing: 0;
+}
+
+/* On the Agents tab the sidebar stops scrolling as a whole: the agents scroll
+   in their own space, so the team stays at the foot. */
+.sidebar.agents-tab {
   overflow: hidden;
 }
 
-.sidebar.with-agents .workspace-list {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.sidebar.with-agents .team {
+.sidebar.agents-tab .team {
   flex: none;
   max-height: 30%;
   overflow-y: auto;
 }
 
-.agents {
-  display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
+.agents-view {
+  flex: 1 1 0;
   min-height: 0;
-  max-height: 40%;
-  margin-top: 8px;
-  border-top: 1px solid var(--rule);
-}
-
-.agents .sidebar-head {
-  flex: none;
-  padding-left: 8px;
-}
-
-/* Its head folds it to one line, keeping the count. */
-.agents-toggle {
-  flex: 0 1 auto;
-}
-
-/* Dragged to a height, it keeps it: no cap, and the list scrolls inside. */
-.agents.sized {
-  flex: none;
-  max-height: none;
-}
-
-/* A grab strip over its top border, lit while hovered, dragged or focused. */
-.agents {
-  position: relative;
-}
-
-.agents-resizer {
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
-  height: 7px;
-  z-index: 2;
-  cursor: row-resize;
-  touch-action: none;
-}
-
-.agents-resizer::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: transparent;
-  transition: background-color 120ms ease;
-}
-
-.agents-resizer:hover::after,
-.agents-resizer:focus-visible::after,
-.agents-resizer.dragging::after {
-  background: var(--lantern);
-}
-
-.agents-resizer:focus-visible {
-  outline: none;
-}
-
-body.resizing-rows {
-  cursor: row-resize;
-}
-
-body.resizing-rows .app > :not(.sidebar),
-body.resizing-rows .sidebar > :not(.agents),
-body.resizing-rows .agents > :not(.agents-resizer) {
-  pointer-events: none;
-}
-
-.agents-list {
-  flex: 1;
-  min-height: 0;
-  margin: 0;
   padding: 0 6px 10px;
   overflow-y: auto;
-  list-style: none;
 }
 
-/* A workspace's agents hang on a rail in its card's color. */
-.agents-group {
-  margin-bottom: 4px;
-  padding-left: 6px;
-  border-radius: 0 4px 4px 0;
-  box-shadow: inset 2px 0 0 var(--hue);
+.agents-status + .agents-status {
+  margin-top: 6px;
 }
 
-.agents-workspace {
-  display: block;
-  padding: 2px 6px 0;
-  overflow: hidden;
+/* A status's head, in that status's color; Done's folds. */
+.agents-status-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 4px 4px 10px;
   color: var(--muted);
   font-size: calc(11px * var(--ui-scale));
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+button.agents-status-head {
+  padding-left: 2px;
+}
+
+.agents-needs-you .agents-status-head {
+  color: var(--blocked);
+}
+
+.agents-working .agents-status-head {
+  color: var(--working);
+}
+
+/* The workspace a row belongs to, in its card's color, where the status was. */
+.card-row-place {
+  display: block;
+  max-width: 45%;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--hue) 75%, var(--muted));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6402,12 +6373,8 @@ body.resizing-rows .agents > :not(.agents-resizer) {
   font-weight: 400;
 }
 
-/* What waits on you from a closed session (the outcome ledger), under the
-   live agents: a row resumes it, the × clears it. */
-.agents-closed {
-  --hue: var(--lantern);
-}
-
+/* What waits on you from a closed session (the outcome ledger), with the
+   agents that need you: a row resumes it, the × clears it. */
 .agents-closed-row {
   display: flex;
   align-items: center;

@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-12 20:13 — Workspaces and Agents as two sidebar tabs
+
+The sidebar's head now has two tabs instead of the workspaces with an Agents section under them. Workspaces is the
+list by folder, as before, at full height. Agents lists the same agents by status: Needs you (closed sessions' asks
+included), Working, then Done folded to one line. Each row names its workspace in its color. The Agents tab shows how
+many need you whichever tab is open. ⌘⇧G switches between them, and ⌘⇧F goes to Workspaces. The Agents section's drag
+handle is gone with it.
+
 ## 2026-11-12 20:12 — Back to the tab you came from
 
 A ← button at the start of the tab bar, and ⌘[ (Ctrl+Shift+[ elsewhere), returns to the tab focused before, in

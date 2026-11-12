@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { agentCountsByTab, agentRowName, attentionRows, needsYouNote, shownStatus, verifiedDone, wantsYou } from "../app/attention";
 import type { Controller } from "../app/controller";
 import type { ListeningPort } from "../app/ports";
@@ -9,21 +10,39 @@ import { PortList } from "./Ports";
 import { StatusMark } from "./StatusMark";
 
 /// An agent on a workspace card: its status, then its name, and why it wants
-/// you if it does. A click goes to its tab.
-export function AgentRow({ controller, snapshot, agent }: { controller: Controller; snapshot: Snapshot; agent: Agent }) {
+/// you if it does. A click goes to its tab. Given `place`, its workspace, the
+/// row names that instead of its status: the Agents tab lists by status.
+export function AgentRow({
+  controller,
+  snapshot,
+  agent,
+  place,
+}: {
+  controller: Controller;
+  snapshot: Snapshot;
+  agent: Agent;
+  place?: { label: string; hue: string };
+}) {
   const name = agentRowName(agent, snapshot.tabs, agentCountsByTab(snapshot));
   const status = shownStatus(agent);
   const note = needsYouNote(agent);
+  const title = note ? `${name}: ${note}` : name;
   return (
     <button
       className="card-row"
-      title={note ? `${name}: ${note}` : name}
+      title={place ? `${place.label} · ${title}` : title}
       aria-current={agent.focused ? "true" : undefined}
       onClick={() => controller.request("tab.focus", { tab_id: agent.tab_id })}
     >
       <StatusMark status={status} verified={verifiedDone(agent)} note={note} />
       <span className="card-row-name">{name}</span>
-      {wantsYou(agent) && <span className="card-row-note">{status === "blocked" ? "Needs you" : verifiedDone(agent) ? "Nothing left" : "Done"}</span>}
+      {place ? (
+        <span className="card-row-note card-row-place" style={{ "--hue": place.hue } as CSSProperties}>
+          {place.label}
+        </span>
+      ) : (
+        wantsYou(agent) && <span className="card-row-note">{status === "blocked" ? "Needs you" : verifiedDone(agent) ? "Nothing left" : "Done"}</span>
+      )}
     </button>
   );
 }

@@ -87,6 +87,8 @@ export interface State {
   sidebar: boolean;
   /// Counts the asks to find a workspace: each one opens the sidebar's filter.
   findWorkspace: number;
+  /// Counts the asks to switch the sidebar between Workspaces and Agents.
+  switchSidebarView: number;
   /// The prompt library's palette is open.
   library: boolean;
   /// The Settings dialog is open.
@@ -178,6 +180,7 @@ export class Controller {
     title: null,
     sidebar: layout.sidebar,
     findWorkspace: 0,
+    switchSidebarView: 0,
     library: false,
     settingsOpen: false,
     changes: layout.drawer === "changes",
@@ -607,6 +610,8 @@ export class Controller {
         return this.togglePanel("files");
       case "find_workspace":
         return this.set({ sidebar: true, findWorkspace: this.state.findWorkspace + 1 });
+      case "switch_sidebar_view":
+        return this.set({ sidebar: true, switchSidebarView: this.state.switchSidebarView + 1 });
       case "toggle_sidebar":
         return this.set({ sidebar: !this.state.sidebar });
       case "increase_font_size":

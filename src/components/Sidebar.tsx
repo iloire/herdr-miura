@@ -4,6 +4,7 @@ import { workspaceDirectory } from "../changes/counts";
 import { agentRefusal, type Land, type LandStore, landing } from "../changes/land";
 import { type Queue, workspaceFolder } from "../app/queue";
 import { agentsByWorkspace, cardAgents, cardWantsOpen, loopTags, unseenDone, workspaceMarks } from "../app/attention";
+import { loadSidebarView, type PlacedAgent, saveSidebarView, type SidebarViewState, statusSections } from "../app/agentsView";
 import { hasGitLine, shownBranch } from "../app/gitLine";
 import { colorKey, type HueSlot, workspaceHue } from "../app/hue";
 import { pinKey, pinnedByWorkspace } from "../app/pins";
@@ -17,7 +18,7 @@ import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type Workspace
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
-import { type AgentGroup, AgentsSection, type ClosedAsks } from "./AgentsSection";
+import { AgentsView, type ClosedAsks } from "./AgentsView";
 import { AttentionRows, CardDetails, type LandAction } from "./CardDetails";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
@@ -72,6 +73,7 @@ export function Sidebar({
   cards,
   showAgents,
   findAsked,
+  switchViewAsked,
   closedAsks,
 }: {
   controller: Controller;
@@ -111,11 +113,13 @@ export function Sidebar({
   onSetGroups: (entries: [string, string | null][]) => void;
   /// What every card shows.
   cards: Settings["workspaceCards"];
-  /// Lists every active agent under the workspaces (`ui.sidebar_agents`).
+  /// Offers the Agents tab, every active agent by status (`ui.sidebar_agents`).
   showAgents: boolean;
   /// Counts the asks to find a workspace (⌘⇧F): each new one opens the filter and puts the cursor in it.
   findAsked: number;
-  /// What waits on you from closed sessions, listed under the agents.
+  /// Counts the asks to switch between the Workspaces and Agents tabs (⌘⇧G).
+  switchViewAsked: number;
+  /// What waits on you from closed sessions, listed with the agents that need you.
   closedAsks: ClosedAsks;
 }) {
   const landsByRepo = useSyncExternalStore(lands?.subscribe ?? noSubscription, lands?.getState ?? noLands);
@@ -129,16 +133,29 @@ export function Sidebar({
   );
   const workspaces = rows.map((row) => row.workspace);
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
-  const agentGroups: AgentGroup[] = showAgents
-    ? rows
-        .map(({ workspace }) => ({
+  // The Agents tab: the same agents as the cards, by status, in the sidebar's order.
+  const placed: PlacedAgent[] = showAgents
+    ? rows.flatMap(({ workspace }) =>
+        cardAgents(agents.get(workspace.workspace_id) ?? []).map((agent) => ({
+          agent,
           workspaceId: workspace.workspace_id,
           label: workspace.label,
           hue: workspaceHue(workspace, slots),
-          agents: cardAgents(agents.get(workspace.workspace_id) ?? []),
-        }))
-        .filter((group) => group.agents.length > 0)
+        })),
+      )
     : [];
+  const statuses = statusSections(placed);
+  const askingClosed = showAgents ? closedAsks.outcomes.length : 0;
+  const [viewState, setViewState] = useState(loadSidebarView);
+  const changeView = (change: (state: SidebarViewState) => SidebarViewState) =>
+    setViewState((state) => {
+      const next = change(state);
+      saveSidebarView(next);
+      return next;
+    });
+  const showView = (next: SidebarViewState["view"]) => changeView((state) => ({ ...state, view: next }));
+  const view = showAgents ? viewState.view : "workspaces";
+  const needsYouCount = statuses.needsYou.length + askingClosed;
   // Groups by hand only: sorting by attention answers "what needs me", so the list goes flat.
   const groupOf = sort === "manual" ? workspaceGroups(rows, rootOf, groups) : new Map<string, string>();
   // The filter: null while closed. Typing narrows the list to the workspaces
@@ -154,9 +171,16 @@ export function Sidebar({
     controller.focusTerminal();
   };
   useEffect(() => {
-    if (findAsked > 0) openFilter();
+    if (findAsked === 0) return;
+    // Finding a workspace means the workspaces.
+    showView("workspaces");
+    openFilter();
     // Only a new ask opens it, not a render.
   }, [findAsked]);
+  useEffect(() => {
+    if (switchViewAsked > 0 && showAgents) changeView((state) => ({ ...state, view: state.view === "agents" ? "workspaces" : "agents" }));
+    // Only a new ask switches, not a render.
+  }, [switchViewAsked]);
   const terms = filterTerms(filter ?? "");
   const filtering = terms.length > 0;
   const matching = filtering && snapshot ? rows.filter(({ workspace }) => matchesTerms(workspaceText(workspace, snapshot, folderOf(workspace)), terms)) : rows;
@@ -493,30 +517,58 @@ export function Sidebar({
     );
   };
   return (
-    <nav className={agentGroups.length > 0 || (showAgents && closedAsks.outcomes.length > 0) ? "sidebar with-agents" : "sidebar"} aria-label="Workspaces">
+    <nav className={view === "agents" ? "sidebar agents-tab" : "sidebar"} aria-label="Workspaces">
       <div className="sidebar-brand" title={fullTitle} data-tauri-drag-region>
         <span data-tauri-drag-region>{title}</span>
       </div>
       <header className="sidebar-head">
-        <span>Workspaces</span>
-        <button
-          className="icon-button sidebar-search"
-          title="Find a workspace (⌘⇧F)"
-          aria-label="Find a workspace"
-          aria-pressed={filter !== null}
-          onClick={() => (filter === null ? openFilter() : closeFilter())}
-        >
-          <SearchIcon />
-        </button>
-        <button
-          className="icon-button sort-toggle"
-          title={sort === "manual" ? "Sorted by hand. Click to sort by attention" : "Sorted by attention. Click to sort by hand"}
-          aria-label={sort === "manual" ? "Sort by attention" : "Sort by hand"}
-          aria-pressed={sort === "attention"}
-          onClick={toggleSort}
-        >
-          {sort === "manual" ? <HandOrderIcon /> : <AttentionOrderIcon />}
-        </button>
+        {showAgents ? (
+          <div className="sidebar-tabs" role="tablist" aria-label="Sidebar view">
+            <button
+              role="tab"
+              className="sidebar-tab"
+              aria-selected={view === "workspaces"}
+              title="Workspaces by folder (⌘⇧G switches)"
+              onClick={() => showView("workspaces")}
+            >
+              Workspaces
+            </button>
+            <button
+              role="tab"
+              className="sidebar-tab"
+              aria-selected={view === "agents"}
+              title="Agents by status (⌘⇧G switches)"
+              onClick={() => showView("agents")}
+            >
+              Agents
+              {needsYouCount > 0 && <StatusMark status="blocked" count={needsYouCount} />}
+            </button>
+          </div>
+        ) : (
+          <span>Workspaces</span>
+        )}
+        {view === "workspaces" && (
+          <>
+            <button
+              className="icon-button sidebar-search"
+              title="Find a workspace (⌘⇧F)"
+              aria-label="Find a workspace"
+              aria-pressed={filter !== null}
+              onClick={() => (filter === null ? openFilter() : closeFilter())}
+            >
+              <SearchIcon />
+            </button>
+            <button
+              className="icon-button sort-toggle"
+              title={sort === "manual" ? "Sorted by hand. Click to sort by attention" : "Sorted by attention. Click to sort by hand"}
+              aria-label={sort === "manual" ? "Sort by attention" : "Sort by hand"}
+              aria-pressed={sort === "attention"}
+              onClick={toggleSort}
+            >
+              {sort === "manual" ? <HandOrderIcon /> : <AttentionOrderIcon />}
+            </button>
+          </>
+        )}
         <button
           className="icon-button"
           title="New workspace"
@@ -530,60 +582,73 @@ export function Sidebar({
           +
         </button>
       </header>
-      {filter !== null && (
-        <div className="workspace-filter">
-          <input
-            ref={filterField}
-            aria-label="Find a workspace"
-            placeholder="Name, folder, branch, tab or agent"
-            autoFocus
-            spellCheck={false}
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            // An empty field has nothing to keep it open.
-            onBlur={() => filter === "" && setFilter(null)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                closeFilter();
-              } else if (event.key === "Enter") {
-                // Enter goes to the first match, the one marked in the list.
-                event.preventDefault();
-                const first = shownWorkspaces[0];
-                if (!first) return;
-                controller.request("workspace.focus", { workspace_id: first.workspace_id });
-                closeFilter();
-              }
-            }}
-          />
-        </div>
+      {view === "workspaces" && (
+        <>
+          {filter !== null && (
+            <div className="workspace-filter">
+              <input
+                ref={filterField}
+                aria-label="Find a workspace"
+                placeholder="Name, folder, branch, tab or agent"
+                autoFocus
+                spellCheck={false}
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+                // An empty field has nothing to keep it open.
+                onBlur={() => filter === "" && setFilter(null)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    closeFilter();
+                  } else if (event.key === "Enter") {
+                    // Enter goes to the first match, the one marked in the list.
+                    event.preventDefault();
+                    const first = shownWorkspaces[0];
+                    if (!first) return;
+                    controller.request("workspace.focus", { workspace_id: first.workspace_id });
+                    closeFilter();
+                  }
+                }}
+              />
+            </div>
+          )}
+          <ol
+            className={["workspace-list", cards.compact && "compact", !hasChevron(cards.details) && "no-chevrons"].filter(Boolean).join(" ")}
+            ref={drag.list}
+          >
+            {newGroupFor !== null && (
+              <li className="group-head">
+                <RenameField
+                  className="group-rename"
+                  label="New group name"
+                  initial=""
+                  onDone={(name) => {
+                    setNewGroupFor(null);
+                    controller.focusTerminal();
+                    if (name !== null) onSetGroups([[newGroupFor, name]]);
+                  }}
+                />
+              </li>
+            )}
+            {sections.flatMap((section) => {
+              const head = section.name === null ? [] : [groupHead(section.name, section.rows, section.folded)];
+              return [...head, ...section.shown.map((row) => card(row, shownRows.indexOf(row)))];
+            })}
+          </ol>
+          {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
+          {snapshot && workspaces.length > 0 && filtering && matching.length === 0 && <p className="empty">No workspace matches.</p>}
+        </>
       )}
-      <ol
-        className={["workspace-list", cards.compact && "compact", !hasChevron(cards.details) && "no-chevrons"].filter(Boolean).join(" ")}
-        ref={drag.list}
-      >
-        {newGroupFor !== null && (
-          <li className="group-head">
-            <RenameField
-              className="group-rename"
-              label="New group name"
-              initial=""
-              onDone={(name) => {
-                setNewGroupFor(null);
-                controller.focusTerminal();
-                if (name !== null) onSetGroups([[newGroupFor, name]]);
-              }}
-            />
-          </li>
-        )}
-        {sections.flatMap((section) => {
-          const head = section.name === null ? [] : [groupHead(section.name, section.rows, section.folded)];
-          return [...head, ...section.shown.map((row) => card(row, shownRows.indexOf(row)))];
-        })}
-      </ol>
-      {snapshot && workspaces.length === 0 && <p className="empty">No workspaces. Press + to open one.</p>}
-      {snapshot && workspaces.length > 0 && filtering && matching.length === 0 && <p className="empty">No workspace matches.</p>}
-      {snapshot && <AgentsSection controller={controller} snapshot={snapshot} groups={agentGroups} closed={showAgents ? closedAsks : { ...closedAsks, outcomes: [] }} />}
+      {snapshot && view === "agents" && (
+        <AgentsView
+          controller={controller}
+          snapshot={snapshot}
+          sections={statuses}
+          closed={closedAsks}
+          doneFolded={viewState.doneFolded}
+          onFoldDone={(doneFolded) => changeView((state) => ({ ...state, doneFolded }))}
+        />
+      )}
       {snapshot && focused && focusedFolder && (
         <TeamSection
           controller={controller}
