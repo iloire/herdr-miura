@@ -6873,6 +6873,10 @@ button.agents-status-head {
   font-weight: 600;
 }
 
+.ledger-chip .todoist {
+  color: var(--working);
+}
+
 /* The Day dialog: one section a repo, a row an outcome. */
 .day-dialog {
   --hue: var(--lantern);
@@ -6985,6 +6989,15 @@ button.agents-status-head {
 .day-facts {
   color: var(--muted);
   font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.day-task {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .day-actions {

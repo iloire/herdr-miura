@@ -25,11 +25,16 @@ choosing between Doable and Todoist: it is Todoist.
   task in place of `$ARGUMENTS`, or below its text.
 - **A task opens with** the library prompt named after one of its labels (`@plan` opens `/plan`), else the
   one named `todoist`, else the task alone.
-- **Completing a task in Todoist when the work is done asks first**, for now (step 3 below).
+- **Completing a task in Todoist when the work is done asks first**: a button on the Day dialog's row. So does adding a
+  parked note as a subtask. Only a `you` writes by itself, as a comment.
+- **A task is linked to the pane its agent runs in**, in `todoist.jsonl` beside the outcome ledger, since a ledger
+  entry names its pane and the session is not known yet when the prompt goes. The link covers that pane's outcomes until
+  the first that ends the work, and only from the session that reported first.
+- Closing a task in Todoist also completes its open subtasks, so a parked note added as a subtask goes with it.
 
 ## Ideas
 
-Everything that came up, by theme. Ideas 1 and 2 are built. The rest is written down so it isn't lost, not
+Everything that came up, by theme. Ideas 1 to 3 are built. The rest is written down so it isn't lost, not
 decided.
 
 ### 1. The panel ✅
@@ -48,7 +53,9 @@ decided.
 - A task with no repo gets a "Send to…" menu of workspaces. (Not built: a task for another repo offers that repo's
   workspace; one with no repo goes to the focused one.)
 
-### 3. Closing the loop
+### 3. Closing the loop ✅
+
+Built as below, except that a `you` comments rather than adding a waiting label.
 
 - Keep the task id with the agent or queue item a prompt started from a task.
 - `herdr-outcome done`, verified, offers to complete the task, with a comment naming the commits and the
@@ -86,4 +93,4 @@ decided.
 3. ~~The Todoist panel in the drawer, its switch button, the `todoist_tasks` command, `todoist.filter` in
    Settings.~~ ✅
 4. ~~Repo routing (idea 2).~~ ✅
-5. Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).
+5. ~~Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).~~ ✅

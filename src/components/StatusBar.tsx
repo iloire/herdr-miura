@@ -45,7 +45,7 @@ export function StatusBar({
   now: number;
   onOpenUsage: () => void;
   /// The outcome ledger's counts, this computer's like the usage.
-  ledger: { done: number; parked: number; waiting: number };
+  ledger: { done: number; parked: number; waiting: number; todoist: number };
   onOpenDay: () => void;
 }) {
   const { status, notice } = state;

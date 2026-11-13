@@ -18,6 +18,7 @@ import {
   tasksFor,
   templateFor,
 } from "../app/todoist";
+import { linkTask } from "../app/todoistLinks";
 import type { QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 
@@ -263,14 +264,19 @@ function TaskPrompt({
   };
 
   const tabLabel = task.title.length > 24 ? `${task.title.slice(0, 23)}…` : task.title;
+  // Which task the prompt came from, so its agent's outcome can be written back.
+  const from = { id: task.id, title: task.title };
   const run = (action: Action) => {
     const body = text.trim();
     if (!body || why[action]) return;
-    if (action === "here" && pane) controller.act(sendPrompt(pane, body));
-    else if (action === "new-tab" && folder && workspaceId) {
-      controller.act(startInNewTab(workspaceId, folder, tabLabel, body));
+    if (action === "here" && pane) {
+      // A link that fails to save must not keep the prompt from going.
+      const linked = linkTask(from, pane, folder).catch((error) => controller.act(Promise.reject(error)));
+      controller.act(linked.then(() => sendPrompt(pane, body)));
+    } else if (action === "new-tab" && folder && workspaceId) {
+      controller.act(startInNewTab(workspaceId, folder, tabLabel, body, from));
     } else if (action === "queue" && queueFolder && queue) {
-      queue.add(queueFolder, body, false);
+      queue.add(queueFolder, body, false, from);
       controller.openQueue();
     }
     onBack();
@@ -280,8 +286,8 @@ function TaskPrompt({
   const runThere = (action: "new-tab" | "queue") => {
     const body = text.trim();
     if (!body || !target) return;
-    if (action === "new-tab") controller.act(startInNewTab(target.workspaceId, target.folder, tabLabel, body));
-    else if (queue) queue.add(target.queueFolder, body, false);
+    if (action === "new-tab") controller.act(startInNewTab(target.workspaceId, target.folder, tabLabel, body, from));
+    else if (queue) queue.add(target.queueFolder, body, false, from);
     else return;
     onBack();
     controller.focusTerminal();

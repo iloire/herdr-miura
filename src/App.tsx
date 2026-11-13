@@ -17,6 +17,8 @@ import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from
 import { busyQueues, isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { useLedger } from "./app/useLedger";
+import { useTodoistLinks } from "./app/useTodoistLinks";
+import { offers } from "./app/todoistLinks";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
@@ -293,6 +295,8 @@ export default function App() {
 
   // Every outcome agents reported, kept past their panes (docs/plan-inbox.md).
   const ledger = useLedger(controller);
+  // Which Todoist task each outcome's prompt came from (docs/plan-todoist.md).
+  const todoist = useTodoistLinks(controller, ledger.list, local);
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
   const queues = useMemo(() => {
@@ -656,6 +660,7 @@ export default function App() {
     done: doneToday(ledger.list, usage.now).length,
     parked: allParked(ledger.list).length,
     waiting: closedOutcomes.length,
+    todoist: offers(ledger.list, todoist.linked, usage.now).length,
   };
   const closedAsks = {
     outcomes: closedOutcomes,
@@ -928,6 +933,10 @@ export default function App() {
                 : null
             }
             onResolve={(outcome, how) => ledger.resolve(outcome.id, how)}
+            linked={todoist.linked}
+            onTodoist={(outcome) =>
+              controller.act(todoist.write(outcome).then(() => outcome.kind === "left" && ledger.resolve(outcome.id, "todo")))
+            }
             onClose={() => {
               setDayOpen(false);
               controller.focusTerminal();

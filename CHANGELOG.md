@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:40 — Agent outcomes go back to their Todoist task
+
+A prompt sent from the Todoist panel (to an agent, a new tab or the queue) now remembers its task. When that agent
+reports with `herdr-outcome`, the Day dialog shows the task under the outcome: a verified `done` offers **Complete in
+Todoist**, which comments with the commits and the note and then closes it; a `left` offers **Add to Todoist**, a
+subtask with its text. A `you` comments on the task by itself, so Todoist on the phone shows the agent waiting. The
+status bar counts the offers (`☐ 2`), and the Day dialog counts the tasks completed in Todoist today.
+
 ## 2026-11-13 12:01 — Todoist tasks go to their repo
 
 A `[todoist.projects]` table in the settings maps Todoist projects to repo folders (`Herdr = "~/code/herdr-miura"`).

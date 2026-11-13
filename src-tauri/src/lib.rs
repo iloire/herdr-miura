@@ -140,6 +140,10 @@ pub fn run() {
             commands::theme_list,
             commands::theme_read,
             commands::todoist_tasks,
+            commands::todoist_links,
+            commands::todoist_link,
+            commands::todoist_write_back,
+            commands::todoist_completed,
             commands::trust_host_key,
             commands::worktrees,
             // keep-sorted end

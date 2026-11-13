@@ -133,7 +133,7 @@ pub fn resolve(path: &Path, id: &str, how: &str) -> Result<(), Error> {
 }
 
 /// `2026-11-12T10:00:00Z`, as the script writes `at`.
-fn now_utc() -> String {
+pub(crate) fn now_utc() -> String {
     let secs = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
     utc(secs)
 }

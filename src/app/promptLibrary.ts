@@ -7,6 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { field, parseFrontmatter } from "./frontmatter";
 import { AGENT_ARGS, AGENT_KIND, type Opened } from "./queue";
+import { linkTask } from "./todoistLinks";
 
 export type Scope = "project" | "global";
 /// What a prompt is sent to: the focused agent, a fresh Claude in a new tab,
@@ -226,8 +227,15 @@ export const sendPrompt = (pane: string, text: string) => invoke<void>("prompt_s
 /// `folder`, labelled `label` (`/<name>` for a library prompt), and sends it `text`. Its agent is named
 /// `p<digits>`, apart from the queue's `q` names. An agent that is not ready
 /// in time (a folder Claude has not trusted yet) keeps its tab, and the
-/// promise fails saying the prompt was not sent.
-export async function startInNewTab(workspaceId: string, folder: string, label: string, text: string): Promise<void> {
+/// promise fails saying the prompt was not sent. A prompt from a Todoist task
+/// links its pane to the task first (`todoistLinks.ts`).
+export async function startInNewTab(
+  workspaceId: string,
+  folder: string,
+  label: string,
+  text: string,
+  todoist?: { id: string; title: string },
+): Promise<void> {
   const name = `p${Date.now() % 1e9}`;
   const opened = await invoke<Opened>("queue_open", {
     workspaceId,
@@ -238,5 +246,6 @@ export async function startInNewTab(workspaceId: string, folder: string, label: 
     args: AGENT_ARGS,
   });
   if (!opened.ready) throw new Error(`${label} was not sent: its new tab's agent is not ready (${opened.note ?? "no reason given"})`);
+  if (todoist) await linkTask(todoist, opened.pane_id, folder);
   await invoke<void>("queue_prompt", { name, text });
 }

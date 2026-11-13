@@ -482,6 +482,39 @@ pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Ta
     Ok(read.await.map_err(todoist::Error::Worker)??)
 }
 
+/// Which tasks prompts came from, and what was written back to them.
+#[tauri::command]
+pub async fn todoist_links() -> Result<todoist::Links> {
+    let read = tauri::async_runtime::spawn_blocking(|| todoist::read_links(&todoist::links_path()?));
+    Ok(read.await.map_err(todoist::Error::Worker)??)
+}
+
+/// Records that a prompt from the Todoist task `task` went to the agent in `pane`.
+#[tauri::command]
+pub async fn todoist_link(task: String, title: String, pane: String, directory: Option<String>) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        todoist::link(&todoist::links_path()?, &task, &title, &pane, directory.as_deref())
+    });
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
+/// Writes the ledger entry `entry` back to the task `task` its prompt came
+/// from; false when that was done already.
+#[tauri::command]
+pub async fn todoist_write_back(task: String, entry: ledger::Entry, from: Option<String>) -> Result<bool> {
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        todoist::write_back(&todoist::links_path()?, &task, &entry, from.as_deref())
+    });
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
+/// How many Todoist tasks were completed between `since` and `until`.
+#[tauri::command]
+pub async fn todoist_completed(since: String, until: String) -> Result<usize> {
+    let read = tauri::async_runtime::spawn_blocking(move || todoist::completed(&since, &until));
+    Ok(read.await.map_err(todoist::Error::Worker)??)
+}
+
 /// The TCP ports each workspace's processes listen on, by workspace id.
 #[tauri::command]
 pub async fn listening_ports(

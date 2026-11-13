@@ -675,7 +675,7 @@ fn positional(text: &str) -> std::borrow::Cow<'_, str> {
 }
 
 /// The checkout's current commit, if it is a Git checkout with one.
-fn head(directory: &str) -> Option<String> {
+pub(crate) fn head(directory: &str) -> Option<String> {
     let deadline = Instant::now() + Duration::from_secs(5);
     let out = crate::git::run(directory, &["rev-parse", "HEAD"], "read HEAD", deadline, 256).ok()?;
     let sha = String::from_utf8(out).ok()?.trim().to_owned();
@@ -683,7 +683,7 @@ fn head(directory: &str) -> Option<String> {
 }
 
 /// A full commit name, so Git cannot read it as an option or a range.
-fn commit_id(sha: &str) -> bool {
+pub(crate) fn commit_id(sha: &str) -> bool {
     matches!(sha.len(), 40 | 64) && sha.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
