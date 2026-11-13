@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import type { Prompt } from "../promptLibrary";
+import { fillTemplate, matchingTasks, overdue, sortTasks, type Task, taskBlock, templateFor } from "../todoist";
+
+const task = (patch: Partial<Task> = {}): Task => ({
+  id: "6gv",
+  title: "Fix the filter",
+  description: "It drops dots.",
+  project: "Herdr",
+  labels: ["bug"],
+  priority: 1,
+  due: "2026-11-13",
+  due_words: "13 Nov",
+  url: "https://app.todoist.com/app/task/6gv",
+  ...patch,
+});
+
+const prompt = (name: string, patch: Partial<Prompt> = {}): Prompt => ({
+  key: `global:${name}.md`,
+  name,
+  scope: "global",
+  path: `${name}.md`,
+  dir: "/x",
+  group: null,
+  description: null,
+  argumentHint: null,
+  run: null,
+  body: "Do it.",
+  raw: "Do it.",
+  broken: null,
+  overrides: false,
+  ...patch,
+});
+
+describe("taskBlock", () => {
+  it("holds the title, facts, description and link", () => {
+    expect(taskBlock(task())).toBe(
+      "Todoist task: Fix the filter\nProject: Herdr · Labels: @bug · Due: 13 Nov\n\nIt drops dots.\n\nhttps://app.todoist.com/app/task/6gv",
+    );
+  });
+
+  it("leaves out what the task does not have", () => {
+    expect(taskBlock(task({ project: null, labels: [], due_words: null, description: " " }))).toBe(
+      "Todoist task: Fix the filter\n\nhttps://app.todoist.com/app/task/6gv",
+    );
+  });
+});
+
+describe("fillTemplate", () => {
+  it("is the task alone without a template", () => {
+    expect(fillTemplate(null, task())).toBe(taskBlock(task()));
+  });
+
+  it("fills named fields and the whole block", () => {
+    expect(fillTemplate("Plan {{task.title}} ({{ task.labels }}) {{task.nope}}\n{{task}}", task())).toBe(
+      `Plan Fix the filter (bug) {{task.nope}}\n${taskBlock(task())}`,
+    );
+  });
+
+  it("puts the block for $ARGUMENTS", () => {
+    expect(fillTemplate("Investigate: $ARGUMENTS", task())).toBe(`Investigate: ${taskBlock(task())}`);
+  });
+
+  it("appends the block to a plain prompt", () => {
+    expect(fillTemplate("Write the plan.\n", task())).toBe(`Write the plan.\n\n${taskBlock(task())}`);
+  });
+});
+
+describe("templateFor", () => {
+  it("prefers a prompt named as a label, then todoist", () => {
+    const prompts = [prompt("todoist"), prompt("Bug")];
+    expect(templateFor(task(), prompts)?.name).toBe("Bug");
+    expect(templateFor(task({ labels: [] }), prompts)?.name).toBe("todoist");
+    expect(templateFor(task({ labels: [] }), [prompt("plan")])).toBeNull();
+  });
+
+  it("skips a broken prompt", () => {
+    expect(templateFor(task(), [prompt("bug", { broken: "no text" })])).toBeNull();
+  });
+});
+
+describe("sortTasks", () => {
+  it("puts dated first, earliest first, then urgent first", () => {
+    const tasks = [
+      task({ id: "none", due: null }),
+      task({ id: "late", due: "2026-11-14" }),
+      task({ id: "low", due: "2026-11-13", priority: 1 }),
+      task({ id: "high", due: "2026-11-13", priority: 4 }),
+    ];
+    expect(sortTasks(tasks).map((t) => t.id)).toEqual(["high", "low", "late", "none"]);
+  });
+});
+
+describe("overdue and matchingTasks", () => {
+  it("compares the day only", () => {
+    expect(overdue(task({ due: "2026-11-12T09:00:00" }), "2026-11-13")).toBe(true);
+    expect(overdue(task({ due: "2026-11-13T23:00:00" }), "2026-11-13")).toBe(false);
+    expect(overdue(task({ due: null }), "2026-11-13")).toBe(false);
+  });
+
+  it("finds every word across fields", () => {
+    expect(matchingTasks([task()], "herdr dots")).toHaveLength(1);
+    expect(matchingTasks([task()], "herdr nope")).toHaveLength(0);
+  });
+});

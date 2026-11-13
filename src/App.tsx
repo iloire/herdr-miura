@@ -49,6 +49,7 @@ import { PromptPalette } from "./components/PromptPalette";
 import type { QueueOwner } from "./components/AllQueues";
 import { QueuePanel } from "./components/QueuePanel";
 import { SessionsPanel } from "./components/SessionsPanel";
+import { TodoistPanel } from "./components/TodoistPanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
@@ -678,7 +679,7 @@ export default function App() {
     controller.reopenSession = () => controller.reopenClosed(focusedWorkspaceId, recentFolders);
   }, [controller, focusedWorkspaceId, recentFolders]);
 
-  const drawerOpen = readChanges || state.queue || state.sessions;
+  const drawerOpen = readChanges || state.queue || state.sessions || state.todoist;
 
   return (
     <>
@@ -702,6 +703,7 @@ export default function App() {
               running: Boolean(focusedQueue?.items.some(isActive)),
             }}
             sessions={state.sessions}
+            todoist={state.todoist}
             showSessions={local}
           />
           {/* The focused workspace's hue marks the selected tab and the status
@@ -799,6 +801,17 @@ export default function App() {
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 folders={recentFolders}
                 resuming={state.resuming}
+              />
+            ) : state.todoist && state.snapshot ? (
+              <TodoistPanel
+                controller={controller}
+                snapshot={state.snapshot}
+                workspace={focusedWorkspace ?? null}
+                hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
+                filter={state.settings.todoistFilter}
+                folder={local && queueFolder ? queueDirectory(queueFolder) : null}
+                queueFolder={local ? queueFolder : null}
+                queue={local && queueAccess.kind === "ready" ? queueActions : null}
               />
             ) : state.files ? (
               <FilesPanel

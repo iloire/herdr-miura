@@ -36,6 +36,7 @@ mod ssh_hosts;
 mod sync;
 mod tab_move;
 mod team;
+mod todoist;
 mod worktree_ops;
 mod worktrees;
 
@@ -52,7 +53,8 @@ pub fn run() {
         .manage(session_usage::Cache::default())
         .manage(recent_sessions::Cache::default())
         .manage(ssh_hosts::PendingKeys::default())
-        .manage(sync::Running::default());
+        .manage(sync::Running::default())
+        .manage(todoist::Cache::default());
     #[cfg(target_os = "macos")]
     let builder = builder.menu(menu::build).on_menu_event(menu::on_event);
     let result = builder
@@ -137,6 +139,7 @@ pub fn run() {
             commands::start_team,
             commands::theme_list,
             commands::theme_read,
+            commands::todoist_tasks,
             commands::trust_host_key,
             commands::worktrees,
             // keep-sorted end

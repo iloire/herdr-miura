@@ -34,6 +34,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `workspace_cards.agent_status` | boolean | `true` | Show the agent status marks and tally on the head of every card. |
 | `workspace_cards.details` | `"manual"`, `"auto"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
 | `workspace_cards.compact` | boolean | `false` | Tighter card rows, so more workspaces fit. |
+| `todoist.filter` | string | `"today \| overdue"` | Which tasks the Todoist panel lists, in Todoist's own filter syntax, e.g. `"#Herdr & @agent"`. The token is not a setting: see [plan-todoist.md](plan-todoist.md). |
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"

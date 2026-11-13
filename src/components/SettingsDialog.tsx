@@ -1,6 +1,6 @@
 import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
-import { CARD_DETAILS, type CardDetailsMode, LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
+import { CARD_DETAILS, type CardDetailsMode, DEFAULT_SETTINGS, LIMITS, type Settings, resolveTheme, saveSetting, themeNames } from "../app/settings";
 import type { SettingsView } from "../app/useSettings";
 import { css } from "../terminal/theme";
 import { BUILTIN_NAMES, type NamedTheme, builtinTheme, parseThemeName } from "../themes/catalog";
@@ -108,6 +108,14 @@ export function SettingsDialog({
                 fallback=""
                 hint="Typed into the tab the strip's + or ⌘⇧T opens, e.g. claude. ⌥-click on + or ⌘T opens a plain tab."
                 onCommit={(value) => save("new_tab.command", value || null)}
+              />
+              <TextField
+                label="Todoist filter"
+                placeholder={DEFAULT_SETTINGS.todoistFilter}
+                value={settings.todoistFilter}
+                fallback={DEFAULT_SETTINGS.todoistFilter}
+                hint="Which tasks the Todoist panel lists, in Todoist's filter syntax, e.g. today | overdue, or #Herdr & @agent."
+                onCommit={(value) => save("todoist.filter", value && value !== DEFAULT_SETTINGS.todoistFilter ? value : null)}
               />
             </div>
           </section>

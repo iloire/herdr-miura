@@ -19,6 +19,7 @@ use crate::{
     settings,
     ssh_hosts,
     sync,
+    todoist,
     tab_move::Destination,
     worktree_ops,
     worktrees,
@@ -472,6 +473,13 @@ pub async fn file_diff(
 pub async fn claude_usage(app: AppHandle) -> Result<Option<claude_usage::Usage>> {
     let read = tauri::async_runtime::spawn_blocking(move || app.state::<claude_usage::Cache>().read());
     Ok(read.await.map_err(claude_usage::Error::Worker)?)
+}
+
+/// The Todoist tasks `filter` matches, for the Todoist panel.
+#[tauri::command]
+pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Tasks> {
+    let read = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().tasks(&filter));
+    Ok(read.await.map_err(todoist::Error::Worker)??)
 }
 
 /// The TCP ports each workspace's processes listen on, by workspace id.

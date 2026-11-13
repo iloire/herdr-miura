@@ -166,6 +166,13 @@ export const QueueIcon = () => (
   </Icon>
 );
 
+/// A ticked box: the Todoist panel.
+export const TasksIcon = () => (
+  <Icon>
+    <path d="M13.5 8.5v3a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h6M5.5 7.5 8 10l5.5-6.5" {...LINE} />
+  </Icon>
+);
+
 export const PauseIcon = () => (
   <Icon>
     <path d="M6 4v8M10 4v8" {...LINE} />

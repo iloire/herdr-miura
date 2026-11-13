@@ -1,7 +1,7 @@
 import type { Controller } from "../app/controller";
-import { ChangesIcon, FileIcon, HistoryIcon, QueueIcon } from "./icons";
+import { ChangesIcon, FileIcon, HistoryIcon, QueueIcon, TasksIcon } from "./icons";
 
-/// Changes, Files, Queue and Sessions, pinned to the window's top right corner: over the
+/// Changes, Files, Queue, Sessions and Todoist, pinned to the window's top right corner: over the
 /// tab row, and over the drawer once it opens, so a diff covering the tabs
 /// leaves the switch in place.
 export function PanelSwitch({
@@ -13,6 +13,7 @@ export function PanelSwitch({
   queued,
   sessions,
   showSessions,
+  todoist,
 }: {
   controller: Controller;
   changes: boolean;
@@ -27,6 +28,8 @@ export function PanelSwitch({
   sessions: boolean;
   /// Sessions are this Mac's, so a remote host has no such panel.
   showSessions: boolean;
+  /// The Todoist panel is open.
+  todoist: boolean;
 }) {
   return (
     <div className="panel-switch" role="group" aria-label="Side panel">
@@ -70,6 +73,15 @@ export function PanelSwitch({
           <HistoryIcon />
         </button>
       )}
+      <button
+        className="panel-toggle"
+        title="Todoist tasks"
+        aria-label="Todoist tasks"
+        aria-pressed={todoist}
+        onClick={() => controller.run("todoist_tasks")}
+      >
+        <TasksIcon />
+      </button>
     </div>
   );
 }

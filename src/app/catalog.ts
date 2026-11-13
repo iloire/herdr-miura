@@ -232,6 +232,7 @@ const DEFINITIONS: Definition[] = [
   { name: "browse_files", label: "Browse Files", mac: ["cmd-shift-e"], other: ["ctrl-shift-e"], action: "window" },
   { name: "add_to_queue", label: "Add to Queue", mac: ["cmd-shift-a"], other: ["ctrl-shift-a"], action: "window" },
   { name: "recent_sessions", label: "Recent Sessions", mac: [], other: [], action: "window" },
+  { name: "todoist_tasks", label: "Todoist Tasks", mac: [], other: [], action: "window" },
   {
     name: "reopen_closed_session",
     label: "Reopen Closed Session",

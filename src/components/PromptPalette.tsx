@@ -109,7 +109,7 @@ export function PromptPalette({
     // Only once it has gone: a send that fails keeps its text.
     const sent = () => void changeDrafts((current) => setEdit(current, key, null));
     if (action === "here" && pane) controller.act(sendPrompt(pane, body).then(sent));
-    else if (action === "new-tab" && folder && workspaceId) controller.act(startInNewTab(workspaceId, folder, prompt, body).then(sent));
+    else if (action === "new-tab" && folder && workspaceId) controller.act(startInNewTab(workspaceId, folder, `/${prompt.name}`, body).then(sent));
     else if (action === "queue" && queueFolder && queue) {
       queue.add(queueFolder, body, false);
       sent();

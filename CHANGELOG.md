@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 11:49 — Todoist tasks in the right panel, sent as prompts
+
+A fifth panel in the drawer (the ticked box in the panel switch, or Todoist Tasks in the command list) lists the
+Todoist tasks the `todoist.filter` setting matches, `today | overdue` by default. Click one and it opens as a prompt:
+the library prompt named after one of its labels, else `/todoist`, else the task alone, filled with the task's
+title, description and link, ready to edit and send to the agent, a new tab or the queue. The token is read from
+the keychain (`security add-generic-password -U -s todoist -a "$USER" -w`) or `TODOIST_TOKEN`, never the settings
+file. See docs/plan-todoist.md.
+
 ## 2026-11-13 11:19 — Send a `! command` from the output to the prompt
 
 When Claude Code asks you to run something with `! cmd`, right-click it for Send to Prompt (or ⌘-click it). Herdr types

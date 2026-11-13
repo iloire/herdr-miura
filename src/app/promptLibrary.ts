@@ -223,20 +223,20 @@ export const readLibrary = (directory: string | null) =>
 export const sendPrompt = (pane: string, text: string) => invoke<void>("prompt_send", { pane, text });
 
 /// Starts a fresh Claude in a new, unfocused tab of `workspaceId` at
-/// `folder`, labelled `/<name>`, and sends it `text`. Its agent is named
+/// `folder`, labelled `label` (`/<name>` for a library prompt), and sends it `text`. Its agent is named
 /// `p<digits>`, apart from the queue's `q` names. An agent that is not ready
 /// in time (a folder Claude has not trusted yet) keeps its tab, and the
 /// promise fails saying the prompt was not sent.
-export async function startInNewTab(workspaceId: string, folder: string, prompt: Prompt, text: string): Promise<void> {
+export async function startInNewTab(workspaceId: string, folder: string, label: string, text: string): Promise<void> {
   const name = `p${Date.now() % 1e9}`;
   const opened = await invoke<Opened>("queue_open", {
     workspaceId,
     directory: folder,
-    label: `/${prompt.name}`,
+    label,
     name,
     kind: AGENT_KIND,
     args: AGENT_ARGS,
   });
-  if (!opened.ready) throw new Error(`/${prompt.name} was not sent: its new tab's agent is not ready (${opened.note ?? "no reason given"})`);
+  if (!opened.ready) throw new Error(`${label} was not sent: its new tab's agent is not ready (${opened.note ?? "no reason given"})`);
   await invoke<void>("queue_prompt", { name, text });
 }

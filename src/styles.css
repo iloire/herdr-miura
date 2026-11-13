@@ -6533,6 +6533,99 @@ button.agents-status-head {
   }
 }
 
+/* The Todoist panel: the Sessions panel's rows for tasks, and a task opened as
+   a prompt in the same drawer. Priority marks and the overdue date use the
+   status colors, as Todoist marks them. */
+.todoist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todoist-row .session-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.todoist-priority {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.todoist-priority.p1 {
+  color: var(--blocked);
+}
+
+.todoist-priority.p2 {
+  color: var(--lantern);
+}
+
+.todoist-priority.p3 {
+  color: var(--working);
+}
+
+.todoist-overdue {
+  color: var(--blocked);
+}
+
+.todoist-label {
+  color: var(--hue);
+}
+
+.todoist-task {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 10px 16px 16px;
+}
+
+.todoist-task-head {
+  display: flex;
+  justify-content: space-between;
+}
+
+.todoist-back,
+.todoist-open {
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-back:hover,
+.todoist-open:hover {
+  color: var(--text);
+}
+
+.todoist-task-title {
+  margin: 0;
+  color: var(--text);
+  font: 600 calc(13px * var(--ui-scale)) var(--sans);
+}
+
+.todoist-template {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-template select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+}
+
 /* The Sessions panel: a plain list, each row a button. A session that cannot be
    resumed stays on the list, dimmed, saying why. */
 .sessions-panel {
