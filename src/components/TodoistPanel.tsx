@@ -3,27 +3,28 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import type { Controller } from "../app/controller";
 import { type Action, ACTIONS, type Prompt, readLibrary, sendPrompt, startInNewTab } from "../app/promptLibrary";
 import {
+  addTask,
+  type Comment,
+  commentsBlock,
   fillTemplate,
   isMapped,
   localDay,
   matchingTasks,
   overdue,
-  readTasks,
+  projectFor,
+  readComments,
   sendTarget,
   sortTasks,
   type Target,
   type Task,
-  type Tasks,
   taskRepo,
   tasksFor,
   templateFor,
 } from "../app/todoist";
 import { linkTask } from "../app/todoistLinks";
 import type { QueueActions } from "../app/useQueue";
+import type { TodoistTasks } from "../app/useTodoistTasks";
 import type { Snapshot, Workspace } from "../protocol";
-
-/// How often an open panel asks Todoist again.
-const READ_MS = 60_000;
 
 const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New tab", queue: "Queue" };
 
@@ -41,6 +42,7 @@ export function TodoistPanel({
   workspace,
   hue,
   filter,
+  tasks,
   projects,
   home,
   targets,
@@ -53,6 +55,8 @@ export function TodoistPanel({
   workspace: Workspace | null;
   hue: string;
   filter: string;
+  /// The tasks `filter` matches, read by `App` for the status bar too.
+  tasks: TodoistTasks;
   /// `todoist.projects`: project names to repo folders.
   projects: Record<string, string>;
   home: string | null;
@@ -64,33 +68,11 @@ export function TodoistPanel({
   /// The queue's actions, null when this window does not own the queue.
   queue: QueueActions | null;
 }) {
-  const [read, setRead] = useState<Tasks | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
+  const { read, failed, refresh } = tasks;
   const [query, setQuery] = useState("");
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
   const [showAll, setShowAll] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    const refresh = () => {
-      readTasks(filter)
-        .then((next) => {
-          if (!live) return;
-          setRead(next);
-          setFailed(null);
-        })
-        .catch((error) => live && setFailed(String(error)));
-    };
-    refresh();
-    const timer = window.setInterval(refresh, READ_MS);
-    window.addEventListener("focus", refresh);
-    return () => {
-      live = false;
-      clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [filter]);
 
   useEffect(() => {
     let live = true;
@@ -153,6 +135,7 @@ export function TodoistPanel({
       <header className="changes-head queue-head">{head}</header>
       {scope && <div className="queue-scope-row">{scope}</div>}
       {failed && <div className="queue-banner" role="status">{failed}</div>}
+      {!tasks.off && <QuickAdd controller={controller} project={projectFor(folder, projects, home)} onAdded={refresh} />}
       {read && read.tasks.length > 0 && (
         <div className="files-filter">
           <input
@@ -218,6 +201,52 @@ export function TodoistPanel({
   );
 }
 
+/// A box that adds a task to Todoist: to the project mapped to this
+/// workspace's repo, else the Inbox. Says where it went, with a link.
+function QuickAdd({ controller, project, onAdded }: { controller: Controller; project: string | null; onAdded: () => void }) {
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState<Task | null>(null);
+  const where = project ?? "Inbox";
+  const add = () => {
+    const text = title.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    addTask(text, project)
+      .then((task) => {
+        setTitle("");
+        setAdded(task);
+        onAdded();
+      })
+      .catch((error) => controller.act(Promise.reject(error)))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="files-filter todoist-add">
+      <input
+        type="text"
+        placeholder={`Add a task to ${where}`}
+        aria-label={`Add a Todoist task to ${where}`}
+        spellCheck={false}
+        disabled={busy}
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") add();
+          else if (event.key === "Escape" && title) setTitle("");
+          else return;
+          event.preventDefault();
+        }}
+      />
+      {added && (
+        <button type="button" className="todoist-added" title={added.url} onClick={() => controller.act(openUrl(added.url))}>
+          Added “{added.title}” to {added.project ?? where} ↗
+        </button>
+      )}
+    </div>
+  );
+}
+
 /// One task as a prompt: the template it takes, filled; the text editable before it goes.
 function TaskPrompt({
   controller,
@@ -247,6 +276,25 @@ function TaskPrompt({
   const [template, setTemplate] = useState<string>(() => templateFor(task, usable)?.key ?? "");
   const chosen = usable.find((prompt) => prompt.key === template) ?? null;
   const [text, setText] = useState(() => fillTemplate(chosen?.body ?? null, task));
+  // The comments, often where the real spec is: read when the task opens.
+  const [comments, setComments] = useState<Comment[] | null>(null);
+  const [commentsFailed, setCommentsFailed] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    readComments(task.id)
+      .then((read) => live && setComments(read))
+      .catch((error) => live && setCommentsFailed(String(error)));
+    return () => {
+      live = false;
+    };
+  }, [task.id]);
+  // A template asking for `{{task.comments}}` is filled again once they come,
+  // unless the text was edited meanwhile.
+  useEffect(() => {
+    if (comments === null || comments.length === 0) return;
+    const body = usable.find((prompt) => prompt.key === template)?.body ?? null;
+    setText((current) => (current === fillTemplate(body, task) ? fillTemplate(body, task, comments) : current));
+  }, [comments]); // Only when the comments arrive: the template and task are the ones they were read for.
 
   const pane = snapshot.focused_pane_id;
   const agent = snapshot.agents.find((entry) => entry.pane_id === pane && entry.agent) ?? null;
@@ -260,7 +308,7 @@ function TaskPrompt({
 
   const pick = (key: string) => {
     setTemplate(key);
-    setText(fillTemplate(usable.find((prompt) => prompt.key === key)?.body ?? null, task));
+    setText(fillTemplate(usable.find((prompt) => prompt.key === key)?.body ?? null, task, comments ?? []));
   };
 
   const tabLabel = task.title.length > 24 ? `${task.title.slice(0, 23)}…` : task.title;
@@ -346,6 +394,7 @@ function TaskPrompt({
           </button>
         </div>
       )}
+      <TaskComments comments={comments} failed={commentsFailed} onAdd={() => comments && setText((current) => `${current.trimEnd()}\n\n${commentsBlock(comments)}`)} />
       <textarea className="prompt-text" value={text} spellCheck={false} autoFocus onChange={(event) => setText(event.target.value)} />
       <div className="prompt-actions">
         {ACTIONS.map((action, index) => (
@@ -362,5 +411,32 @@ function TaskPrompt({
         ))}
       </div>
     </div>
+  );
+}
+
+/// The task's comments above its prompt, with a button that adds them to it.
+function TaskComments({ comments, failed, onAdd }: { comments: Comment[] | null; failed: string | null; onAdd: () => void }) {
+  if (failed) return <p className="empty todoist-comments-note">Comments not read: {failed}</p>;
+  if (comments === null) return <p className="empty todoist-comments-note">Reading comments…</p>;
+  if (comments.length === 0) return null;
+  return (
+    <section className="todoist-comments" aria-label="Comments">
+      <header>
+        <span>
+          {comments.length} {comments.length === 1 ? "comment" : "comments"}
+        </span>
+        <button type="button" onClick={onAdd} title="Add the comments to the prompt below ({{task.comments}} in a template does this)">
+          Add to prompt
+        </button>
+      </header>
+      <ol>
+        {comments.map((comment, index) => (
+          <li key={index}>
+            {comment.posted_at && <time dateTime={comment.posted_at}>{comment.posted_at.slice(0, 10)}</time>}
+            <p>{comment.content.trim()}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type LedgerEntry, outcomes } from "../ledger";
-import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, toComment } from "../todoistLinks";
+import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, taskOfPanes, toComment } from "../todoistLinks";
 
 const NOW = Date.parse("2026-11-13T18:00:00Z");
 
@@ -113,5 +113,15 @@ describe("sinceMidnight", () => {
     expect(until).toBe("2026-11-13T18:00:00Z");
     expect(since).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
     expect(new Date(since).getHours()).toBe(0);
+  });
+});
+
+describe("taskOfPanes", () => {
+  it("is the latest task a prompt to any of the tab's panes came from", () => {
+    const links = [link("a", "2026-11-13T09:00:00Z"), link("b", "2026-11-13T10:00:00Z", "w1:p2"), link("c", "2026-11-13T11:00:00Z", "w2:p1")];
+    expect(taskOfPanes(links, ["w1:p1", "w1:p2"])?.task).toBe("b");
+    expect(taskOfPanes(links, ["w1:p1"])?.task).toBe("a");
+    expect(taskOfPanes(links, ["w3:p1"])).toBeNull();
+    expect(taskOfPanes([], ["w1:p1"])).toBeNull();
   });
 });

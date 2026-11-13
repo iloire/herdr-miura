@@ -27,6 +27,37 @@ export interface Tasks {
 
 export const readTasks = (filter: string) => invoke<Tasks>("todoist_tasks", { filter });
 
+/// A comment on a task.
+export interface Comment {
+  content: string;
+  posted_at: string | null;
+}
+
+export const readComments = (task: string) => invoke<Comment[]>("todoist_comments", { task });
+
+/// Adds a task to the project named `project`, or the Inbox when null or unknown.
+export const addTask = (title: string, project: string | null) => invoke<Task>("todoist_add", { title, project });
+
+/// Whether a failed read means no token is set (`todoist.rs`'s `NoToken`), not a broken one.
+export const noToken = (error: unknown) => String(error).startsWith("no Todoist token");
+
+/// A task's page in Todoist, as `todoist.rs` shapes it.
+export const taskUrl = (id: string) => `https://app.todoist.com/app/task/${id}`;
+
+/// How many of `tasks` are due today or before, for the status bar.
+export const dueBy = (tasks: readonly Task[], today: string) =>
+  tasks.filter((task) => task.due !== null && task.due.slice(0, 10) <= today).length;
+
+/// The comments as a block for a prompt, oldest first, each under its day.
+export function commentsBlock(comments: readonly Comment[]): string {
+  return comments
+    .map((comment) => {
+      const day = comment.posted_at?.slice(0, 10);
+      return `${day ? `Comment, ${day}:` : "Comment:"}\n${comment.content.trim()}`;
+    })
+    .join("\n\n");
+}
+
 /// The prompt a task takes when none is named for it: a library prompt called this.
 export const DEFAULT_TEMPLATE = "todoist";
 
@@ -46,29 +77,31 @@ export function taskBlock(task: Task): string {
   ].join("\n");
 }
 
-const FIELDS: Record<string, (task: Task) => string> = {
+const FIELDS: Record<string, (task: Task, comments: readonly Comment[]) => string> = {
   title: (task) => task.title,
   description: (task) => task.description.trim(),
   url: (task) => task.url,
   project: (task) => task.project ?? "",
   labels: (task) => task.labels.join(", "),
   due: (task) => task.due_words ?? "",
+  comments: (_, comments) => commentsBlock(comments),
 };
 
 const PLACEHOLDER = /\{\{\s*task(?:\.(\w+))?\s*\}\}/g;
 
 /// `body` with the task in it: `{{task.title}}` and the other fields, or
-/// `{{task}}` for the whole block. A body with none of those takes the block
-/// for `$ARGUMENTS`, as Claude would, or else below its text. An unknown field
-/// is left as written, so a typo shows rather than vanishing.
-export function fillTemplate(body: string | null, task: Task): string {
+/// `{{task}}` for the whole block; `{{task.comments}}` takes `comments`. A body
+/// with none of those takes the block for `$ARGUMENTS`, as Claude would, or
+/// else below its text. An unknown field is left as written, so a typo shows
+/// rather than vanishing.
+export function fillTemplate(body: string | null, task: Task, comments: readonly Comment[] = []): string {
   const block = taskBlock(task);
   if (body === null || !body.trim()) return block;
   if (body.match(PLACEHOLDER)) {
     return body.replace(PLACEHOLDER, (whole, field?: string) => {
       if (field === undefined) return block;
       const value = FIELDS[field];
-      return value ? value(task) : whole;
+      return value ? value(task, comments) : whole;
     });
   }
   if (body.includes("$ARGUMENTS")) return body.split("$ARGUMENTS").join(block);
@@ -160,12 +193,16 @@ export function taskRepo(task: Task, projects: Record<string, string>, home: str
   return folder === undefined ? null : expandFolder(folder, home);
 }
 
-/// Whether `folder` is one `todoist.projects` maps a project to.
-export function isMapped(folder: string | null, projects: Record<string, string>, home: string | null): boolean {
-  if (folder === null) return false;
+/// The Todoist project `todoist.projects` maps to `folder`, null for none.
+export function projectFor(folder: string | null, projects: Record<string, string>, home: string | null): string | null {
+  if (folder === null) return null;
   const want = expandFolder(folder, home);
-  return Object.values(projects).some((mapped) => expandFolder(mapped, home) === want);
+  return Object.entries(projects).find(([, mapped]) => expandFolder(mapped, home) === want)?.[0] ?? null;
 }
+
+/// Whether `folder` is one `todoist.projects` maps a project to.
+export const isMapped = (folder: string | null, projects: Record<string, string>, home: string | null) =>
+  projectFor(folder, projects, home) !== null;
 
 /// The tasks for `folder`'s repo.
 export function tasksFor(

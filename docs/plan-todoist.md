@@ -34,7 +34,7 @@ choosing between Doable and Todoist: it is Todoist.
 
 ## Ideas
 
-Everything that came up, by theme. Ideas 1 to 3 are built. The rest is written down so it isn't lost, not
+Everything that came up, by theme. Ideas 1 to 3 and 6 are built. The rest is written down so it isn't lost, not
 decided.
 
 ### 1. The panel ✅
@@ -79,12 +79,16 @@ Built as below, except that a `you` comments rather than adding a waiting label.
 - Several tasks selected at once become one queue prompt or several, so related tasks run as one batch.
 - A cheap agent triages the inbox, suggesting a repo and a template for each task, to accept or refuse.
 
-### 6. Small things
+### 6. Small things ✅
 
-- A status bar chip, `☐ 4 today`, beside the parked count.
-- A quick-add box in the panel that creates a task in the workspace's project.
-- A sent prompt links back to its task.
-- A task's comments, shown in the opened task, as that is often where the real spec is.
+- A status bar chip, `☐ 4 today`, beside the parked count: the filter's tasks due today or before. It opens the panel,
+  hides without a token, and stays off the Dock badge.
+- A quick-add box in the panel that creates a task in the workspace's project (the one `todoist.projects` maps to its
+  folder), else the Inbox. It says where the task went, with a link.
+- A sent prompt links back to its task: the tab header shows `☐ <task>` for a tab whose pane a task's prompt went to,
+  and a queue item from a task names it, with ↗ among its tools.
+- A task's comments, shown in the opened task above the prompt, as that is often where the real spec is. **Add to
+  prompt** appends them, and `{{task.comments}}` puts them in a template.
 
 ## Steps
 
@@ -94,3 +98,4 @@ Built as below, except that a `you` comments rather than adding a waiting label.
    Settings.~~ ✅
 4. ~~Repo routing (idea 2).~~ ✅
 5. ~~Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).~~ ✅
+6. ~~The small things: status bar chip, quick add, comments, link back (idea 6).~~ ✅

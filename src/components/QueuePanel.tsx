@@ -1,3 +1,5 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { taskUrl } from "../app/todoist";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
@@ -599,9 +601,19 @@ function Waiting({
             </span>
             <span className="queue-row-title">{title(item.prompt, 120)}</span>
             <FromAgent item={item} />
+            <FromTask item={item} />
             {open && lines.length > 1 && <span className="queue-row-rest">{lines.slice(1).join("\n")}</span>}
           </button>
           <span className="queue-tools">
+            {item.todoist && (
+              <button
+                title={`Open the Todoist task: ${taskUrl(item.todoist.id)}`}
+                aria-label={`Open the Todoist task of #${item.n}`}
+                onClick={() => item.todoist && void openUrl(taskUrl(item.todoist.id))}
+              >
+                ↗
+              </button>
+            )}
             <button title="Edit" aria-label={`Edit #${item.n}`} onClick={() => setEditing(item.prompt)}>
               ✎
             </button>
@@ -628,6 +640,16 @@ function FromAgent({ item }: { item: Item }) {
   return (
     <span className="queue-from" title={item.source || undefined}>
       Queued from an agent
+    </span>
+  );
+}
+
+/// Names the Todoist task a prompt was sent from; its link is among the row's tools.
+function FromTask({ item }: { item: Item }) {
+  if (!item.todoist) return null;
+  return (
+    <span className="queue-from queue-task" title={taskUrl(item.todoist.id)}>
+      ☐ {item.todoist.title}
     </span>
   );
 }

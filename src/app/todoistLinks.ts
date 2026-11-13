@@ -97,6 +97,16 @@ export function sinceMidnight(now: number): { since: string; until: string } {
   return { since: iso(midnight(now)), until: iso(now) };
 }
 
+/// The task the latest prompt to any of `panes` came from, for a tab to link back to.
+export function taskOfPanes(links: readonly TaskLink[], panes: readonly string[]): TaskLink | null {
+  const want = new Set(panes);
+  let latest: TaskLink | null = null;
+  for (const link of links) {
+    if (want.has(link.pane) && (!latest || (Date.parse(link.at) || 0) >= (Date.parse(latest.at) || 0))) latest = link;
+  }
+  return latest;
+}
+
 export const readLinks = () => invoke<LinksFile>("todoist_links");
 
 /// Records that a prompt from `task` went to the agent in `pane`; `directory`

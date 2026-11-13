@@ -773,6 +773,10 @@ export class Controller {
     this.set({ queue: true, queueAuto: false, changes: false, files: false, sessions: false, todoist: false });
   }
 
+  openTodoist(): void {
+    this.set({ todoist: true, queue: false, queueAuto: false, changes: false, files: false, sessions: false });
+  }
+
   /// Follows the focused workspace: its queue holding prompts opens the panel
   /// when the drawer is free, and one opened that way closes again once the
   /// focused workspace has none. A panel opened or closed by hand is left be.

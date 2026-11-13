@@ -482,6 +482,20 @@ pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Ta
     Ok(read.await.map_err(todoist::Error::Worker)??)
 }
 
+/// Adds a task called `title` to the Todoist project named `project`, else the Inbox.
+#[tauri::command]
+pub async fn todoist_add(app: AppHandle, title: String, project: Option<String>) -> Result<todoist::Task> {
+    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().add(&title, project.as_deref()));
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
+/// The comments on the Todoist task `task`, oldest first.
+#[tauri::command]
+pub async fn todoist_comments(task: String) -> Result<Vec<todoist::Comment>> {
+    let read = tauri::async_runtime::spawn_blocking(move || todoist::comments(&task));
+    Ok(read.await.map_err(todoist::Error::Worker)??)
+}
+
 /// Which tasks prompts came from, and what was written back to them.
 #[tauri::command]
 pub async fn todoist_links() -> Result<todoist::Links> {

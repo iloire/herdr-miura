@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:37 — Todoist: today count, quick add, comments, link back
+
+The status bar shows `☐ n today`, the Todoist tasks due today or overdue, and opens the Todoist panel; it hides without
+a token and stays off the Dock badge. The panel has a box that adds a task to the workspace's mapped project, else the
+Inbox. An opened task shows its comments above the prompt, with Add to prompt, and templates can use
+`{{task.comments}}`. A tab whose prompt came from a task shows that task in its header, linked to Todoist, and a queue
+item from a task names it with a link.
+
 ## 2026-11-13 12:34 — A seen verified check turns grey
 
 The filled check of an agent whose task is finished for sure stays green only until you have seen it, then goes grey as

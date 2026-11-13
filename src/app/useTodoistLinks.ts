@@ -5,11 +5,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Controller } from "./controller";
 import type { Outcome } from "./ledger";
-import { EMPTY_LINKS, type Linked, type LinksFile, linkedOutcomes, readLinks, toComment, writeBack } from "./todoistLinks";
+import {
+  EMPTY_LINKS,
+  type Linked,
+  type LinksFile,
+  linkedOutcomes,
+  readLinks,
+  type TaskLink,
+  toComment,
+  writeBack,
+} from "./todoistLinks";
 
 const POLL_MS = 10_000;
 
 export interface TodoistLinks {
+  /// Every prompt sent from a task, by the pane it went to.
+  links: readonly TaskLink[];
   /// Ledger entries by id, with the task they came from.
   linked: ReadonlyMap<string, Linked>;
   /// Writes `outcome` back to its task; settles once it is recorded.
@@ -59,5 +70,5 @@ export function useTodoistLinks(controller: Controller, list: Outcome[], local: 
     }
   }, [controller, local, list, linked, write]);
 
-  return useMemo(() => ({ linked, write }), [linked, write]);
+  return useMemo(() => ({ links: file.links, linked, write }), [file.links, linked, write]);
 }

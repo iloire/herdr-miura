@@ -1,3 +1,6 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { taskUrl } from "../app/todoist";
+import type { TaskLink } from "../app/todoistLinks";
 import { useRef, useState } from "react";
 import { type StatusSince, statusAge, trackStatus } from "../app/agentAge";
 import { agentTitle, loopTag, needsYouNote, shownStatus, verifiedDone } from "../app/attention";
@@ -78,6 +81,7 @@ export function TabHeader({
   stray,
   ports,
   queued,
+  task,
   library,
   onOpenContext,
 }: {
@@ -95,6 +99,8 @@ export function TabHeader({
   ports: ListeningPort[];
   /// The queued prompt this tab holds, where it stands in its queue, and what follows it.
   queued: { item: Item; place: { position: number; total: number } | null; next: Item | null } | null;
+  /// The Todoist task this tab's latest prompt came from.
+  task: TaskLink | null;
   /// The prompt library's palette is open.
   library: boolean;
   /// Shows what fills a session's context.
@@ -121,6 +127,16 @@ export function TabHeader({
               {queued.place && ` · ${queued.place.position} of ${queued.place.total}`}
             </span>
           </span>
+        )}
+        {task && (
+          <button
+            type="button"
+            className="tab-origin tab-task"
+            title={`From the Todoist task “${task.title}”\n${taskUrl(task.task)}`}
+            onClick={() => controller.act(openUrl(taskUrl(task.task)))}
+          >
+            <span className="tab-origin-text">☐ {task.title}</span>
+          </button>
         )}
         {shared && (
           <span className="tab-shared" title={sharedTitle(shared)}>

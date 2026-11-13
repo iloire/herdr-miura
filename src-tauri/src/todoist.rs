@@ -175,8 +175,8 @@ fn refused(status: u16, body: &str) -> Error {
     }
 }
 
-/// Sends one write: a POST with its JSON body, if any.
-fn post(token: &str, request: &Write) -> Result<(), Error> {
+/// Sends one write: a POST with its JSON body, if any. Gives back Todoist's answer.
+fn post(token: &str, request: &Write) -> Result<String, Error> {
     let call = agent()
         .post(format!("{API}{}", request.path))
         .header("Authorization", &format!("Bearer {token}"));
@@ -185,7 +185,7 @@ fn post(token: &str, request: &Write) -> Result<(), Error> {
         None => call.send_empty(),
     };
     match answer(sent)? {
-        (200..=299, _) => Ok(()),
+        (200..=299, body) => Ok(body),
         (status, body) => Err(refused(status, &body)),
     }
 }
@@ -238,6 +238,68 @@ impl Cache {
         let tasks = raw.into_iter().map(|task| shape(task, &projects)).collect();
         Ok(Tasks { tasks, truncated })
     }
+
+    /// Adds a task called `title` to the project named `project` (any case),
+    /// or the Inbox when that is none or no project has that name.
+    pub fn add(&self, title: &str, project: Option<&str>) -> Result<Task, Error> {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(Error::Shape("a task needs a title".into()));
+        }
+        let token = token()?;
+        let projects = self.projects(&token)?;
+        let id = project.and_then(|want| {
+            projects.iter().find(|(_, name)| name.eq_ignore_ascii_case(want.trim())).map(|(id, _)| id.as_str())
+        });
+        let body = post(&token, &new_task(title, id))?;
+        let raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
+        Ok(shape(raw, &projects))
+    }
+}
+
+/// The request that adds a task, to `project` (an id) or the Inbox.
+fn new_task(title: &str, project: Option<&str>) -> Write {
+    let mut body = serde_json::json!({ "content": title });
+    if let Some(project) = project {
+        body["project_id"] = project.into();
+    }
+    Write { path: "/tasks".into(), body: Some(body) }
+}
+
+/// One comment on a task, oldest first as Todoist lists them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Comment {
+    pub content: String,
+    #[serde(default)]
+    pub posted_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RawComment {
+    #[serde(flatten)]
+    comment: Comment,
+    #[serde(default)]
+    is_deleted: bool,
+}
+
+/// The query that lists `task`'s comments.
+fn comments_query(task: &str) -> Result<[(&'static str, &str); 1], Error> {
+    if !plain_id(task) {
+        return Err(Error::BadLink(task.to_owned()));
+    }
+    Ok([("task_id", task)])
+}
+
+/// `task`'s comments, oldest first, without deleted ones or empty ones (a file alone).
+pub fn comments(task: &str) -> Result<Vec<Comment>, Error> {
+    let query = comments_query(task)?;
+    let token = token()?;
+    let (raw, _) = pages::<RawComment>(&token, "/comments", &query)?;
+    Ok(raw
+        .into_iter()
+        .filter(|raw| !raw.is_deleted && !raw.comment.content.trim().is_empty())
+        .map(|raw| raw.comment)
+        .collect())
 }
 
 fn shape(task: RawTask, projects: &HashMap<String, String>) -> Task {
@@ -551,6 +613,29 @@ mod tests {
             .unwrap_or_else(|error| panic!("{error}"));
         let task = shape(raw, &HashMap::new());
         assert_eq!((task.project, task.due, task.priority), (None, None, 1));
+    }
+
+    #[test]
+    fn a_new_task_names_its_project_or_goes_to_the_inbox() {
+        assert_eq!(
+            new_task("Fix it", Some("p1")),
+            Write { path: "/tasks".into(), body: Some(serde_json::json!({ "content": "Fix it", "project_id": "p1" })) }
+        );
+        assert_eq!(new_task("Fix it", None).body, Some(serde_json::json!({ "content": "Fix it" })));
+    }
+
+    #[test]
+    fn comments_are_asked_by_task_and_read_without_the_rest() -> Result<(), Error> {
+        assert_eq!(comments_query("6gv")?, [("task_id", "6gv")]);
+        assert!(matches!(comments_query("6gv&project_id=1"), Err(Error::BadLink(_))));
+        let page: Page<RawComment> = serde_json::from_str(
+            r#"{"results":[{"id":"c1","item_id":"6gv","content":"The spec","posted_at":"2026-11-12T10:00:00Z","is_deleted":false,
+                "file_attachment":null},{"id":"c2","content":"gone","is_deleted":true}],"next_cursor":null}"#,
+        )
+        .map_err(|error| Error::Shape(error.to_string()))?;
+        assert_eq!(page.results[0].comment, Comment { content: "The spec".into(), posted_at: Some("2026-11-12T10:00:00Z".into()) });
+        assert!(page.results[1].is_deleted);
+        Ok(())
     }
 
     #[test]

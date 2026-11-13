@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Prompt } from "../promptLibrary";
 import {
+  commentsBlock,
+  dueBy,
   expandFolder,
   fillTemplate,
   isMapped,
   matchingTasks,
+  noToken,
   overdue,
+  projectFor,
   sendTarget,
   sortTasks,
   type Target,
@@ -13,6 +17,7 @@ import {
   taskBlock,
   taskRepo,
   tasksFor,
+  taskUrl,
   templateFor,
 } from "../todoist";
 
@@ -170,5 +175,49 @@ describe("repo routing", () => {
     expect(sendTarget("/Users/me/notes", "/Users/me/notes", [main])).toBeNull();
     expect(sendTarget(null, "/Users/me/notes", [main])).toBeNull();
     expect(sendTarget("/Users/me/code/app", null, [main])).toBeNull();
+  });
+});
+
+describe("comments in a prompt", () => {
+  const comments = [
+    { content: "The spec is here.\n", posted_at: "2026-11-12T10:00:00.000000Z" },
+    { content: "And this.", posted_at: null },
+  ];
+
+  it("blocks them oldest first, each under its day", () => {
+    expect(commentsBlock(comments)).toBe("Comment, 2026-11-12:\nThe spec is here.\n\nComment:\nAnd this.");
+    expect(commentsBlock([])).toBe("");
+  });
+
+  it("fills {{task.comments}}, empty when there are none", () => {
+    expect(fillTemplate("Do {{task.title}}.\n{{task.comments}}", task(), comments)).toBe(`Do Fix the filter.\n${commentsBlock(comments)}`);
+    expect(fillTemplate("{{task.comments}}", task())).toBe("");
+    // The whole block leaves them out: they go in only when asked for.
+    expect(fillTemplate("{{task}}", task(), comments)).toBe(taskBlock(task()));
+  });
+});
+
+describe("the status bar count and quick add", () => {
+  it("counts the tasks due today or before", () => {
+    const tasks = [task({ due: "2026-11-12" }), task({ due: "2026-11-13T09:00:00" }), task({ due: "2026-11-14" }), task({ due: null })];
+    expect(dueBy(tasks, "2026-11-13")).toBe(2);
+    expect(dueBy([], "2026-11-13")).toBe(0);
+  });
+
+  it("knows a missing token from a broken one", () => {
+    expect(noToken("no Todoist token: add it to the keychain")).toBe(true);
+    expect(noToken("Todoist refused the token (HTTP 401)")).toBe(false);
+  });
+
+  it("adds to the project mapped to the workspace's folder, else none", () => {
+    const projects = { Herdr: "~/code/herdr-miura/", Notes: "/Users/me/notes" };
+    expect(projectFor("/Users/me/code/herdr-miura", projects, "/Users/me")).toBe("Herdr");
+    expect(projectFor("/Users/me/notes/", projects, "/Users/me")).toBe("Notes");
+    expect(projectFor("/Users/me/code/other", projects, "/Users/me")).toBeNull();
+    expect(projectFor(null, projects, "/Users/me")).toBeNull();
+  });
+
+  it("links a task as todoist.rs does", () => {
+    expect(taskUrl("6gv")).toBe(task().url);
   });
 });

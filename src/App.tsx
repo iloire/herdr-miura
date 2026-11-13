@@ -18,7 +18,9 @@ import { busyQueues, isActive, itemOfTab, type Queue, queueDirectory, queueKey, 
 import { useQueue } from "./app/useQueue";
 import { useLedger } from "./app/useLedger";
 import { useTodoistLinks } from "./app/useTodoistLinks";
-import { offers } from "./app/todoistLinks";
+import { offers, taskOfPanes } from "./app/todoistLinks";
+import { useTodoistTasks } from "./app/useTodoistTasks";
+import { dueBy, localDay } from "./app/todoist";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
@@ -297,6 +299,13 @@ export default function App() {
   const ledger = useLedger(controller);
   // Which Todoist task each outcome's prompt came from (docs/plan-todoist.md).
   const todoist = useTodoistLinks(controller, ledger.list, local);
+  // The tasks the Todoist panel lists and the status bar counts.
+  const todoistTasks = useTodoistTasks(state.settings.todoistFilter, state.todoist);
+  const todoistChip = {
+    due: todoistTasks.off || !todoistTasks.read ? null : dueBy(todoistTasks.read.tasks, localDay()),
+    filter: state.settings.todoistFilter,
+    onOpen: () => controller.openTodoist(),
+  };
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
   const queues = useMemo(() => {
@@ -681,6 +690,13 @@ export default function App() {
     controller.request("workspace.focus", { workspace_id: workspaceId });
     controller.openQueue();
   };
+  // The Todoist task the focused tab's latest prompt came from.
+  const tabTask = useMemo(() => {
+    const snapshot = state.snapshot;
+    if (!local || !snapshot?.focused_tab_id) return null;
+    const panes = snapshot.panes.filter((pane) => pane.tab_id === snapshot.focused_tab_id).map((pane) => pane.pane_id);
+    return taskOfPanes(todoist.links, panes);
+  }, [local, state.snapshot, todoist.links]);
   const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
 
   // The folders whose Claude sessions are this workspace's: on this Mac only.
@@ -745,7 +761,7 @@ export default function App() {
                 onOpenQueue={openQueue}
                 onSplit={markSplit}
               />
-              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} onOpenContext={setContextOf} />
+              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} task={tabTask} onOpenContext={setContextOf} />
               <div className="stage">
                 <Terminal
                   controller={controller}
@@ -784,7 +800,7 @@ export default function App() {
               )}
               {shownTreeFile && <FileView root={listingRoot} path={filePick} readOnly={!local} onOpen={setFilePick} onClose={closeFile} onSaved={checkoutWritten} />}
             </div>
-            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} ledger={ledgerCounts} onOpenDay={() => setDayOpen(true)} />
+            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} ledger={ledgerCounts} onOpenDay={() => setDayOpen(true)} todoist={todoistChip} />
           </main>
           {drawerOpen && (
             <PaneResizer pane={DRAWER} width={drawerWidth} clamp={fitDrawer} onChange={setWantedDrawer} onCommit={commitDrawerWidth} />
@@ -825,6 +841,7 @@ export default function App() {
                 workspace={focusedWorkspace ?? null}
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 filter={state.settings.todoistFilter}
+                tasks={todoistTasks}
                 projects={state.settings.todoistProjects}
                 home={home}
                 targets={todoistTargets}
