@@ -4695,6 +4695,27 @@ button.agents-status-head {
   }
 }
 
+/* Todoist's refresh turns while a read is under way. */
+.todoist-refresh.reading:disabled {
+  opacity: 1;
+}
+
+.todoist-refresh.reading svg {
+  animation: todoist-refresh 0.9s linear infinite;
+}
+
+@keyframes todoist-refresh {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todoist-refresh.reading svg {
+    animation: none;
+  }
+}
+
 /* The Queue panel. A track runs down its left: one node per prompt, the one
    running lit in the working blue (the lantern while it waits on you),
    the waiting ones hollow, and the line ends at a + by the prompt box. */

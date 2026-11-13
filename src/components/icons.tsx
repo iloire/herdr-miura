@@ -158,6 +158,13 @@ export const NextTabIcon = () => (
   </Icon>
 );
 
+/// Two arrows chasing round, to read again now.
+export const RefreshIcon = () => (
+  <Icon>
+    <path d="M13 6.5A5.25 5.25 0 0 0 3.4 5M3 9.5a5.25 5.25 0 0 0 9.6 1.5M3.25 2.5V5h2.5M12.75 13.5V11h-2.5" {...LINE} />
+  </Icon>
+);
+
 /// A session `/loop` will run again.
 export const LoopIcon = () => (
   <Icon>

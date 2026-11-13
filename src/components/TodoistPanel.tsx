@@ -38,6 +38,7 @@ import {
 import type { QueueActions } from "../app/useQueue";
 import type { TodoistTasks } from "../app/useTodoistTasks";
 import type { Snapshot, Workspace } from "../protocol";
+import { RefreshIcon } from "./icons";
 
 const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New tab", queue: "Queue" };
 
@@ -137,9 +138,23 @@ export function TodoistPanel({
   };
 
   const head = (
-    <span className="queue-head-title" title={`Todoist filter: ${filter}`}>
-      Todoist <b>{filter}</b>
-    </span>
+    <>
+      <span className="queue-head-title" title={`Todoist filter: ${filter}`}>
+        Todoist <b>{filter}</b>
+      </span>
+      {!tasks.off && (
+        <button
+          type="button"
+          className={`icon-button todoist-refresh ${tasks.reading ? "reading" : ""}`}
+          aria-label="Refresh tasks"
+          title="Read the tasks from Todoist again (it does every minute while this panel is open)"
+          disabled={tasks.reading}
+          onClick={refresh}
+        >
+          <RefreshIcon />
+        </button>
+      )}
+    </>
   );
   const scope = mapped && (
     <span className="queue-scope" role="group" aria-label="Which tasks">

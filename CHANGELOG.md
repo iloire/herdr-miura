@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 14:11 — Todoist panel gets a refresh button
+
+The panel reads Todoist every minute while open, every five minutes closed, and on window focus. A task added in
+Todoist could take up to a minute to show; the ↻ in the panel head reads again now and turns while it does.
+
 ## 2026-11-13 13:16 — Changes panel drops its new-terminal-tab button
 
 The checkout row keeps VS Code, Finder and copy clone URL; a new tab in the checkout is a click away elsewhere.

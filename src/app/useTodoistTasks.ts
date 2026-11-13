@@ -14,6 +14,8 @@ export interface TodoistTasks {
   failed: string | null;
   /// No token is set, so nothing Todoist should show.
   off: boolean;
+  /// A read is under way, so a refresh button can show it.
+  reading: boolean;
   refresh: () => void;
 }
 
@@ -22,6 +24,7 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
   const [read, setRead] = useState<Tasks | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [off, setOff] = useState(false);
+  const [reading, setReading] = useState(false);
   // A filter's answer must not land after the next filter's.
   const [asked, setAsked] = useState(0);
   const refresh = useCallback(() => setAsked((n) => n + 1), []);
@@ -29,6 +32,7 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
   useEffect(() => {
     if (!enabled) return;
     let live = true;
+    setReading(true);
     readTasks(filter)
       .then((next) => {
         if (!live) return;
@@ -40,7 +44,8 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
         if (!live) return;
         setFailed(String(error));
         setOff(noToken(error));
-      });
+      })
+      .finally(() => live && setReading(false));
     return () => {
       live = false;
     };
@@ -60,5 +65,5 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
     if (panelOpen) refresh();
   }, [panelOpen, refresh]);
 
-  return { read, failed, off, refresh };
+  return { read, failed, off, reading, refresh };
 }
