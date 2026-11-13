@@ -373,7 +373,7 @@ pub fn read_status(target: &Target, checkout: &str, deadline: Instant) -> Result
             "--porcelain=v2",
             "--branch",
             "-z",
-            "--untracked-files=normal",
+            "--untracked-files=all",
         ],
         "read the working tree",
         deadline,
@@ -615,7 +615,7 @@ pub fn count_changes(directories: &[String]) -> Vec<Option<usize>> {
 pub fn count_in(directory: &str, deadline: Instant) -> Option<usize> {
     git::text(
         directory,
-        &["status", "--porcelain", "--untracked-files=normal", "-z"],
+        &["status", "--porcelain", "--untracked-files=all", "-z"],
         "count working tree changes",
         deadline,
     )

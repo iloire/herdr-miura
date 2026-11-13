@@ -286,7 +286,9 @@ fn an_untracked_file_moves_to_the_trash() {
 #[test]
 fn an_untracked_folder_is_refused() {
     let world = World::new();
+    // With every untracked file listed, only a repository is left as a folder.
     world.write("folder/one.txt", "one\n");
+    git(&world.path().join("folder"), &["init", "-q"]);
     assert!(world.refusal("folder/").contains("is a folder"));
     assert!(world.exists("folder/one.txt"));
 }
@@ -624,12 +626,12 @@ fn an_untracked_glob_named_file_adds_only_itself() {
 }
 
 #[test]
-fn an_untracked_file_and_folder_are_added_and_committed() {
+fn untracked_files_in_a_new_folder_are_added_and_committed() {
     let world = World::new();
     world.write("new.txt", "new\n");
     world.write("folder/one.txt", "one\n");
     world.write("folder/deep/two.txt", "two\n");
-    assert_eq!(world.commit(&["new.txt", "folder/"], "new things"), Outcome::Done);
+    assert_eq!(world.commit(&["new.txt", "folder/one.txt", "folder/deep/two.txt"], "new things"), Outcome::Done);
     assert_eq!(world.last_commit(), ["folder/deep/two.txt", "folder/one.txt", "new.txt"]);
     assert_eq!(world.short(), "");
 }
@@ -643,7 +645,7 @@ fn a_folder_holding_a_repository_is_refused() {
     world.write("folder/nested/inner.txt", "inner\n");
     git(&world.path().join("folder/nested"), &["add", "."]);
     git(&world.path().join("folder/nested"), &["commit", "-q", "-m", "inner"]);
-    assert!(failure(world.commit(&["folder/"], "nope")).contains("another Git repository"));
+    assert!(failure(world.commit(&["folder/nested/"], "nope")).contains("another Git repository"));
     assert_eq!(world.subject(), "first");
     assert_eq!(world.short(), "?? folder/");
 }
@@ -676,7 +678,7 @@ fn a_hook_refusing_leaves_the_files_as_they_were_and_says_why() {
     world.write("folder/one.txt", "one\n");
     world.hook("echo lint found 3 problems >&2\nexit 1");
     let before = world.short();
-    let outcome = world.commit(&["a.txt", "new.txt", "folder/"], "nope");
+    let outcome = world.commit(&["a.txt", "new.txt", "folder/one.txt"], "nope");
     let Outcome::Failed { message, details, .. } = outcome else { panic!("it committed") };
     assert!(message.contains("did not happen"));
     assert!(details.contains("lint found 3 problems"), "{details}");

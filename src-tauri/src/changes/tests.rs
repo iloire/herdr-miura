@@ -83,6 +83,18 @@ fn lists_changed_and_untracked_files() {
 }
 
 #[test]
+fn lists_each_file_of_an_untracked_folder() {
+    let dir = repo();
+    fs::create_dir_all(dir.path().join(".claude/agents")).unwrap();
+    fs::write(dir.path().join(".claude/agents/lead.md"), "lead\n").unwrap();
+    fs::write(dir.path().join(".claude/agents/qa.md"), "qa\n").unwrap();
+    let view = read_checkout(&Target::Local, &path(&dir), 0).unwrap().unwrap();
+    let paths: Vec<_> = view.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(paths, [".claude/agents/lead.md", ".claude/agents/qa.md"]);
+    assert_eq!(count_in(&path(&dir), Instant::now() + DEADLINE), Some(2));
+}
+
+#[test]
 fn reads_a_tracked_files_patch() {
     let dir = repo();
     fs::write(dir.path().join("a.txt"), "one\nTWO\n").unwrap();
