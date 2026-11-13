@@ -331,6 +331,24 @@ pub fn comments(task: &str) -> Result<Vec<Comment>, Error> {
         .collect())
 }
 
+/// The request that sets `task`'s labels to `labels`, all of them: Todoist
+/// replaces the list. A label is a short name without control characters, as
+/// a triage suggestion accepted in the panel gives (`repo:herdr-miura`, `plan`).
+fn labels_write(task: &str, labels: &[String]) -> Result<Write, Error> {
+    let fine = |label: &String| !label.trim().is_empty() && label.chars().count() <= 60 && !label.chars().any(char::is_control);
+    if !plain_id(task) || labels.len() > 50 || !labels.iter().all(fine) {
+        return Err(Error::BadLink(format!("{task}: {labels:?}")));
+    }
+    let labels: Vec<&str> = labels.iter().map(|label| label.trim()).collect();
+    Ok(Write { path: format!("/tasks/{task}"), body: Some(serde_json::json!({ "labels": labels })) })
+}
+
+/// Sets `task`'s labels to `labels`.
+pub fn set_labels(task: &str, labels: &[String]) -> Result<(), Error> {
+    let request = labels_write(task, labels)?;
+    post(&token()?, &request).map(drop)
+}
+
 fn shape(task: RawTask, projects: &HashMap<String, String>) -> Task {
     Task {
         url: format!("https://app.todoist.com/app/task/{}", task.id),
@@ -683,6 +701,20 @@ mod tests {
         .map_err(|error| Error::Shape(error.to_string()))?;
         assert_eq!(page.results[0].comment, Comment { content: "The spec".into(), posted_at: Some("2026-11-12T10:00:00Z".into()) });
         assert!(page.results[1].is_deleted);
+        Ok(())
+    }
+
+    #[test]
+    fn labels_are_set_whole_and_odd_ones_refused() -> Result<(), Error> {
+        let labels = vec!["agent".to_owned(), " repo:herdr-miura ".to_owned()];
+        assert_eq!(
+            labels_write("6gv", &labels)?,
+            Write { path: "/tasks/6gv".into(), body: Some(serde_json::json!({ "labels": ["agent", "repo:herdr-miura"] })) }
+        );
+        assert_eq!(labels_write("6gv", &[])?.body, Some(serde_json::json!({ "labels": [] })));
+        assert!(labels_write("6gv/close", &labels).is_err());
+        assert!(labels_write("6gv", &["".to_owned()]).is_err());
+        assert!(labels_write("6gv", &["a\nb".to_owned()]).is_err());
         Ok(())
     }
 

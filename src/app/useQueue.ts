@@ -24,6 +24,7 @@ import {
   holdBack,
   isAway,
   type Item,
+  type TaskRef,
   loadQueue,
   moveItem,
   type Opened,
@@ -68,8 +69,9 @@ export type QueueAccess =
   | { kind: "ready"; separate: boolean };
 
 export interface QueueActions {
-  /// `todoist`: the task it came from, to write its outcome back to.
-  add(folder: string, prompt: string, front: boolean, todoist?: Item["todoist"]): void;
+  /// `todoist`: the task it came from, to write its outcome back to, or the
+  /// tasks of a prompt made from several (the first is written back to).
+  add(folder: string, prompt: string, front: boolean, todoist?: TaskRef | readonly TaskRef[]): void;
   edit(folder: string, id: string, prompt: string): void;
   /// Removes a waiting item and returns a function that puts it back.
   remove(folder: string, id: string): () => void;

@@ -17,7 +17,8 @@ export interface TodoistTasks {
   refresh: () => void;
 }
 
-export function useTodoistTasks(filter: string, panelOpen: boolean): TodoistTasks {
+/// `enabled` false reads nothing, as for the `@agent` tasks without a token.
+export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = true): TodoistTasks {
   const [read, setRead] = useState<Tasks | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [off, setOff] = useState(false);
@@ -26,6 +27,7 @@ export function useTodoistTasks(filter: string, panelOpen: boolean): TodoistTask
   const refresh = useCallback(() => setAsked((n) => n + 1), []);
 
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     readTasks(filter)
       .then((next) => {
@@ -42,16 +44,17 @@ export function useTodoistTasks(filter: string, panelOpen: boolean): TodoistTask
     return () => {
       live = false;
     };
-  }, [filter, asked]);
+  }, [filter, asked, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const timer = window.setInterval(refresh, panelOpen ? OPEN_MS : CLOSED_MS);
     window.addEventListener("focus", refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [refresh, panelOpen]);
+  }, [refresh, panelOpen, enabled]);
   // Opening the panel reads at once rather than showing a list up to five minutes old.
   useEffect(() => {
     if (panelOpen) refresh();

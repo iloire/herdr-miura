@@ -27,6 +27,8 @@ pub enum Error {
     #[error(transparent)]
     Todoist(#[from] crate::todoist::Error),
     #[error(transparent)]
+    Triage(#[from] crate::triage::Error),
+    #[error(transparent)]
     SshHosts(#[from] crate::ssh_hosts::Error),
     #[error(transparent)]
     Folder(#[from] crate::folder::Error),

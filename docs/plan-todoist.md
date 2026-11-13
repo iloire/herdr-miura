@@ -34,7 +34,7 @@ choosing between Doable and Todoist: it is Todoist.
 
 ## Ideas
 
-Everything that came up, by theme. Ideas 1 to 4 and 6 are built, bar the `/remind` merge in 4. The rest is written down so it isn't lost, not
+Everything that came up, by theme. Ideas 1 to 6 are built, bar the `/remind` merge in 4. The rest is written down so it isn't lost, not
 decided.
 
 ### 1. The panel ✅
@@ -88,11 +88,20 @@ Built as below, except that a `you` comments rather than adding a waiting label.
   - Reminders made away from a repo (from the vault, or the phone) already work in Todoist, which is the case for
     moving there.
 
-### 5. Automation, with care
+### 5. Automation, with care ✅
 
-- Tasks labelled `@agent` are pulled into the queue as waiting prompts, but nothing starts on its own.
-- Several tasks selected at once become one queue prompt or several, so related tasks run as one batch.
-- A cheap agent triages the inbox, suggesting a repo and a template for each task, to accept or refuse.
+Nothing here starts an agent or adds a prompt by itself.
+
+- ~~Tasks labelled `@agent` are pulled into the queue as waiting prompts, but nothing starts on its own.~~ ✅ They show
+  above the Queue panel's track as suggestions (those routed to its repo, or to none), each with **Queue it**, which adds
+  it filled with the template the Todoist panel would pick. A task already queued, waiting or finished, in any queue, is
+  not suggested again: the item keeps its id.
+- ~~Several tasks selected at once become one queue prompt or several, so related tasks run as one batch.~~ ✅ Tick boxes
+  in the Todoist panel: **Queue as one** (one prompt, a task block each, outcomes written back to the first task) or
+  **One each** (each with its template, in its own repo's queue).
+- ~~A cheap agent triages the inbox, suggesting a repo and a template for each task, to accept or refuse.~~ ✅ **Suggest
+  repo and template** runs Haiku (`claude -p`, no tools, no settings) over the listed tasks. A proposal accepted sets
+  the task's labels in Todoist (`@repo:<name>`, the template's name), which routing and `templateFor` already read.
 
 ### 6. Small things ✅
 
@@ -115,3 +124,4 @@ Built as below, except that a `you` comments rather than adding a waiting label.
 5. ~~Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).~~ ✅
 6. ~~The small things: status bar chip, quick add, comments, link back (idea 6).~~ ✅
 7. ~~From the app to Todoist: parked notes and dated reminders from the Queue panel (idea 4).~~ ✅
+8. ~~Automation, with care: `@agent` suggestions, batches, triage (idea 5).~~ ✅

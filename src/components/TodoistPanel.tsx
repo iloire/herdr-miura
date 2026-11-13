@@ -22,6 +22,19 @@ import {
   templateFor,
 } from "../app/todoist";
 import { linkTask } from "../app/todoistLinks";
+import {
+  acceptedLabels,
+  askTriage,
+  batchPrompt,
+  parseSuggestions,
+  repoName,
+  setLabels,
+  type Suggestion,
+  TRIAGE_MAX,
+  taskRef,
+  triagePrompt,
+  triageRepos,
+} from "../app/todoistTriage";
 import type { QueueActions } from "../app/useQueue";
 import type { TodoistTasks } from "../app/useTodoistTasks";
 import type { Snapshot, Workspace } from "../protocol";
@@ -73,6 +86,8 @@ export function TodoistPanel({
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Tasks ticked to queue together, by id.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     let live = true;
@@ -92,6 +107,34 @@ export function TodoistPanel({
     return mapped && !showAll && folder ? tasksFor(tasks, folder, projects, home, folders) : tasks;
   }, [read, mapped, showAll, folder, projects, home, folders]);
   const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
+  // Ticked tasks still listed, in list order.
+  const picked = useMemo(() => (read?.tasks ?? []).filter((task) => selected.has(task.id)), [read, selected]);
+  const toggle = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  // The queue a task goes to: its own repo's open workspace's, else this one's.
+  const queueOf = (task: Task) => sendTarget(taskRepo(task, projects, home, folders), folder, targets)?.queueFolder ?? queueFolder;
+  const queueBatch = async (each: boolean) => {
+    if (!queue || picked.length === 0) return;
+    if (each) {
+      const comments = await Promise.all(picked.map((task) => readComments(task.id).catch(() => [])));
+      picked.forEach((task, index) => {
+        const into = queueOf(task);
+        const body = templateFor(task, prompts)?.body ?? null;
+        if (into) queue.add(into, fillTemplate(body, task, comments[index]), false, taskRef(task));
+      });
+    } else {
+      // Their shared repo's queue when they all have one, else this workspace's.
+      const into = new Set(picked.map(queueOf));
+      const only = into.size === 1 ? [...into][0] : queueFolder;
+      if (only) queue.add(only, batchPrompt(picked), false, picked.map(taskRef));
+    }
+    setSelected(new Set());
+    controller.openQueue();
+  };
 
   const head = (
     <span className="queue-head-title" title={`Todoist filter: ${filter}`}>
@@ -172,10 +215,55 @@ export function TodoistPanel({
         </div>
       )}
       {scoped.length > 0 && shown.length === 0 && <p className="empty">No task holds “{query.trim()}”.</p>}
+      {picked.length > 0 && (
+        <div className="todoist-batch" role="group" aria-label="Ticked tasks">
+          <span>{picked.length} ticked</span>
+          <button
+            type="button"
+            disabled={!queue}
+            title={queue ? "One prompt holding every ticked task, one block each, to run as one batch" : "Another window has the queue."}
+            onClick={() => controller.act(queueBatch(false))}
+          >
+            Queue as one
+          </button>
+          <button
+            type="button"
+            disabled={!queue}
+            title={queue ? "A prompt per task, each filled with its template, in its own repo's queue" : "Another window has the queue."}
+            onClick={() => controller.act(queueBatch(true))}
+          >
+            One each
+          </button>
+          <button type="button" className="todoist-batch-clear" onClick={() => setSelected(new Set())}>
+            Clear
+          </button>
+        </div>
+      )}
+      {shown.length > 0 && (
+        <Triage
+          controller={controller}
+          tasks={shown}
+          prompts={prompts}
+          repos={triageRepos(projects, home, folders)}
+          routed={(task) => {
+            const repo = taskRepo(task, projects, home, folders);
+            return repo === null ? null : repoName(repo);
+          }}
+          onChanged={refresh}
+        />
+      )}
       <div className="sessions-list">
         <ul className="todoist-list">
           {shown.map((task) => (
-            <li key={task.id}>
+            <li key={task.id} className="todoist-item">
+              <input
+                type="checkbox"
+                className="todoist-tick"
+                aria-label={`Tick “${task.title}” to queue with others`}
+                title="Tick several to queue them as one prompt or one each"
+                checked={selected.has(task.id)}
+                onChange={() => toggle(task.id)}
+              />
               <button className="session-row todoist-row" title={task.description || task.title} onClick={() => setOpen(task)}>
                 <span className="session-title">
                   {PRIORITY[task.priority] && <span className={`todoist-priority ${PRIORITY[task.priority]}`} aria-label={`priority ${5 - task.priority}`} />}
@@ -198,6 +286,122 @@ export function TodoistPanel({
         {read?.truncated && <p className="empty">Only the first {read.tasks.length} tasks are listed.</p>}
       </div>
     </aside>
+  );
+}
+
+interface Proposal {
+  task: Task;
+  suggestion: Suggestion;
+  /// The task's labels once accepted.
+  labels: string[];
+}
+
+/// Suggest: a cheap Claude (Haiku, no tools) reads the listed tasks and
+/// proposes a repo and a template for each. Each proposal is accepted (its
+/// labels are set in Todoist: `@repo:<name>` and the template's name) or
+/// refused; nothing changes until accepted.
+function Triage({
+  controller,
+  tasks,
+  prompts,
+  repos,
+  routed,
+  onChanged,
+}: {
+  controller: Controller;
+  tasks: Task[];
+  prompts: Prompt[];
+  repos: string[];
+  /// The repo a task goes to now, by name.
+  routed: (task: Task) => string | null;
+  onChanged: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [proposals, setProposals] = useState<Proposal[] | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [writing, setWriting] = useState<string | null>(null);
+  const asked = tasks.slice(0, TRIAGE_MAX);
+  const usable = prompts.filter((prompt) => !prompt.broken);
+  const names = [...new Set(usable.map((prompt) => prompt.name))];
+
+  const suggest = () => {
+    setAsking(true);
+    setFailed(null);
+    const templates = names.map((name) => ({ name, description: usable.find((prompt) => prompt.name === name)?.description ?? null }));
+    askTriage(triagePrompt(asked, repos, templates))
+      .then((answer) => {
+        const found = parseSuggestions(answer, asked, repos, names).flatMap((suggestion) => {
+          const task = asked.find((entry) => entry.id === suggestion.task);
+          const labels = task && acceptedLabels(task, suggestion, names, routed(task));
+          return task && labels ? [{ task, suggestion, labels }] : [];
+        });
+        setProposals(found);
+      })
+      .catch((error) => setFailed(String(error)))
+      .finally(() => setAsking(false));
+  };
+  const drop = (id: string) => setProposals((current) => current?.filter((entry) => entry.task.id !== id) ?? null);
+  const accept = (proposal: Proposal) => {
+    setWriting(proposal.task.id);
+    controller.act(
+      setLabels(proposal.task.id, proposal.labels)
+        .then(() => {
+          drop(proposal.task.id);
+          onChanged();
+        })
+        .finally(() => setWriting(null)),
+    );
+  };
+
+  return (
+    <section className="todoist-triage" aria-label="Suggestions">
+      <div className="todoist-triage-head">
+        <button
+          type="button"
+          disabled={asking}
+          title={`A cheap Claude (Haiku, no tools) suggests a repo and a template for the ${asked.length} listed tasks${tasks.length > asked.length ? ` (the first ${TRIAGE_MAX})` : ""}. Nothing changes until you accept.`}
+          onClick={suggest}
+        >
+          {asking ? "Suggesting…" : "Suggest repo and template"}
+        </button>
+        {proposals !== null && (
+          <button type="button" className="todoist-batch-clear" onClick={() => setProposals(null)}>
+            Close
+          </button>
+        )}
+      </div>
+      {failed && <p className="empty">Suggest failed: {failed}</p>}
+      {proposals?.length === 0 && <p className="empty">Nothing to suggest: each task has its repo and template, or the model was unsure.</p>}
+      {proposals && proposals.length > 0 && (
+        <ul>
+          {proposals.map((proposal) => (
+            <li key={proposal.task.id} className="todoist-proposal">
+              <p className="todoist-proposal-title" title={proposal.task.title}>
+                {proposal.task.title}
+              </p>
+              <p className="todoist-proposal-what">
+                {proposal.suggestion.repo && <span>@repo:{proposal.suggestion.repo}</span>}
+                {proposal.suggestion.template && <span>/{proposal.suggestion.template}</span>}
+                {proposal.suggestion.why && <em>{proposal.suggestion.why}</em>}
+              </p>
+              <div className="todoist-proposal-row">
+                <button
+                  type="button"
+                  disabled={writing !== null}
+                  title={`Set the task's labels in Todoist to ${proposal.labels.map((label) => `@${label}`).join(" ")}`}
+                  onClick={() => accept(proposal)}
+                >
+                  {writing === proposal.task.id ? "Accepting…" : "Accept"}
+                </button>
+                <button type="button" className="todoist-batch-clear" onClick={() => drop(proposal.task.id)}>
+                  Refuse
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

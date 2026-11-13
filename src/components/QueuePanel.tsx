@@ -1,5 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { addTask, parkedTask, projectFor, queuedTask, type Task, taskUrl } from "../app/todoist";
+import { addTask, fillTemplate, parkedTask, projectFor, queuedTask, readComments, type Task, taskUrl, templateFor } from "../app/todoist";
+import { agentSuggestions, queuedTaskIds, taskRef } from "../app/todoistTriage";
+import { readLibrary } from "../app/promptLibrary";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
@@ -35,6 +37,8 @@ export function QueuePanel({
   parked,
   onParked,
   todoist,
+  agentTasks,
+  todoistFolders,
   all,
   ownerOf,
 }: {
@@ -54,6 +58,10 @@ export function QueuePanel({
   onParked: (outcome: Outcome, how: ParkedHow) => void;
   /// `todoist.projects`, project names to folders; null when Todoist has no token.
   todoist: Record<string, string> | null;
+  /// Todoist's `@agent` tasks, suggested as prompts; null when not read.
+  agentTasks: Task[] | null;
+  /// The open workspaces' repo folders, which `@repo:` labels can name.
+  todoistFolders: string[];
   /// Every queue with something in it, for the All view.
   all: Queue[];
   ownerOf: (folder: string) => QueueOwner | null;
@@ -148,6 +156,9 @@ export function QueuePanel({
       parked={parked}
       onParked={onParked}
       todoist={todoist}
+      agentTasks={agentTasks}
+      todoistFolders={todoistFolders}
+      all={all}
       scope={scope}
     />
   );
@@ -166,6 +177,9 @@ function QueueBody({
   parked,
   onParked,
   todoist,
+  agentTasks,
+  todoistFolders,
+  all,
   scope,
 }: {
   controller: Controller;
@@ -181,6 +195,9 @@ function QueueBody({
   parked: Outcome[];
   onParked: (outcome: Outcome, how: ParkedHow) => void;
   todoist: Record<string, string> | null;
+  agentTasks: Task[] | null;
+  todoistFolders: string[];
+  all: Queue[];
   /// The This workspace / All switch.
   scope: ReactNode;
 }) {
@@ -225,6 +242,20 @@ function QueueBody({
       onParked(outcome, "todo");
       setNotice(sentNotice(task));
     });
+  // `@agent` tasks for this repo not queued anywhere yet: offered, never added by themselves.
+  const suggested =
+    todoist && agentTasks
+      ? agentSuggestions(agentTasks, queuedTaskIds([queue, ...all]), directory, todoist, home, todoistFolders)
+      : [];
+  // One click adds one: the template the Todoist panel would pick, filled with the task and its comments.
+  const queueTask = async (task: Task) => {
+    const [library, comments] = await Promise.all([
+      readLibrary(directory).catch(() => null),
+      readComments(task.id).catch(() => []),
+    ]);
+    const template = library ? templateFor(task, library.prompts) : null;
+    actions.add(folder, fillTemplate(template?.body ?? null, task, comments), false, taskRef(task));
+  };
   // The task first: the prompt leaves the queue only once Todoist holds it.
   const remind = (item: Item, due: string) =>
     addTask(queuedTask(item.prompt, directory, due, home), project ?? null).then((task) => {
@@ -277,6 +308,8 @@ function QueueBody({
       {parked.length > 0 && (
         <Parked controller={controller} parked={parked} onParked={onParked} onTodoist={todoist ? toTodoist : null} />
       )}
+
+      {suggested.length > 0 && <Suggested controller={controller} tasks={suggested} onQueue={queueTask} />}
 
       <ol className="queue-track">
         {active && (
@@ -498,6 +531,54 @@ function Parked({
                 )}
                 <button className="queue-parked-dismiss" title="Nothing to do about it" onClick={() => onParked(outcome, "dismissed")}>
                   Dismiss
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/// Todoist tasks labelled `@agent`, offered as prompts: one click adds one to
+/// the end of the queue, filled with its template. Nothing else adds them.
+function Suggested({ controller, tasks, onQueue }: { controller: Controller; tasks: Task[]; onQueue: (task: Task) => Promise<void> }) {
+  const [open, setOpen] = useState(true);
+  // The task on its way, so a second click adds no second prompt.
+  const [adding, setAdding] = useState<string | null>(null);
+  return (
+    <section className="queue-parked queue-suggested">
+      <button
+        className="queue-done-toggle queue-parked-toggle"
+        aria-expanded={open}
+        title="Todoist tasks labelled @agent, for this repo or for none, not queued yet"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="chevron">›</span>
+        {tasks.length} from Todoist @agent
+      </button>
+      {open && (
+        <ul>
+          {tasks.map((task) => (
+            <li key={task.id} className="queue-parked-item">
+              <p className="queue-parked-note" title={task.description || task.title}>
+                ☐ {task.title}
+              </p>
+              <div className="queue-parked-row">
+                <span className="queue-parked-meta">{[task.project, task.due_words].filter(Boolean).join(" · ")}</span>
+                <button
+                  title="Add it to the end of this queue, filled with its template. It waits its turn."
+                  disabled={adding !== null}
+                  onClick={() => {
+                    setAdding(task.id);
+                    controller.act(onQueue(task).finally(() => setAdding(null)));
+                  }}
+                >
+                  {adding === task.id ? "Adding…" : "Queue it"}
+                </button>
+                <button className="queue-parked-dismiss" title={`Open in Todoist: ${task.url}`} onClick={() => controller.act(openUrl(task.url))}>
+                  ↗
                 </button>
               </div>
             </li>

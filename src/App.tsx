@@ -21,6 +21,7 @@ import { useTodoistLinks } from "./app/useTodoistLinks";
 import { offers, taskOfPanes } from "./app/todoistLinks";
 import { useTodoistTasks } from "./app/useTodoistTasks";
 import { dueBy, localDay } from "./app/todoist";
+import { AGENT_FILTER } from "./app/todoistTriage";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
@@ -301,6 +302,8 @@ export default function App() {
   const todoist = useTodoistLinks(controller, ledger.list, local);
   // The tasks the Todoist panel lists and the status bar counts.
   const todoistTasks = useTodoistTasks(state.settings.todoistFilter, state.todoist);
+  // Tasks labelled `@agent`, offered in the queue's panel (docs/plan-todoist.md, idea 5).
+  const agentTasks = useTodoistTasks(AGENT_FILTER, state.queue, !todoistTasks.off);
   const todoistChip = {
     due: todoistTasks.off || !todoistTasks.read ? null : dueBy(todoistTasks.read.tasks, localDay()),
     filter: state.settings.todoistFilter,
@@ -330,6 +333,7 @@ export default function App() {
         : [];
     });
   }, [state.snapshot, local, queueFolderOf]);
+  const todoistFolders = useMemo(() => todoistTargets.map((target) => target.folder), [todoistTargets]);
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
@@ -823,6 +827,8 @@ export default function App() {
                 parked={focusedParked}
                 onParked={onParked}
                 todoist={todoistTasks.off ? null : state.settings.todoistProjects}
+                agentTasks={todoistTasks.off ? null : (agentTasks.read?.tasks ?? null)}
+                todoistFolders={todoistFolders}
                 all={allQueues}
                 ownerOf={queueOwner}
               />

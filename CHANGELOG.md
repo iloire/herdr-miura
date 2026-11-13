@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:54 — Todoist @agent tasks, batches and triage
+
+Todoist tasks labelled `@agent` show above the Queue panel's track as suggestions, for its repo or for none; **Queue it**
+adds one, filled with its template. Nothing is added or started without that click, and a task already queued is not
+suggested again. In the Todoist panel, tick several tasks to queue them as one prompt (a block each) or one prompt each.
+**Suggest repo and template** asks Haiku (no tools, no settings) for each listed task's repo and template; accepting
+sets its labels in Todoist, refusing drops it.
+
 ## 2026-11-13 12:44 — Parked notes and queued prompts go to Todoist
 
 A parked note in the Queue panel has **To Todoist**: it becomes a task with its repo and branch, in the workspace's

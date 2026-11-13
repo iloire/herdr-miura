@@ -20,6 +20,7 @@ use crate::{
     ssh_hosts,
     sync,
     todoist,
+    triage,
     tab_move::Destination,
     worktree_ops,
     worktrees,
@@ -494,6 +495,20 @@ pub async fn todoist_add(app: AppHandle, task: todoist::NewTask, project: Option
 pub async fn todoist_comments(task: String) -> Result<Vec<todoist::Comment>> {
     let read = tauri::async_runtime::spawn_blocking(move || todoist::comments(&task));
     Ok(read.await.map_err(todoist::Error::Worker)??)
+}
+
+/// Sets the Todoist task `task`'s labels to `labels`, as a triage suggestion accepted.
+#[tauri::command]
+pub async fn todoist_set_labels(task: String, labels: Vec<String>) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || todoist::set_labels(&task, &labels));
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
+/// What a cheap Claude (Haiku, no tools) answers to the triage question `prompt`.
+#[tauri::command]
+pub async fn todoist_triage(prompt: String) -> Result<String> {
+    let run = tauri::async_runtime::spawn_blocking(move || triage::ask(&prompt));
+    Ok(run.await.map_err(triage::Error::Worker)??)
 }
 
 /// Which tasks prompts came from, and what was written back to them.

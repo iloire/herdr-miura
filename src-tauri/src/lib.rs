@@ -37,6 +37,7 @@ mod sync;
 mod tab_move;
 mod team;
 mod todoist;
+mod triage;
 mod worktree_ops;
 mod worktrees;
 
@@ -144,7 +145,9 @@ pub fn run() {
             commands::todoist_completed,
             commands::todoist_link,
             commands::todoist_links,
+            commands::todoist_set_labels,
             commands::todoist_tasks,
+            commands::todoist_triage,
             commands::todoist_write_back,
             commands::trust_host_key,
             commands::worktrees,

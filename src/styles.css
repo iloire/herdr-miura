@@ -6694,6 +6694,113 @@ button.agents-status-head {
   opacity: 0.45;
 }
 
+/* Ticking tasks: a box beside each row, and a bar to queue the ticked ones. */
+.todoist-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.todoist-item .todoist-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.todoist-tick {
+  flex: none;
+  margin: 11px 0 0 10px;
+  accent-color: var(--hue);
+}
+
+.todoist-batch,
+.todoist-triage-head,
+.todoist-proposal-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-batch {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--hue) 8%, transparent);
+}
+
+.todoist-batch span {
+  flex: 1;
+  color: var(--text);
+}
+
+.todoist-batch button,
+.todoist-triage button {
+  padding: 2px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.todoist-batch button:hover:not(:disabled),
+.todoist-triage button:hover:not(:disabled) {
+  background: var(--rule);
+}
+
+.todoist-batch button:disabled,
+.todoist-triage button:disabled {
+  opacity: 0.45;
+}
+
+.todoist-batch .todoist-batch-clear,
+.todoist-triage .todoist-batch-clear {
+  border-color: transparent;
+  color: var(--muted);
+}
+
+/* Suggest: a cheap model's repo and template for each task, to accept or refuse. */
+.todoist-triage {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.todoist-triage ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+
+.todoist-proposal {
+  padding: 6px 8px;
+  border: 1px dashed color-mix(in srgb, var(--hue) 40%, var(--rule));
+  border-radius: 7px;
+}
+
+.todoist-proposal-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: calc(12px * var(--ui-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoist-proposal-what {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 3px 0 5px;
+  color: var(--hue);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.todoist-proposal-what em {
+  color: var(--muted);
+  font: italic calc(11px * var(--ui-scale)) var(--sans);
+}
+
 /* Quick add: below it, where the last task went, as a link. */
 .todoist-add .todoist-added {
   display: block;
