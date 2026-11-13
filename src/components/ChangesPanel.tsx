@@ -10,6 +10,7 @@ import {
   type MutableRefObject,
 } from "react";
 import { openFile } from "../app/agentFile";
+import { IS_MAC } from "../app/catalog";
 import type { Controller } from "../app/controller";
 import { openFolder } from "../app/folder";
 import { relativeTime } from "../app/time";
@@ -26,6 +27,7 @@ import {
   type RecentCommit,
 } from "../changes/store";
 import type { SyncStore } from "../changes/sync";
+import { openLinkFile } from "../files/linkFile";
 import { BranchList } from "./BranchList";
 import { ChangesSync } from "./ChangesSync";
 import { ChangedFiles } from "./ChangedFiles";
@@ -143,6 +145,21 @@ export function ChangesPanel({
         label: "Open in VS Code",
         icon: <CodeIcon />,
         onSelect: () => controller.act(openFile(checkout.path, file.path)),
+      });
+    }
+    if (sync && file.mark !== "D") {
+      items.push({
+        label: IS_MAC ? "Reveal in Finder" : "Show in Folder",
+        icon: <FolderIcon />,
+        onSelect: () => controller.act(openLinkFile(absolutePath(checkout.path, file.path).replace(/\/$/, ""), "reveal")),
+      });
+    }
+    // GitHub Desktop opens a repository, not one file; it lands on its changes list.
+    if (sync) {
+      items.push({
+        label: "Open in GitHub Desktop",
+        icon: <BranchIcon />,
+        onSelect: () => controller.act(openFolder(checkout.path, "github_desktop")),
       });
     }
     if (checkout.web && pushed && onRemote(file.mark)) {
@@ -268,6 +285,13 @@ export function ChangesPanel({
                     onClick={() => controller.act(openFolder(checkout.path, "files"))}
                   >
                     <FolderIcon />
+                  </button>
+                  <button
+                    title="Open the checkout in GitHub Desktop"
+                    aria-label="Open in GitHub Desktop"
+                    onClick={() => controller.act(openFolder(checkout.path, "github_desktop"))}
+                  >
+                    <BranchIcon />
                   </button>
                 </>
               )}
