@@ -16,7 +16,7 @@ choosing between Doable and Todoist: it is Todoist.
   app's environment, which covers Linux and a dev window started from a shell. Not in the settings file:
   `config-tauri.toml` is a symlink into `~/dotfiles`, so a token there would be committed to GitHub.
   - Store it once per Mac: `security add-generic-password -U -s todoist -a "$USER" -w` (it asks for the token).
-    A secret can't be provisioned, so this is a manual step, written down in the notes vault.
+    A secret can't be provisioned, so this stays a manual step on each Mac.
 - **Which tasks are listed** is one Todoist filter in `todoist.filter` (default `today | overdue`), so that
   syntax decides, not code.
 - **Templates are the prompt library's own files** (`~/.claude/commands`, `.claude/commands`), not a new kind
