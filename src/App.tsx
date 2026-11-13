@@ -306,6 +306,17 @@ export default function App() {
     }
     return byWorkspace;
   }, [state.snapshot, local, queueFile, queueFolderOf]);
+  // The open workspaces a Todoist task can go to, by the repo folder on disk.
+  const todoistTargets = useMemo(() => {
+    const snapshot = state.snapshot;
+    if (!snapshot || !local) return [];
+    return snapshot.workspaces.flatMap((workspace) => {
+      const queueFolder = queueFolderOf(workspace);
+      return queueFolder
+        ? [{ workspaceId: workspace.workspace_id, label: workspace.label, folder: queueDirectory(queueFolder), queueFolder }]
+        : [];
+    });
+  }, [state.snapshot, local, queueFolderOf]);
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
@@ -809,6 +820,9 @@ export default function App() {
                 workspace={focusedWorkspace ?? null}
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 filter={state.settings.todoistFilter}
+                projects={state.settings.todoistProjects}
+                home={home}
+                targets={todoistTargets}
                 folder={local && queueFolder ? queueDirectory(queueFolder) : null}
                 queueFolder={local ? queueFolder : null}
                 queue={local && queueAccess.kind === "ready" ? queueActions : null}

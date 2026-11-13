@@ -35,6 +35,7 @@ Window state (sidebar width, workspace sort, pins, the last host) is not a setti
 | `workspace_cards.details` | `"manual"`, `"auto"`, `"always"` or `"never"` | `"manual"` | When a card's details show. See below. |
 | `workspace_cards.compact` | boolean | `false` | Tighter card rows, so more workspaces fit. |
 | `todoist.filter` | string | `"today \| overdue"` | Which tasks the Todoist panel lists, in Todoist's own filter syntax, e.g. `"#Herdr & @agent"`. The token is not a setting: see [plan-todoist.md](plan-todoist.md). |
+| `todoist.projects` | table of Todoist project to folder | none | The repo each Todoist project's tasks are for, so the Todoist panel shows the focused workspace's. Each key is a project's name (any case, quoted in TOML when it has spaces), each value a folder as a full path or under `~`. See below. |
 
 ```toml
 theme = "light:GitHub Light Default,dark:Herdr Night"
@@ -163,3 +164,27 @@ value is the group's name, so a group exists while a workspace is in it.
 - A worktree goes where its main checkout goes. A workspace with no local folder, such as one on a remote host, can't
   be grouped. A rename in the sidebar takes the group along.
 - Dragging reorders within the daemon's list as before; it does not move a workspace between groups.
+
+## Todoist projects
+
+`[todoist.projects]` maps Todoist projects to repo folders. The folder is a workspace's main checkout, so a worktree
+or a split-off workspace on that repo counts too.
+
+```toml
+[todoist]
+filter = "today | overdue"
+
+[todoist.projects]
+Herdr = "~/code/herdr-miura"
+"Wind Hunter" = "~/code/wind-hunter"
+```
+
+- When the focused workspace's folder is mapped, the Todoist panel lists only the tasks for it, with **This repo** and
+  **All** in its head. When it isn't, the panel lists every task as before. `todoist.filter` still decides which tasks
+  are read at all.
+- A task labelled `@repo:<name>` goes to that repo whatever its project: `<name>` is a project in the table, or the
+  last part of a mapped folder or an open workspace's folder (`@repo:herdr-miura`). A label that names nothing known
+  leaves the task in no repo, rather than falling back to its project.
+- A task opened from the panel whose repo is another open workspace's offers **New tab there** and **Queue there**,
+  beside the usual buttons, which send to the focused workspace.
+- An entry that isn't a full or `~` path is a warning, and its tasks go to no repo.

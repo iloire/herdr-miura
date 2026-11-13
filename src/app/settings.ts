@@ -37,6 +37,8 @@ export interface Settings {
   newTabCommand: string | null;
   /// The Todoist panel's tasks, in Todoist's filter syntax.
   todoistFilter: string;
+  /// Todoist project names to the repo folder their tasks are for, `~` allowed.
+  todoistProjects: Record<string, string>;
   /// The palette slot chosen for a workspace, by its folder.
   workspaceColors: Record<string, HueSlot>;
   /// The sidebar group a workspace is in, by its folder and name as colors are.
@@ -61,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tabsWrap: true,
   newTabCommand: null,
   todoistFilter: "today | overdue",
+  todoistProjects: {},
   workspaceColors: {},
   workspaceGroups: {},
   workspaceCards: { gitStatus: true, agentStatus: true, details: "manual", compact: false },
@@ -138,6 +141,16 @@ export function parseSettings(values: unknown, fileError: string | null = null):
   if (command.length > 1024 || /[\u0000-\u001f\u007f]/.test(command)) wrong("new_tab.command", "one line of at most 1024 characters", null);
   else settings.newTabCommand = command || null;
   settings.todoistFilter = text("todoist.filter", settings.todoistFilter);
+  const projects = get("todoist.projects");
+  if (isObject(projects)) {
+    for (const [project, folder] of Object.entries(projects)) {
+      if (typeof folder === "string" && (folder.trim().startsWith("/") || folder.trim().startsWith("~")) && !/[\u0000-\u001f\u007f]/.test(folder)) {
+        settings.todoistProjects[project] = folder.trim();
+      } else warnings.push(`\`todoist.projects\` for ${project} should be a folder such as "~/code/app"; its tasks go to no repo.`);
+    }
+  } else if (projects !== undefined) {
+    warnings.push("`todoist.projects` should be a [todoist.projects] table of projects; no task goes to a repo.");
+  }
   const colors = get("workspace_colors");
   if (isObject(colors)) {
     for (const [key, slot] of Object.entries(colors)) {

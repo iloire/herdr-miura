@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { Prompt } from "../promptLibrary";
-import { fillTemplate, matchingTasks, overdue, sortTasks, type Task, taskBlock, templateFor } from "../todoist";
+import {
+  expandFolder,
+  fillTemplate,
+  isMapped,
+  matchingTasks,
+  overdue,
+  sendTarget,
+  sortTasks,
+  type Target,
+  type Task,
+  taskBlock,
+  taskRepo,
+  tasksFor,
+  templateFor,
+} from "../todoist";
 
 const task = (patch: Partial<Task> = {}): Task => ({
   id: "6gv",
@@ -101,5 +115,60 @@ describe("overdue and matchingTasks", () => {
   it("finds every word across fields", () => {
     expect(matchingTasks([task()], "herdr dots")).toHaveLength(1);
     expect(matchingTasks([task()], "herdr nope")).toHaveLength(0);
+  });
+});
+
+describe("repo routing", () => {
+  const home = "/Users/me";
+  const projects = { Herdr: "~/code/herdr-miura/", Life: "/Users/me/notes" };
+
+  it("expands ~ and drops a trailing slash", () => {
+    expect(expandFolder("~/code/app/", home)).toBe("/Users/me/code/app");
+    expect(expandFolder("~", "/Users/me/")).toBe("/Users/me");
+    expect(expandFolder("~/code", null)).toBe("~/code");
+    expect(expandFolder("/", home)).toBe("/");
+    expect(expandFolder("~other/x", home)).toBe("~other/x");
+  });
+
+  it("routes a task by its project, any case", () => {
+    expect(taskRepo(task(), projects, home)).toBe("/Users/me/code/herdr-miura");
+    expect(taskRepo(task({ project: "life" }), projects, home)).toBe("/Users/me/notes");
+    expect(taskRepo(task({ project: "Work" }), projects, home)).toBeNull();
+    expect(taskRepo(task({ project: null }), projects, home)).toBeNull();
+  });
+
+  it("lets a @repo: label override the project", () => {
+    expect(taskRepo(task({ labels: ["repo:Life"] }), projects, home)).toBe("/Users/me/notes");
+    expect(taskRepo(task({ labels: ["bug", "Repo:notes"] }), projects, home)).toBe("/Users/me/notes");
+    expect(taskRepo(task({ project: null, labels: ["repo:wind-hunter"] }), projects, home, ["/Users/me/code/wind-hunter"])).toBe(
+      "/Users/me/code/wind-hunter",
+    );
+  });
+
+  it("leaves a task unrouted when its label names nothing known", () => {
+    expect(taskRepo(task({ labels: ["repo:nope"] }), projects, home, ["/Users/me/code/app"])).toBeNull();
+  });
+
+  it("knows a mapped folder, however it is written", () => {
+    expect(isMapped("/Users/me/code/herdr-miura", projects, home)).toBe(true);
+    expect(isMapped("/Users/me/code/herdr-miura/", projects, home)).toBe(true);
+    expect(isMapped("/Users/me/code/app", projects, home)).toBe(false);
+    expect(isMapped(null, projects, home)).toBe(false);
+  });
+
+  it("keeps the tasks for one repo", () => {
+    const tasks = [task({ id: "a" }), task({ id: "b", project: "Life" }), task({ id: "c", labels: ["repo:herdr"] }), task({ id: "d", project: "Herdr", labels: ["repo:life"] })];
+    expect(tasksFor(tasks, "/Users/me/code/herdr-miura", projects, home).map((t) => t.id)).toEqual(["a", "c"]);
+    expect(tasksFor(tasks, "/Users/me/notes", projects, home).map((t) => t.id)).toEqual(["b", "d"]);
+  });
+
+  it("offers the open workspace on another repo, its main queue first", () => {
+    const split: Target = { workspaceId: "w2", label: "notes split", folder: "/Users/me/notes", queueFolder: "/Users/me/notes#split-w2" };
+    const main: Target = { workspaceId: "w3", label: "notes", folder: "/Users/me/notes", queueFolder: "/Users/me/notes" };
+    expect(sendTarget("/Users/me/notes", "/Users/me/code/herdr-miura", [split, main])).toBe(main);
+    expect(sendTarget("/Users/me/notes", "/Users/me/code/herdr-miura", [split])).toBe(split);
+    expect(sendTarget("/Users/me/notes", "/Users/me/notes", [main])).toBeNull();
+    expect(sendTarget(null, "/Users/me/notes", [main])).toBeNull();
+    expect(sendTarget("/Users/me/code/app", null, [main])).toBeNull();
   });
 });

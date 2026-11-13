@@ -117,3 +117,84 @@ export function matchingTasks(tasks: readonly Task[], query: string): Task[] {
     return words.every((word) => hay.includes(word));
   });
 }
+
+// Repo routing: which repo a task is for. `todoist.projects` maps Todoist
+// project names to folders, and a `@repo:<name>` label overrides that for one
+// task. The panel shows the focused workspace's tasks when its folder is
+// mapped, and offers to send a task to its own repo's workspace.
+
+/// The label that names a task's repo: `repo:herdr-miura`.
+const REPO_LABEL = /^repo:(.+)$/i;
+
+/// A folder as the settings write it, `~` for home, with no trailing slash.
+export function expandFolder(folder: string, home: string | null): string {
+  const root = home?.replace(/\/+$/, "") ?? null;
+  const full = root && (folder === "~" || folder.startsWith("~/")) ? `${root}${folder.slice(1)}` : folder;
+  return full.length > 1 ? full.replace(/\/+$/, "") : full;
+}
+
+const base = (folder: string) => folder.split("/").pop() ?? folder;
+
+/// The folder `name` stands for: a mapped project's (any case), else a known
+/// folder's last part. Mapped folders come before open ones.
+function folderNamed(name: string, projects: Record<string, string>, folders: readonly string[], home: string | null): string | null {
+  const want = name.trim().toLowerCase();
+  const mapped = Object.entries(projects).map(([project, folder]) => [project, expandFolder(folder, home)] as const);
+  const byProject = mapped.find(([project]) => project.toLowerCase() === want);
+  if (byProject) return byProject[1];
+  const known = [...mapped.map(([, folder]) => folder), ...folders.map((folder) => expandFolder(folder, home))];
+  return known.find((folder) => base(folder).toLowerCase() === want) ?? null;
+}
+
+/// The repo folder a task is for, or null when nothing routes it. A
+/// `@repo:<name>` label wins over the project, naming a mapped project or a
+/// folder by its last part (`folders` are the open workspaces'); one that names
+/// nothing known leaves the task unrouted rather than falling back.
+export function taskRepo(task: Task, projects: Record<string, string>, home: string | null, folders: readonly string[] = []): string | null {
+  for (const label of task.labels) {
+    const named = label.match(REPO_LABEL);
+    if (named) return folderNamed(named[1], projects, folders, home);
+  }
+  if (task.project === null) return null;
+  const folder = projects[task.project] ?? Object.entries(projects).find(([project]) => project.toLowerCase() === task.project?.toLowerCase())?.[1];
+  return folder === undefined ? null : expandFolder(folder, home);
+}
+
+/// Whether `folder` is one `todoist.projects` maps a project to.
+export function isMapped(folder: string | null, projects: Record<string, string>, home: string | null): boolean {
+  if (folder === null) return false;
+  const want = expandFolder(folder, home);
+  return Object.values(projects).some((mapped) => expandFolder(mapped, home) === want);
+}
+
+/// The tasks for `folder`'s repo.
+export function tasksFor(
+  tasks: readonly Task[],
+  folder: string,
+  projects: Record<string, string>,
+  home: string | null,
+  folders: readonly string[] = [],
+): Task[] {
+  const want = expandFolder(folder, home);
+  return tasks.filter((task) => taskRepo(task, projects, home, folders) === want);
+}
+
+/// An open workspace a task can be sent to.
+export interface Target {
+  workspaceId: string;
+  label: string;
+  /// Its repo's folder on disk.
+  folder: string;
+  /// Its queue's folder, which differs from `folder` for a workspace split off a tab.
+  queueFolder: string;
+}
+
+/// Where to send a task whose repo is not the focused workspace's: the open
+/// workspace on that repo, preferring the one that keeps its main queue there.
+/// Null when the task is for the focused repo, routes nowhere, or no workspace
+/// on its repo is open.
+export function sendTarget(repo: string | null, focused: string | null, targets: readonly Target[]): Target | null {
+  if (repo === null || repo === focused) return null;
+  const open = targets.filter((target) => target.folder === repo);
+  return open.find((target) => target.queueFolder === target.folder) ?? open[0] ?? null;
+}

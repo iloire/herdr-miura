@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:01 — Todoist tasks go to their repo
+
+A `[todoist.projects]` table in the settings maps Todoist projects to repo folders (`Herdr = "~/code/herdr-miura"`).
+When the focused workspace's folder is mapped, the Todoist panel lists only its tasks, with **This repo** and **All**
+to switch. A `@repo:<name>` label sends one task to another repo. A task opened for another open workspace's repo
+offers **New tab there** and **Queue there**.
+
 ## 2026-11-13 11:50 — Agents tab keeps recent agents
 
 The Agents tab lists a **Recent** section under Done: agents that went idle in the last 12 hours, latest first, 10 at

@@ -2,7 +2,22 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import type { Controller } from "../app/controller";
 import { type Action, ACTIONS, type Prompt, readLibrary, sendPrompt, startInNewTab } from "../app/promptLibrary";
-import { fillTemplate, localDay, matchingTasks, overdue, readTasks, sortTasks, type Task, type Tasks, templateFor } from "../app/todoist";
+import {
+  fillTemplate,
+  isMapped,
+  localDay,
+  matchingTasks,
+  overdue,
+  readTasks,
+  sendTarget,
+  sortTasks,
+  type Target,
+  type Task,
+  type Tasks,
+  taskRepo,
+  tasksFor,
+  templateFor,
+} from "../app/todoist";
 import type { QueueActions } from "../app/useQueue";
 import type { Snapshot, Workspace } from "../protocol";
 
@@ -14,8 +29,9 @@ const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New 
 /// Todoist's priority colors, urgent first; normal has no mark.
 const PRIORITY: Record<number, string> = { 4: "p1", 3: "p2", 2: "p3" };
 
-/// The tasks the `todoist.filter` setting matches, in the right-hand drawer.
-/// Clicking one opens it as a prompt: a library template filled with the task,
+/// The tasks the `todoist.filter` setting matches, in the right-hand drawer:
+/// only the focused workspace's when `todoist.projects` maps its folder, with a
+/// switch to all of them. Clicking one opens it as a prompt: a library template filled with the task,
 /// editable, then sent to the focused agent, a fresh Claude in a new tab, or
 /// the workspace's queue, as the prompt library sends.
 export function TodoistPanel({
@@ -24,6 +40,9 @@ export function TodoistPanel({
   workspace,
   hue,
   filter,
+  projects,
+  home,
+  targets,
   folder,
   queueFolder,
   queue,
@@ -33,6 +52,11 @@ export function TodoistPanel({
   workspace: Workspace | null;
   hue: string;
   filter: string;
+  /// `todoist.projects`: project names to repo folders.
+  projects: Record<string, string>;
+  home: string | null;
+  /// The open workspaces a task can be sent to, by repo.
+  targets: Target[];
   /// The focused workspace's folder on this computer, for project templates and a new tab.
   folder: string | null;
   queueFolder: string | null;
@@ -44,6 +68,7 @@ export function TodoistPanel({
   const [query, setQuery] = useState("");
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -77,11 +102,27 @@ export function TodoistPanel({
   }, [folder]);
 
   const today = localDay();
-  const shown = useMemo(() => sortTasks(matchingTasks(read?.tasks ?? [], query)), [read, query]);
+  const mapped = isMapped(folder, projects, home);
+  const folders = useMemo(() => targets.map((target) => target.folder), [targets]);
+  const scoped = useMemo(() => {
+    const tasks = read?.tasks ?? [];
+    return mapped && !showAll && folder ? tasksFor(tasks, folder, projects, home, folders) : tasks;
+  }, [read, mapped, showAll, folder, projects, home, folders]);
+  const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
 
   const head = (
     <span className="queue-head-title" title={`Todoist filter: ${filter}`}>
       Todoist <b>{filter}</b>
+    </span>
+  );
+  const scope = mapped && (
+    <span className="queue-scope" role="group" aria-label="Which tasks">
+      <button aria-pressed={!showAll} onClick={() => setShowAll(false)} title="The tasks todoist.projects or a @repo: label sends to this workspace's repo">
+        This repo
+      </button>
+      <button aria-pressed={showAll} onClick={() => setShowAll(true)} title="Every task the filter matches">
+        All
+      </button>
     </span>
   );
 
@@ -95,6 +136,7 @@ export function TodoistPanel({
           snapshot={snapshot}
           task={open}
           prompts={prompts}
+          target={sendTarget(taskRepo(open, projects, home, folders), folder, targets)}
           folder={folder}
           workspace={workspace}
           queueFolder={queueFolder}
@@ -108,6 +150,7 @@ export function TodoistPanel({
   return (
     <aside className="changes sessions-panel todoist-panel" aria-label="Todoist" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">{head}</header>
+      {scope && <div className="queue-scope-row">{scope}</div>}
       {failed && <div className="queue-banner" role="status">{failed}</div>}
       {read && read.tasks.length > 0 && (
         <div className="files-filter">
@@ -137,7 +180,14 @@ export function TodoistPanel({
           </p>
         </div>
       )}
-      {read && read.tasks.length > 0 && shown.length === 0 && <p className="empty">No task holds “{query.trim()}”.</p>}
+      {read && read.tasks.length > 0 && scoped.length === 0 && (
+        <div className="queue-off">
+          <p>
+            None of the {read.tasks.length} tasks is for this repo. <button className="todoist-show-all" onClick={() => setShowAll(true)}>Show all</button>
+          </p>
+        </div>
+      )}
+      {scoped.length > 0 && shown.length === 0 && <p className="empty">No task holds “{query.trim()}”.</p>}
       <div className="sessions-list">
         <ul className="todoist-list">
           {shown.map((task) => (
@@ -173,6 +223,7 @@ function TaskPrompt({
   snapshot,
   task,
   prompts,
+  target,
   folder,
   workspace,
   queueFolder,
@@ -183,6 +234,8 @@ function TaskPrompt({
   snapshot: Snapshot;
   task: Task;
   prompts: Prompt[];
+  /// The open workspace on the task's repo, when that is not this one.
+  target: Target | null;
   folder: string | null;
   workspace: Workspace | null;
   queueFolder: string | null;
@@ -209,17 +262,27 @@ function TaskPrompt({
     setText(fillTemplate(usable.find((prompt) => prompt.key === key)?.body ?? null, task));
   };
 
+  const tabLabel = task.title.length > 24 ? `${task.title.slice(0, 23)}…` : task.title;
   const run = (action: Action) => {
     const body = text.trim();
     if (!body || why[action]) return;
     if (action === "here" && pane) controller.act(sendPrompt(pane, body));
     else if (action === "new-tab" && folder && workspaceId) {
-      const label = task.title.length > 24 ? `${task.title.slice(0, 23)}…` : task.title;
-      controller.act(startInNewTab(workspaceId, folder, label, body));
+      controller.act(startInNewTab(workspaceId, folder, tabLabel, body));
     } else if (action === "queue" && queueFolder && queue) {
       queue.add(queueFolder, body, false);
       controller.openQueue();
     }
+    onBack();
+    controller.focusTerminal();
+  };
+  // To the task's own repo's workspace, which keeps its queue whichever is focused.
+  const runThere = (action: "new-tab" | "queue") => {
+    const body = text.trim();
+    if (!body || !target) return;
+    if (action === "new-tab") controller.act(startInNewTab(target.workspaceId, target.folder, tabLabel, body));
+    else if (queue) queue.add(target.queueFolder, body, false);
+    else return;
     onBack();
     controller.focusTerminal();
   };
@@ -259,6 +322,24 @@ function TaskPrompt({
           ))}
         </select>
       </label>
+      {target && (
+        <div className="todoist-there" role="group" aria-label={`Send to ${target.label}`}>
+          <span title={target.folder}>
+            For <b>{target.label}</b>
+          </span>
+          <button type="button" disabled={!text.trim()} title={`A fresh Claude in a new tab of ${target.label}`} onClick={() => runThere("new-tab")}>
+            New tab there
+          </button>
+          <button
+            type="button"
+            disabled={!queue || !text.trim()}
+            title={queue ? `Into ${target.label}'s queue` : "Another window has the queue."}
+            onClick={() => runThere("queue")}
+          >
+            Queue there
+          </button>
+        </div>
+      )}
       <textarea className="prompt-text" value={text} spellCheck={false} autoFocus onChange={(event) => setText(event.target.value)} />
       <div className="prompt-actions">
         {ACTIONS.map((action, index) => (

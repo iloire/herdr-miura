@@ -6607,6 +6607,53 @@ button.agents-status-head {
   font: 600 calc(13px * var(--ui-scale)) var(--sans);
 }
 
+/* A task for another open workspace's repo: send it there instead. */
+.todoist-there {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-there span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoist-there button {
+  white-space: nowrap;
+}
+
+.todoist-there b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.todoist-there button {
+  padding: 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.todoist-there button:hover:not(:disabled) {
+  background: var(--rule);
+}
+
+.todoist-there button:disabled {
+  opacity: 0.45;
+}
+
+.todoist-show-all {
+  color: var(--hue);
+  text-decoration: underline;
+}
+
 .todoist-template {
   display: flex;
   align-items: center;

@@ -29,7 +29,7 @@ choosing between Doable and Todoist: it is Todoist.
 
 ## Ideas
 
-Everything that came up, by theme. Step 1 is built. The rest is written down so it isn't lost, not
+Everything that came up, by theme. Ideas 1 and 2 are built. The rest is written down so it isn't lost, not
 decided.
 
 ### 1. The panel ✅
@@ -40,12 +40,13 @@ decided.
   prompt goes to the focused agent, to a fresh Claude in a new tab, or into the workspace's queue (⌘1, ⌘2, ⌘3,
   ⌘↵ for the default), as the prompt library sends.
 
-### 2. Repo routing
+### 2. Repo routing ✅
 
 - Map Todoist projects to repos in settings (`Herdr` → `~/code/herdr-miura`), so the panel shows the focused
   workspace's tasks, with a toggle for all of them.
 - A `@repo:<name>` label overrides the mapping for one task.
-- A task with no repo gets a "Send to…" menu of workspaces.
+- A task with no repo gets a "Send to…" menu of workspaces. (Not built: a task for another repo offers that repo's
+  workspace; one with no repo goes to the focused one.)
 
 ### 3. Closing the loop
 
@@ -84,5 +85,5 @@ decided.
 2. ~~`app/todoist.ts`: filling a template, choosing one, sorting and searching, tests.~~ ✅
 3. ~~The Todoist panel in the drawer, its switch button, the `todoist_tasks` command, `todoist.filter` in
    Settings.~~ ✅
-4. Repo routing (idea 2).
+4. ~~Repo routing (idea 2).~~ ✅
 5. Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).
