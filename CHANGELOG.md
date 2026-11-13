@@ -2,6 +2,10 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 13:16 — Changes panel drops its new-terminal-tab button
+
+The checkout row keeps VS Code, Finder and copy clone URL; a new tab in the checkout is a click away elsewhere.
+
 ## 2026-11-13 13:00 — Tab history arrows read as history, and ‹ › step along the strip
 
 The strip's Back and Forward are curved return arrows (↶ ↷) in their own group, set off from the tabs by a divider.

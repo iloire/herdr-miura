@@ -44,7 +44,6 @@ import {
   OpenIcon,
   QueueIcon,
   RevertIcon,
-  TerminalIcon,
   TrashIcon,
 } from "./icons";
 
@@ -166,10 +165,6 @@ export function ChangesPanel({
     );
   };
   const shownHistory = history && checkout && history.checkout === checkout.path ? history : null;
-  const newTab = (path: string) => {
-    const workspaceId = controller.getState().snapshot?.focused_workspace_id;
-    if (workspaceId) controller.request("tab.create", { workspace_id: workspaceId, cwd: path, focus: true });
-  };
   const rows = (from: "moving" | "recent"): CommitRows => ({
     openCommit: openedFrom === from ? openCommit : null,
     listed: listedCommits,
@@ -276,9 +271,6 @@ export function ChangesPanel({
                   </button>
                 </>
               )}
-              <button title="A new terminal tab in the checkout" aria-label="New terminal tab here" onClick={() => newTab(checkout.path)}>
-                <TerminalIcon />
-              </button>
               {checkout.origin_url && (
                 <button
                   title={`Copy the clone URL: ${checkout.origin_url}`}
