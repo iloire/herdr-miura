@@ -18,7 +18,8 @@ export interface ClosedAsks {
 /// The sidebar's Agents tab: every active agent by what it wants of you,
 /// whatever workspace or folded group it is in. Waiting on you first (closed
 /// sessions' asks included), then working, then finished, which folds to one
-/// line. A row names its workspace and goes to the agent's tab.
+/// line, then the ones seen lately, so a task marked seen is not lost. A row
+/// names its workspace and goes to the agent's tab.
 export function AgentsView({
   controller,
   snapshot,
@@ -26,6 +27,8 @@ export function AgentsView({
   closed,
   doneFolded,
   onFoldDone,
+  recentFolded,
+  onFoldRecent,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -33,13 +36,15 @@ export function AgentsView({
   closed: ClosedAsks;
   doneFolded: boolean;
   onFoldDone: (folded: boolean) => void;
+  recentFolded: boolean;
+  onFoldRecent: (folded: boolean) => void;
 }) {
   const row = (placed: PlacedAgent) => (
     <AgentRow key={placed.agent.pane_id} controller={controller} snapshot={snapshot} agent={placed.agent} place={placed} />
   );
   const needsYou = sections.needsYou.length + closed.outcomes.length;
-  if (needsYou + sections.working.length + sections.done.length === 0) {
-    return <p className="empty">No agent is working, waiting on you or finished unseen.</p>;
+  if (needsYou + sections.working.length + sections.done.length + sections.recent.length === 0) {
+    return <p className="empty">No agent is working, waiting on you or finished lately.</p>;
   }
   return (
     <div className="agents-view">
@@ -75,6 +80,11 @@ export function AgentsView({
       {sections.done.length > 0 && (
         <Section name="Done" count={sections.done.length} kind="done" folded={doneFolded} onFold={onFoldDone}>
           {sections.done.map(row)}
+        </Section>
+      )}
+      {sections.recent.length > 0 && (
+        <Section name="Recent" count={sections.recent.length} kind="recent" folded={recentFolded} onFold={onFoldRecent}>
+          {sections.recent.map(row)}
         </Section>
       )}
     </div>

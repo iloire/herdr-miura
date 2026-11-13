@@ -11,6 +11,7 @@ import { pinKey, pinnedByWorkspace } from "../app/pins";
 import { cardOpen, hasChevron, loadOpenCards, saveOpenCards, toggleCard } from "../app/openCards";
 import type { Settings } from "../app/settings";
 import { useAutoCards } from "../app/useAutoCards";
+import { useRecent } from "../app/useRecent";
 import { groupWorktrees, type Row, workspaceOn } from "../app/worktreeGroups";
 import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, workspaceGroups } from "../app/workspaceGroups";
 import { filterTerms, matchesTerms, workspaceText } from "../app/workspaceFilter";
@@ -133,10 +134,12 @@ export function Sidebar({
   );
   const workspaces = rows.map((row) => row.workspace);
   const agents = snapshot ? agentsByWorkspace(snapshot) : new Map<string, Agent[]>();
-  // The Agents tab: the same agents as the cards, by status, in the sidebar's order.
+  // The Agents tab: the same agents as the cards, by status, in the sidebar's
+  // order, and the idle ones that worked lately.
+  const idleSince = useRecent(snapshot);
   const placed: PlacedAgent[] = showAgents
     ? rows.flatMap(({ workspace }) =>
-        cardAgents(agents.get(workspace.workspace_id) ?? []).map((agent) => ({
+        (agents.get(workspace.workspace_id) ?? []).map((agent) => ({
           agent,
           workspaceId: workspace.workspace_id,
           label: workspace.label,
@@ -144,7 +147,7 @@ export function Sidebar({
         })),
       )
     : [];
-  const statuses = statusSections(placed);
+  const statuses = statusSections(placed, idleSince);
   const askingClosed = showAgents ? closedAsks.outcomes.length : 0;
   const [viewState, setViewState] = useState(loadSidebarView);
   const changeView = (change: (state: SidebarViewState) => SidebarViewState) =>
@@ -647,6 +650,8 @@ export function Sidebar({
           closed={closedAsks}
           doneFolded={viewState.doneFolded}
           onFoldDone={(doneFolded) => changeView((state) => ({ ...state, doneFolded }))}
+          recentFolded={viewState.recentFolded}
+          onFoldRecent={(recentFolded) => changeView((state) => ({ ...state, recentFolded }))}
         />
       )}
       {snapshot && focused && focusedFolder && (

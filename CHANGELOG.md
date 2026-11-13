@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 11:50 — Agents tab keeps recent agents
+
+The Agents tab lists a **Recent** section under Done: agents that went idle in the last 12 hours, latest first, 10 at
+most. Marking a finished agent seen no longer drops it out of sight. It folds like Done, and survives a restart.
+
 ## 2026-11-13 11:49 — Todoist tasks in the right panel, sent as prompts
 
 A fifth panel in the drawer (the ticked box in the panel switch, or Todoist Tasks in the command list) lists the
