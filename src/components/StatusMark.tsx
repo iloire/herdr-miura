@@ -5,8 +5,8 @@ import type { AgentStatus } from "../protocol";
 
 const LABEL: Record<AgentStatus, string> = {
   blocked: "Needs you",
-  done: "Done",
-  idle: "Idle",
+  done: "Done: the turn ended and you have not looked yet",
+  idle: "Idle: the turn ended and you have seen it",
   unknown: "",
   working: "Working",
 };
@@ -57,6 +57,8 @@ export function StatusMark({
   return (
     <svg className={`mark mark-${status}`} viewBox="0 0 16 16" role="img" aria-label={label}>
       <title>{label}</title>
+      {/* Hovering anywhere on the mark shows its tooltip, not only on its thin stroke. */}
+      <rect width="16" height="16" fill="transparent" />
       {status === "working" && (
         <>
           <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.3" />
