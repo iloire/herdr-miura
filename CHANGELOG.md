@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:34 — A seen verified check turns grey
+
+The filled check of an agent whose task is finished for sure stays green only until you have seen it, then goes grey as
+the idle mark does. Green now always means a finished agent you have not looked at.
+
 ## 2026-11-13 12:40 — Agent outcomes go back to their Todoist task
 
 A prompt sent from the Todoist panel (to an agent, a new tab or the queue) now remembers its task. When that agent

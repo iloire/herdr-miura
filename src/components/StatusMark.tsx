@@ -22,8 +22,9 @@ const STROKE = {
 /// An agent's status as a 14 px mark. A blocked mark carries `count`, the
 /// agents waiting on you, when there is more than a single agent behind it.
 /// `verified` takes over from the outlined check: the task is finished for
-/// sure, where that one only says a turn ended. `note` says what a blocked
-/// mark wants of you, when the agent told.
+/// sure, where that one only says a turn ended. Seen (idle), it goes grey as
+/// the idle mark does, so green always means a finished agent you have not
+/// looked at. `note` says what a blocked mark wants of you, when the agent told.
 export function StatusMark({
   status,
   count,
@@ -38,7 +39,7 @@ export function StatusMark({
   if (status === "unknown") return null;
   if (verified) {
     return (
-      <svg className="mark mark-verified" viewBox="0 0 16 16" role="img" aria-label="Finished, nothing left">
+      <svg className={`mark mark-verified${status === "idle" ? " mark-verified-seen" : ""}`} viewBox="0 0 16 16" role="img" aria-label="Finished, nothing left">
         <title>Finished, nothing left: the agent said so and Git agrees</title>
         <circle cx="8" cy="8" r="8" fill="currentColor" />
         <path className="mark-verified-check" d="M4.5 8.25 7 10.75l4.5-5" fill="none" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />

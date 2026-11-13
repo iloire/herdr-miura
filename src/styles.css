@@ -1170,6 +1170,11 @@ body.reordering * {
   stroke: var(--ink);
 }
 
+.mark-verified-seen {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 .mark-blocked {
   display: inline-grid;
   place-items: center;
@@ -3808,6 +3813,17 @@ kbd {
 .tab-origin-text {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The Todoist task this tab's prompt came from: a link back to it. */
+.tab-task {
+  max-width: 28ch;
+  color: var(--working);
+  white-space: nowrap;
+}
+
+.tab-task:hover {
+  text-decoration: underline;
 }
 
 /* Other agents in this checkout. It never shrinks, unlike the path beside it. */
@@ -6647,6 +6663,75 @@ button.agents-status-head {
 
 .todoist-there button:disabled {
   opacity: 0.45;
+}
+
+/* Quick add: below it, where the last task went, as a link. */
+.todoist-add .todoist-added {
+  display: block;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(11px * var(--ui-scale));
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoist-add .todoist-added:hover {
+  color: var(--text);
+}
+
+/* The opened task's comments, above its prompt; long ones scroll. */
+.todoist-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 30%;
+  min-height: 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-comments header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.todoist-comments header button {
+  color: var(--hue);
+}
+
+.todoist-comments header button:hover {
+  text-decoration: underline;
+}
+
+.todoist-comments ol {
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todoist-comments li {
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.todoist-comments time {
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.todoist-comments p {
+  margin: 2px 0 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.todoist-comments-note {
+  margin: 0;
+  padding: 0;
 }
 
 .todoist-show-all {
