@@ -384,7 +384,7 @@ body.reordering * {
   width: 100%;
   min-width: 0;
   /* Room on the right for the chevron, so every card's tally lines up. */
-  padding: 8px 30px 8px 14px;
+  padding: 5px 30px 5px 14px;
   border-radius: inherit;
   text-align: left;
 }
@@ -410,7 +410,7 @@ body.reordering * {
 /* Shows or hides the details: on the name line, beside the card's button. */
 .workspace-chevron {
   position: absolute;
-  top: 7px;
+  top: 4px;
   right: 6px;
   display: grid;
   place-items: center;
