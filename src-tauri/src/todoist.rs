@@ -239,31 +239,60 @@ impl Cache {
         Ok(Tasks { tasks, truncated })
     }
 
-    /// Adds a task called `title` to the project named `project` (any case),
-    /// or the Inbox when that is none or no project has that name.
-    pub fn add(&self, title: &str, project: Option<&str>) -> Result<Task, Error> {
-        let title = title.trim();
-        if title.is_empty() {
-            return Err(Error::Shape("a task needs a title".into()));
-        }
+    /// Adds `new` to the project named `project` (any case), or the Inbox
+    /// when that is none or no project has that name.
+    pub fn add(&self, new: &NewTask, project: Option<&str>) -> Result<Task, Error> {
+        // A task Todoist would refuse goes no further than here.
+        new_task(new, None)?;
         let token = token()?;
         let projects = self.projects(&token)?;
         let id = project.and_then(|want| {
             projects.iter().find(|(_, name)| name.eq_ignore_ascii_case(want.trim())).map(|(id, _)| id.as_str())
         });
-        let body = post(&token, &new_task(title, id))?;
+        let body = post(&token, &new_task(new, id)?)?;
         let raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
         Ok(shape(raw, &projects))
     }
 }
 
-/// The request that adds a task, to `project` (an id) or the Inbox.
-fn new_task(title: &str, project: Option<&str>) -> Write {
+/// A task to add: its title, and optionally a description and a due date in
+/// Todoist's own words (`tomorrow 9am`, `next monday`), which Todoist reads.
+#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+pub struct NewTask {
+    pub title: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub due: Option<String>,
+}
+
+/// Todoist's limits: 500 characters for a title, 16383 for a description.
+const MAX_TITLE: usize = 500;
+const MAX_DESCRIPTION: usize = 16_000;
+const MAX_DUE: usize = 100;
+
+/// The request that adds `new`, to `project` (an id) or the Inbox.
+fn new_task(new: &NewTask, project: Option<&str>) -> Result<Write, Error> {
+    let title: String = new.title.trim().chars().filter(|c| !c.is_control()).take(MAX_TITLE).collect();
+    if title.is_empty() {
+        return Err(Error::Shape("a task needs a title".into()));
+    }
     let mut body = serde_json::json!({ "content": title });
     if let Some(project) = project {
         body["project_id"] = project.into();
     }
-    Write { path: "/tasks".into(), body: Some(body) }
+    let description = new.description.as_deref().map(str::trim).filter(|text| !text.is_empty());
+    if let Some(description) = description {
+        body["description"] = description.chars().take(MAX_DESCRIPTION).collect::<String>().into();
+    }
+    if let Some(due) = new.due.as_deref().map(str::trim).filter(|due| !due.is_empty()) {
+        if due.len() > MAX_DUE || due.chars().any(char::is_control) {
+            return Err(Error::Shape(format!("not a due date Todoist reads: {due:?}")));
+        }
+        body["due_string"] = due.into();
+        body["due_lang"] = "en".into();
+    }
+    Ok(Write { path: "/tasks".into(), body: Some(body) })
 }
 
 /// One comment on a task, oldest first as Todoist lists them.
@@ -616,12 +645,31 @@ mod tests {
     }
 
     #[test]
-    fn a_new_task_names_its_project_or_goes_to_the_inbox() {
+    fn a_new_task_names_its_project_or_goes_to_the_inbox() -> Result<(), Error> {
+        let fix = NewTask { title: " Fix it ".into(), ..NewTask::default() };
         assert_eq!(
-            new_task("Fix it", Some("p1")),
+            new_task(&fix, Some("p1"))?,
             Write { path: "/tasks".into(), body: Some(serde_json::json!({ "content": "Fix it", "project_id": "p1" })) }
         );
-        assert_eq!(new_task("Fix it", None).body, Some(serde_json::json!({ "content": "Fix it" })));
+        assert_eq!(new_task(&fix, None)?.body, Some(serde_json::json!({ "content": "Fix it" })));
+        assert!(matches!(new_task(&NewTask { title: " \n".into(), ..NewTask::default() }, None), Err(Error::Shape(_))));
+        Ok(())
+    }
+
+    #[test]
+    fn a_new_task_carries_its_description_and_due_words() -> Result<(), Error> {
+        let dated = NewTask { title: "Run the prompt".into(), description: Some("The prompt\n\nwhole".into()), due: Some(" tomorrow 9am ".into()) };
+        assert_eq!(
+            new_task(&dated, None)?.body,
+            Some(serde_json::json!({ "content": "Run the prompt", "description": "The prompt\n\nwhole", "due_string": "tomorrow 9am", "due_lang": "en" }))
+        );
+        let blank = NewTask { description: Some("  ".into()), due: Some("".into()), ..dated.clone() };
+        assert_eq!(new_task(&blank, None)?.body, Some(serde_json::json!({ "content": "Run the prompt" })));
+        let odd = NewTask { due: Some("today\nevery day".into()), ..dated };
+        assert!(matches!(new_task(&odd, None), Err(Error::Shape(_))));
+        let long = NewTask { title: "x".repeat(600), ..NewTask::default() };
+        assert_eq!(new_task(&long, None)?.body.unwrap_or_default()["content"].as_str().map(str::len), Some(500));
+        Ok(())
     }
 
     #[test]

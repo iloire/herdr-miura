@@ -5097,6 +5097,35 @@ button.agents-status-head {
   gap: 6px;
 }
 
+/* A waiting prompt's Remind in Todoist: the due date in Todoist's words. */
+.queue-remind {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.queue-remind input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font: calc(12px * var(--ui-scale)) var(--mono);
+}
+
+/* The field gets the room; the buttons only theirs. */
+.queue-remind button {
+  flex: none;
+  padding-inline: 12px;
+}
+
+.queue-remind input:focus {
+  border-color: color-mix(in srgb, var(--hue) 65%, var(--rule));
+  outline: none;
+}
+
 .queue-add,
 .queue-add-first {
   padding: 6px 10px;

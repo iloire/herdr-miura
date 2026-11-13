@@ -482,10 +482,10 @@ pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Ta
     Ok(read.await.map_err(todoist::Error::Worker)??)
 }
 
-/// Adds a task called `title` to the Todoist project named `project`, else the Inbox.
+/// Adds `task` to the Todoist project named `project`, else the Inbox.
 #[tauri::command]
-pub async fn todoist_add(app: AppHandle, title: String, project: Option<String>) -> Result<todoist::Task> {
-    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().add(&title, project.as_deref()));
+pub async fn todoist_add(app: AppHandle, task: todoist::NewTask, project: Option<String>) -> Result<todoist::Task> {
+    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().add(&task, project.as_deref()));
     Ok(run.await.map_err(todoist::Error::Worker)??)
 }
 

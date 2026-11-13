@@ -55,5 +55,5 @@ The Dock badge does not count parked items: they are for later, and counting the
 
 ## Later
 
-- **To-do**: send a parked entry to Doable or Todoist, and pull `@agent` tasks into Parked. Waits on choosing which.
+- ~~**To-do**: send a parked entry to Doable or Todoist. Settled: Todoist, **To Todoist** on a parked note ([plan-todoist.md](plan-todoist.md), idea 4).~~ ✅ Pulling `@agent` tasks into Parked is idea 5 there, not built.
 - A daily summary of the ledger in the notes vault's daily note, from the life-assistant loop.

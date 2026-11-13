@@ -3,7 +3,10 @@
 // from the prompt library. See docs/plan-todoist.md.
 
 import { invoke } from "@tauri-apps/api/core";
+import { tildePath } from "./folder";
+import type { Outcome } from "./ledger";
 import type { Prompt } from "./promptLibrary";
+import { title } from "./queue";
 
 export interface Task {
   id: string;
@@ -35,8 +38,34 @@ export interface Comment {
 
 export const readComments = (task: string) => invoke<Comment[]>("todoist_comments", { task });
 
+/// A task to add: `due` in Todoist's own words (`tomorrow 9am`), which it reads.
+export interface NewTask {
+  title: string;
+  description?: string;
+  due?: string;
+}
+
 /// Adds a task to the project named `project`, or the Inbox when null or unknown.
-export const addTask = (title: string, project: string | null) => invoke<Task>("todoist_add", { title, project });
+export const addTask = (task: NewTask, project: string | null) => invoke<Task>("todoist_add", { task, project });
+
+/// A parked ledger entry as a task: the note, and the repo and branch it was
+/// left in, so it can be picked up from Todoist alone.
+export function parkedTask(outcome: Outcome, home: string | null): NewTask {
+  const [first = "", ...rest] = outcome.note.trim().split("\n");
+  const facts = [
+    `Left for later by an agent in Herdr Miura, ${outcome.at}.`,
+    outcome.home && `Repo: \`${tildePath(outcome.home, home)}\``,
+    outcome.branch && `Branch: \`${outcome.branch}\``,
+  ];
+  const description = [rest.join("\n").trim(), facts.filter(Boolean).join("\n")].filter(Boolean).join("\n\n");
+  return { title: first.trim() || "Left for later by an agent", description };
+}
+
+/// A waiting queue prompt as a dated task holding it whole, to queue again when due.
+export function queuedTask(prompt: string, folder: string, due: string, home: string | null): NewTask {
+  const where = `A prompt from Herdr Miura's queue for \`${tildePath(folder, home)}\`, to queue again when it is due.`;
+  return { title: title(prompt, 200) || "A queued prompt", description: `${where}\n\n${prompt.trim()}`, due: due.trim() };
+}
 
 /// Whether a failed read means no token is set (`todoist.rs`'s `NoToken`), not a broken one.
 export const noToken = (error: unknown) => String(error).startsWith("no Todoist token");

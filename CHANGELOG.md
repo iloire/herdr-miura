@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 12:44 — Parked notes and queued prompts go to Todoist
+
+A parked note in the Queue panel has **To Todoist**: it becomes a task with its repo and branch, in the workspace's
+mapped project (else the Inbox), and leaves Parked. A waiting prompt has ☐, **Remind in Todoist**: a due date in
+Todoist's own words (`tomorrow 9am`) makes it a dated task holding the whole prompt, and it leaves the queue once
+Todoist has it. Both hide without a token, and the token stays in the app's Rust side.
+
 ## 2026-11-13 12:37 — Todoist: today count, quick add, comments, link back
 
 The status bar shows `☐ n today`, the Todoist tasks due today or overdue, and opens the Todoist panel; it hides without

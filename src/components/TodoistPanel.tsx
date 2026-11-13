@@ -212,7 +212,7 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
     const text = title.trim();
     if (!text || busy) return;
     setBusy(true);
-    addTask(text, project)
+    addTask({ title: text }, project)
       .then((task) => {
         setTitle("");
         setAdded(task);

@@ -34,7 +34,7 @@ choosing between Doable and Todoist: it is Todoist.
 
 ## Ideas
 
-Everything that came up, by theme. Ideas 1 to 3 and 6 are built. The rest is written down so it isn't lost, not
+Everything that came up, by theme. Ideas 1 to 4 and 6 are built, bar the `/remind` merge in 4. The rest is written down so it isn't lost, not
 decided.
 
 ### 1. The panel ✅
@@ -66,12 +66,27 @@ Built as below, except that a `you` comments rather than adding a waiting label.
   agent blocked on you.
 - The Day dialog counts the tasks closed today.
 
-### 4. From the app to Todoist
+### 4. From the app to Todoist ✅
 
-- A parked ledger entry goes to Todoist with one button (plan-inbox's Later item).
-- A queued prompt can be turned into a dated Todoist task, to run later rather than wait in the queue.
-- `/remind` could write a Todoist task as well as, or instead of, the reminders inbox. That merges two
-  reminder systems, so it is its own decision.
+- ~~A parked ledger entry goes to Todoist with one button (plan-inbox's Later item).~~ ✅ **To Todoist** on a parked
+  note in the Queue panel: a task titled with the note, its repo and branch in the description, in the workspace's
+  project (else the Inbox). The entry is resolved as `todo`, so it leaves Parked.
+- ~~A queued prompt can be turned into a dated Todoist task, to run later rather than wait in the queue.~~ ✅ ☐ on a
+  waiting prompt (**Remind in Todoist**) opens a due date field, read by Todoist (`tomorrow 9am`, `next monday`, sent
+  as `due_string`). The task holds the prompt whole in its description, and the prompt leaves the queue only once
+  Todoist has the task. Opening the task later as a prompt puts it back.
+- `/remind` could write a Todoist task as well as, or instead of, the reminders inbox. Not built: it merges two
+  reminder systems, so it is its own decision. What it would take:
+  - `/remind` is a skill that appends a row to `~/notes/Areas/systems/automation/reminders-inbox.md`, and the
+    life-assistant loop in the notes vault delivers it. A Todoist version needs the token outside the app: the skill
+    would call `POST /api/v1/tasks` itself (with `curl`, the token read from the keychain item `todoist`), since an
+    agent can't reach the app's Rust side.
+  - Choose one home per reminder: Todoist alone (the loop stops delivering, or reads Todoist), or both (the loop
+    skips rows marked as sent to Todoist). Two systems that both fire would remind twice.
+  - Due dates: the inbox keeps an absolute date computed with `date`; Todoist reads natural language, so the skill
+    could pass the user's own words as `due_string`.
+  - Reminders made away from a repo (from the vault, or the phone) already work in Todoist, which is the case for
+    moving there.
 
 ### 5. Automation, with care
 
@@ -99,3 +114,4 @@ Built as below, except that a `you` comments rather than adding a waiting label.
 4. ~~Repo routing (idea 2).~~ ✅
 5. ~~Task ids kept with prompts, and `done` / `left` written back to Todoist (idea 3).~~ ✅
 6. ~~The small things: status bar chip, quick add, comments, link back (idea 6).~~ ✅
+7. ~~From the app to Todoist: parked notes and dated reminders from the Queue panel (idea 4).~~ ✅

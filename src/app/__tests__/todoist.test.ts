@@ -8,6 +8,8 @@ import {
   isMapped,
   matchingTasks,
   noToken,
+  parkedTask,
+  queuedTask,
   overdue,
   projectFor,
   sendTarget,
@@ -219,5 +221,28 @@ describe("the status bar count and quick add", () => {
 
   it("links a task as todoist.rs does", () => {
     expect(taskUrl("6gv")).toBe(task().url);
+  });
+
+  it("sends a parked note with its repo and branch", () => {
+    const outcome = {
+      id: "1-2", at: "2026-11-12T10:00:00Z", kind: "left", note: "Test it on GTK\nthe tray too", cwd: "", home: "/Users/me/code/herdr-miura",
+      branch: "fix-x", head: "", session: "", workspace: "", pane: "", time: 0, resolved: null, superseded: false, stale: false,
+    };
+    expect(parkedTask(outcome, "/Users/me")).toEqual({
+      title: "Test it on GTK",
+      description: "the tray too\n\nLeft for later by an agent in Herdr Miura, 2026-11-12T10:00:00Z.\nRepo: `~/code/herdr-miura`\nBranch: `fix-x`",
+    });
+    expect(parkedTask({ ...outcome, note: "", home: "", branch: "" }, null)).toEqual({
+      title: "Left for later by an agent",
+      description: "Left for later by an agent in Herdr Miura, 2026-11-12T10:00:00Z.",
+    });
+  });
+
+  it("keeps a queued prompt whole in a dated task", () => {
+    expect(queuedTask("\nFix the login\n\nWhy: flaky\n", "/Users/me/code/app", " tomorrow 9am ", "/Users/me")).toEqual({
+      title: "Fix the login",
+      description: "A prompt from Herdr Miura's queue for `~/code/app`, to queue again when it is due.\n\nFix the login\n\nWhy: flaky",
+      due: "tomorrow 9am",
+    });
   });
 });

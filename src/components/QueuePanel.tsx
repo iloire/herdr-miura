@@ -1,5 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { taskUrl } from "../app/todoist";
+import { addTask, parkedTask, projectFor, queuedTask, type Task, taskUrl } from "../app/todoist";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
 import { tildePath } from "../app/folder";
@@ -34,6 +34,7 @@ export function QueuePanel({
   actions,
   parked,
   onParked,
+  todoist,
   all,
   ownerOf,
 }: {
@@ -49,8 +50,10 @@ export function QueuePanel({
   actions: QueueActions | null;
   /// What sessions in this checkout left for later (`herdr-outcome left`).
   parked: Outcome[];
-  /// Queues a parked note as a prompt, or dismisses it.
-  onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
+  /// Queues a parked note as a prompt, dismisses it, or marks it sent to Todoist.
+  onParked: (outcome: Outcome, how: ParkedHow) => void;
+  /// `todoist.projects`, project names to folders; null when Todoist has no token.
+  todoist: Record<string, string> | null;
   /// Every queue with something in it, for the All view.
   all: Queue[];
   ownerOf: (folder: string) => QueueOwner | null;
@@ -144,6 +147,7 @@ export function QueuePanel({
       composer={composer}
       parked={parked}
       onParked={onParked}
+      todoist={todoist}
       scope={scope}
     />
   );
@@ -161,6 +165,7 @@ function QueueBody({
   composer,
   parked,
   onParked,
+  todoist,
   scope,
 }: {
   controller: Controller;
@@ -174,21 +179,22 @@ function QueueBody({
   actions: QueueActions;
   composer: RefObject<HTMLTextAreaElement | null>;
   parked: Outcome[];
-  onParked: (outcome: Outcome, how: "queued" | "dismissed") => void;
+  onParked: (outcome: Outcome, how: ParkedHow) => void;
+  todoist: Record<string, string> | null;
   /// The This workspace / All switch.
   scope: ReactNode;
 }) {
   const home = useHome();
   const directory = queueDirectory(folder);
   const [draft, setDraft] = useState("");
-  const [removed, setRemoved] = useState<{ title: string; undo: () => void } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
-    if (!removed) return;
-    const timer = window.setTimeout(() => setRemoved(null), UNDO_MS);
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), UNDO_MS);
     return () => clearTimeout(timer);
-  }, [removed]);
+  }, [notice]);
 
   const active = queue.items.find(isInLine);
   const away = queue.items.filter(isAway);
@@ -212,6 +218,19 @@ function QueueBody({
   const hasTab = (item: Item) => snapshot.tabs.some((tab) => tab.tab_id === item.tabId);
   // By id, so it follows the file: gone with another workspace or an old item.
   const opened = queue.history.find((item) => item.id === openId);
+  // Where a task from here goes: the project mapped to this folder, else the Inbox.
+  const project = todoist && projectFor(directory, todoist, home);
+  const toTodoist = (outcome: Outcome) =>
+    addTask(parkedTask(outcome, home), project ?? null).then((task) => {
+      onParked(outcome, "todo");
+      setNotice(sentNotice(task));
+    });
+  // The task first: the prompt leaves the queue only once Todoist holds it.
+  const remind = (item: Item, due: string) =>
+    addTask(queuedTask(item.prompt, directory, due, home), project ?? null).then((task) => {
+      actions.remove(folder, item.id);
+      setNotice(sentNotice(task));
+    });
 
   return (
     <aside className="changes queue-panel" aria-label="Queue" style={{ "--hue": hue } as CSSProperties}>
@@ -255,7 +274,9 @@ function QueueBody({
         </div>
       )}
 
-      {parked.length > 0 && <Parked parked={parked} onParked={onParked} />}
+      {parked.length > 0 && (
+        <Parked controller={controller} parked={parked} onParked={onParked} onTodoist={todoist ? toTodoist : null} />
+      )}
 
       <ol className="queue-track">
         {active && (
@@ -285,7 +306,19 @@ function QueueBody({
             onMove={(delta) => actions.move(folder, item.id, delta)}
             onWorktree={() => actions.runInWorktree(folder, item.id)}
             onEdit={(prompt) => actions.edit(folder, item.id, prompt)}
-            onRemove={() => setRemoved({ title: title(item.prompt, 40), undo: actions.remove(folder, item.id) })}
+            onRemove={() => {
+              const undo = actions.remove(folder, item.id);
+              setNotice({ text: `Removed “${title(item.prompt, 40)}”`, button: "Undo", onClick: undo });
+            }}
+            onRemind={
+              todoist
+                ? (due) => {
+                    const sent = remind(item, due);
+                    controller.act(sent);
+                    return sent;
+                  }
+                : null
+            }
           />
         ))}
 
@@ -338,16 +371,16 @@ function QueueBody({
         </li>
       </ol>
 
-      {removed && (
+      {notice && (
         <div className="queue-undo" role="status">
-          <span>Removed “{removed.title}”</span>
+          <span>{notice.text}</span>
           <button
             onClick={() => {
-              removed.undo();
-              setRemoved(null);
+              notice.onClick();
+              setNotice(null);
             }}
           >
-            Undo
+            {notice.button}
           </button>
         </div>
       )}
@@ -393,10 +426,39 @@ function QueueBody({
   );
 }
 
+type ParkedHow = "queued" | "dismissed" | "todo";
+
+/// What the line under the queue says for a while, with one button.
+interface Notice {
+  text: string;
+  button: string;
+  onClick: () => void;
+}
+
+const sentNotice = (task: Task): Notice => ({
+  text: `Sent “${title(task.title, 40)}” to ${task.project ?? "Todoist"}${task.due_words ? `, due ${task.due_words}` : ""}`,
+  button: "Open ↗",
+  onClick: () => void openUrl(task.url),
+});
+
 /// Notes sessions here left for later, not yet prompts: Queue it writes one
-/// that stands on its own and puts it at the end of the line.
-function Parked({ parked, onParked }: { parked: Outcome[]; onParked: (outcome: Outcome, how: "queued" | "dismissed") => void }) {
+/// that stands on its own and puts it at the end of the line; To Todoist makes
+/// it a task there instead.
+function Parked({
+  controller,
+  parked,
+  onParked,
+  onTodoist,
+}: {
+  controller: Controller;
+  parked: Outcome[];
+  onParked: (outcome: Outcome, how: ParkedHow) => void;
+  /// Null without a Todoist token.
+  onTodoist: ((outcome: Outcome) => Promise<void>) | null;
+}) {
   const [open, setOpen] = useState(true);
+  // The note on its way, so a second click sends no second task.
+  const [sending, setSending] = useState<string | null>(null);
   return (
     <section className="queue-parked">
       <button
@@ -422,6 +484,18 @@ function Parked({ parked, onParked }: { parked: Outcome[]; onParked: (outcome: O
                 <button title="Add it to the end of this queue as a prompt" onClick={() => onParked(outcome, "queued")}>
                   Queue it
                 </button>
+                {onTodoist && (
+                  <button
+                    title="Make it a Todoist task, with its repo and branch, and take it off this list"
+                    disabled={sending !== null}
+                    onClick={() => {
+                      setSending(outcome.id);
+                      controller.act(onTodoist(outcome).finally(() => setSending(null)));
+                    }}
+                  >
+                    {sending === outcome.id ? "Sending…" : "To Todoist"}
+                  </button>
+                )}
                 <button className="queue-parked-dismiss" title="Nothing to do about it" onClick={() => onParked(outcome, "dismissed")}>
                   Dismiss
                 </button>
@@ -525,6 +599,7 @@ function Waiting({
   onWorktree,
   onEdit,
   onRemove,
+  onRemind,
 }: {
   item: Item;
   /// The one that starts as soon as the queue may start something.
@@ -535,8 +610,11 @@ function Waiting({
   onWorktree: () => void;
   onEdit: (prompt: string) => void;
   onRemove: () => void;
+  /// Makes it a Todoist task due `due` and takes it off the queue; null without a token.
+  onRemind: ((due: string) => Promise<void>) | null;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const [reminding, setReminding] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -614,6 +692,16 @@ function Waiting({
                 ↗
               </button>
             )}
+            {onRemind && (
+              <button
+                title="Remind in Todoist: a dated task holding this prompt, taken off the queue"
+                aria-label={`Remind #${item.n} in Todoist`}
+                aria-expanded={reminding !== null}
+                onClick={() => setReminding(reminding === null ? "tomorrow" : null)}
+              >
+                ☐
+              </button>
+            )}
             <button title="Edit" aria-label={`Edit #${item.n}`} onClick={() => setEditing(item.prompt)}>
               ✎
             </button>
@@ -630,7 +718,68 @@ function Waiting({
           {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
         </div>
       )}
+      {onRemind && reminding !== null && (
+        <Remind
+          n={item.n}
+          due={reminding}
+          onDue={setReminding}
+          onSend={() => onRemind(reminding).then(() => setReminding(null))}
+          onCancel={() => setReminding(null)}
+        />
+      )}
     </li>
+  );
+}
+
+/// The due date for a reminder, in Todoist's own words, and the button that sends it.
+function Remind({
+  n,
+  due,
+  onDue,
+  onSend,
+  onCancel,
+}: {
+  n: number;
+  due: string;
+  onDue: (due: string) => void;
+  onSend: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const send = () => {
+    if (!due.trim() || busy) return;
+    setBusy(true);
+    // A refusal keeps the field, to fix the date; the caller says why.
+    onSend().catch(() => setBusy(false));
+  };
+  return (
+    <div className="queue-remind">
+      <input
+        type="text"
+        value={due}
+        // Focused as it opens, as a click on ☐ asked for it.
+        autoFocus
+        spellCheck={false}
+        disabled={busy}
+        placeholder="tomorrow 9am"
+        aria-label={`When Todoist should remind you of #${n}`}
+        title="Todoist reads it: tomorrow 9am, next monday, in 3 days, Dec 1"
+        onChange={(event) => onDue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") send();
+          else if (event.key === "Escape") onCancel();
+          else return;
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+      />
+      <button className="queue-add" disabled={!due.trim() || busy} onClick={send}>
+        {busy ? "Sending…" : "Remind"}
+      </button>
+      <button className="queue-add-first" disabled={busy} onClick={onCancel}>
+        Cancel
+      </button>
+    </div>
   );
 }
 

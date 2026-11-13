@@ -634,7 +634,7 @@ export default function App() {
     const owner = state.snapshot?.workspaces.find((w) => queueFolderOf(w) === folder);
     return owner ? { workspaceId: owner.workspace_id, label: owner.label, hue: workspaceHue(owner, slots) } : null;
   };
-  const onParked = (outcome: Outcome, how: "queued" | "dismissed") => {
+  const onParked = (outcome: Outcome, how: "queued" | "dismissed" | "todo") => {
     if (how === "queued") {
       if (!queueFolder || !queueActions) return;
       queueActions.add(queueFolder, parkedPrompt(outcome), false);
@@ -822,6 +822,7 @@ export default function App() {
                 actions={local ? queueActions : null}
                 parked={focusedParked}
                 onParked={onParked}
+                todoist={todoistTasks.off ? null : state.settings.todoistProjects}
                 all={allQueues}
                 ownerOf={queueOwner}
               />
