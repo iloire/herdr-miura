@@ -18,7 +18,7 @@ import { type OpenSession, restorable, resumeInPane } from "./restoreSessions";
 import { type PastedImage, readPastedImage, sessionOf } from "./sessionUsage";
 import { paneDirectory } from "./sharedCheckout";
 import { stepWorkspace } from "./step";
-import { type Direction, EMPTY_HISTORY, stepTarget, type TabHistory, visit } from "./tabHistory";
+import { type Direction, EMPTY_HISTORY, stepTarget, stepTargets, type TabHistory, type Via, visit } from "./tabHistory";
 
 export type Status =
   | { phase: "connecting" }
@@ -212,7 +212,7 @@ export class Controller {
   /// Each `tab.close` request in flight, by request ID, to its tab.
   private closeRequests = new Map<string, string>();
   /// The step through the tab history waiting for its focus to show in a snapshot.
-  private stepping: { direction: Direction; target: string } | null = null;
+  private stepping: Via | null = null;
   private readonly daemon = new Daemon((event) => this.handle(event));
 
   // State store, shaped for `useSyncExternalStore`.
@@ -568,17 +568,30 @@ export class Controller {
     this.set({ snapshot, tabHistory });
   }
 
+  private openTabs(): Set<string> {
+    return new Set(this.state.snapshot?.tabs.map((tab) => tab.tab_id));
+  }
+
   /// The tab a step back or forward would focus, or null when there is none.
   tabStep(direction: Direction): string | null {
-    const open = new Set(this.state.snapshot?.tabs.map((tab) => tab.tab_id));
-    return stepTarget(this.state.tabHistory, direction, open);
+    return stepTarget(this.state.tabHistory, direction, this.openTabs());
+  }
+
+  /// The tabs a jump back or forward can go to, nearest first, for the arrows' menu.
+  tabTargets(direction: Direction): string[] {
+    return stepTargets(this.state.tabHistory, direction, this.openTabs());
   }
 
   /// Focuses the tab before (or after) this one in the history, in whichever workspace.
   stepTab(direction: Direction): void {
     const target = this.tabStep(direction);
-    if (!target) return;
-    this.stepping = { direction, target };
+    if (target) this.jumpTab(direction, target);
+  }
+
+  /// Focuses `target`, further back (or forward) in the history, moving the tabs
+  /// passed over to the other side as steps would, rather than as a new visit.
+  jumpTab(direction: Direction, target: string): void {
+    this.stepping = { direction, target, open: this.openTabs() };
     this.request("tab.focus", { tab_id: target });
   }
 

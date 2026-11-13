@@ -8,6 +8,7 @@ import { pinIndex, pinKey, savePins } from "../app/pins";
 import { tabDirectory } from "../app/sharedCheckout";
 import { saveTabColors } from "../app/tabColors";
 import { loadTabSort, saveTabSort, stripOrder, tabRanks, type TabSort } from "../app/tabOrder";
+import type { Direction } from "../app/tabHistory";
 import { useSteadyStrip } from "../app/useSteadyStrip";
 import type { Agent, Snapshot, Tab } from "../protocol";
 import { AgentCount } from "./AgentCount";
@@ -17,7 +18,20 @@ import { CloseDialog } from "./CloseDialog";
 import { colorSwatches } from "./colorSwatches";
 import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
-import { BackIcon, BranchIcon, CheckIcon, ForwardIcon, NewTabIcon, OpenIcon, PinIcon, QueueIcon, RenameIcon, TerminalIcon } from "./icons";
+import {
+  BackIcon,
+  BranchIcon,
+  CheckIcon,
+  ForwardIcon,
+  NewTabIcon,
+  NextTabIcon,
+  OpenIcon,
+  PinIcon,
+  PreviousTabIcon,
+  QueueIcon,
+  RenameIcon,
+  TerminalIcon,
+} from "./icons";
 import { LoopMark } from "./LoopMark";
 import { RenameField } from "./RenameField";
 import { StatusMark } from "./StatusMark";
@@ -80,6 +94,9 @@ export function TabBar({
   const plainTab = useOptionHeld() && !!newTabCommand;
   const newTabHint = newTabCommand ? "New tab (⌥-click for a plain terminal)" : "New tab";
 
+  const workspaceLabel = (workspaceId: string) => snapshot?.workspaces.find((w) => w.workspace_id === workspaceId)?.label;
+  const elsewhere = (tab: Tab) => (tab.workspace_id === snapshot?.focused_workspace_id ? undefined : workspaceLabel(tab.workspace_id));
+
   // The controller's history moves in the same update as the snapshot, so it is current here.
   const steps = (["back", "forward"] as const).map((direction) => {
     const target = controller.tabStep(direction);
@@ -87,8 +104,51 @@ export function TabBar({
     const command = direction === "back" ? "go_back" : "go_forward";
     const word = direction === "back" ? "Back" : "Forward";
     const key = controller.shortcutHint(command);
-    return { direction, command, can: !!target, hint: `${tab ? `${word} to ${tab.label}` : word}${key ? ` (${key})` : ""}` };
+    const where = tab && elsewhere(tab);
+    const label = tab ? `${word} to ${tab.label}${where ? ` in ${where}` : ""}` : word;
+    return { direction, command, tab, hint: `${label}${key ? ` (${key})` : ""}` };
   });
+
+  // While Back or Forward is hovered, the tab it would focus is outlined: on the
+  // strip, or its workspace's card when it is in another one.
+  const [preview, setPreview] = useState<Direction | null>(null);
+  const previewTab = preview ? steps.find((step) => step.direction === preview)?.tab : undefined;
+  const previewCard = previewTab && previewTab.workspace_id !== snapshot?.focused_workspace_id ? previewTab.workspace_id : null;
+  useEffect(() => {
+    if (!previewCard) return;
+    const card = document.querySelector(`.workspace[data-workspace-id="${CSS.escape(previewCard)}"]`);
+    card?.setAttribute("data-step-preview", "");
+    return () => card?.removeAttribute("data-step-preview");
+  }, [previewCard]);
+
+  /// Up to ten tabs from one side of the history, to jump straight to.
+  const openHistory = (direction: Direction, x: number, y: number) => {
+    const items = controller.tabTargets(direction).flatMap((id): MenuItem[] => {
+      const tab = snapshot?.tabs.find((t) => t.tab_id === id);
+      if (!tab) return [];
+      return [{ label: tab.label, hint: workspaceLabel(tab.workspace_id), onSelect: () => controller.jumpTab(direction, id) }];
+    });
+    if (items.length > 0) setMenu({ x, y, items: [items] });
+  };
+
+  // A long press opens the same list as a right-click, and the click that ends it does nothing.
+  const press = useRef<{ timer: number; opened: boolean } | null>(null);
+  const endPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+  };
+  const startPress = (direction: Direction, button: HTMLElement) => {
+    endPress();
+    const held = {
+      opened: false,
+      timer: window.setTimeout(() => {
+        held.opened = true;
+        const box = button.getBoundingClientRect();
+        openHistory(direction, box.left, box.bottom);
+      }, 400),
+    };
+    press.current = held;
+  };
+  useEffect(() => endPress, []);
 
   const bootId = snapshot?.boot_id ?? "";
   const isPinned = (tab: Tab) => pins.has(pinKey(bootId, tab.tab_id));
@@ -105,6 +165,18 @@ export function TabBar({
     strip.ranks,
   );
   const agentCounts = snapshot ? agentCountsByTab(snapshot) : new Map<string, number>();
+  const at = tabs.findIndex((tab) => tab.tab_id === snapshot?.focused_tab_id);
+  // ‹ › move along this strip in drawn order, wrapping, as ⌘⇧[ and ⌘⇧] do.
+  const strideTo = (
+    [
+      ["previous_tab", -1, "Previous tab"],
+      ["next_tab", 1, "Next tab"],
+    ] as const
+  ).map(([command, step, word]) => {
+    const tab = tabs.length > 1 && at >= 0 ? tabs[(at + step + tabs.length) % tabs.length] : undefined;
+    const key = controller.shortcutHint(command);
+    return { command, step, tab, hint: `${tab ? `${word}: ${tab.label}` : word}${key ? ` (${key})` : ""}` };
+  });
 
   // Stepping through tabs follows the order they are drawn in.
   useEffect(() => {
@@ -250,20 +322,56 @@ export function TabBar({
 
   return (
     <div className="tabbar" data-tauri-drag-region>
-      {steps.map((step) => (
-        <button
-          key={step.direction}
-          className={`icon-button tab-step ${step.direction}`}
-          title={step.hint}
-          aria-label={step.hint}
-          disabled={!step.can}
-          // Typing stays with the terminal, which the tab moved to takes over.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => controller.run(step.command)}
-        >
-          {step.direction === "back" ? <BackIcon /> : <ForwardIcon />}
-        </button>
-      ))}
+      <div className="tab-nav" data-tauri-drag-region>
+        {steps.map((step) => (
+          <button
+            key={step.direction}
+            className="icon-button"
+            title={step.hint}
+            aria-label={step.hint}
+            aria-haspopup="menu"
+            disabled={!step.tab}
+            // Typing stays with the terminal, which the tab moved to takes over.
+            onMouseDown={(event) => event.preventDefault()}
+            onPointerEnter={() => setPreview(step.direction)}
+            onPointerLeave={() => {
+              setPreview(null);
+              endPress();
+            }}
+            onPointerDown={(event) => {
+              if (event.button === 0) startPress(step.direction, event.currentTarget);
+            }}
+            onPointerUp={endPress}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              endPress();
+              openHistory(step.direction, event.clientX, event.clientY);
+            }}
+            onClick={() => {
+              if (press.current?.opened) press.current = null;
+              else controller.run(step.command);
+            }}
+          >
+            {step.direction === "back" ? <BackIcon /> : <ForwardIcon />}
+          </button>
+        ))}
+      </div>
+      <span className="tab-nav-divider" aria-hidden="true" />
+      <div className="tab-nav tab-cycle" data-tauri-drag-region>
+        {strideTo.map((stride) => (
+          <button
+            key={stride.command}
+            className="icon-button"
+            title={stride.hint}
+            aria-label={stride.hint}
+            disabled={!stride.tab}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => controller.run(stride.command)}
+          >
+            {stride.step < 0 ? <PreviousTabIcon /> : <NextTabIcon />}
+          </button>
+        ))}
+      </div>
       <div
         ref={rows}
         className={wrap ? "tab-rows" : "tab-rows one-row"}
@@ -286,7 +394,7 @@ export function TabBar({
           return (
             <div
               key={tab.tab_id}
-              className={color ? "tab tinted" : "tab"}
+              className={["tab", color && "tinted", previewTab?.tab_id === tab.tab_id && "step-target"].filter(Boolean).join(" ")}
               style={color ? ({ "--tab-tint": slotTint(color) } as CSSProperties) : undefined}
               role="tab"
               aria-selected={tab.focused}

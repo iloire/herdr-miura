@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 13:00 — Tab history arrows read as history, and ‹ › step along the strip
+
+The strip's Back and Forward are curved return arrows (↶ ↷) in their own group, set off from the tabs by a divider.
+Hovering one outlines the tab it would go to, or that tab's workspace card when it is elsewhere, and the tooltip names
+the workspace. Right-click or a long press lists up to ten tabs from that side of the history; a pick moves through the
+history as steps would, so Forward still leads back. New ‹ › beside the tabs go to the previous and next tab on this
+strip (⌘⇧[ ⌘⇧]), off when there is only one tab.
+
 ## 2026-11-13 12:54 — Todoist @agent tasks, batches and triage
 
 Todoist tasks labelled `@agent` show above the Queue panel's track as suggestions, for its repo or for none; **Queue it**

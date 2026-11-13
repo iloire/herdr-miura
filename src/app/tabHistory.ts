@@ -23,9 +23,30 @@ export function stepTarget(history: TabHistory, direction: Direction, open: Read
   return null;
 }
 
+/// The tabs a jump in `direction` can go to, nearest first: open, each once, not
+/// the current one, at most `max`. The first is `stepTarget`'s.
+export function stepTargets(history: TabHistory, direction: Direction, open: ReadonlySet<string>, max = 10): string[] {
+  const list = direction === "back" ? history.back : history.forward;
+  const found: string[] = [];
+  for (let i = list.length - 1; i >= 0 && found.length < max; i--) {
+    const id = list[i];
+    if (id !== history.current && open.has(id) && !found.includes(id)) found.push(id);
+  }
+  return found;
+}
+
+/// A focus a step or a jump asked for. `open` is what was open when it was asked:
+/// the open tabs it passes over move to the other side, as single steps would
+/// have moved them. Without it, everything passed over is dropped.
+export interface Via {
+  direction: Direction;
+  target: string;
+  open?: ReadonlySet<string>;
+}
+
 /// The history once `tabId` has the focus. A focus that a step in `via` asked for
 /// moves along the history; any other is a new visit, which drops what lay ahead.
-export function visit(history: TabHistory, tabId: string | null, via: { direction: Direction; target: string } | null): TabHistory {
+export function visit(history: TabHistory, tabId: string | null, via: Via | null): TabHistory {
   if (tabId === null || tabId === history.current) return history;
   if (history.current === null) return { ...history, current: tabId };
   if (via && via.target === tabId) {
@@ -33,8 +54,12 @@ export function visit(history: TabHistory, tabId: string | null, via: { directio
     const to = via.direction === "back" ? history.forward : history.back;
     const at = from.lastIndexOf(tabId);
     if (at >= 0) {
-      // Tabs skipped over were closed, so they don't move to the other side.
-      const moved = { from: from.slice(0, at), to: [...to, history.current].slice(-LIMIT) };
+      // Nearest first, as single steps would have left them. Closed tabs are dropped.
+      const passed = from
+        .slice(at + 1)
+        .reverse()
+        .filter((id) => id !== history.current && via.open?.has(id));
+      const moved = { from: from.slice(0, at), to: [...to, history.current, ...passed].slice(-LIMIT) };
       return via.direction === "back"
         ? { back: moved.from, forward: moved.to, current: tabId }
         : { back: moved.to, forward: moved.from, current: tabId };

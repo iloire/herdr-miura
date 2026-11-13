@@ -1282,15 +1282,42 @@ body.reordering * {
   border-bottom: 1px solid var(--rule);
 }
 
-/* Back and Forward through the tabs focused before, held at the first row's start when tabs wrap. */
-.tabbar .tab-step {
+/* Back and Forward through the tabs focused before, then a divider, then ‹ ›
+   along this strip: held at the first row's start when tabs wrap. */
+.tabbar .tab-nav {
   flex: none;
+  display: flex;
   align-self: flex-start;
   margin-top: 1px;
 }
 
-.tabbar .tab-step.forward {
+/* Lighter than the history arrows: they only move along the row. */
+.tabbar .tab-cycle {
   margin-right: 4px;
+}
+
+.tabbar .tab-cycle .icon-button {
+  width: 20px;
+}
+
+.tabbar .tab-nav-divider {
+  flex: none;
+  align-self: flex-start;
+  width: 1px;
+  height: 16px;
+  margin: 6px 6px 0;
+  background: var(--rule-strong);
+}
+
+/* The tab Back or Forward would focus, while the arrow is hovered. */
+.tab.step-target {
+  outline: 1px dashed color-mix(in srgb, var(--text) 45%, transparent);
+  outline-offset: -1px;
+}
+
+.workspace[data-step-preview] {
+  outline: 1px dashed color-mix(in srgb, var(--text) 45%, transparent);
+  outline-offset: -2px;
 }
 
 .workarea:has(.drawer.open) .tabbar {

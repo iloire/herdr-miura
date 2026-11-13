@@ -130,17 +130,31 @@ export const NewTabIcon = () => (
   </Icon>
 );
 
-/// An arrow pointing left: back to the tab focused before.
+/// An arrow curving back on itself: back to the tab focused before, wherever it is.
 export const BackIcon = () => (
   <Icon>
-    <path d="M13 8H3.5M7.5 4 3.5 8l4 4" {...LINE} />
+    <path d="M5.5 3 2.5 6l3 3M2.5 6h7a3.75 3.75 0 0 1 0 7.5H7.5" {...LINE} />
   </Icon>
 );
 
-/// The same arrow pointing right: forward again after a step back.
+/// The same arrow curving the other way: forward again after a step back.
 export const ForwardIcon = () => (
   <Icon>
-    <path d="M3 8h9.5M8.5 4l4 4-4 4" {...LINE} />
+    <path d="M10.5 3l3 3-3 3M13.5 6h-7a3.75 3.75 0 0 0 0 7.5h2" {...LINE} />
+  </Icon>
+);
+
+/// A thin chevron, lighter than the history arrows: the tab to the left on the strip.
+export const PreviousTabIcon = () => (
+  <Icon>
+    <path d="M9.5 4.5 6 8l3.5 3.5" {...LINE} strokeWidth={1.25} />
+  </Icon>
+);
+
+/// The tab to the right on the strip.
+export const NextTabIcon = () => (
+  <Icon>
+    <path d="M6.5 4.5 10 8l-3.5 3.5" {...LINE} strokeWidth={1.25} />
   </Icon>
 );
 

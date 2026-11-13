@@ -315,6 +315,8 @@ export function Sidebar({
           {parent && <span className="worktree-link" aria-hidden="true" />}
           <div
             className={["workspace", workspace.focused && "current", needsYou && "needs-you", colored && "colored", filtering && index === 0 && "filter-first"].filter(Boolean).join(" ")}
+            // Found by the tab strip, which outlines it while Back or Forward would go there.
+            data-workspace-id={workspace.workspace_id}
             style={colored ? ({ "--hue": workspaceHue(workspace, slots) } as CSSProperties) : undefined}
             title={parent ? `A worktree of ${parent.label}` : undefined}
             {...drag.handlers(index)}
