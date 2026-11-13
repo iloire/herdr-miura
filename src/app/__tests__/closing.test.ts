@@ -190,6 +190,21 @@ describe("closing a tab", () => {
     expect(controller.getState().notice).toBe("no");
   });
 
+  it("clears the outcome ledger's asks of the agents it closes, and only theirs", async () => {
+    const session = (id: string): Partial<Agent> => ({ tokens: [["claude_session", id]] });
+    const agents = [agent("a", "blocked", session("s-a")), agent("b", "blocked", { ...session("s-b"), pane_id: "b:p" })];
+    const { controller } = await connected([tab("a"), tab("b")], agents);
+    const cleared = vi.fn<(sessions: string[]) => void>();
+    controller.needsYouCleared = cleared;
+    controller.request("tab.close", { tab_id: "a" });
+    expect(cleared).not.toHaveBeenCalled();
+    controller.answerClose(true);
+    expect(cleared).toHaveBeenLastCalledWith(["s-a"]);
+    controller.request("pane.close", { pane_id: "b:p" });
+    controller.answerClose(true);
+    expect(cleared).toHaveBeenLastCalledWith(["s-b"]);
+  });
+
   describe("with an agent at work", () => {
     const tabs = () => [tab("a"), tab("b", "w1", true)];
     const working = [agent("b", "working")];

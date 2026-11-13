@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 00:42 — Closing a tab no longer lists its agent under Needs you
+
+An agent that was waiting on you came back in the Agents tab's Needs you as a closed session once you closed its tab,
+and clicking it reopened the tab. Closing a tab or pane now counts as dealing with it. A session that ends another way
+(it exits, Herdr quits) is still listed.
+
 ## 2026-11-12 21:45 — Changes panel: check out, branch from and revert a commit, and line links
 
 A commit's right-click menu can check it out detached, start a branch at it, and revert it after a confirmation. All

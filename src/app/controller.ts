@@ -496,6 +496,7 @@ export class Controller {
 
   private perform(method: string, params: Record<string, unknown>): void {
     if (method === "tab.close") return this.closeTab(String(params.tab_id));
+    if (method === "pane.close") this.clearAsksOf((agent) => agent.pane_id === params.pane_id);
     void this.send(method, params);
     // However the move was asked for (a key, a card, the strip),
     // the view over the terminal closes and typing goes to the tab, workspace
@@ -525,12 +526,20 @@ export class Controller {
     if (!tab) return;
     const next = tab.focused ? focusAfterClose(tabs, tab) : null;
     if (next) void this.send("tab.focus", { tab_id: next.tab_id });
+    this.clearAsksOf((agent) => agent.tab_id === tabId);
     this.closing.add(tabId);
     this.showSnapshot();
     void this.send("tab.close", { tab_id: tabId }).then((requestId) => {
       if (requestId) this.closeRequests.set(requestId, tabId);
       else this.reopen(tabId);
     });
+  }
+
+  /// Closing an agent's tab or pane deals with what it asked of you: its asks
+  /// would otherwise come back under Needs you as closed-session rows.
+  private clearAsksOf(closes: (agent: Agent) => boolean): void {
+    const agents = this.state.snapshot?.agents.filter(closes) ?? [];
+    this.needsYouCleared(agents.map(sessionOf).filter((id) => id !== null));
   }
 
   private closeFailed(requestId: string): void {
