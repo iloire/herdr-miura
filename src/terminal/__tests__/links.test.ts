@@ -165,4 +165,44 @@ describe("linkAt", () => {
     expect(linkAt(grid(["https://a.dev/x/y.md"]), 16, 0)?.url).toBe("https://a.dev/x/y.md");
     expect(linkAt(grid(["see d0de2cf"]), 6, 0)?.commit).toBe("d0de2cf");
   });
+
+  describe("a `! cmd` to run in Claude Code's prompt", () => {
+    /// Rows of text, with `colors` marking each cell drawn as code by a `c`.
+    function painted(lines: string[], colors: string[]): Grid {
+      const g = grid(lines);
+      lines.forEach((_, y) => {
+        for (let x = 0; x < g.width; x++) {
+          const cell = g.cell(x, y);
+          g.cells[y * g.width + x] = [cell[0], colors[y]?.[x] === "c" ? 4 : 0, 0, 0, false];
+        }
+      });
+      return g;
+    }
+
+    it("takes the command in code colour, without the `!` or the full stop", () => {
+      const g = painted(["then run ! vercel firewall publish."], ["         ccccccccccccccccccccccccc "]);
+      const link = linkAt(g, 14, 0);
+      expect(link?.command).toBe("vercel firewall publish");
+      expect(link?.cells[0]).toEqual({ x: 9, y: 0 });
+      expect(link?.cells.at(-1)).toEqual({ x: 33, y: 0 });
+      expect(linkAt(g, 9, 0)?.command).toBe("vercel firewall publish");
+      expect(linkAt(g, 34, 0)).toBeNull();
+    });
+
+    it("follows the command across Claude Code's word wrap", () => {
+      const g = painted(["live, run !   ", "  vercel firewall ls to"], ["          c   ", "  ccccccccccccccccccc   "]);
+      expect(linkAt(g, 4, 1)?.command).toBe("vercel firewall ls");
+      expect(linkAt(g, 10, 0)?.command).toBe("vercel firewall ls");
+      expect(linkAt(g, 22, 1)).toBeNull();
+    });
+
+    it("leaves a `!` in prose alone", () => {
+      expect(linkAt(painted(["Done! next"], ["          "]), 4, 0)).toBeNull();
+      expect(linkAt(painted(["Wow ! look"], ["          "]), 4, 0)).toBeNull();
+    });
+
+    it("wins over a path inside the command", () => {
+      expect(linkAt(painted(["run ! cat src/a.ts"], ["    cccccccccccccc"]), 12, 0)?.command).toBe("cat src/a.ts");
+    });
+  });
 });

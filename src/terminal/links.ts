@@ -8,6 +8,8 @@ export interface Link {
   file?: string;
   /// The number of Claude Code's `[Image #1]`.
   image?: number;
+  /// A shell command Claude Code shows as `! cmd` to run in its prompt, without the `!`.
+  command?: string;
   cells: { x: number; y: number }[];
 }
 
@@ -97,6 +99,9 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
     return { ...linked, cells };
   }
 
+  const command = commandAt(grid, column, row);
+  if (command) return command;
+
   for (const match of text.matchAll(URL_PATTERN)) {
     const url = trim(match[0]);
     const start = match.index;
@@ -118,6 +123,57 @@ export function linkAt(grid: Grid, column: number, row: number): Link | null {
     if (!PATH_SHAPE.test(file)) continue;
     const covered = origin.slice(match.index, match.index + file.length);
     if (covered.some((cell) => cell.x === column && cell.y === row)) return { file, cells: covered };
+  }
+  return null;
+}
+
+/// How many rows above and below the pointer a `! cmd` is looked for in.
+const COMMAND_REACH = 4;
+
+/// A `! cmd` under a cell: Claude Code's way of asking you to run a command
+/// in its prompt, drawn as inline code, so in a colour of its own. The `!`
+/// must differ in colour from the text before it, and the command runs on in
+/// that colour, across Claude Code's word wrap, up to text of another colour.
+function commandAt(grid: Grid, column: number, row: number): Link | null {
+  const pane = grid.paneAt(column, row);
+  if (!pane) return null;
+  const { x: left, y: top, width, height } = pane.inner_rect;
+  const right = left + width - 1;
+  // The rows' text as one run of cells, a wrapped row's indent and trailing
+  // blanks left out, and a row break counted as a blank.
+  const run: { x: number; y: number; symbol: string; fg: number }[] = [];
+  for (let y = Math.max(top, row - COMMAND_REACH); y <= Math.min(top + height - 1, row + COMMAND_REACH); y++) {
+    let start = left;
+    while (start <= right && grid.cell(start, y)[0].trim() === "") start++;
+    let end = right;
+    while (end >= start && grid.cell(end, y)[0].trim() === "") end--;
+    if (end < start) {
+      run.push({ x: -1, y, symbol: "\n", fg: -1 }); // a blank row ends any command
+      continue;
+    }
+    if (run.length) run.push({ x: -1, y, symbol: " ", fg: -1 });
+    for (let x = start; x <= end; x++) {
+      const [symbol, fg, , , skip] = grid.cell(x, y);
+      if (!skip) run.push({ x, y, symbol: symbol || " ", fg });
+    }
+  }
+  const blank = (i: number) => run[i]?.symbol.trim() === "";
+  for (let i = 0; i < run.length; i++) {
+    const bang = run[i];
+    if (bang.symbol !== "!" || (i > 0 && !blank(i - 1)) || !blank(i + 1) || run[i + 1].symbol === "\n") continue;
+    let before = i - 1;
+    while (before >= 0 && blank(before) && run[before].symbol !== "\n") before--;
+    if (before >= 0 && run[before].symbol !== "\n" && run[before].fg === bang.fg) continue;
+    let end = i + 1;
+    while (end + 1 < run.length && run[end + 1].symbol !== "\n" && (blank(end + 1) || run[end + 1].fg === bang.fg)) end++;
+    while (blank(end)) end--;
+    const cells = run.slice(i, end + 1).filter((cell) => cell.x >= 0);
+    const command = run.slice(i + 1, end + 1).map((cell) => cell.symbol).join("").trim();
+    if (!command) continue;
+    if (cells.some((cell) => cell.x === column && cell.y === row)) {
+      return { command, cells: cells.map(({ x, y }) => ({ x, y })) };
+    }
+    i = end;
   }
   return null;
 }

@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-13 11:19 — Send a `! command` from the output to the prompt
+
+When Claude Code asks you to run something with `! cmd`, right-click it for Send to Prompt (or ⌘-click it). Herdr types
+`!` and the command into that pane's prompt, so Claude Code is in shell mode, and leaves Enter to you. Copy Command is
+there too. The command is found by its code colour, so a `!` in prose is left alone, and it follows Claude Code's word
+wrap onto the next row.
+
 ## 2026-11-13 00:42 — Closing a tab no longer lists its agent under Needs you
 
 An agent that was waiting on you came back in the Agents tab's Needs you as a closed session once you closed its tab,

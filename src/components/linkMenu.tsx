@@ -5,15 +5,28 @@ import type { Controller } from "../app/controller";
 import { type Located, openLinkFile } from "../files/linkFile";
 import type { Link } from "../terminal/links";
 import type { MenuItem } from "./ContextMenu";
-import { ChangesIcon, CodeIcon, CopyIcon, FileIcon, FolderIcon, GlobeIcon, OpenIcon } from "./icons";
+import { ChangesIcon, CodeIcon, CopyIcon, FileIcon, FolderIcon, GlobeIcon, OpenIcon, TerminalIcon } from "./icons";
 
 /// The click that does a link's first action, as a hint; ⌘ is Super off macOS.
 const CLICK = IS_MAC ? "⌘-click" : undefined;
+
+/// Types `! command` into the pane's prompt, the `!` on its own so Claude Code
+/// turns to its shell mode first, and leaves Enter to you.
+export function sendCommandToPrompt(controller: Controller, command: string, paneId: string) {
+  controller.sendInput([{ TextCommit: "!" }, { TextCommit: command }], paneId);
+}
 
 /// What a right-click on a link in a pane offers. `located` is where a file
 /// link leads, or null when nothing is there.
 export function linkMenu(controller: Controller, link: Link, paneId: string, located: Located | null): MenuItem[][] {
   const copy = (text: string) => controller.act(writeText(text));
+  if (link.command) {
+    const command = link.command;
+    return [
+      [{ label: "Send to Prompt", icon: <TerminalIcon />, hint: CLICK, onSelect: () => sendCommandToPrompt(controller, command, paneId) }],
+      [{ label: "Copy Command", icon: <CopyIcon />, onSelect: () => copy(command) }],
+    ];
+  }
   if (link.url) {
     return [
       [{ label: "Open in Browser", icon: <GlobeIcon />, hint: CLICK, onSelect: () => controller.act(openUrl(link.url!)) }],
