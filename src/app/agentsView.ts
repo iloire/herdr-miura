@@ -3,7 +3,7 @@
 // list is folded, are this window's, kept in its storage as the sort order is.
 
 import type { Agent } from "../protocol";
-import { shownStatus } from "./attention";
+import { loopTag, shownStatus } from "./attention";
 
 const KEY = "sidebar-view";
 
@@ -52,12 +52,15 @@ export interface StatusSections {
   needsYou: PlacedAgent[];
   working: PlacedAgent[];
   done: PlacedAgent[];
+  /// Sessions `/loop` will run again, whether ticking or between ticks: they
+  /// stay active for good, so they keep out of Working and Done.
+  loops: PlacedAgent[];
   /// Idle ones that worked lately, latest first: what was just marked seen.
   recent: PlacedAgent[];
 }
 
 /// Active agents by what they want of you: waiting on you, still working, or
-/// finished unseen. Each keeps the order it came in, the sidebar's. An agent
+/// finished unseen, with loops apart unless one waits on you. Each keeps the order it came in, the sidebar's. An agent
 /// whose status Herdr cannot tell goes with the working ones: it is not idle.
 /// Idle agents go to Recent while `idleSince` has them within the last
 /// `RECENT_MS`, latest first and `RECENT_MAX` at most.
@@ -66,10 +69,11 @@ export function statusSections(
   idleSince: IdleSince = {},
   now = Date.now(),
 ): StatusSections {
-  const sections: StatusSections = { needsYou: [], working: [], done: [], recent: [] };
+  const sections: StatusSections = { needsYou: [], working: [], done: [], loops: [], recent: [] };
   for (const placed of agents) {
     const status = shownStatus(placed.agent);
-    if (status === "idle") {
+    if (status !== "blocked" && loopTag(placed.agent) !== null) sections.loops.push(placed);
+    else if (status === "idle") {
       const since = idleSince[placed.agent.pane_id];
       if (since !== undefined && now - since < RECENT_MS) sections.recent.push(placed);
     } else if (status === "blocked") sections.needsYou.push(placed);

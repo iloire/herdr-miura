@@ -77,6 +77,23 @@ describe("status sections", () => {
   });
 });
 
+describe("loop sections", () => {
+  const loop = { tokens: [["attn_loop", "↻ loop 14:32"]] as [string, string][] };
+
+  it("keeps loops apart whatever their status, unless one waits on you", () => {
+    const sections = statusSections(
+      [placed("a", "done", loop), placed("b", "working", loop), placed("c", "idle", loop), placed("d", "blocked", loop), placed("e", "done")],
+      { c: 1 },
+      2,
+    );
+    expect(panes(sections.loops)).toEqual(["a", "b", "c"]);
+    expect(panes(sections.needsYou)).toEqual(["d"]);
+    expect(panes(sections.done)).toEqual(["e"]);
+    expect(sections.working).toEqual([]);
+    expect(sections.recent).toEqual([]);
+  });
+});
+
 describe("recent agents", () => {
   const agent = (pane: string, status: AgentStatus) => placed(pane, status).agent;
 

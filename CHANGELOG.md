@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 11:36 — Agents tab lists /loop sessions under Loops
+
+A session `/loop` will run again stays active for good, so it no longer sits in Done between ticks or in Working
+during one: it has a Loops section of its own, after Done. One waiting on you still shows under Needs you.
+
 ## 2026-11-14 09:29 — Complete a Todoist task from the panel
 
 Each task in the Todoist panel has a round button at its end, as in Todoist, and an opened task has ✓ Complete. The

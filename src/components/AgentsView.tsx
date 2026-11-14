@@ -18,7 +18,7 @@ export interface ClosedAsks {
 /// The sidebar's Agents tab: every active agent by what it wants of you,
 /// whatever workspace or folded group it is in. Waiting on you first (closed
 /// sessions' asks included), then working, then finished, which folds to one
-/// line, then the ones seen lately, so a task marked seen is not lost. A row
+/// line, then the `/loop` sessions, which never stop, then the ones seen lately, so a task marked seen is not lost. A row
 /// names its workspace and goes to the agent's tab.
 export function AgentsView({
   controller,
@@ -43,7 +43,7 @@ export function AgentsView({
     <AgentRow key={placed.agent.pane_id} controller={controller} snapshot={snapshot} agent={placed.agent} place={placed} />
   );
   const needsYou = sections.needsYou.length + closed.outcomes.length;
-  if (needsYou + sections.working.length + sections.done.length + sections.recent.length === 0) {
+  if (needsYou + sections.working.length + sections.done.length + sections.loops.length + sections.recent.length === 0) {
     return <p className="empty">No agent is working, waiting on you or finished lately.</p>;
   }
   return (
@@ -80,6 +80,11 @@ export function AgentsView({
       {sections.done.length > 0 && (
         <Section name="Done" count={sections.done.length} kind="done" folded={doneFolded} onFold={onFoldDone}>
           {sections.done.map(row)}
+        </Section>
+      )}
+      {sections.loops.length > 0 && (
+        <Section name="Loops" count={sections.loops.length} kind="loops">
+          {sections.loops.map(row)}
         </Section>
       )}
       {sections.recent.length > 0 && (
