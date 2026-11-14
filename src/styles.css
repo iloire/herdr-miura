@@ -6966,30 +6966,40 @@ button.agents-status-head {
   text-decoration: underline;
 }
 
-.todoist-view {
+.todoist-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.todoist-tools-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  max-width: 100%;
-  padding: 1px 4px;
-  background: transparent;
-  border: 1px solid transparent;
+}
+
+/* Which tasks the panel lists: the setting's filter, a preset, or a project. */
+.todoist-view {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  background: var(--ink);
+  border: 1px solid var(--rule);
   border-radius: 6px;
   color: var(--hue);
   font: 600 calc(12px * var(--ui-scale)) var(--sans);
-  letter-spacing: 0;
   text-overflow: ellipsis;
-  text-transform: none;
   cursor: pointer;
-}
-
-.todoist-view:hover,
-.todoist-view:focus-visible {
-  border-color: var(--rule);
 }
 
 .todoist-view option,
 .todoist-view optgroup {
-  background: var(--ink);
   color: var(--text);
+}
+
+.todoist-tools-row .queue-scope {
+  flex: none;
 }
 
 .todoist-template {

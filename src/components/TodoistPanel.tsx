@@ -171,36 +171,8 @@ export function TodoistPanel({
   const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
   const head = (
     <>
-      <span className="queue-head-title">
+      <span className="queue-head-title" title={`Todoist filter: ${shownFilter}`}>
         Todoist
-        {tasks.off ? (
-          <b>{filter}</b>
-        ) : (
-          <select
-            className="todoist-view"
-            aria-label="Which tasks"
-            title={`Todoist filter: ${shownFilter}`}
-            value={view ?? ""}
-            onChange={(event) => onView(event.target.value || null)}
-          >
-            <option value="">{filter}</option>
-            {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
-              <option key={query} value={query}>
-                {label}
-              </option>
-            ))}
-            {view !== null && !viewed && !VIEWS.some(([query]) => query === view) && <option value={view}>{view}</option>}
-            {names.length > 0 && (
-              <optgroup label="Projects">
-                {names.map((name) => (
-                  <option key={name} value={projectView(name)}>
-                    {name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        )}
       </span>
       {!tasks.off && (
         <button
@@ -215,6 +187,32 @@ export function TodoistPanel({
         </button>
       )}
     </>
+  );
+  const picker = (
+    <select
+      className="todoist-view"
+      aria-label="Todoist view"
+      title={`Todoist filter: ${shownFilter}`}
+      value={view ?? ""}
+      onChange={(event) => onView(event.target.value || null)}
+    >
+      <option value="">{filter}</option>
+      {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
+        <option key={query} value={query}>
+          {label}
+        </option>
+      ))}
+      {view !== null && !viewed && !VIEWS.some(([query]) => query === view) && <option value={view}>{view}</option>}
+      {names.length > 0 && (
+        <optgroup label="Projects">
+          {names.map((name) => (
+            <option key={name} value={projectView(name)}>
+              {name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </select>
   );
   const scope = mapped && (
     <span className="queue-scope" role="group" aria-label="Which tasks">
@@ -255,27 +253,34 @@ export function TodoistPanel({
   return (
     <aside className="changes sessions-panel todoist-panel" aria-label="Todoist" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">{head}</header>
-      {scope && <div className="queue-scope-row">{scope}</div>}
       {failed && <div className="queue-banner" role="status">{failed}</div>}
-      {!tasks.off && <QuickAdd controller={controller} project={viewed ?? projectFor(folder, projects, home)} onAdded={refresh} />}
-      {read && read.tasks.length > 0 && (
-        <div className="files-filter">
-          <input
-            type="search"
-            placeholder="Filter tasks"
-            aria-label="Filter tasks"
-            spellCheck={false}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && shown[0]) setOpen(shown[0]);
-              else if (event.key === "Escape") {
-                if (query) setQuery("");
-                else controller.focusTerminal();
-              } else return;
-              event.preventDefault();
-            }}
-          />
+      {tasks.off ? (
+        scope && <div className="queue-scope-row">{scope}</div>
+      ) : (
+        <div className="files-filter todoist-tools">
+          <div className="todoist-tools-row">
+            {picker}
+            {scope}
+          </div>
+          <QuickAdd controller={controller} project={viewed ?? projectFor(folder, projects, home)} onAdded={refresh} />
+          {read && read.tasks.length > 0 && (
+            <input
+              type="search"
+              placeholder="Filter tasks"
+              aria-label="Filter tasks"
+              spellCheck={false}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && shown[0]) setOpen(shown[0]);
+                else if (event.key === "Escape") {
+                  if (query) setQuery("");
+                  else controller.focusTerminal();
+                } else return;
+                event.preventDefault();
+              }}
+            />
+          )}
         </div>
       )}
       {!read && !failed && <p className="empty">Reading Todoist…</p>}
@@ -490,7 +495,7 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
       .finally(() => setBusy(false));
   };
   return (
-    <div className="files-filter todoist-add">
+    <div className="todoist-add">
       <input
         type="text"
         placeholder={`Add a task to ${where}`}

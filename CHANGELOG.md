@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 12:05 — Todoist view picker moves under the panel's head
+
+The picker sat in the head, where a narrow column cut it to a few letters. It now leads a strip under the head, full
+width, with This repo / All beside it and the add and filter boxes below.
+
 ## 2026-11-14 11:50 — Loops section folds like Done and Recent
 
 A click on its heading folds the Agents tab's Loops section to one line, and the window remembers it. Open at first.
