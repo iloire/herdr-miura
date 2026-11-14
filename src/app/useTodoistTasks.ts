@@ -29,6 +29,12 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
   const [asked, setAsked] = useState(0);
   const refresh = useCallback(() => setAsked((n) => n + 1), []);
 
+  // Another filter's tasks are not this one's, even for the moment its read takes.
+  useEffect(() => {
+    setRead(null);
+    setFailed(null);
+  }, [filter]);
+
   useEffect(() => {
     if (!enabled) return;
     let live = true;

@@ -21,7 +21,35 @@ import {
   tasksFor,
   taskUrl,
   templateFor,
+  loadView,
+  projectView,
+  saveView,
+  viewedProject,
 } from "../todoist";
+
+describe("views", () => {
+  it("names a project and its sub-projects, escaping Todoist's operators", () => {
+    expect(projectView("Inbox")).toBe("##Inbox");
+    expect(projectView("Work & Home (old)")).toBe("##Work \\& Home \\(old\\)");
+    expect(viewedProject("##Work \\& Home (old)", ["Work & Home (old)"])).toBeNull();
+    expect(viewedProject(projectView("Work & Home"), ["Inbox", "Work & Home"])).toBe("Work & Home");
+    expect(viewedProject("today | overdue", ["Inbox"])).toBeNull();
+  });
+
+  it("keeps the picked view, and none when storage fails", () => {
+    const kept = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => kept.get(key) ?? null,
+      setItem: (key: string, value: string) => void kept.set(key, value),
+      removeItem: (key: string) => void kept.delete(key),
+    };
+    saveView("##Inbox", storage);
+    expect(loadView(storage)).toBe("##Inbox");
+    saveView(null, storage);
+    expect(loadView(storage)).toBeNull();
+    expect(loadView({ getItem: () => { throw new Error("blocked"); } })).toBeNull();
+  });
+});
 
 const task = (patch: Partial<Task> = {}): Task => ({
   id: "6gv",

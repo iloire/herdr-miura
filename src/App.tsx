@@ -20,7 +20,7 @@ import { useLedger } from "./app/useLedger";
 import { useTodoistLinks } from "./app/useTodoistLinks";
 import { offers, taskOfPanes } from "./app/todoistLinks";
 import { useTodoistTasks } from "./app/useTodoistTasks";
-import { dueBy, localDay } from "./app/todoist";
+import { dueBy, loadView, localDay, saveView } from "./app/todoist";
 import { AGENT_FILTER } from "./app/todoistTriage";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
@@ -301,7 +301,14 @@ export default function App() {
   // Which Todoist task each outcome's prompt came from (docs/plan-todoist.md).
   const todoist = useTodoistLinks(controller, ledger.list, local);
   // The tasks the Todoist panel lists and the status bar counts.
-  const todoistTasks = useTodoistTasks(state.settings.todoistFilter, state.todoist);
+  const [todoistView, setTodoistView] = useState(loadView);
+  const pickTodoistView = (view: string | null) => {
+    setTodoistView(view);
+    saveView(view);
+  };
+  const todoistTasks = useTodoistTasks(state.settings.todoistFilter, state.todoist && todoistView === null);
+  // The panel's own view when one is picked: Inbox, a project, all tasks.
+  const viewTasks = useTodoistTasks(todoistView ?? "", state.todoist, todoistView !== null && !todoistTasks.off);
   // Tasks labelled `@agent`, offered in the queue's panel (docs/plan-todoist.md, idea 5).
   const agentTasks = useTodoistTasks(AGENT_FILTER, state.queue, !todoistTasks.off);
   const todoistChip = {
@@ -848,7 +855,9 @@ export default function App() {
                 workspace={focusedWorkspace ?? null}
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 filter={state.settings.todoistFilter}
-                tasks={todoistTasks}
+                view={todoistView}
+                onView={pickTodoistView}
+                tasks={todoistView === null ? todoistTasks : viewTasks}
                 projects={state.settings.todoistProjects}
                 home={home}
                 targets={todoistTargets}

@@ -145,6 +145,8 @@ pub fn run() {
             commands::todoist_completed,
             commands::todoist_link,
             commands::todoist_links,
+            commands::todoist_projects,
+            commands::todoist_quick_add,
             commands::todoist_set_done,
             commands::todoist_set_labels,
             commands::todoist_tasks,

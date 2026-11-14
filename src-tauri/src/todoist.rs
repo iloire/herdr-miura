@@ -229,6 +229,12 @@ impl Cache {
         Ok(names)
     }
 
+    /// Every project's name, the Inbox first and then by name, for the panel's view picker.
+    pub fn project_names(&self) -> Result<Vec<String>, Error> {
+        let token = token()?;
+        Ok(sorted_names(self.projects(&token)?.into_values()))
+    }
+
     /// The tasks `filter` matches, in Todoist's filter syntax.
     pub fn tasks(&self, filter: &str) -> Result<Tasks, Error> {
         let token = token()?;
@@ -253,6 +259,65 @@ impl Cache {
         let raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
         Ok(shape(raw, &projects))
     }
+
+    /// Adds a task typed as in Todoist's own quick add, which reads the date,
+    /// `p1`–`p4`, `#project` and `@label` out of `text`. One with no date is
+    /// due today, so a today view shows it; one left in the Inbox moves to the
+    /// project named `project`, the workspace's repo, when there is one.
+    pub fn quick_add(&self, text: &str, project: Option<&str>) -> Result<Task, Error> {
+        let request = quick_write(text)?;
+        let token = token()?;
+        let projects = self.projects(&token)?;
+        let body = post(&token, &request)?;
+        let mut raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
+        let mapped = project.and_then(|want| projects.iter().find(|(_, name)| name.eq_ignore_ascii_case(want.trim())));
+        // The task is in Todoist now: a follow-up that fails leaves it as typed, not lost.
+        for request in follow_ups(&raw, &projects, mapped.map(|(id, _)| id.as_str())) {
+            post(&token, &request)?;
+        }
+        if raw.due.is_none() {
+            raw.due = Some(RawDue { date: crate::ledger::now_utc().chars().take(10).collect(), string: Some("today".into()) });
+        }
+        if let Some((id, _)) = mapped.filter(|_| in_inbox(&raw, &projects)) {
+            raw.project_id = Some(id.clone());
+        }
+        Ok(shape(raw, &projects))
+    }
+}
+
+/// The request that quick-adds `text`, read by Todoist as its quick add box reads it.
+fn quick_write(text: &str) -> Result<Write, Error> {
+    let text: String = text.trim().chars().filter(|c| !c.is_control()).take(MAX_TITLE).collect();
+    if text.is_empty() {
+        return Err(Error::Shape("a task needs a title".into()));
+    }
+    Ok(Write { path: "/tasks/quick".into(), body: Some(serde_json::json!({ "text": text })) })
+}
+
+fn in_inbox(task: &RawTask, projects: &HashMap<String, String>) -> bool {
+    task.project_id.as_ref().and_then(|id| projects.get(id)).is_some_and(|name| name.eq_ignore_ascii_case("inbox"))
+}
+
+/// What a quick-added `task` still needs: today as its date when it has none,
+/// and a move to `project` (an id) when the text left it in the Inbox.
+fn follow_ups(task: &RawTask, projects: &HashMap<String, String>, project: Option<&str>) -> Vec<Write> {
+    let id = &task.id;
+    let mut writes = Vec::new();
+    if task.due.is_none() {
+        writes.push(Write { path: format!("/tasks/{id}"), body: Some(serde_json::json!({ "due_string": "today", "due_lang": "en" })) });
+    }
+    if let Some(project) = project.filter(|_| in_inbox(task, projects)) {
+        writes.push(Write { path: format!("/tasks/{id}/move"), body: Some(serde_json::json!({ "project_id": project })) });
+    }
+    writes
+}
+
+/// Project names, the Inbox first and then by name, any case.
+fn sorted_names(names: impl Iterator<Item = String>) -> Vec<String> {
+    let mut names: Vec<String> = names.collect();
+    names.sort_by_key(|name| (!name.eq_ignore_ascii_case("inbox"), name.to_lowercase()));
+    names.dedup();
+    names
 }
 
 /// A task to add: its title, and optionally a description and a due date in
@@ -663,6 +728,12 @@ mod tests {
     }
 
     #[test]
+    fn sorts_project_names_inbox_first() {
+        let names = ["work", "Inbox", "Errands", "Herdr"].map(String::from);
+        assert_eq!(sorted_names(names.into_iter()), ["Inbox", "Errands", "Herdr", "work"]);
+    }
+
+    #[test]
     fn shapes_a_task_with_its_project_name() {
         let raw: RawTask = serde_json::from_str(
             r#"{"id":"6gv","content":"Fix it","description":"why","project_id":"p1","labels":["agent"],
@@ -712,6 +783,34 @@ mod tests {
         let long = NewTask { title: "x".repeat(600), ..NewTask::default() };
         assert_eq!(new_task(&long, None)?.body.unwrap_or_default()["content"].as_str().map(str::len), Some(500));
         Ok(())
+    }
+
+    #[test]
+    fn a_quick_add_sends_the_text_whole() -> Result<(), Error> {
+        assert_eq!(
+            quick_write(" dentista tomorrow 10am p1 #Personal @agent ")?,
+            Write { path: "/tasks/quick".into(), body: Some(serde_json::json!({ "text": "dentista tomorrow 10am p1 #Personal @agent" })) }
+        );
+        assert!(matches!(quick_write(" \n"), Err(Error::Shape(_))));
+        Ok(())
+    }
+
+    #[test]
+    fn a_quick_added_task_gets_today_and_leaves_the_inbox() {
+        let projects = HashMap::from([("in".to_owned(), "Inbox".to_owned()), ("p1".to_owned(), "Herdr".to_owned())]);
+        let read = |json: &str| serde_json::from_str::<RawTask>(json).unwrap_or_else(|error| panic!("{error}"));
+        let bare = read(r#"{"id":"6gv","content":"x","project_id":"in"}"#);
+        assert_eq!(
+            follow_ups(&bare, &projects, Some("p1")),
+            vec![
+                Write { path: "/tasks/6gv".into(), body: Some(serde_json::json!({ "due_string": "today", "due_lang": "en" })) },
+                Write { path: "/tasks/6gv/move".into(), body: Some(serde_json::json!({ "project_id": "p1" })) },
+            ]
+        );
+        assert_eq!(follow_ups(&bare, &projects, None).len(), 1);
+        // Typed with a date and a #project: Todoist read both, nothing to add.
+        let typed = read(r#"{"id":"6gv","content":"x","project_id":"p1","due":{"date":"2026-11-15","string":"tomorrow"}}"#);
+        assert_eq!(follow_ups(&typed, &projects, Some("in")), vec![]);
     }
 
     #[test]

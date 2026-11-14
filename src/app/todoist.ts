@@ -30,6 +30,46 @@ export interface Tasks {
 
 export const readTasks = (filter: string) => invoke<Tasks>("todoist_tasks", { filter });
 
+/// Every project's name, the Inbox first, for the panel's view picker.
+export const readProjects = () => invoke<string[]>("todoist_projects");
+
+// The panel's view: which tasks it lists. Null is the `todoist.filter` setting,
+// which the status bar counts too; the others are Todoist filters of their own.
+
+/// Views beside the setting's filter and the projects, as filter and label.
+export const VIEWS: readonly (readonly [string, string])[] = [
+  ["today | overdue", "Today"],
+  ["7 days", "Next 7 days"],
+  ["all", "All tasks"],
+];
+
+/// The filter for a project and its sub-projects, its name escaped where Todoist's syntax needs it.
+export const projectView = (name: string) => `##${name.replace(/[\\&|!(),]/g, "\\$&")}`;
+
+/// The project a view lists, null for any other view.
+export function viewedProject(view: string | null, projects: readonly string[]): string | null {
+  return projects.find((name) => projectView(name) === view) ?? null;
+}
+
+const VIEW_KEY = "todoist-view";
+
+export function loadView(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): string | null {
+  try {
+    return storage?.getItem(VIEW_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveView(view: string | null, storage: Pick<Storage, "setItem" | "removeItem"> | undefined = globalThis.localStorage): void {
+  try {
+    if (view) storage?.setItem(VIEW_KEY, view);
+    else storage?.removeItem(VIEW_KEY);
+  } catch {
+    // A view that does not stay picked is only a convenience lost.
+  }
+}
+
 /// A comment on a task.
 export interface Comment {
   content: string;

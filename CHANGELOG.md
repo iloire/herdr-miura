@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 11:44 — Pick the Todoist panel's view: Today, a project, all tasks
+
+The filter name in the Todoist panel's head is now a picker: the `todoist.filter` setting (still what the status bar
+counts), Today, Next 7 days, All tasks, or any project with its sub-projects. The choice is kept per window, and adding
+a task while a project is picked adds it there. The tick boxes that queued several tasks at once are gone.
+
 ## 2026-11-14 11:36 — Agents tab lists /loop sessions under Loops
 
 A session `/loop` will run again stays active for good, so it no longer sits in Done between ticks or in Working

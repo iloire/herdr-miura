@@ -6753,12 +6753,6 @@ button.agents-status-head {
   min-width: 0;
 }
 
-.todoist-tick {
-  flex: none;
-  margin: 11px 0 0 10px;
-  accent-color: var(--hue);
-}
-
 /* Complete: a round box at the row's end, as Todoist draws one; a ✓ on hover. */
 .todoist-complete {
   display: grid;
@@ -6824,7 +6818,6 @@ button.agents-status-head {
   gap: 12px;
 }
 
-.todoist-batch,
 .todoist-triage-head,
 .todoist-proposal-row {
   display: flex;
@@ -6834,18 +6827,6 @@ button.agents-status-head {
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-batch {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--hue) 8%, transparent);
-}
-
-.todoist-batch span {
-  flex: 1;
-  color: var(--text);
-}
-
-.todoist-batch button,
 .todoist-triage button {
   padding: 2px 9px;
   border: 1px solid var(--rule);
@@ -6854,17 +6835,14 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-batch button:hover:not(:disabled),
 .todoist-triage button:hover:not(:disabled) {
   background: var(--rule);
 }
 
-.todoist-batch button:disabled,
 .todoist-triage button:disabled {
   opacity: 0.45;
 }
 
-.todoist-batch .todoist-batch-clear,
 .todoist-triage .todoist-batch-clear {
   border-color: transparent;
   color: var(--muted);
@@ -6986,6 +6964,32 @@ button.agents-status-head {
 .todoist-show-all {
   color: var(--hue);
   text-decoration: underline;
+}
+
+.todoist-view {
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--hue);
+  font: 600 calc(12px * var(--ui-scale)) var(--sans);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.todoist-view:hover,
+.todoist-view:focus-visible {
+  border-color: var(--rule);
+}
+
+.todoist-view option,
+.todoist-view optgroup {
+  background: var(--ink);
+  color: var(--text);
 }
 
 .todoist-template {

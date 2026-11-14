@@ -4,7 +4,6 @@ import type { Task } from "../todoist";
 import {
   acceptedLabels,
   agentSuggestions,
-  batchPrompt,
   isAgentTask,
   parseSuggestions,
   queuedTaskIds,
@@ -63,17 +62,6 @@ describe("queuedTaskIds", () => {
     // A batch keeps its first task where outcomes are written back from.
     expect(queue.items[1].todoist).toEqual({ id: "b", title: "B" });
     expect(queue.items[0].todoistBatch).toBeUndefined();
-  });
-});
-
-describe("batchPrompt", () => {
-  it("is the task alone for one, and one block each for several", () => {
-    expect(batchPrompt([task()])).toMatch(/^Todoist task: Fix the filter/);
-    const text = batchPrompt([task(), task({ id: "x", title: "Second", url: "https://app.todoist.com/app/task/x" })]);
-    expect(text).toMatch(/^These 2 Todoist tasks are related/);
-    expect(text).toContain("## 1. Fix the filter\n\nTodoist task: Fix the filter");
-    expect(text).toContain("## 2. Second\n\nTodoist task: Second");
-    expect(text).toContain("https://app.todoist.com/app/task/x");
   });
 });
 

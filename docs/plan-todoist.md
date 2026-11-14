@@ -98,7 +98,7 @@ Nothing here starts an agent or adds a prompt by itself.
   not suggested again: the item keeps its id.
 - ~~Several tasks selected at once become one queue prompt or several, so related tasks run as one batch.~~ ✅ Tick boxes
   in the Todoist panel: **Queue as one** (one prompt, a task block each, outcomes written back to the first task) or
-  **One each** (each with its template, in its own repo's queue).
+  **One each** (each with its template, in its own repo's queue). Removed 2026-11-14: not used.
 - ~~A cheap agent triages the inbox, suggesting a repo and a template for each task, to accept or refuse.~~ ✅ **Suggest
   repo and template** runs Haiku (`claude -p`, no tools, no settings) over the listed tasks. A proposal accepted sets
   the task's labels in Todoist (`@repo:<name>`, the template's name), which routing and `templateFor` already read.

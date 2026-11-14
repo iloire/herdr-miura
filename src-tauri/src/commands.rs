@@ -483,6 +483,20 @@ pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Ta
     Ok(read.await.map_err(todoist::Error::Worker)??)
 }
 
+/// Adds a task typed in Todoist's quick add syntax (`tomorrow p1 #Project @label`).
+#[tauri::command]
+pub async fn todoist_quick_add(app: AppHandle, text: String, project: Option<String>) -> Result<todoist::Task> {
+    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().quick_add(&text, project.as_deref()));
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
+/// Every Todoist project's name, the Inbox first, for the panel's view picker.
+#[tauri::command]
+pub async fn todoist_projects(app: AppHandle) -> Result<Vec<String>> {
+    let read = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().project_names());
+    Ok(read.await.map_err(todoist::Error::Worker)??)
+}
+
 /// Adds `task` to the Todoist project named `project`, else the Inbox.
 #[tauri::command]
 pub async fn todoist_add(app: AppHandle, task: todoist::NewTask, project: Option<String>) -> Result<todoist::Task> {

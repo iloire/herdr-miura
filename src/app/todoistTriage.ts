@@ -7,7 +7,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Queue, TaskRef } from "./queue";
-import { expandFolder, sortTasks, type Task, taskBlock, taskRepo } from "./todoist";
+import { expandFolder, sortTasks, type Task, taskRepo } from "./todoist";
 
 /// The label that offers a task to the queue: `@agent` in Todoist.
 export const AGENT_LABEL = "agent";
@@ -50,16 +50,6 @@ export function agentSuggestions(
       return repo === null || repo === folder;
     }),
   );
-}
-
-/// Several tasks as one prompt, one task block each, to run as one batch.
-export function batchPrompt(tasks: readonly Task[]): string {
-  if (tasks.length === 1) return taskBlock(tasks[0]);
-  const blocks = tasks.map((task, index) => `## ${index + 1}. ${task.title}\n\n${taskBlock(task)}`);
-  return [
-    `These ${tasks.length} Todoist tasks are related: do them together in this session, one commit per task.`,
-    ...blocks,
-  ].join("\n\n");
 }
 
 // Triage: a repo and a template for each listed task, suggested by a cheap

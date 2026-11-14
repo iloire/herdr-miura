@@ -13,6 +13,8 @@ import {
   overdue,
   projectFor,
   readComments,
+  readProjects,
+  projectView,
   sendTarget,
   setDone,
   sortTasks,
@@ -21,18 +23,18 @@ import {
   taskRepo,
   tasksFor,
   templateFor,
+  VIEWS,
+  viewedProject,
 } from "../app/todoist";
 import { linkTask } from "../app/todoistLinks";
 import {
   acceptedLabels,
   askTriage,
-  batchPrompt,
   parseSuggestions,
   repoName,
   setLabels,
   type Suggestion,
   TRIAGE_MAX,
-  taskRef,
   triagePrompt,
   triageRepos,
 } from "../app/todoistTriage";
@@ -57,6 +59,8 @@ export function TodoistPanel({
   workspace,
   hue,
   filter,
+  view,
+  onView,
   tasks,
   projects,
   home,
@@ -69,8 +73,12 @@ export function TodoistPanel({
   snapshot: Snapshot;
   workspace: Workspace | null;
   hue: string;
+  /// `todoist.filter`, the panel's view unless another is picked.
   filter: string;
-  /// The tasks `filter` matches, read by `App` for the status bar too.
+  /// The view picked in the panel, a Todoist filter; null for `filter`.
+  view: string | null;
+  onView: (view: string | null) => void;
+  /// The view's tasks, read by `App`: `filter`'s count on the status bar too.
   tasks: TodoistTasks;
   /// `todoist.projects`: project names to repo folders.
   projects: Record<string, string>;
@@ -88,8 +96,6 @@ export function TodoistPanel({
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
   const [showAll, setShowAll] = useState(false);
-  // Tasks ticked to queue together, by id.
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // Tasks completed here, hidden at once: `closing` while Todoist is asked,
   // `closed` until the next read (a recurring one comes back on its next date).
   const [completed, setCompleted] = useState<ReadonlyMap<string, "closing" | "closed">>(new Map());
@@ -139,47 +145,62 @@ export function TodoistPanel({
     };
   }, [folder]);
 
+  // Todoist's projects, for the view picker.
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (tasks.off) return;
+    let live = true;
+    readProjects()
+      .then((next) => live && setNames(next))
+      .catch(() => live && setNames([]));
+    return () => {
+      live = false;
+    };
+  }, [tasks.off]);
+  const viewed = viewedProject(view, names);
+  const shownFilter = view ?? filter;
+
   const today = localDay();
-  const mapped = isMapped(folder, projects, home);
+  // Only the setting's filter is narrowed to this repo; a picked view lists what it names.
+  const mapped = view === null && isMapped(folder, projects, home);
   const folders = useMemo(() => targets.map((target) => target.folder), [targets]);
   const scoped = useMemo(() => {
     const tasks = (read?.tasks ?? []).filter((task) => !completed.has(task.id));
     return mapped && !showAll && folder ? tasksFor(tasks, folder, projects, home, folders) : tasks;
   }, [read, completed, mapped, showAll, folder, projects, home, folders]);
   const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
-  // Ticked tasks still listed, in list order.
-  const picked = useMemo(() => (read?.tasks ?? []).filter((task) => selected.has(task.id)), [read, selected]);
-  const toggle = (id: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  // The queue a task goes to: its own repo's open workspace's, else this one's.
-  const queueOf = (task: Task) => sendTarget(taskRepo(task, projects, home, folders), folder, targets)?.queueFolder ?? queueFolder;
-  const queueBatch = async (each: boolean) => {
-    if (!queue || picked.length === 0) return;
-    if (each) {
-      const comments = await Promise.all(picked.map((task) => readComments(task.id).catch(() => [])));
-      picked.forEach((task, index) => {
-        const into = queueOf(task);
-        const body = templateFor(task, prompts)?.body ?? null;
-        if (into) queue.add(into, fillTemplate(body, task, comments[index]), false, taskRef(task));
-      });
-    } else {
-      // Their shared repo's queue when they all have one, else this workspace's.
-      const into = new Set(picked.map(queueOf));
-      const only = into.size === 1 ? [...into][0] : queueFolder;
-      if (only) queue.add(only, batchPrompt(picked), false, picked.map(taskRef));
-    }
-    setSelected(new Set());
-    controller.openQueue();
-  };
-
   const head = (
     <>
-      <span className="queue-head-title" title={`Todoist filter: ${filter}`}>
-        Todoist <b>{filter}</b>
+      <span className="queue-head-title">
+        Todoist
+        {tasks.off ? (
+          <b>{filter}</b>
+        ) : (
+          <select
+            className="todoist-view"
+            aria-label="Which tasks"
+            title={`Todoist filter: ${shownFilter}`}
+            value={view ?? ""}
+            onChange={(event) => onView(event.target.value || null)}
+          >
+            <option value="">{filter}</option>
+            {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
+              <option key={query} value={query}>
+                {label}
+              </option>
+            ))}
+            {view !== null && !viewed && !VIEWS.some(([query]) => query === view) && <option value={view}>{view}</option>}
+            {names.length > 0 && (
+              <optgroup label="Projects">
+                {names.map((name) => (
+                  <option key={name} value={projectView(name)}>
+                    {name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        )}
       </span>
       {!tasks.off && (
         <button
@@ -236,7 +257,7 @@ export function TodoistPanel({
       <header className="changes-head queue-head">{head}</header>
       {scope && <div className="queue-scope-row">{scope}</div>}
       {failed && <div className="queue-banner" role="status">{failed}</div>}
-      {!tasks.off && <QuickAdd controller={controller} project={projectFor(folder, projects, home)} onAdded={refresh} />}
+      {!tasks.off && <QuickAdd controller={controller} project={viewed ?? projectFor(folder, projects, home)} onAdded={refresh} />}
       {read && read.tasks.length > 0 && (
         <div className="files-filter">
           <input
@@ -261,7 +282,7 @@ export function TodoistPanel({
       {read?.tasks.length === 0 && (
         <div className="queue-off">
           <p>
-            No tasks match <b>{filter}</b>. The filter is in Settings.
+            No tasks match <b>{shownFilter}</b>.{view === null && " The filter is in Settings."}
           </p>
         </div>
       )}
@@ -281,30 +302,6 @@ export function TodoistPanel({
         </div>
       )}
       {scoped.length > 0 && shown.length === 0 && <p className="empty">No task holds “{query.trim()}”.</p>}
-      {picked.length > 0 && (
-        <div className="todoist-batch" role="group" aria-label="Ticked tasks">
-          <span>{picked.length} ticked</span>
-          <button
-            type="button"
-            disabled={!queue}
-            title={queue ? "One prompt holding every ticked task, one block each, to run as one batch" : "Another window has the queue."}
-            onClick={() => controller.act(queueBatch(false))}
-          >
-            Queue as one
-          </button>
-          <button
-            type="button"
-            disabled={!queue}
-            title={queue ? "A prompt per task, each filled with its template, in its own repo's queue" : "Another window has the queue."}
-            onClick={() => controller.act(queueBatch(true))}
-          >
-            One each
-          </button>
-          <button type="button" className="todoist-batch-clear" onClick={() => setSelected(new Set())}>
-            Clear
-          </button>
-        </div>
-      )}
       {shown.length > 0 && (
         <Triage
           controller={controller}
@@ -322,14 +319,6 @@ export function TodoistPanel({
         <ul className="todoist-list">
           {shown.map((task) => (
             <li key={task.id} className="todoist-item">
-              <input
-                type="checkbox"
-                className="todoist-tick"
-                aria-label={`Tick “${task.title}” to queue with others`}
-                title="Tick several to queue them as one prompt or one each"
-                checked={selected.has(task.id)}
-                onChange={() => toggle(task.id)}
-              />
               <button className="session-row todoist-row" title={task.description || task.title} onClick={() => setOpen(task)}>
                 <span className="session-title">
                   {PRIORITY[task.priority] && <span className={`todoist-priority ${PRIORITY[task.priority]}`} aria-label={`priority ${5 - task.priority}`} />}
