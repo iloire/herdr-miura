@@ -504,6 +504,13 @@ pub async fn todoist_set_labels(task: String, labels: Vec<String>) -> Result<()>
     Ok(run.await.map_err(todoist::Error::Worker)??)
 }
 
+/// Completes the Todoist task `task` from the panel, or reopens it (`done` false) to undo that.
+#[tauri::command]
+pub async fn todoist_set_done(task: String, done: bool) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || todoist::set_done(&task, done));
+    Ok(run.await.map_err(todoist::Error::Worker)??)
+}
+
 /// What a cheap Claude (Haiku, no tools) answers to the triage question `prompt`.
 #[tauri::command]
 pub async fn todoist_triage(prompt: String) -> Result<String> {

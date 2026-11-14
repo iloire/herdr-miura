@@ -349,6 +349,22 @@ pub fn set_labels(task: &str, labels: &[String]) -> Result<(), Error> {
     post(&token()?, &request).map(drop)
 }
 
+/// The request that completes `task`, or reopens it when `done` is false
+/// (the panel's undo). Completing also completes its open subtasks; a
+/// recurring task moves to its next date instead.
+fn done_write(task: &str, done: bool) -> Result<Write, Error> {
+    if !plain_id(task) {
+        return Err(Error::BadLink(task.to_owned()));
+    }
+    Ok(Write { path: format!("/tasks/{task}/{}", if done { "close" } else { "reopen" }), body: None })
+}
+
+/// Completes `task` in Todoist, or reopens it.
+pub fn set_done(task: &str, done: bool) -> Result<(), Error> {
+    let request = done_write(task, done)?;
+    post(&token()?, &request).map(drop)
+}
+
 fn shape(task: RawTask, projects: &HashMap<String, String>) -> Task {
     Task {
         url: format!("https://app.todoist.com/app/task/{}", task.id),
@@ -593,6 +609,14 @@ mod tests {
         assert_eq!(requests[1], Write { path: "/tasks/6gv/close".into(), body: None });
         let (_, bare) = writes("6gv", &entry("verified", ""), &[])?;
         assert_eq!(bare[0].body.clone().unwrap_or_default()["content"], "Done by an agent in Herdr Miura on `fix-x`, verified against Git.\n\nAt commit 0123456789ab.");
+        Ok(())
+    }
+
+    #[test]
+    fn completing_closes_and_undo_reopens() -> Result<(), Error> {
+        assert_eq!(done_write("6gv", true)?, Write { path: "/tasks/6gv/close".into(), body: None });
+        assert_eq!(done_write("6gv", false)?, Write { path: "/tasks/6gv/reopen".into(), body: None });
+        assert!(done_write("../projects", true).is_err());
         Ok(())
     }
 

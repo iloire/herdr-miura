@@ -6759,6 +6759,71 @@ button.agents-status-head {
   accent-color: var(--hue);
 }
 
+/* Complete: a round box at the row's end, as Todoist draws one; a ✓ on hover. */
+.todoist-complete {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  margin: 10px 12px 0 4px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  color: transparent;
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.todoist-complete::after {
+  content: "✓";
+}
+
+.todoist-item:hover .todoist-complete,
+.todoist-complete:focus-visible {
+  opacity: 1;
+}
+
+.todoist-complete:hover {
+  border-color: var(--working);
+  background: color-mix(in srgb, var(--working) 18%, transparent);
+  color: var(--working);
+}
+
+.todoist-done-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+
+.todoist-done-bar span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todoist-done-bar button {
+  padding: 2px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.todoist-done-bar button:hover {
+  background: var(--rule);
+}
+
+.todoist-task-links {
+  display: flex;
+  gap: 12px;
+}
+
 .todoist-batch,
 .todoist-triage-head,
 .todoist-proposal-row {

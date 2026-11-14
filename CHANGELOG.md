@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 09:29 — Complete a Todoist task from the panel
+
+Each task in the Todoist panel has a round button at its end, as in Todoist, and an opened task has ✓ Complete. The
+task closes in Todoist and leaves the list at once; Undo reopens it. Its open subtasks close with it, and a recurring
+task moves to its next date.
+
 ## 2026-11-13 14:11 — Todoist panel gets a refresh button
 
 The panel reads Todoist every minute while open, every five minutes closed, and on window focus. A task added in

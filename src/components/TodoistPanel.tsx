@@ -14,6 +14,7 @@ import {
   projectFor,
   readComments,
   sendTarget,
+  setDone,
   sortTasks,
   type Target,
   type Task,
@@ -89,6 +90,44 @@ export function TodoistPanel({
   const [showAll, setShowAll] = useState(false);
   // Tasks ticked to queue together, by id.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Tasks completed here, hidden at once: `closing` while Todoist is asked,
+  // `closed` until the next read (a recurring one comes back on its next date).
+  const [completed, setCompleted] = useState<ReadonlyMap<string, "closing" | "closed">>(new Map());
+  // The last one completed, for Undo.
+  const [undoable, setUndoable] = useState<Task | null>(null);
+  useEffect(() => {
+    setCompleted((current) => {
+      const next = new Map([...current].filter(([, state]) => state === "closing"));
+      return next.size === current.size ? current : next;
+    });
+  }, [read]);
+  const mark = (id: string, state: "closing" | "closed" | null) =>
+    setCompleted((current) => {
+      const next = new Map(current);
+      if (state) next.set(id, state);
+      else next.delete(id);
+      return next;
+    });
+  const complete = (task: Task) => {
+    mark(task.id, "closing");
+    setUndoable(null);
+    controller.act(
+      setDone(task.id, true)
+        .then(() => {
+          mark(task.id, "closed");
+          setUndoable(task);
+          refresh();
+        })
+        .catch((error) => {
+          mark(task.id, null);
+          throw error;
+        }),
+    );
+  };
+  const undo = (task: Task) => {
+    setUndoable(null);
+    controller.act(setDone(task.id, false).then(refresh));
+  };
 
   useEffect(() => {
     let live = true;
@@ -104,9 +143,9 @@ export function TodoistPanel({
   const mapped = isMapped(folder, projects, home);
   const folders = useMemo(() => targets.map((target) => target.folder), [targets]);
   const scoped = useMemo(() => {
-    const tasks = read?.tasks ?? [];
+    const tasks = (read?.tasks ?? []).filter((task) => !completed.has(task.id));
     return mapped && !showAll && folder ? tasksFor(tasks, folder, projects, home, folders) : tasks;
-  }, [read, mapped, showAll, folder, projects, home, folders]);
+  }, [read, completed, mapped, showAll, folder, projects, home, folders]);
   const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
   // Ticked tasks still listed, in list order.
   const picked = useMemo(() => (read?.tasks ?? []).filter((task) => selected.has(task.id)), [read, selected]);
@@ -183,6 +222,10 @@ export function TodoistPanel({
           queueFolder={queueFolder}
           queue={queue}
           onBack={() => setOpen(null)}
+          onComplete={() => {
+            complete(open);
+            setOpen(null);
+          }}
         />
       </aside>
     );
@@ -227,6 +270,14 @@ export function TodoistPanel({
           <p>
             None of the {read.tasks.length} tasks is for this repo. <button className="todoist-show-all" onClick={() => setShowAll(true)}>Show all</button>
           </p>
+        </div>
+      )}
+      {undoable && (
+        <div className="todoist-done-bar" role="status">
+          <span title={undoable.title}>Completed “{undoable.title}”</span>
+          <button type="button" title="Reopen it in Todoist" onClick={() => undo(undoable)}>
+            Undo
+          </button>
         </div>
       )}
       {scoped.length > 0 && shown.length === 0 && <p className="empty">No task holds “{query.trim()}”.</p>}
@@ -295,6 +346,13 @@ export function TodoistPanel({
                   ))}
                 </span>
               </button>
+              <button
+                type="button"
+                className="todoist-complete"
+                aria-label={`Complete “${task.title}”`}
+                title="Complete in Todoist"
+                onClick={() => complete(task)}
+              />
             </li>
           ))}
         </ul>
@@ -478,6 +536,7 @@ function TaskPrompt({
   queueFolder,
   queue,
   onBack,
+  onComplete,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -490,6 +549,7 @@ function TaskPrompt({
   queueFolder: string | null;
   queue: QueueActions | null;
   onBack: () => void;
+  onComplete: () => void;
 }) {
   const usable = prompts.filter((prompt) => !prompt.broken);
   const [template, setTemplate] = useState<string>(() => templateFor(task, usable)?.key ?? "");
@@ -578,9 +638,14 @@ function TaskPrompt({
         <button type="button" className="todoist-back" onClick={onBack} title="Back to the tasks (Esc)">
           ‹ Tasks
         </button>
-        <button type="button" className="todoist-open" onClick={() => controller.act(openUrl(task.url))} title="Open in Todoist">
-          Open in Todoist ↗
-        </button>
+        <span className="todoist-task-links">
+          <button type="button" className="todoist-open" onClick={onComplete} title="Complete the task in Todoist, with Undo in the list">
+            ✓ Complete
+          </button>
+          <button type="button" className="todoist-open" onClick={() => controller.act(openUrl(task.url))} title="Open in Todoist">
+            Open in Todoist ↗
+          </button>
+        </span>
       </div>
       <h3 className="todoist-task-title">{task.title}</h3>
       <label className="todoist-template">

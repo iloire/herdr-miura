@@ -38,6 +38,9 @@ export interface Comment {
 
 export const readComments = (task: string) => invoke<Comment[]>("todoist_comments", { task });
 
+/// Completes a task in Todoist, or reopens it when `done` is false (undo).
+export const setDone = (task: string, done: boolean) => invoke<void>("todoist_set_done", { task, done });
+
 /// A task to add: `due` in Todoist's own words (`tomorrow 9am`), which it reads.
 export interface NewTask {
   title: string;
