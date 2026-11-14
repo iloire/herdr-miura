@@ -13,10 +13,11 @@ export interface SidebarViewState {
   view: SidebarView;
   /// Finished agents fold to one line by default: they only want a look.
   doneFolded: boolean;
+  loopsFolded: boolean;
   recentFolded: boolean;
 }
 
-const DEFAULT: SidebarViewState = { view: "workspaces", doneFolded: true, recentFolded: false };
+const DEFAULT: SidebarViewState = { view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false };
 
 export function loadSidebarView(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): SidebarViewState {
   try {
@@ -25,6 +26,7 @@ export function loadSidebarView(storage: Pick<Storage, "getItem"> | undefined = 
     return {
       view: record.view === "agents" ? "agents" : "workspaces",
       doneFolded: typeof record.doneFolded === "boolean" ? record.doneFolded : DEFAULT.doneFolded,
+      loopsFolded: typeof record.loopsFolded === "boolean" ? record.loopsFolded : DEFAULT.loopsFolded,
       recentFolded: typeof record.recentFolded === "boolean" ? record.recentFolded : DEFAULT.recentFolded,
     };
   } catch {

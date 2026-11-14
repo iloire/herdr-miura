@@ -652,6 +652,8 @@ export function Sidebar({
           closed={closedAsks}
           doneFolded={viewState.doneFolded}
           onFoldDone={(doneFolded) => changeView((state) => ({ ...state, doneFolded }))}
+          loopsFolded={viewState.loopsFolded}
+          onFoldLoops={(loopsFolded) => changeView((state) => ({ ...state, loopsFolded }))}
           recentFolded={viewState.recentFolded}
           onFoldRecent={(recentFolded) => changeView((state) => ({ ...state, recentFolded }))}
         />

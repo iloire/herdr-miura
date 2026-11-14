@@ -2,6 +2,10 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 11:50 — Loops section folds like Done and Recent
+
+A click on its heading folds the Agents tab's Loops section to one line, and the window remembers it. Open at first.
+
 ## 2026-11-14 11:48 — Todoist quick add reads dates, priority, #project and @label
 
 The panel's add box now goes through Todoist's own quick add, so `dentista tomorrow 10am p1 #Personal @agent` sets the

@@ -27,6 +27,8 @@ export function AgentsView({
   closed,
   doneFolded,
   onFoldDone,
+  loopsFolded,
+  onFoldLoops,
   recentFolded,
   onFoldRecent,
 }: {
@@ -36,6 +38,8 @@ export function AgentsView({
   closed: ClosedAsks;
   doneFolded: boolean;
   onFoldDone: (folded: boolean) => void;
+  loopsFolded: boolean;
+  onFoldLoops: (folded: boolean) => void;
   recentFolded: boolean;
   onFoldRecent: (folded: boolean) => void;
 }) {
@@ -83,7 +87,7 @@ export function AgentsView({
         </Section>
       )}
       {sections.loops.length > 0 && (
-        <Section name="Loops" count={sections.loops.length} kind="loops">
+        <Section name="Loops" count={sections.loops.length} kind="loops" folded={loopsFolded} onFold={onFoldLoops}>
           {sections.loops.map(row)}
         </Section>
       )}

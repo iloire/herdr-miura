@@ -39,18 +39,18 @@ const panes = (list: PlacedAgent[]) => list.map((entry) => entry.agent.pane_id);
 
 describe("sidebar view", () => {
   it("starts on the workspaces with finished agents folded", () => {
-    expect(loadSidebarView(memory())).toEqual({ view: "workspaces", doneFolded: true, recentFolded: false });
+    expect(loadSidebarView(memory())).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
   });
 
   it("remembers the view and the fold", () => {
     const storage = memory();
-    saveSidebarView({ view: "agents", doneFolded: false, recentFolded: true }, storage);
-    expect(loadSidebarView(storage)).toEqual({ view: "agents", doneFolded: false, recentFolded: true });
+    saveSidebarView({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true }, storage);
+    expect(loadSidebarView(storage)).toEqual({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true });
   });
 
   it("treats a stored value it cannot read as the default", () => {
-    expect(loadSidebarView(memory("not json"))).toEqual({ view: "workspaces", doneFolded: true, recentFolded: false });
-    expect(loadSidebarView(memory('{"view":"tabs","doneFolded":1}'))).toEqual({ view: "workspaces", doneFolded: true, recentFolded: false });
+    expect(loadSidebarView(memory("not json"))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
+    expect(loadSidebarView(memory('{"view":"tabs","doneFolded":1}'))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
   });
 });
 
