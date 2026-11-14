@@ -3,7 +3,6 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import type { Controller } from "../app/controller";
 import { type Action, ACTIONS, type Prompt, readLibrary, sendPrompt, startInNewTab } from "../app/promptLibrary";
 import {
-  addTask,
   type Comment,
   commentsBlock,
   fillTemplate,
@@ -15,6 +14,7 @@ import {
   readComments,
   readProjects,
   projectView,
+  quickAdd,
   sendTarget,
   setDone,
   sortTasks,
@@ -467,8 +467,10 @@ function Triage({
   );
 }
 
-/// A box that adds a task to Todoist: to the project mapped to this
-/// workspace's repo, else the Inbox. Says where it went, with a link.
+/// A box that adds a task to Todoist, read as Todoist's quick add reads it
+/// (`tomorrow 10am p1 #Project @label`). No date means today; no `#project`
+/// means the project mapped to this workspace's repo, else the Inbox. Says
+/// where it went, with a link.
 function QuickAdd({ controller, project, onAdded }: { controller: Controller; project: string | null; onAdded: () => void }) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -478,7 +480,7 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
     const text = title.trim();
     if (!text || busy) return;
     setBusy(true);
-    addTask({ title: text }, project)
+    quickAdd(text, project)
       .then((task) => {
         setTitle("");
         setAdded(task);
@@ -493,6 +495,7 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
         type="text"
         placeholder={`Add a task to ${where}`}
         aria-label={`Add a Todoist task to ${where}`}
+        title="Typed as in Todoist: tomorrow 10am, p1, #Project, @label. No date means today."
         spellCheck={false}
         disabled={busy}
         value={title}

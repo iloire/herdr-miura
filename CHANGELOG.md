@@ -2,6 +2,12 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-14 11:48 — Todoist quick add reads dates, priority, #project and @label
+
+The panel's add box now goes through Todoist's own quick add, so `dentista tomorrow 10am p1 #Personal @agent` sets the
+date, priority, project and labels. A task typed without a date is due today, so the Today view shows it; one without a
+`#project` goes to the picked project, else the repo's, else the Inbox.
+
 ## 2026-11-14 11:44 — Pick the Todoist panel's view: Today, a project, all tasks
 
 The filter name in the Todoist panel's head is now a picker: the `todoist.filter` setting (still what the status bar

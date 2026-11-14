@@ -91,6 +91,10 @@ export interface NewTask {
 /// Adds a task to the project named `project`, or the Inbox when null or unknown.
 export const addTask = (task: NewTask, project: string | null) => invoke<Task>("todoist_add", { task, project });
 
+/// Adds a task typed as in Todoist's quick add (`dentista tomorrow 10am p1 #Personal @agent`).
+/// Without a date it is due today; left in the Inbox, it goes to `project` when that is set.
+export const quickAdd = (text: string, project: string | null) => invoke<Task>("todoist_quick_add", { text, project });
+
 /// A parked ledger entry as a task: the note, and the repo and branch it was
 /// left in, so it can be picked up from Todoist alone.
 export function parkedTask(outcome: Outcome, home: string | null): NewTask {

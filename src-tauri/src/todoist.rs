@@ -275,9 +275,7 @@ impl Cache {
         for request in follow_ups(&raw, &projects, mapped.map(|(id, _)| id.as_str())) {
             post(&token, &request)?;
         }
-        if raw.due.is_none() {
-            raw.due = Some(RawDue { date: crate::ledger::now_utc().chars().take(10).collect(), string: Some("today".into()) });
-        }
+        // The panel rereads its tasks after an add, so only the project, for the "Added to" line.
         if let Some((id, _)) = mapped.filter(|_| in_inbox(&raw, &projects)) {
             raw.project_id = Some(id.clone());
         }
