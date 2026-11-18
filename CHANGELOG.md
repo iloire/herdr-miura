@@ -2,10 +2,10 @@
 
 Newest first. Times are UTC.
 
-## 2026-11-18 10:38 — Recent keeps a day of agents and says so
+## 2026-11-18 10:38 — Agents tab: Older section, and Recent says its range
 
-The Agents tab's Recent section now holds agents that went idle in the last 24 hours, 20 at most (was 12 hours and 10).
-Hovering its head says that range.
+Recent still holds agents that went idle in the last 12 hours, 10 at most, and hovering its head now says so. Under it, a
+new **Older** section, folded at first, lists the other idle agents still open: 20 at most, latest first.
 
 ## 2026-11-18 10:45 — Star, name and search closed sessions
 

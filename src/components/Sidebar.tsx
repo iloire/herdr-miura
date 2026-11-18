@@ -656,6 +656,8 @@ export function Sidebar({
           onFoldLoops={(loopsFolded) => changeView((state) => ({ ...state, loopsFolded }))}
           recentFolded={viewState.recentFolded}
           onFoldRecent={(recentFolded) => changeView((state) => ({ ...state, recentFolded }))}
+          olderFolded={viewState.olderFolded}
+          onFoldOlder={(olderFolded) => changeView((state) => ({ ...state, olderFolded }))}
         />
       )}
       {snapshot && focused && focusedFolder && (

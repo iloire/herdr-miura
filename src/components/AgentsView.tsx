@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { type PlacedAgent, RECENT_MAX, RECENT_MS, type StatusSections } from "../app/agentsView";
+import { OLDER_MAX, type PlacedAgent, RECENT_MAX, RECENT_MS, type StatusSections } from "../app/agentsView";
 import type { Controller } from "../app/controller";
 import { type Outcome, repoName } from "../app/ledger";
 import type { Snapshot } from "../protocol";
@@ -18,7 +18,8 @@ export interface ClosedAsks {
 /// The sidebar's Agents tab: every active agent by what it wants of you,
 /// whatever workspace or folded group it is in. Waiting on you first (closed
 /// sessions' asks included), then working, then finished, which folds to one
-/// line, then the `/loop` sessions, which never stop, then the ones seen lately, so a task marked seen is not lost. A row
+/// line, then the `/loop` sessions, which never stop, then the ones seen lately, so a task marked seen is not lost, then
+/// the older idle ones, folded at first. A row
 /// names its workspace and goes to the agent's tab.
 export function AgentsView({
   controller,
@@ -31,6 +32,8 @@ export function AgentsView({
   onFoldLoops,
   recentFolded,
   onFoldRecent,
+  olderFolded,
+  onFoldOlder,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -42,12 +45,14 @@ export function AgentsView({
   onFoldLoops: (folded: boolean) => void;
   recentFolded: boolean;
   onFoldRecent: (folded: boolean) => void;
+  olderFolded: boolean;
+  onFoldOlder: (folded: boolean) => void;
 }) {
   const row = (placed: PlacedAgent) => (
     <AgentRow key={placed.agent.pane_id} controller={controller} snapshot={snapshot} agent={placed.agent} place={placed} />
   );
   const needsYou = sections.needsYou.length + closed.outcomes.length;
-  if (needsYou + sections.working.length + sections.done.length + sections.loops.length + sections.recent.length === 0) {
+  if (needsYou + sections.working.length + sections.done.length + sections.loops.length + sections.recent.length + sections.older.length === 0) {
     return <p className="empty">No agent is working, waiting on you or finished lately.</p>;
   }
   return (
@@ -96,12 +101,18 @@ export function AgentsView({
           {sections.recent.map(row)}
         </Section>
       )}
+      {sections.older.length > 0 && (
+        <Section name="Older" count={sections.older.length} kind="older" hint={OLDER_HINT} folded={olderFolded} onFold={onFoldOlder}>
+          {sections.older.map(row)}
+        </Section>
+      )}
     </div>
   );
 }
 
 /// Recent's head tells what it holds, as the limits set it.
 const RECENT_HINT = `Agents that went idle in the last ${RECENT_MS / 3_600_000} hours, ${RECENT_MAX} at most`;
+const OLDER_HINT = `Idle agents still open that went idle more than ${RECENT_MS / 3_600_000} hours ago, latest first, ${OLDER_MAX} at most`;
 
 function Section({
   name,

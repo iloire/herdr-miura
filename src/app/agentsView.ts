@@ -15,9 +15,11 @@ export interface SidebarViewState {
   doneFolded: boolean;
   loopsFolded: boolean;
   recentFolded: boolean;
+  /// Older idle agents only fill the tab: folded at first.
+  olderFolded: boolean;
 }
 
-const DEFAULT: SidebarViewState = { view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false };
+const DEFAULT: SidebarViewState = { view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false, olderFolded: true };
 
 export function loadSidebarView(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): SidebarViewState {
   try {
@@ -28,6 +30,7 @@ export function loadSidebarView(storage: Pick<Storage, "getItem"> | undefined = 
       doneFolded: typeof record.doneFolded === "boolean" ? record.doneFolded : DEFAULT.doneFolded,
       loopsFolded: typeof record.loopsFolded === "boolean" ? record.loopsFolded : DEFAULT.loopsFolded,
       recentFolded: typeof record.recentFolded === "boolean" ? record.recentFolded : DEFAULT.recentFolded,
+      olderFolded: typeof record.olderFolded === "boolean" ? record.olderFolded : DEFAULT.olderFolded,
     };
   } catch {
     return { ...DEFAULT };
@@ -59,37 +62,47 @@ export interface StatusSections {
   loops: PlacedAgent[];
   /// Idle ones that worked lately, latest first: what was just marked seen.
   recent: PlacedAgent[];
+  /// The other idle agents still open, in the sidebar's order.
+  older: PlacedAgent[];
 }
 
 /// Active agents by what they want of you: waiting on you, still working, or
 /// finished unseen, with loops apart unless one waits on you. Each keeps the order it came in, the sidebar's. An agent
 /// whose status Herdr cannot tell goes with the working ones: it is not idle.
 /// Idle agents go to Recent while `idleSince` has them within the last
-/// `RECENT_MS`, latest first and `RECENT_MAX` at most.
+/// `RECENT_MS`, latest first and `RECENT_MAX` at most; the other idle ones go
+/// to Older, latest first (those never seen going idle last), `OLDER_MAX` at most.
 export function statusSections(
   agents: readonly PlacedAgent[],
   idleSince: IdleSince = {},
   now = Date.now(),
 ): StatusSections {
-  const sections: StatusSections = { needsYou: [], working: [], done: [], loops: [], recent: [] };
+  const sections: StatusSections = { needsYou: [], working: [], done: [], loops: [], recent: [], older: [] };
   for (const placed of agents) {
     const status = shownStatus(placed.agent);
     if (status !== "blocked" && loopTag(placed.agent) !== null) sections.loops.push(placed);
     else if (status === "idle") {
       const since = idleSince[placed.agent.pane_id];
-      if (since !== undefined && now - since < RECENT_MS) sections.recent.push(placed);
+      (since !== undefined && now - since < RECENT_MS ? sections.recent : sections.older).push(placed);
     } else if (status === "blocked") sections.needsYou.push(placed);
     else if (status === "done") sections.done.push(placed);
     else sections.working.push(placed);
   }
   const at = (placed: PlacedAgent) => idleSince[placed.agent.pane_id] ?? 0;
-  sections.recent = sections.recent.sort((a, b) => at(b) - at(a)).slice(0, RECENT_MAX);
+  const recent = sections.recent.sort((a, b) => at(b) - at(a));
+  sections.recent = recent.slice(0, RECENT_MAX);
+  // A stable sort keeps the unstamped ones, oldest of all, in the sidebar's order.
+  const older = [...recent.slice(RECENT_MAX), ...sections.older].sort((a, b) => at(b) - at(a));
+  sections.older = older.slice(0, OLDER_MAX);
   return sections;
 }
 
 /// How long an agent stays in Recent once it goes idle, and how many it lists.
-export const RECENT_MS = 24 * 60 * 60_000;
-export const RECENT_MAX = 20;
+export const RECENT_MS = 12 * 60 * 60_000;
+export const RECENT_MAX = 10;
+/// How many idle agents Older lists, and how long their stamps keep its order.
+export const OLDER_MAX = 20;
+export const STAMP_MS = 24 * 60 * 60_000;
 
 const RECENT_KEY = "recent-agents";
 
@@ -119,7 +132,7 @@ export function saveRecent(records: RecentRecords, storage: Pick<Storage, "setIt
 }
 
 /// `records` with the agents of boot `bootId` that were busy (`busy`, by pane)
-/// and are idle now stamped `now`, without stamps older than `RECENT_MS` or of
+/// and are idle now stamped `now`, without stamps older than `STAMP_MS` or of
 /// panes this boot no longer has. The same object when nothing changes.
 export function stampIdle(
   records: RecentRecords,
@@ -132,7 +145,7 @@ export function stampIdle(
   let changed = false;
   const next: Record<string, IdleSince> = {};
   for (const [boot, panes] of Object.entries(records)) {
-    const kept = Object.entries(panes).filter(([pane, at]) => now - at < RECENT_MS && (boot !== bootId || live.has(pane)));
+    const kept = Object.entries(panes).filter(([pane, at]) => now - at < STAMP_MS && (boot !== bootId || live.has(pane)));
     if (kept.length !== Object.keys(panes).length) changed = true;
     if (kept.length > 0) next[boot] = Object.fromEntries(kept);
   }

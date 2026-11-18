@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, AgentStatus } from "../../protocol";
-import { busyPanes, loadSidebarView, type PlacedAgent, RECENT_MAX, RECENT_MS, saveSidebarView, stampIdle, statusSections } from "../agentsView";
+import { busyPanes, loadSidebarView, OLDER_MAX, type PlacedAgent, RECENT_MAX, RECENT_MS, STAMP_MS, saveSidebarView, stampIdle, statusSections } from "../agentsView";
 
 function memory(initial: string | null = null) {
   let value = initial;
@@ -39,18 +39,18 @@ const panes = (list: PlacedAgent[]) => list.map((entry) => entry.agent.pane_id);
 
 describe("sidebar view", () => {
   it("starts on the workspaces with finished agents folded", () => {
-    expect(loadSidebarView(memory())).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
+    expect(loadSidebarView(memory())).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false, olderFolded: true });
   });
 
   it("remembers the view and the fold", () => {
     const storage = memory();
-    saveSidebarView({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true }, storage);
-    expect(loadSidebarView(storage)).toEqual({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true });
+    saveSidebarView({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true, olderFolded: false }, storage);
+    expect(loadSidebarView(storage)).toEqual({ view: "agents", doneFolded: false, loopsFolded: true, recentFolded: true, olderFolded: false });
   });
 
   it("treats a stored value it cannot read as the default", () => {
-    expect(loadSidebarView(memory("not json"))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
-    expect(loadSidebarView(memory('{"view":"tabs","doneFolded":1}'))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false });
+    expect(loadSidebarView(memory("not json"))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false, olderFolded: true });
+    expect(loadSidebarView(memory('{"view":"tabs","doneFolded":1}'))).toEqual({ view: "workspaces", doneFolded: true, loopsFolded: false, recentFolded: false, olderFolded: true });
   });
 });
 
@@ -105,13 +105,21 @@ describe("recent agents", () => {
       now,
     );
     expect(panes(sections.recent)).toEqual(["b", "a"]);
+    expect(panes(sections.older)).toEqual(["c"]);
     expect(panes(sections.done)).toEqual(["d"]);
   });
 
   it("lists a few at most", () => {
     const many = Array.from({ length: RECENT_MAX + 3 }, (_, i) => placed(`p${i}`, "idle"));
     const since = Object.fromEntries(many.map((entry, i) => [entry.agent.pane_id, i]));
-    expect(statusSections(many, since, 100).recent).toHaveLength(RECENT_MAX);
+    const sections = statusSections([placed("unseen", "idle"), ...many], since, 100);
+    expect(sections.recent).toHaveLength(RECENT_MAX);
+    expect(panes(sections.older)).toEqual(["p2", "p1", "p0", "unseen"]);
+  });
+
+  it("lists in Older the rest, up to a limit", () => {
+    const many = Array.from({ length: OLDER_MAX + 3 }, (_, i) => placed(`p${i}`, "idle"));
+    expect(statusSections(many, {}, RECENT_MS * 2).older).toHaveLength(OLDER_MAX);
   });
 
   it("stamps an agent that was busy and is idle now", () => {
@@ -127,7 +135,7 @@ describe("recent agents", () => {
 
   it("drops stale stamps and gone panes of this boot, keeping other boots'", () => {
     const records = { boot: { a: 40, gone: 40, old: 0 }, other: { x: 45 } };
-    const next = stampIdle(records, "boot", new Set(), [agent("a", "idle"), agent("old", "idle")], RECENT_MS + 1);
+    const next = stampIdle(records, "boot", new Set(), [agent("a", "idle"), agent("old", "idle")], STAMP_MS + 1);
     expect(next).toEqual({ boot: { a: 40 }, other: { x: 45 } });
   });
 });
