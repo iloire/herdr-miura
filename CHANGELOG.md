@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-18 10:38 — Recent keeps a day of agents and says so
+
+The Agents tab's Recent section now holds agents that went idle in the last 24 hours, 20 at most (was 12 hours and 10).
+Hovering its head says that range.
+
 ## 2026-11-18 10:45 — Star, name and search closed sessions
 
 The Sessions panel helps find a session again. A star keeps a session in a Starred group on top. Rename (right-click a

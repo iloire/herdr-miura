@@ -88,8 +88,8 @@ export function statusSections(
 }
 
 /// How long an agent stays in Recent once it goes idle, and how many it lists.
-export const RECENT_MS = 12 * 60 * 60_000;
-export const RECENT_MAX = 10;
+export const RECENT_MS = 24 * 60 * 60_000;
+export const RECENT_MAX = 20;
 
 const RECENT_KEY = "recent-agents";
 

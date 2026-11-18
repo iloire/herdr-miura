@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { PlacedAgent, StatusSections } from "../app/agentsView";
+import { type PlacedAgent, RECENT_MAX, RECENT_MS, type StatusSections } from "../app/agentsView";
 import type { Controller } from "../app/controller";
 import { type Outcome, repoName } from "../app/ledger";
 import type { Snapshot } from "../protocol";
@@ -92,7 +92,7 @@ export function AgentsView({
         </Section>
       )}
       {sections.recent.length > 0 && (
-        <Section name="Recent" count={sections.recent.length} kind="recent" folded={recentFolded} onFold={onFoldRecent}>
+        <Section name="Recent" count={sections.recent.length} kind="recent" hint={RECENT_HINT} folded={recentFolded} onFold={onFoldRecent}>
           {sections.recent.map(row)}
         </Section>
       )}
@@ -100,10 +100,14 @@ export function AgentsView({
   );
 }
 
+/// Recent's head tells what it holds, as the limits set it.
+const RECENT_HINT = `Agents that went idle in the last ${RECENT_MS / 3_600_000} hours, ${RECENT_MAX} at most`;
+
 function Section({
   name,
   count,
   kind,
+  hint,
   folded = false,
   onFold,
   children,
@@ -111,6 +115,8 @@ function Section({
   name: string;
   count: number;
   kind: string;
+  /// Said on hover over the head, before what a click does.
+  hint?: string;
   folded?: boolean;
   onFold?: (folded: boolean) => void;
   children: ReactNode;
@@ -118,14 +124,14 @@ function Section({
   return (
     <section className={`agents-status agents-${kind}`} aria-label={name}>
       {onFold ? (
-        <button className="group-toggle agents-status-head" aria-expanded={!folded} title={folded ? `Show ${name.toLowerCase()}` : `Hide ${name.toLowerCase()}`} onClick={() => onFold(!folded)}>
+        <button className="group-toggle agents-status-head" aria-expanded={!folded} title={`${hint ? `${hint}\n` : ""}${folded ? "Show" : "Hide"} ${name.toLowerCase()}`} onClick={() => onFold(!folded)}>
           <ChevronIcon />
           <span>
             {name} <span className="agents-count">{count}</span>
           </span>
         </button>
       ) : (
-        <h3 className="agents-status-head">
+        <h3 className="agents-status-head" title={hint}>
           {name} <span className="agents-count">{count}</span>
         </h3>
       )}
