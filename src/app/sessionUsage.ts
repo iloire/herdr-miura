@@ -225,6 +225,12 @@ export function shortModel(model: string): string {
   return model.replace(/^claude-/, "");
 }
 
+/// A model priced well above the rest (Fable), easy to switch to with
+/// `/model` and forget about, so the header flags it.
+export function costlyModel(model: string): boolean {
+  return /fable/i.test(model);
+}
+
 /// The spend figure's tooltip: what it counts and how.
 export function spendTitle(tokens: Tokens, since: number): string {
   const from = new Date(since * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

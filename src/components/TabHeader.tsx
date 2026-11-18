@@ -18,6 +18,7 @@ import {
   quietTitle,
   type SessionUsage,
   sessionOf,
+  costlyModel,
   shortModel,
   spendTitle,
   startedLabel,
@@ -280,7 +281,14 @@ function AgentFacts({
           title={usage ? undefined : "Token use shows once a Claude Code hook reports this session, at its next prompt"}
         >
           {agent.display_agent ?? agent.agent ?? "agent"}
-          {usage?.model && <span className="tab-agent-model"> · {shortModel(usage.model)}</span>}
+          {usage?.model &&
+            (costlyModel(usage.model) ? (
+              <span className="tab-agent-model costly" title="The most expensive model: switch with /model when done">
+                {shortModel(usage.model)}
+              </span>
+            ) : (
+              <span className="tab-agent-model"> · {shortModel(usage.model)}</span>
+            ))}
         </span>
         {usage?.started_at != null && <Started at={usage.started_at * 1000} now={now * 1000} />}
         {usage?.written_at != null && (

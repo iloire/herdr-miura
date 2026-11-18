@@ -3978,6 +3978,16 @@ kbd {
   color: var(--muted);
 }
 
+/* The expensive model, filled so it can't be missed or forgotten. */
+.tab-agent-model.costly {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--blocked);
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .tab-fact b {
   color: var(--text);
   font-weight: 600;

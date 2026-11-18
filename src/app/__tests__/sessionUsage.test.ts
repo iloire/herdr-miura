@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClaudeUsage } from "../claudeUsage";
-import { burn, contextLevel, formatTokens, lastActiveAge, type Minute, OLD_AFTER_MS, QUIET_AFTER_MS, quietAge, type SessionUsage, startedLabel, startedLevel, tokensSince, weighted, windowStart } from "../sessionUsage";
+import { burn, contextLevel, costlyModel, formatTokens, lastActiveAge, type Minute, OLD_AFTER_MS, QUIET_AFTER_MS, quietAge, type SessionUsage, startedLabel, startedLevel, tokensSince, weighted, windowStart } from "../sessionUsage";
 
 function minute(at: number, over: Partial<Minute> = {}): Minute {
   return { at, input: 0, output: 0, cache_read: 0, cache_write_5m: 0, cache_write_1h: 0, ...over };
@@ -141,5 +141,13 @@ describe("quietAge", () => {
 
   it("shows nothing for a write stamped ahead of the clock", () => {
     expect(quietAge(writtenAgo(-60_000), working, now)).toBeNull();
+  });
+});
+
+describe("costlyModel", () => {
+  it("flags Fable only", () => {
+    expect(costlyModel("claude-fable-5-2")).toBe(true);
+    expect(costlyModel("claude-opus-5-5")).toBe(false);
+    expect(costlyModel("claude-sonnet-5-5")).toBe(false);
   });
 });
