@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Snapshot } from "../protocol";
+import { asksForYou, isOpen, type Outcome } from "./ledger";
 import type { Opened } from "./queue";
 import { sessionOf } from "./sessionUsage";
 
@@ -10,8 +11,16 @@ import { sessionOf } from "./sessionUsage";
 /// A session as the Rust side lists it.
 export interface RecentSession {
   id: string;
+  /// `/rename`'s name, else Claude Code's own title.
   title: string | null;
+  /// The name given in Herdr, which goes before `title`.
+  name: string | null;
+  starred: boolean;
   prompt: string;
+  /// The first thing typed.
+  first_prompt: string | null;
+  /// Titles of the commits it made, oldest first.
+  commits: string[];
   branch: string | null;
   folder: string;
   /// Where a tab would open: `folder`, its main checkout when `folder` was a
@@ -43,7 +52,17 @@ export interface SessionPreview {
 
 export const readSessionPreview = (session: string) => invoke<SessionPreview>("session_preview", { session });
 
-export const readRecentSessions = (folders: string[]) => invoke<RecentSession[]>("recent_sessions", { folders });
+/// The sessions of `folders`, or of every folder when null, whose name, titles,
+/// prompts, branch, folder or commits hold every word of `query`.
+export const readRecentSessions = (folders: string[] | null, query = "") => invoke<RecentSession[]>("recent_sessions", { folders, query });
+
+export const starSession = (session: string, starred: boolean) => invoke("session_star", { session, starred });
+
+/// Null or an empty name takes the name off.
+export const renameSession = (session: string, name: string | null) => invoke("session_rename", { session, name });
+
+/// What a row is called.
+export const sessionLabel = (session: RecentSession) => session.name ?? session.title;
 
 /// Opens a tab running `claude --resume`, in front, in the folder the transcript says.
 export const resumeInNewTab = (workspaceId: string, session: string) => invoke<Opened>("session_resume", { workspaceId, session });
@@ -80,13 +99,76 @@ export const isActive = (state: SessionState) => state.kind === "open" || state.
 /// Whether the session opens somewhere other than where it last worked.
 export const movedHome = (session: RecentSession) => session.opens_in !== null && session.opens_in !== session.folder;
 
-/// The sessions every word of `query` is found in: title, last prompt or branch.
-export function matchingSessions(sessions: readonly RecentSession[], query: string): RecentSession[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  return sessions.filter((session) => {
-    const text = [session.title ?? "", session.prompt, session.branch ?? ""].join("\n").toLowerCase();
-    return words.every((word) => text.includes(word));
-  });
+/// The day group a time falls in, by this computer's calendar.
+export type Day = "Today" | "Yesterday" | "This week" | "This month" | "Older";
+
+const DAY_MS = 86_400_000;
+
+/// `updated_at` (Unix seconds) by the calendar day of `now` (ms): the week
+/// starts on Monday.
+export function dayOf(updatedAt: number, now: number): Day {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const start = today.getTime();
+  const at = updatedAt * 1000;
+  if (at >= start) return "Today";
+  if (at >= start - DAY_MS) return "Yesterday";
+  const weekStart = new Date(start);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  if (at >= weekStart.getTime()) return "This week";
+  if (at >= new Date(today.getFullYear(), today.getMonth(), 1).getTime()) return "This month";
+  return "Older";
+}
+
+/// `sessions`, already newest first, cut into runs of one day group each.
+export function byDay(sessions: readonly RecentSession[], now: number): { day: Day; sessions: RecentSession[] }[] {
+  const groups: { day: Day; sessions: RecentSession[] }[] = [];
+  for (const session of sessions) {
+    const day = dayOf(session.updated_at, now);
+    const last = groups[groups.length - 1];
+    if (last?.day === day) last.sessions.push(session);
+    else groups.push({ day, sessions: [session] });
+  }
+  return groups;
+}
+
+/// Each session's latest `herdr-outcome`, from the ledger's list, newest first.
+export function latestOutcomes(list: readonly Outcome[]): Map<string, Outcome> {
+  const latest = new Map<string, Outcome>();
+  for (const outcome of list) if (outcome.session && !latest.has(outcome.session)) latest.set(outcome.session, outcome);
+  return latest;
+}
+
+/// What a session's latest outcome says on its row: whether it was left
+/// unfinished, and so is worth coming back to.
+export function outcomeBadge(outcome: Outcome | undefined): { words: string; unfinished: boolean } | null {
+  if (!outcome) return null;
+  if (isOpen(outcome)) return { words: asksForYou(outcome.kind) ? "Waiting on you" : "Left for later", unfinished: true };
+  if (outcome.kind === "verified") return { words: "Done", unfinished: false };
+  return null;
+}
+
+/// A workspace, with the folders whose sessions are its own.
+export interface SessionPlace {
+  workspaceId: string;
+  label: string;
+  folders: string[];
+}
+
+const under = (folder: string, parent: string) => {
+  const root = parent.replace(/\/+$/, "");
+  return folder === root || folder.startsWith(`${root}/`);
+};
+
+/// The workspace a session worked in: the one with the deepest folder holding it.
+export function placeOf(session: RecentSession, places: readonly SessionPlace[]): SessionPlace | null {
+  let best: { place: SessionPlace; depth: number } | null = null;
+  for (const place of places) {
+    for (const folder of place.folders) {
+      if (under(session.folder, folder) && (!best || folder.length > best.depth)) best = { place, depth: folder.length };
+    }
+  }
+  return best?.place ?? null;
 }
 
 /// What Reopen Closed Session resumes: the newest closed session of the list.

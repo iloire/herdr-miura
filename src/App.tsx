@@ -11,7 +11,7 @@ import { loadPins } from "./app/pins";
 import { loadTabColors, saveTabColors, withoutClosedTabs } from "./app/tabColors";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
 import { type ListeningPort, readPorts, samePorts } from "./app/ports";
-import { sessionFolders } from "./app/recentSessions";
+import { type SessionPlace, sessionFolders } from "./app/recentSessions";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
 import { busyQueues, isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
@@ -717,6 +717,16 @@ export default function App() {
     () => (local ? sessionFolders(focusedRoot, focusedWorktrees ?? []) : null),
     [local, focusedRoot, focusedWorktrees],
   );
+  // Every workspace's, for the Sessions panel's All: where each session resumes.
+  const sessionPlaces = useMemo(() => {
+    const snapshot = state.snapshot;
+    if (!local || !snapshot) return [];
+    return snapshot.workspaces.flatMap((workspace): SessionPlace[] => {
+      const root = rootOf(workspace) ?? workspaceFolder(workspace, snapshot);
+      const folders = sessionFolders(root, worktrees.get(workspace.workspace_id) ?? []);
+      return folders ? [{ workspaceId: workspace.workspace_id, label: workspace.label, folders }] : [];
+    });
+  }, [local, state.snapshot, rootOf, worktrees]);
   const focusedWorkspaceId = local ? (focusedWorkspace?.workspace_id ?? null) : null;
   useEffect(() => {
     controller.reopenSession = () => controller.reopenClosed(focusedWorkspaceId, recentFolders);
@@ -846,6 +856,8 @@ export default function App() {
                 workspace={focusedWorkspace ?? null}
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
                 folders={recentFolders}
+                places={sessionPlaces}
+                outcomes={ledger.list}
                 resuming={state.resuming}
               />
             ) : state.todoist && state.snapshot ? (

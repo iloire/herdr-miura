@@ -9,10 +9,17 @@
 //! size and modification time, in a cache of its own: `session_usage::Cache`
 //! can be held for seconds by the usage dialog's history.
 //!
+//! What a session started with and what it committed take the whole file, so
+//! they are read once and then only from where the last read stopped:
+//! transcripts only grow. Every transcript is 4 GiB or so, a few seconds the
+//! first time the panel opens.
+//!
 //! The format is not a public API, so a line this does not know, or cannot
 //! parse, is passed over.
 
+use crate::session_marks::Marks;
 use crate::session_usage::{contains, is_session_id, without_paste_tags};
+use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -34,8 +41,10 @@ const MAX_FOLDER_SEARCH: u64 = 2 * 1024 * 1024;
 const MAX_PROMPT_CHARS: usize = 300;
 /// Characters of a tab's label.
 const MAX_LABEL_CHARS: usize = 60;
-/// Rows sent to the webview, newest first.
+/// Rows sent to the webview, newest first, besides the starred ones.
 const MAX_ROWS: usize = 200;
+/// Characters of a commit's title kept.
+const MAX_COMMIT_CHARS: usize = 120;
 /// A session file is a few hundred bytes.
 const MAX_LIVE_FILE: u64 = 64 * 1024;
 
@@ -69,7 +78,14 @@ pub struct RecentSession {
     pub id: String,
     /// `/rename`'s name, else Claude Code's own title; a session can have neither.
     pub title: Option<String>,
+    /// The name given in Herdr, which goes before `title`.
+    pub name: Option<String>,
+    pub starred: bool,
     pub prompt: String,
+    /// The first thing typed, which may be long gone from its end.
+    pub first_prompt: Option<String>,
+    /// The titles of the commits it made, oldest first.
+    pub commits: Vec<String>,
     pub branch: Option<String>,
     /// Where it last worked.
     pub folder: String,
@@ -419,12 +435,145 @@ fn running(dir: &Path) -> HashSet<String> {
     running_from(live, ask_ps(&pids).as_deref())
 }
 
+/// What is read from a whole transcript, as far as `offset`.
+#[derive(Debug, Clone, Default)]
+struct Whole {
+    /// Where the next read starts: the end of the last whole line read.
+    offset: u64,
+    first_prompt: Option<String>,
+    /// `(tool_use id, title)`, oldest first.
+    commits: Vec<(String, String)>,
+}
+
+impl Whole {
+    /// Reads on from `offset` to the last whole line of a file of `size` bytes.
+    /// A file that shrank was rewritten, so it is read again from the start.
+    fn read_on(mut self, path: &Path, size: u64) -> std::io::Result<Whole> {
+        if size < self.offset {
+            self = Whole::default();
+        }
+        let mut file = File::open(path)?;
+        file.seek(SeekFrom::Start(self.offset))?;
+        let mut reader = BufReader::with_capacity(256 * 1024, file.take(size - self.offset));
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            let read = reader.read_until(b'\n', &mut line)?;
+            if read == 0 || line.last() != Some(&b'\n') {
+                return Ok(self);
+            }
+            self.offset += read as u64;
+            self.read(&line);
+        }
+    }
+
+    /// Lines are parsed only when they can hold what is looked for: most of a
+    /// transcript is tool output.
+    fn read(&mut self, line: &[u8]) {
+        let user = contains_bytes(line, br#""type":"user""#);
+        let first = user && self.first_prompt.is_none();
+        let commit = contains_bytes(line, b"git commit");
+        let failed = user && !self.commits.is_empty() && contains_bytes(line, br#""is_error":true"#);
+        if !(first || commit || failed) {
+            return;
+        }
+        let Ok(value) = serde_json::from_slice::<Value>(line) else {
+            return;
+        };
+        let flag = |key: &str| value.get(key).and_then(Value::as_bool).unwrap_or(false);
+        if flag("isSidechain") {
+            return;
+        }
+        let content = value.pointer("/message/content").unwrap_or(&Value::Null);
+        let blocks = content.as_array().map(Vec::as_slice).unwrap_or_default();
+        let of_type = |kind: &'static str| blocks.iter().filter(move |block| block.get("type").and_then(Value::as_str) == Some(kind));
+        if first && !flag("isMeta") {
+            let text = without_paste_tags(&message_text(content));
+            let text = text.trim();
+            if !text.is_empty() && !NOT_TYPED.iter().any(|mark| text.starts_with(mark)) {
+                self.first_prompt = Some(one_line(text, MAX_PROMPT_CHARS));
+            }
+        }
+        if commit && value.get("type").and_then(Value::as_str) == Some("assistant") {
+            for block in of_type("tool_use").filter(|block| block.get("name").and_then(Value::as_str) == Some("Bash")) {
+                let command = block.pointer("/input/command").and_then(Value::as_str).unwrap_or_default();
+                let id = block.get("id").and_then(Value::as_str).unwrap_or_default();
+                if let Some(title) = commit_title(command) {
+                    self.commits.push((id.to_owned(), title));
+                }
+            }
+        }
+        if failed {
+            for block in of_type("tool_result").filter(|block| block.get("is_error").and_then(Value::as_bool) == Some(true)) {
+                let id = block.get("tool_use_id").and_then(Value::as_str).unwrap_or_default();
+                self.commits.retain(|(tool, _)| tool != id);
+            }
+        }
+    }
+}
+
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    memmem::find(haystack, needle).is_some()
+}
+
+/// The title of the commit a shell command makes: the first line of its
+/// message, from `-m`, `-qm` and the like, `--message`, or a here-document
+/// given to `-F -` or `-m "$(cat <<EOF`. Agents write all of these. A command
+/// whose message cannot be told has none.
+fn commit_title(command: &str) -> Option<String> {
+    let at = command.find("git commit")?;
+    let rest = &command[at + "git commit".len()..];
+    let mut value_at = None;
+    let mut heredoc = false;
+    let mut scanned = 0;
+    for word in rest.split_whitespace() {
+        let start = rest[scanned..].find(word).map_or(scanned, |found| scanned + found);
+        scanned = start + word.len();
+        if matches!(word, "&&" | "||" | ";" | "|") {
+            break;
+        }
+        if let Some(value) = word.strip_prefix("--message=") {
+            value_at = Some(scanned - value.len());
+            break;
+        }
+        let short = word.strip_prefix('-').filter(|flags| !flags.starts_with('-') && !flags.is_empty());
+        let is_message = word == "--message" || short.is_some_and(|flags| flags.ends_with('m') && flags.chars().all(|c| c.is_ascii_alphabetic()));
+        let is_file = word == "--file" || short.is_some_and(|flags| flags.ends_with('F') && flags.chars().all(|c| c.is_ascii_alphabetic()));
+        if is_message || is_file {
+            heredoc = is_file;
+            value_at = Some(scanned);
+            break;
+        }
+    }
+    let value = rest[value_at?..].trim_start();
+    let title = if heredoc || value.trim_start_matches(['"', '\'']).starts_with("$(cat <<") {
+        let (_, body) = value.split_once("<<")?.1.split_once('\n')?;
+        body.lines().map(str::trim).find(|line| !line.is_empty())?.to_owned()
+    } else if let Some(quote) = value.chars().next().filter(|c| *c == '"' || *c == '\'') {
+        let mut text = String::new();
+        let mut chars = value[1..].chars();
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' if quote == '"' => text.extend(chars.next()),
+                c if c == quote => break,
+                c => text.push(c),
+            }
+        }
+        text.lines().map(str::trim).find(|line| !line.is_empty())?.to_owned()
+    } else {
+        value.split_whitespace().next()?.to_owned()
+    };
+    let title = one_line(&title, MAX_COMMIT_CHARS);
+    (!title.is_empty()).then_some(title)
+}
+
 /// A transcript as last read, kept until its size or time changes.
 #[derive(Debug)]
 struct Seen {
     size: u64,
     modified: SystemTime,
     summary: Option<Summary>,
+    whole: Whole,
 }
 
 /// One session's newest transcript.
@@ -432,6 +581,35 @@ struct Found {
     id: String,
     updated_at: i64,
     summary: Summary,
+    whole: Whole,
+}
+
+/// Which sessions `list` gives.
+pub struct Ask<'a> {
+    /// The folders whose sessions, with what is under them; `None` for all.
+    pub folders: Option<&'a [String]>,
+    /// Words that must each be in its name, titles, prompts, branch, folder or
+    /// commits; none keeps every session.
+    pub query: &'a str,
+}
+
+/// Whether every word of `query` is in what is known of a session.
+fn matches(row: &RecentSession, query: &str) -> bool {
+    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+    if words.is_empty() {
+        return true;
+    }
+    let mut text = [row.name.as_deref(), row.title.as_deref(), Some(&row.prompt), row.first_prompt.as_deref(), row.branch.as_deref(), Some(&row.folder)]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n");
+    for commit in &row.commits {
+        text.push('\n');
+        text.push_str(commit);
+    }
+    let text = text.to_lowercase();
+    words.iter().all(|word| text.contains(word.as_str()))
 }
 
 /// What has been read, kept between reads.
@@ -467,47 +645,69 @@ impl Cache {
                 let Ok(summary) = summarize(&path, size) else {
                     continue;
                 };
-                seen.insert(path.clone(), Seen { size, modified, summary });
+                let before = seen.remove(&path).map(|entry| entry.whole).unwrap_or_default();
+                // Nothing is listed of a session with no summary, so nothing more is read.
+                let whole = if summary.is_some() { before.read_on(&path, size).unwrap_or_default() } else { before };
+                seen.insert(path.clone(), Seen { size, modified, summary, whole });
             }
-            let Some(summary) = seen.get(&path).and_then(|entry| entry.summary.clone()) else {
+            let Some((summary, whole)) = seen.get(&path).and_then(|entry| Some((entry.summary.clone()?, entry.whole.clone()))) else {
                 continue;
             };
             let updated_at = unix_seconds(modified);
             if newest.get(id).is_none_or(|found| found.updated_at < updated_at) {
-                newest.insert(id.to_owned(), Found { id: id.to_owned(), updated_at, summary });
+                newest.insert(id.to_owned(), Found { id: id.to_owned(), updated_at, summary, whole });
             }
         }
         seen.retain(|path, _| current.contains(path));
         newest.into_values().collect()
     }
 
-    /// The sessions that worked in `folders` or under them, newest first.
-    /// `sessions` is the folder of `<pid>.json` files.
-    pub fn list(&self, projects: &Path, sessions: &Path, folders: &[String]) -> Vec<RecentSession> {
+    /// The sessions `ask` is for, newest first: every starred one, and up to
+    /// `MAX_ROWS` others. `sessions` is the folder of `<pid>.json` files.
+    pub fn list(&self, projects: &Path, sessions: &Path, marks: &Marks, ask: Ask) -> Vec<RecentSession> {
         let mut found = self.scan(projects);
-        found.retain(|session| folders.iter().any(|folder| is_under(&session.summary.folder, folder)));
+        if let Some(folders) = ask.folders {
+            found.retain(|session| folders.iter().any(|folder| is_under(&session.summary.folder, folder)));
+        }
         found.sort_by(|a, b| b.updated_at.cmp(&a.updated_at).then_with(|| a.id.cmp(&b.id)));
-        found.truncate(MAX_ROWS);
-        let live = running(sessions);
-        found
+        let mut rows: Vec<RecentSession> = found
             .into_iter()
-            .map(|Found { id, updated_at, summary }| RecentSession {
-                running: live.contains(&id),
-                opens_in: opens_in(&summary.folder),
-                id,
-                title: summary.title,
-                prompt: summary.prompt,
-                branch: summary.branch,
-                folder: summary.folder,
-                updated_at,
-                queue: summary.queue,
+            .map(|Found { id, updated_at, summary, whole }| {
+                let mark = marks.get(&id).cloned().unwrap_or_default();
+                RecentSession {
+                    running: false,
+                    opens_in: None,
+                    id,
+                    title: summary.title,
+                    name: mark.name,
+                    starred: mark.starred,
+                    prompt: summary.prompt,
+                    first_prompt: whole.first_prompt,
+                    commits: whole.commits.into_iter().map(|(_, title)| title).collect(),
+                    branch: summary.branch,
+                    folder: summary.folder,
+                    updated_at,
+                    queue: summary.queue,
+                }
             })
-            .collect()
+            .filter(|row| matches(row, ask.query))
+            .collect();
+        let mut others = 0;
+        rows.retain(|row| {
+            others += usize::from(!row.starred);
+            row.starred || others <= MAX_ROWS
+        });
+        let live = running(sessions);
+        for row in &mut rows {
+            row.running = live.contains(&row.id);
+            row.opens_in = opens_in(&row.folder);
+        }
+        rows
     }
 
     /// Where to resume `id`, read again at the moment of asking: the webview's
     /// row can be seconds old, and two Claude Codes must not write one session.
-    pub fn target(&self, projects: &Path, sessions: &Path, id: &str) -> Result<Target, Error> {
+    pub fn target(&self, projects: &Path, sessions: &Path, marks: &Marks, id: &str) -> Result<Target, Error> {
         if !is_session_id(id) {
             return Err(Error::Unknown(id.to_owned()));
         }
@@ -517,7 +717,8 @@ impl Cache {
             return Err(Error::Running);
         }
         let folder = opens_in(&summary.folder).ok_or(Error::FolderGone(summary.folder))?;
-        let label = one_line(summary.title.as_deref().unwrap_or(&summary.prompt), MAX_LABEL_CHARS);
+        let name = marks.get(id).and_then(|mark| mark.name.as_deref());
+        let label = one_line(name.or(summary.title.as_deref()).unwrap_or(&summary.prompt), MAX_LABEL_CHARS);
         Ok(Target { folder, label })
     }
 }

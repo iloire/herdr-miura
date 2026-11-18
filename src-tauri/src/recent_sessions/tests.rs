@@ -35,7 +35,12 @@ impl Fixture {
     }
 
     fn list(&self, cache: &Cache, folder: &str) -> Vec<RecentSession> {
-        cache.list(&self.projects, &self.sessions, &[folder.to_owned()])
+        self.ask(cache, Some(folder), "", &Marks::new())
+    }
+
+    fn ask(&self, cache: &Cache, folder: Option<&str>, query: &str, marks: &Marks) -> Vec<RecentSession> {
+        let folders = folder.map(|folder| vec![folder.to_owned()]);
+        cache.list(&self.projects, &self.sessions, marks, Ask { folders: folders.as_deref(), query })
     }
 }
 
@@ -302,7 +307,7 @@ fn this_process_shows_as_running_and_key_files_are_left_unopened() {
     std::fs::write(f.sessions.join("broken.json"), "{ half").unwrap();
     let cache = Cache::default();
     assert!(f.list(&cache, &code)[0].running);
-    assert!(matches!(cache.target(&f.projects, &f.sessions, ID), Err(Error::Running)));
+    assert!(matches!(cache.target(&f.projects, &f.sessions, &Marks::new(), ID), Err(Error::Running)));
 }
 
 #[test]
@@ -310,7 +315,7 @@ fn resuming_takes_the_folder_from_the_transcript() {
     let f = fixture();
     let code = f.folder("code");
     f.write(ID, &[user("a", &code), title("Fix it"), last_prompt("a")]);
-    let target = Cache::default().target(&f.projects, &f.sessions, ID).unwrap();
+    let target = Cache::default().target(&f.projects, &f.sessions, &Marks::new(), ID).unwrap();
     assert_eq!(target, Target { folder: code, label: "Fix it".to_owned() });
 }
 
@@ -320,11 +325,11 @@ fn resuming_refuses_what_it_cannot_open() {
     let code = f.folder("code");
     let cache = Cache::default();
     for bad in ["../../etc/passwd", "--help", ""] {
-        assert!(matches!(cache.target(&f.projects, &f.sessions, bad), Err(Error::Unknown(_))), "{bad:?}");
+        assert!(matches!(cache.target(&f.projects, &f.sessions, &Marks::new(), bad), Err(Error::Unknown(_))), "{bad:?}");
     }
-    assert!(matches!(cache.target(&f.projects, &f.sessions, ID), Err(Error::Unknown(_))));
+    assert!(matches!(cache.target(&f.projects, &f.sessions, &Marks::new(), ID), Err(Error::Unknown(_))));
     f.write(ID, &[user("a", &format!("{code}-gone")), last_prompt("a")]);
-    assert!(matches!(cache.target(&f.projects, &f.sessions, ID), Err(Error::FolderGone(_))));
+    assert!(matches!(cache.target(&f.projects, &f.sessions, &Marks::new(), ID), Err(Error::FolderGone(_))));
 }
 
 /// An assistant line with one text block and its usage.
@@ -388,4 +393,107 @@ fn a_preview_refuses_an_id_that_is_not_a_uuid_and_one_it_cannot_find() {
     let f = fixture();
     assert!(matches!(preview(&f.projects, "../../etc/passwd"), Err(Error::Unknown(_))));
     assert!(matches!(preview(&f.projects, OTHER), Err(Error::Unknown(_))));
+}
+
+/// An assistant line running `command` in Bash as tool call `id`.
+fn bash(id: &str, command: &str) -> String {
+    let command = serde_json::to_string(command).unwrap();
+    format!(
+        r#"{{"type":"assistant","message":{{"role":"assistant","content":[{{"type":"tool_use","id":"{id}","name":"Bash","input":{{"command":{command}}}}}]}}}}"#
+    )
+}
+
+/// The answer to tool call `id`, failed or not.
+fn result(id: &str, failed: bool) -> String {
+    format!(r#"{{"type":"user","message":{{"role":"user","content":[{{"type":"tool_result","tool_use_id":"{id}","is_error":{failed},"content":"x"}}]}}}}"#)
+}
+
+#[test]
+fn a_row_has_the_first_thing_typed_past_commands_and_reminders() {
+    let f = fixture();
+    let code = f.folder("code");
+    f.write(ID, &[user("<command-name>/clear</command-name>", &code), user("make the favicon blue", &code), user("and green", &code), last_prompt("and green")]);
+    assert_eq!(f.list(&Cache::default(), &code)[0].first_prompt.as_deref(), Some("make the favicon blue"));
+}
+
+#[test]
+fn a_row_has_the_commits_it_made_but_not_those_that_failed() {
+    let f = fixture();
+    let code = f.folder("code");
+    f.write(
+        ID,
+        &[
+            user("a", &code),
+            bash("t1", "git add a && git commit -q -m \"feat: a blue favicon\" -m \"Why.\" && git push"),
+            result("t1", false),
+            bash("t2", "git commit -m 'fix: refused by a hook'"),
+            result("t2", true),
+            bash("t3", "git status"),
+            last_prompt("a"),
+        ],
+    );
+    assert_eq!(f.list(&Cache::default(), &code)[0].commits, vec!["feat: a blue favicon"]);
+}
+
+#[test]
+fn commits_made_later_are_read_on_from_where_the_last_read_stopped() {
+    let f = fixture();
+    let code = f.folder("code");
+    let cache = Cache::default();
+    let mut lines = vec![user("a", &code), bash("t1", "git commit -m \"feat: one\""), last_prompt("a")];
+    f.write(ID, &lines);
+    assert_eq!(f.list(&cache, &code)[0].commits, vec!["feat: one"]);
+    lines.push(bash("t2", "git commit -m \"fix: two\""));
+    lines.push(last_prompt("b"));
+    f.write(ID, &lines);
+    assert_eq!(f.list(&cache, &code)[0].commits, vec!["feat: one", "fix: two"]);
+}
+
+#[test]
+fn a_commit_title_comes_from_each_way_agents_write_one() {
+    let title = |command: &str| commit_title(command);
+    assert_eq!(title("git commit -m \"feat: a\""), Some("feat: a".into()));
+    assert_eq!(title("cd /x && git commit -qm 'fix: b' && git push"), Some("fix: b".into()));
+    assert_eq!(title("git commit -am \"say \\\"hi\\\"\""), Some("say \"hi\"".into()));
+    assert_eq!(title("git commit --message=fix:c"), Some("fix:c".into()));
+    assert_eq!(title("git commit -q -F - <<'EOF'\nfeat: d\n\nWhy.\nEOF"), Some("feat: d".into()));
+    assert_eq!(title("git commit -m \"$(cat <<'EOF'\nfeat: e\n\nWhy.\nEOF\n)\""), Some("feat: e".into()));
+    assert_eq!(title("git commit --amend --no-edit && git push"), None);
+    assert_eq!(title("git status"), None);
+}
+
+#[test]
+fn a_query_needs_every_word_somewhere_it_looks() {
+    let f = fixture();
+    let code = f.folder("code");
+    f.write(ID, &[user("make the favicon blue", &code), bash("t1", "git commit -m \"feat: lanzarote colors\""), last_prompt("ship it")]);
+    f.write(OTHER, &[user("pause the scheduler", &code), last_prompt("ok")]);
+    let ids = |query: &str| f.ask(&Cache::default(), Some(&code), query, &Marks::new()).into_iter().map(|row| row.id).collect::<Vec<_>>();
+    assert_eq!(ids("FAVICON"), vec![ID]);
+    assert_eq!(ids("lanzarote ship"), vec![ID]);
+    assert_eq!(ids("scheduler"), vec![OTHER]);
+    assert_eq!(ids("favicon scheduler"), Vec::<String>::new());
+    assert_eq!(ids("  ").len(), 2);
+}
+
+#[test]
+fn a_name_and_star_are_shown_searched_and_used_for_the_tab() {
+    let f = fixture();
+    let code = f.folder("code");
+    f.write(ID, &[user("a", &code), title("Claude's"), last_prompt("a")]);
+    let mut marks = Marks::new();
+    marks.insert(ID.to_owned(), crate::session_marks::Mark { starred: true, name: Some("Mine".into()) });
+    let rows = f.ask(&Cache::default(), Some(&code), "mine", &marks);
+    assert_eq!((rows[0].name.as_deref(), rows[0].title.as_deref(), rows[0].starred), (Some("Mine"), Some("Claude's"), true));
+    assert_eq!(Cache::default().target(&f.projects, &f.sessions, &marks, ID).unwrap().label, "Mine");
+}
+
+#[test]
+fn no_folders_asks_for_every_session() {
+    let f = fixture();
+    let code = f.folder("code");
+    let other = f.folder("other");
+    f.write(ID, &[user("a", &code), last_prompt("a")]);
+    f.write(OTHER, &[user("b", &other), last_prompt("b")]);
+    assert_eq!(f.ask(&Cache::default(), None, "", &Marks::new()).len(), 2);
 }

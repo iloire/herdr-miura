@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { readSessionPreview, type RecentSession, type SessionPreview } from "../app/recentSessions";
+import { readSessionPreview, type RecentSession, type SessionPreview, sessionLabel } from "../app/recentSessions";
 import { formatTokens, shortModel } from "../app/sessionUsage";
 import { relativeTime } from "../app/time";
 
@@ -14,6 +14,7 @@ export function SessionPreviewDialog({
   where,
   blocked,
   movedHome,
+  onStar,
   onResume,
   onClose,
 }: {
@@ -23,6 +24,7 @@ export function SessionPreviewDialog({
   /// Why it cannot be resumed; null when it can.
   blocked: string | null;
   movedHome: boolean;
+  onStar: () => void;
   onResume: () => void;
   onClose: () => void;
 }) {
@@ -44,7 +46,7 @@ export function SessionPreviewDialog({
     if (list) list.scrollTop = list.scrollHeight;
   }, [read]);
 
-  const title = session.title ?? session.prompt;
+  const title = sessionLabel(session) ?? session.prompt;
   const preview = read.phase === "ready" ? read.preview : null;
   return createPortal(
     <div className="palette-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -63,6 +65,18 @@ export function SessionPreviewDialog({
           {preview?.context_tokens != null && <span>{formatTokens(preview.context_tokens)} context</span>}
           {session.queue && <span>Queue run</span>}
         </p>
+        {session.first_prompt && session.first_prompt !== session.prompt && (
+          <p className="session-preview-start">
+            <b>Started with</b> {session.first_prompt}
+          </p>
+        )}
+        {session.commits.length > 0 && (
+          <ul className="session-preview-commits" aria-label="Commits it made">
+            {session.commits.map((commit, index) => (
+              <li key={index}>{commit}</li>
+            ))}
+          </ul>
+        )}
         <div className="session-preview-messages" ref={messages}>
           {read.phase === "loading" && <p className="session-preview-note">Reading the session…</p>}
           {read.phase === "failed" && <p className="session-preview-note">Could not read this session: {read.error}</p>}
@@ -76,6 +90,9 @@ export function SessionPreviewDialog({
         </div>
         {(blocked || movedHome) && <p className="session-preview-note">{blocked ?? "Worktree removed, opens in the main checkout"}</p>}
         <div className="host-key-actions">
+          <button className="host-key-button session-preview-star" aria-pressed={session.starred} onClick={onStar}>
+            {session.starred ? "★ Starred" : "☆ Star"}
+          </button>
           <button autoFocus={Boolean(blocked)} className="host-key-button" onClick={onClose}>
             Close
           </button>

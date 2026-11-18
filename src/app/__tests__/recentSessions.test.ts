@@ -10,14 +10,19 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const { Controller } = await import("../controller");
-const { isActive, matchingSessions, movedHome, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
+const { byDay, dayOf, isActive, latestOutcomes, movedHome, outcomeBadge, placeOf, reopenTarget, sessionFolders, sessionState, sessionTabs } = await import("../recentSessions");
 import type { RecentSession } from "../recentSessions";
+import type { Outcome } from "../ledger";
 
 function session(id: string, over: Partial<RecentSession> = {}): RecentSession {
   return {
     id,
     title: "A title",
+    name: null,
+    starred: false,
     prompt: "a prompt",
+    first_prompt: null,
+    commits: [],
     branch: "main",
     folder: "/code/app",
     opens_in: "/code/app",
@@ -182,26 +187,55 @@ describe("the controller", () => {
   });
 });
 
-describe("matchingSessions", () => {
-  const sessions = [
-    session("favicon", { title: "Lanzarote favicon colors", prompt: "fix the icon" }),
-    session("cron", { title: null, prompt: "pause the Scheduler job", branch: "ops" }),
-    session("detached", { title: "Firestore reads", prompt: "check reads", branch: null }),
+describe("day groups", () => {
+  const noon = new Date(2026, 10, 18, 12).getTime(); // a Wednesday
+  const at = (y: number, m: number, d: number, h = 9) => new Date(y, m, d, h).getTime() / 1000;
+
+  it("go by the calendar, the week from Monday", () => {
+    expect(dayOf(at(2026, 10, 18, 0), noon)).toBe("Today");
+    expect(dayOf(at(2026, 10, 17, 23), noon)).toBe("Yesterday");
+    expect(dayOf(at(2026, 10, 16), noon)).toBe("This week");
+    expect(dayOf(at(2026, 10, 15), noon)).toBe("This month");
+    expect(dayOf(at(2026, 9, 31), noon)).toBe("Older");
+  });
+
+  it("cut a newest-first list into runs", () => {
+    const list = [session("a", { updated_at: at(2026, 10, 18) }), session("b", { updated_at: at(2026, 10, 18) }), session("c", { updated_at: at(2026, 9, 1) })];
+    expect(byDay(list, noon).map((group) => [group.day, group.sessions.map((s) => s.id)])).toEqual([
+      ["Today", ["a", "b"]],
+      ["Older", ["c"]],
+    ]);
+  });
+});
+
+describe("outcomes on rows", () => {
+  const outcome = (session: string, kind: string, over: Partial<Outcome> = {}) =>
+    ({ id: `${session}-${kind}`, session, kind, resolved: null, superseded: false, stale: false, ...over }) as Outcome;
+
+  it("take each session's newest", () => {
+    const latest = latestOutcomes([outcome("a", "left"), outcome("a", "verified"), outcome("", "you")]);
+    expect([...latest.keys()]).toEqual(["a"]);
+    expect(latest.get("a")?.kind).toBe("left");
+  });
+
+  it("call open ones unfinished", () => {
+    expect(outcomeBadge(outcome("a", "left"))).toEqual({ words: "Left for later", unfinished: true });
+    expect(outcomeBadge(outcome("a", "you"))).toEqual({ words: "Waiting on you", unfinished: true });
+    expect(outcomeBadge(outcome("a", "verified"))).toEqual({ words: "Done", unfinished: false });
+    expect(outcomeBadge(outcome("a", "left", { resolved: { resolves: "x", how: "queued", at: "" } }))).toBeNull();
+    expect(outcomeBadge(undefined)).toBeNull();
+  });
+});
+
+describe("a session's workspace", () => {
+  const places = [
+    { workspaceId: "w1", label: "code", folders: ["/code"] },
+    { workspaceId: "w2", label: "app", folders: ["/code/app", "/wt/app-x"] },
   ];
-  const ids = (query: string) => matchingSessions(sessions, query).map((found) => found.id);
-
-  it("keeps every session, in order, for an empty query", () => {
-    expect(ids("  ")).toEqual(["favicon", "cron", "detached"]);
-  });
-
-  it("looks in the title, the last prompt and the branch, ignoring case", () => {
-    expect(ids("FAVICON")).toEqual(["favicon"]);
-    expect(ids("scheduler")).toEqual(["cron"]);
-    expect(ids("ops")).toEqual(["cron"]);
-  });
-
-  it("needs every word, in any order and any field", () => {
-    expect(ids("icon lanzarote")).toEqual(["favicon"]);
-    expect(ids("lanzarote scheduler")).toEqual([]);
+  it("is the one with the deepest folder holding it", () => {
+    expect(placeOf(session("a", { folder: "/code/app/src" }), places)?.workspaceId).toBe("w2");
+    expect(placeOf(session("a", { folder: "/wt/app-x" }), places)?.workspaceId).toBe("w2");
+    expect(placeOf(session("a", { folder: "/code/other" }), places)?.workspaceId).toBe("w1");
+    expect(placeOf(session("a", { folder: "/codex" }), places)).toBeNull();
   });
 });

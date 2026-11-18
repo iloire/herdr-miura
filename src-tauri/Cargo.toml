@@ -20,6 +20,8 @@ tauri-build = { version = "2", features = [] }
 # and encoded with bincode 2 through serde, as Herdr frames them.
 bincode = { version = "2", features = ["serde"] }
 base64 = "0.22"
+# Finds `git commit` in transcripts' lines without parsing each one.
+memchr = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }

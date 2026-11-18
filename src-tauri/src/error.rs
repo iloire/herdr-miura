@@ -15,6 +15,8 @@ pub enum Error {
     #[error(transparent)]
     OpenSessions(#[from] crate::open_sessions::Error),
     #[error(transparent)]
+    SessionMarks(#[from] crate::session_marks::Error),
+    #[error(transparent)]
     PromptCreate(#[from] crate::prompts::CreateError),
     #[error(transparent)]
     PromptSave(#[from] crate::prompts::SaveError),

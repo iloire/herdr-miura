@@ -30,6 +30,7 @@ mod prompts;
 mod queue;
 mod session_context;
 mod recent_sessions;
+mod session_marks;
 mod session_usage;
 mod settings;
 mod ssh_hosts;
@@ -128,6 +129,8 @@ pub fn run() {
             commands::session_usage,
             commands::recent_sessions,
             commands::session_preview,
+            commands::session_star,
+            commands::session_rename,
             commands::session_resume,
             commands::session_resume_in,
             commands::usage_history,

@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-18 10:45 — Star, name and search closed sessions
+
+The Sessions panel helps find a session again. A star keeps a session in a Starred group on top. Rename (right-click a
+row) gives it a name of your own. The search box now looks at the first prompt and the titles of the commits the
+session made too, and searches all sessions, not only the newest 200. History is grouped by day. Each row shows its
+last commit and its latest outcome (Left for later, Waiting on you, Done), and Unfinished keeps only the open ones.
+All shows and searches every workspace's sessions.
+
 ## 2026-11-14 12:05 — Todoist view picker moves under the panel's head
 
 The picker sat in the head, where a narrow column cut it to a few letters. It now leads a strip under the head, full

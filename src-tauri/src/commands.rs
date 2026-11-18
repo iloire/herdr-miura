@@ -15,6 +15,7 @@ use crate::{
     prompts, queue,
     session_context::{self, SessionContext},
     recent_sessions::{self, RecentSession},
+    session_marks,
     session_usage::{self, ProjectUsage, SessionUsage},
     settings,
     ssh_hosts,
@@ -612,7 +613,8 @@ pub async fn session_usage(
 pub async fn recent_sessions(
     app: AppHandle,
     connection: State<'_, Connection>,
-    folders: Vec<String>,
+    folders: Option<Vec<String>>,
+    query: Option<String>,
 ) -> Result<Vec<RecentSession>> {
     connection.ensure_local()?;
     let read = tauri::async_runtime::spawn_blocking(move || {
@@ -620,9 +622,25 @@ pub async fn recent_sessions(
             return Vec::new();
         };
         let sessions = projects.with_file_name("sessions");
-        app.state::<recent_sessions::Cache>().list(&projects, &sessions, &folders)
+        let marks = session_marks::path().map(|path| session_marks::read(&path)).unwrap_or_default();
+        let ask = recent_sessions::Ask { folders: folders.as_deref(), query: query.as_deref().unwrap_or_default() };
+        app.state::<recent_sessions::Cache>().list(&projects, &sessions, &marks, ask)
     });
     Ok(read.await.map_err(changes::Error::Worker)?)
+}
+
+/// Stars a session in the Sessions panel, or takes its star off.
+#[tauri::command]
+pub async fn session_star(session: String, starred: bool) -> Result<session_marks::Mark> {
+    let run = tauri::async_runtime::spawn_blocking(move || session_marks::change(&session_marks::path()?, &session, session_marks::Change::Star(starred)));
+    Ok(run.await.map_err(changes::Error::Worker)??)
+}
+
+/// Gives a session a name of its own in Herdr; `None` or an empty one takes it off.
+#[tauri::command]
+pub async fn session_rename(session: String, name: Option<String>) -> Result<session_marks::Mark> {
+    let run = tauri::async_runtime::spawn_blocking(move || session_marks::change(&session_marks::path()?, &session, session_marks::Change::Name(name)));
+    Ok(run.await.map_err(changes::Error::Worker)??)
 }
 
 /// The latest messages of a session, for the Sessions panel to show before
@@ -651,7 +669,8 @@ pub async fn session_resume(
     let run = tauri::async_runtime::spawn_blocking(move || -> Result<queue::Opened> {
         let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
         let sessions = projects.with_file_name("sessions");
-        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &session)?;
+        let marks = session_marks::path().map(|path| session_marks::read(&path)).unwrap_or_default();
+        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &marks, &session)?;
         Ok(queue::resume(&workspace_id, &target.folder, &target.label, &resume_name(), &session)?)
     });
     run.await.map_err(changes::Error::Worker)?
@@ -694,7 +713,8 @@ pub async fn session_resume_in(
     let run = tauri::async_runtime::spawn_blocking(move || -> Result<queue::Opened> {
         let projects = claude_projects().ok_or_else(|| recent_sessions::Error::Unknown(session.clone()))?;
         let sessions = projects.with_file_name("sessions");
-        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &session)?;
+        let marks = session_marks::path().map(|path| session_marks::read(&path)).unwrap_or_default();
+        let target = app.state::<recent_sessions::Cache>().target(&projects, &sessions, &marks, &session)?;
         Ok(queue::resume_in(&tab_id, &pane_id, &target.folder, &resume_name(), &session)?)
     });
     run.await.map_err(changes::Error::Worker)?
