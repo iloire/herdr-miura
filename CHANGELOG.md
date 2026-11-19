@@ -2,6 +2,10 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-19 09:11 — Workspace cards show how many tabs are open
+
+A small, faint number just after a workspace's name counts its tabs. A workspace with a single tab shows none.
+
 ## 2026-11-18 10:38 — Agents tab: Older section, and Recent says its range
 
 Recent still holds agents that went idle in the last 12 hours, 10 at most, and hovering its head now says so. Under it, a

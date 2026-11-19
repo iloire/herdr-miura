@@ -402,6 +402,20 @@ body.reordering * {
   min-width: 7ch;
 }
 
+/* The tab count rides just after the name and takes the space the name leaves. */
+.workspace-head .workspace-label:has(+ .workspace-tabs) {
+  flex: 0 1 auto;
+}
+
+.workspace-tabs {
+  flex: 1 0 auto;
+  margin-left: -3px;
+  color: var(--faint);
+  font-size: 0.75em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
 .workspace-head .workspace-branch {
   flex: 0 1 auto;
   min-width: 0;

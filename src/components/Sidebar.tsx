@@ -231,6 +231,8 @@ export function Sidebar({
     setOpenCards(next);
     saveOpenCards(next);
   };
+  const tabCounts = new Map<string, number>();
+  for (const tab of snapshot?.tabs ?? []) tabCounts.set(tab.workspace_id, (tabCounts.get(tab.workspace_id) ?? 0) + 1);
   const pinned = pinnedByWorkspace(snapshot?.tabs ?? [], (tab) => pins.has(pinKey(snapshot?.boot_id ?? "", tab.tab_id)));
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -413,6 +415,7 @@ export function Sidebar({
                   <span className="workspace-label" title={[path, shownBranch(workspace.branch)].filter(Boolean).join("\n") || undefined}>
                     {workspace.label}
                   </span>
+                  <TabCount count={tabCounts.get(workspace.workspace_id) ?? 0} />
                   {headEnd}
                 </span>
                 {open && gitLine}
@@ -821,6 +824,16 @@ function WorkspaceGit({
       <GitBehind count={behind} />
       <GitChanged count={changed} />
       <Worktrees worktrees={worktrees} onOpen={onOpenWorktrees} />
+    </span>
+  );
+}
+
+/// How many tabs the workspace holds, faint beside its name; the usual one goes unsaid.
+function TabCount({ count }: { count: number }) {
+  if (count < 2) return null;
+  return (
+    <span className="workspace-tabs" title={`${count} tabs open`}>
+      {count}
     </span>
   );
 }
