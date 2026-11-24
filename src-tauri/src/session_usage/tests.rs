@@ -318,6 +318,31 @@ fn folders_come_latest_first_and_each_once() {
     assert_eq!(usage.cwds, ["/repo/.claude/worktrees/x", "/tmp/scratch", "/repo"]);
 }
 
+/// A response line calling `tool` on `path`, a subagent's when `sidechain`.
+fn tool_response(id: &str, tool: &str, key: &str, path: &str, sidechain: bool) -> String {
+    let call = format!(r#""content":[{{"type":"text","text":"ok"}},{{"type":"tool_use","name":"{tool}","input":{{"{key}":"{path}"}}}}],"#);
+    response(id, "2026-10-29T09:33:17.123Z", 1, 1, sidechain).replacen(r#""model""#, &format!(r#"{call}"model""#), 1)
+}
+
+#[test]
+fn written_folders_come_latest_first_and_each_once() {
+    let fixture = fixture();
+    let calls = [
+        ("a", "Edit", "file_path", "/repo/src/a.ts"),
+        ("b", "Write", "file_path", "/wt-x/src/b.ts"),
+        ("c", "Read", "file_path", "/elsewhere/c.ts"),
+        ("d", "NotebookEdit", "notebook_path", "/notes/n.ipynb"),
+        ("e", "Write", "file_path", "relative/e.ts"),
+        ("f", "MultiEdit", "file_path", "/wt-x/src/f.ts"),
+    ];
+    for (id, tool, key, path) in calls {
+        append(&fixture.transcript, &tool_response(id, tool, key, path, false));
+    }
+    append(&fixture.transcript, &tool_response("g", "Write", "file_path", "/subagent/g.ts", true));
+    let usage = read(&Cache::default(), &fixture).unwrap();
+    assert_eq!(usage.edited, ["/wt-x/src", "/notes", "/repo/src"]);
+}
+
 fn latest_prompt(fixture: &Fixture) -> Option<String> {
     read(&Cache::default(), fixture).unwrap().prompt
 }

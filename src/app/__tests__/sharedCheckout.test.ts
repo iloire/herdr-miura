@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ChangesState, CheckoutChanges } from "../../changes/store";
 import type { Agent, AgentStatus, Pane, Snapshot, Tab } from "../../protocol";
 import type { SessionUsage } from "../sessionUsage";
-import { inLinkedWorktree, paneDirectory, sessionWorktree, sharedCheckout, sharedTitle, tabDirectory, withSessionFolders } from "../sharedCheckout";
+import type { Worktree } from "../../changes/worktrees";
+import { editedWorktree, inLinkedWorktree, paneDirectory, sessionWorktree, sharedCheckout, sharedTitle, tabDirectory, withSessionFolders } from "../sharedCheckout";
 
 const pane = (id: string, cwd: string, over: Partial<Pane> = {}): Pane => ({
   pane_id: id,
@@ -188,15 +189,46 @@ describe("sessionWorktree", () => {
   });
 });
 
+const linked = (path: string, repo = "/code/repo") => ({ path, repo }) as Worktree;
+
+describe("editedWorktree", () => {
+  const worktrees = [linked("/code/wt-a"), linked("/code/wt-b"), linked("/other/wt", "/other/repo")];
+
+  it("finds the worktree of the repo the session last wrote in", () => {
+    expect(editedWorktree(["/code/wt-a/src", "/code/wt-b"], "/code/repo", worktrees)).toBe("/code/wt-a");
+    expect(editedWorktree(["/code/wt-b/src/app"], "/code/repo/src", worktrees)).toBe("/code/wt-b");
+  });
+
+  it("looks past files outside the repo", () => {
+    expect(editedWorktree(["/Users/me/.claude/memory", "/code/wt-a/src"], "/code/repo", worktrees)).toBe("/code/wt-a");
+  });
+
+  it("is null once the latest write is in the main checkout", () => {
+    expect(editedWorktree(["/code/repo/src", "/code/wt-a/src"], "/code/repo", worktrees)).toBeNull();
+  });
+
+  it("ignores another repo's worktree, a removed one and a pane already in one", () => {
+    expect(editedWorktree(["/other/wt/src"], "/code/repo", worktrees)).toBeNull();
+    expect(editedWorktree(["/code/wt-gone/src"], "/code/repo", worktrees)).toBeNull();
+    expect(editedWorktree(["/code/wt-b/src"], "/code/wt-a", worktrees)).toBeNull();
+    expect(editedWorktree([], "/code/repo", worktrees)).toBeNull();
+  });
+});
+
 describe("withSessionFolders", () => {
   const session = "0f2736ab-56ae-454c-ad08-fc76c65f788f";
   const claude = { ...agent("1"), tokens: [["claude_session", session]] } as Agent;
-  const usage = (cwds: string[]) => new Map([[session, { cwds } as SessionUsage]]);
+  const usage = (cwds: string[], edited: string[] = []) => new Map([[session, { cwds, edited } as SessionUsage]]);
   const snapshot = { agents: [claude], panes: [pane("1", "/repo"), pane("2", "/repo")] } as unknown as Snapshot;
 
   it("moves only the session's pane", () => {
     const moved = withSessionFolders(snapshot, usage(["/repo/.claude/worktrees/x"]));
     expect(moved.panes.map(paneDirectory)).toEqual(["/repo/.claude/worktrees/x", "/repo"]);
+  });
+
+  it("moves the pane into a sibling worktree the session writes in", () => {
+    const moved = withSessionFolders(snapshot, usage(["/repo"], ["/wt-x/src"]), [linked("/wt-x", "/repo")]);
+    expect(moved.panes.map(paneDirectory)).toEqual(["/wt-x", "/repo"]);
   });
 
   it("returns the same snapshot when nothing moved", () => {

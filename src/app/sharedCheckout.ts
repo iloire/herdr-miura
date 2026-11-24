@@ -6,6 +6,7 @@
 // each one.
 
 import type { ChangesState } from "../changes/store";
+import type { Worktree } from "../changes/worktrees";
 import type { AgentStatus, Pane, Snapshot, Tab } from "../protocol";
 import { agentCountsByTab, agentRowName } from "./attention";
 import { type SessionUsage, sessionOf } from "./sessionUsage";
@@ -59,15 +60,38 @@ export function sessionWorktree(cwds: readonly string[], folder: string): string
   return null;
 }
 
-/// `snapshot` with each Claude session's pane where the session really is. The
-/// same object comes back when no session has moved.
-export function withSessionFolders(snapshot: Snapshot, usages: ReadonlyMap<string, SessionUsage | null>): Snapshot {
+/// The linked worktree a session is writing in without having moved there, as
+/// a project's own worktree script leaves it: next to the checkout, out of the
+/// session's reach, so its folder stays put and only the paths it writes tell.
+/// The latest file written in `folder`'s repo decides, a worktree of it or the
+/// main checkout; files outside the repo are passed over. Null when it is in none.
+export function editedWorktree(edited: readonly string[], folder: string, linked: readonly Worktree[]): string | null {
+  const ours = linked.filter((worktree) => inside(folder, worktree.repo) && !inside(folder, worktree.path));
+  const repo = ours[0]?.repo;
+  if (repo === undefined) return null;
+  for (const written of edited) {
+    const worktree = ours.find((candidate) => inside(written, candidate.path));
+    if (worktree) return worktree.path;
+    if (inside(written, repo)) return null;
+  }
+  return null;
+}
+
+/// `snapshot` with each Claude session's pane where the session really is: the
+/// worktree it moved into, else one of `linked` it writes in. The same object
+/// comes back when no session has moved.
+export function withSessionFolders(
+  snapshot: Snapshot,
+  usages: ReadonlyMap<string, SessionUsage | null>,
+  linked: readonly Worktree[] = [],
+): Snapshot {
   const folders = new Map<string, string>();
   for (const agent of snapshot.agents) {
     const session = sessionOf(agent);
-    const cwds = session === null ? undefined : usages.get(session)?.cwds;
+    const usage = session === null ? undefined : usages.get(session);
     const folder = paneDirectory(snapshot.panes.find((pane) => pane.pane_id === agent.pane_id));
-    const worktree = cwds && folder ? sessionWorktree(cwds, folder) : null;
+    const worktree =
+      usage && folder ? (sessionWorktree(usage.cwds, folder) ?? editedWorktree(usage.edited, folder, linked)) : null;
     if (worktree && worktree !== folder) folders.set(agent.pane_id, worktree);
   }
   if (folders.size === 0) return snapshot;

@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-24 09:26 — Changes follows an agent into a worktree it only writes in
+
+An agent working in a worktree that sits beside the checkout, as a project's own worktree script makes them, never moves
+its folder there: it writes by full path. The Changes panel, tab header and tab marks went on showing the main checkout.
+Now the files an agent writes count too: when its latest write in the repo is inside one of its linked worktrees, the pane
+is taken to be there.
+
 ## 2026-11-19 09:11 — Workspace cards show how many tabs are open
 
 A small, faint number just after a workspace's name counts its tabs. A workspace with a single tab shows none.

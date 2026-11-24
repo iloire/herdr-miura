@@ -31,6 +31,14 @@ const BUCKET_SECONDS: i64 = 5 * 60;
 /// folder or two back to the one it works in.
 const MAX_CWDS: usize = 8;
 
+/// The tools that write a file, and the input naming it.
+const WRITING_TOOLS: [(&str, &str); 4] = [
+    ("Write", "file_path"),
+    ("Edit", "file_path"),
+    ("MultiEdit", "file_path"),
+    ("NotebookEdit", "notebook_path"),
+];
+
 /// Characters of a prompt kept, for the tab header's tooltip: all of one you
 /// typed, and only the start of a pasted wall of text, which would otherwise
 /// travel to the webview every poll.
@@ -98,6 +106,9 @@ pub struct SessionUsage {
     /// worktree moves Claude Code's own folder, not its process's, so only
     /// the transcript knows.
     pub cwds: Vec<String>,
+    /// The folders of the files it has written, latest first, each once. A
+    /// session can work in a worktree it never moved into, by its paths alone.
+    pub edited: Vec<String>,
 }
 
 /// A project's use over the last week, in five-minute buckets.
@@ -125,6 +136,8 @@ struct FileState {
     prompt: Option<String>,
     /// See [`SessionUsage::cwds`].
     cwds: Vec<String>,
+    /// See [`SessionUsage::edited`].
+    edited: Vec<String>,
 }
 
 impl FileState {
@@ -198,7 +211,10 @@ impl FileState {
             .add(response.tokens);
         if !response.sidechain {
             if let Some(cwd) = value.get("cwd").and_then(Value::as_str) {
-                self.moved_to(cwd);
+                latest_first(&mut self.cwds, cwd);
+            }
+            for folder in written_folders(&value) {
+                latest_first(&mut self.edited, folder);
             }
             self.context = response.tokens.prompt();
             if let Some(model) = response.model {
@@ -207,14 +223,38 @@ impl FileState {
         }
     }
 
-    fn moved_to(&mut self, cwd: &str) {
-        if self.cwds.first().is_some_and(|latest| latest == cwd) {
-            return;
-        }
-        self.cwds.retain(|known| known != cwd);
-        self.cwds.insert(0, cwd.to_owned());
-        self.cwds.truncate(MAX_CWDS);
+}
+
+/// `folder` put first in `list`, once, which keeps [`MAX_CWDS`].
+fn latest_first(list: &mut Vec<String>, folder: &str) {
+    if list.first().is_some_and(|latest| latest == folder) {
+        return;
     }
+    list.retain(|known| known != folder);
+    list.insert(0, folder.to_owned());
+    list.truncate(MAX_CWDS);
+}
+
+/// The folders of the files a response's tool calls write, in order.
+fn written_folders(value: &Value) -> Vec<&str> {
+    let Some(blocks) = value
+        .get("message")
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_array)
+    else {
+        return Vec::new();
+    };
+    blocks
+        .iter()
+        .filter(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
+        .filter_map(|block| {
+            let name = block.get("name")?.as_str()?;
+            let (_, key) = WRITING_TOOLS.iter().find(|(tool, _)| *tool == name)?;
+            let path = block.get("input")?.get(key)?.as_str()?;
+            Path::new(path).parent()?.to_str()
+        })
+        .filter(|folder| folder.starts_with('/'))
+        .collect()
 }
 
 /// One response line of a transcript.
@@ -513,6 +553,7 @@ fn session(
     let (model, context, prompt) = (main.model.clone(), main.context, main.prompt.clone());
     let started_at = main.started_at;
     let cwds = main.cwds.clone();
+    let edited = main.edited.clone();
     let mut minutes = main.minutes.clone();
     let mut written = written_at(transcript);
     for path in subagents(transcript) {
@@ -540,6 +581,7 @@ fn session(
         started_at,
         prompt,
         cwds,
+        edited,
     })
 }
 

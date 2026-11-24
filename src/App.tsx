@@ -417,17 +417,16 @@ export default function App() {
     };
   }, [local, sessionKey]);
 
+  const allWorktrees = useMemo(() => [...worktreeLists.values()].flatMap((list) => list ?? []), [worktreeLists]);
+  const linkedWorktrees = useMemo(() => allWorktrees.map((worktree) => worktree.path), [allWorktrees]);
   // Where each pane's program really is: Claude Code enters a worktree without
-  // its process moving, so everything that reads a checkout goes by this.
+  // its process moving, or writes in one by path alone, so everything that
+  // reads a checkout goes by this.
   const located = useMemo(
-    () => state.snapshot && withSessionFolders(state.snapshot, sessionUsages),
-    [state.snapshot, sessionUsages],
+    () => state.snapshot && withSessionFolders(state.snapshot, sessionUsages, allWorktrees),
+    [state.snapshot, sessionUsages, allWorktrees],
   );
   const directory = focusedDirectory(located);
-  const linkedWorktrees = useMemo(
-    () => [...worktreeLists.values()].flatMap((list) => list ?? []).map((worktree) => worktree.path),
-    [worktreeLists],
-  );
   const worktreeTabs = useMemo(() => {
     if (!located) return new Set<string>();
     const inWorktree = located.tabs.filter((tab) => {

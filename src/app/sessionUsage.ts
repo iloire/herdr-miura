@@ -38,6 +38,8 @@ export interface SessionUsage {
   prompt: string | null;
   /// The folders it has worked in, latest first, each once.
   cwds: string[];
+  /// The folders of the files it has written, latest first, each once.
+  edited: string[];
 }
 
 /// Anything that keeps its tokens over time.

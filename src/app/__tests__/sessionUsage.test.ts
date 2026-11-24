@@ -7,7 +7,7 @@ function minute(at: number, over: Partial<Minute> = {}): Minute {
 }
 
 function session(minutes: Minute[]): SessionUsage {
-  return { model: "claude-opus-5-5", context: 0, minutes, written_at: null, started_at: null, prompt: null, cwds: [] };
+  return { model: "claude-opus-5-5", context: 0, minutes, written_at: null, started_at: null, prompt: null, cwds: [], edited: [] };
 }
 
 describe("weighted", () => {
