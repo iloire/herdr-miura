@@ -26,6 +26,7 @@ mod osc52;
 mod outcome;
 mod pasted_image;
 mod process;
+mod process_memory;
 mod prompts;
 mod queue;
 mod session_context;
@@ -96,6 +97,7 @@ pub fn run() {
             commands::ledger_resolve,
             commands::file_diff,
             commands::listening_ports,
+            commands::process_memory,
             commands::list_files,
             commands::list_folder,
             commands::move_tab,

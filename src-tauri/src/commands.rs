@@ -12,6 +12,7 @@ use crate::{
     forge,
     land, ledger, listening_ports, open_sessions,
     pasted_image::{self, PastedImage},
+    process_memory,
     prompts, queue,
     session_context::{self, SessionContext},
     recent_sessions::{self, RecentSession},
@@ -574,6 +575,16 @@ pub async fn listening_ports(
     connection.ensure_local()?;
     let scan = tauri::async_runtime::spawn_blocking(listening_ports::scan);
     Ok(scan.await.map_err(listening_ports::Error::Worker)??)
+}
+
+/// Each pane's processes on this machine with the memory they hold, by pane id.
+#[tauri::command]
+pub async fn process_memory(
+    connection: State<'_, Connection>,
+) -> Result<HashMap<String, Vec<process_memory::Process>>> {
+    connection.ensure_local()?;
+    let scan = tauri::async_runtime::spawn_blocking(process_memory::scan);
+    Ok(scan.await.map_err(process_memory::Error::Worker)??)
 }
 
 /// The linked worktrees of each directory's checkout; `None` outside Git.

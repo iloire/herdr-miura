@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-24 18:01 — Tabs and workspaces show the memory their processes hold
+
+The tab header shows how much memory the focused tab's processes hold, and an expanded workspace card shows its total.
+Clicking either opens a list of those processes, largest first, with each one's command, tab and pid. A process
+belongs to the pane its environment names, or to its parent's. On macOS the figure is the footprint Activity Monitor
+shows; resident size leaves out compressed memory, a third of an idle Claude Code. Rescanned every 5 s, on this Mac only.
+
 ## 2026-11-24 09:26 — Changes follows an agent into a worktree it only writes in
 
 An agent working in a worktree that sits beside the checkout, as a project's own worktree script makes them, never moves

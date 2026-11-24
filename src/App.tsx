@@ -10,7 +10,9 @@ import { loadLayout, type SavedFile, saveLayout } from "./app/layout";
 import { loadPins } from "./app/pins";
 import { loadTabColors, saveTabColors, withoutClosedTabs } from "./app/tabColors";
 import { type ClaudeUsage, readClaudeUsage } from "./app/claudeUsage";
-import { type ListeningPort, readPorts, samePorts } from "./app/ports";
+import { type MemoryScope, readMemory, sameMemory } from "./app/memory";
+import { readPorts, samePorts } from "./app/ports";
+import { useLocalScan } from "./app/useLocalScan";
 import { type SessionPlace, sessionFolders } from "./app/recentSessions";
 import { readSessionUsage, type SessionUsage, sessionOf } from "./app/sessionUsage";
 import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from "./app/paneWidth";
@@ -66,6 +68,7 @@ import { TabHeader } from "./components/TabHeader";
 import { UsageDialog } from "./components/UsageDialog";
 import { DayDialog } from "./components/DayDialog";
 import { ContextDialog } from "./components/ContextDialog";
+import { MemoryDialog } from "./components/MemoryDialog";
 import { WorktreesDialog } from "./components/WorktreesDialog";
 import { Terminal } from "./components/Terminal";
 import { type FoundFile, loadShowIgnored, saveShowIgnored, useListing } from "./files/listing";
@@ -83,6 +86,8 @@ const COUNTS_POLL_MS = 10000;
 /// How often listening ports are rescanned: servers start and stop at human
 /// pace, and `lsof` is not free on a busy machine.
 const PORTS_POLL_MS = 5000;
+/// How often each pane's processes are measured: three `ps` runs, about 150 ms.
+const MEMORY_POLL_MS = 5000;
 /// How often Claude usage is asked for and its countdowns redrawn; the
 /// backend reads Anthropic at most every ten minutes whatever this is.
 const USAGE_POLL_MS = 60_000;
@@ -343,31 +348,10 @@ export default function App() {
   const todoistFolders = useMemo(() => todoistTargets.map((target) => target.folder), [todoistTargets]);
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
-  const [ports, setPorts] = useState<Map<string, ListeningPort[]>>(new Map());
-  useEffect(() => {
-    if (!local) {
-      setPorts(new Map());
-      return;
-    }
-    let scanning = false;
-    let live = true;
-    const refresh = () => {
-      if (scanning) return;
-      scanning = true;
-      readPorts()
-        .then((next) => live && setPorts((previous) => (samePorts(previous, next) ? previous : next)))
-        .catch(() => {})
-        .finally(() => (scanning = false));
-    };
-    refresh();
-    const timer = window.setInterval(refresh, PORTS_POLL_MS);
-    window.addEventListener("focus", refresh);
-    return () => {
-      live = false;
-      clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [local]);
+  const ports = useLocalScan(local, PORTS_POLL_MS, readPorts, samePorts);
+  // Every pane's processes and the memory they hold, on this Mac only too.
+  const memory = useLocalScan(local, MEMORY_POLL_MS, readMemory, sameMemory);
+  const [memoryOf, setMemoryOf] = useState<MemoryScope | null>(null);
   // Claude plan usage is this Mac's account, so it is read whichever host
   // the window is connected to.
   const [usage, setUsage] = useState<{ usage: ClaudeUsage | null; now: number }>({ usage: null, now: Date.now() });
@@ -739,7 +723,7 @@ export default function App() {
         className={`app ${state.sidebar ? "" : "no-sidebar"}`}
         style={{ gridTemplateColumns: state.sidebar ? `${sidebarWidth}px 1fr` : undefined }}
       >
-        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} showAgents={state.settings.ui.sidebarAgents} findAsked={state.findWorkspace} switchViewAsked={state.switchSidebarView} closedAsks={closedAsks} />}
+        {state.sidebar && <Sidebar controller={controller} title={app} fullTitle={windowTitle} snapshot={seenAs} changedFiles={changedFiles} worktrees={worktrees} onOpenWorktrees={setWorktreesOf} queues={queues} onOpenQueue={openQueue} pins={pins} ports={ports} memory={memory} onOpenMemory={setMemoryOf} rootOf={rootOf} lands={local ? landStore : null} onMarkSeen={markSeen} slots={slots} onChooseColor={chooseColor} onMoveColor={moveColor} groups={state.settings.workspaceGroups} onSetGroups={setGroups} cards={state.settings.workspaceCards} showAgents={state.settings.ui.sidebarAgents} findAsked={state.findWorkspace} switchViewAsked={state.switchSidebarView} closedAsks={closedAsks} />}
         {state.sidebar && (
           <PaneResizer pane={SIDEBAR} width={sidebarWidth} clamp={fitSidebar} onChange={setWantedSidebar} onCommit={commitSidebarWidth} />
         )}
@@ -781,7 +765,7 @@ export default function App() {
                 onOpenQueue={openQueue}
                 onSplit={markSplit}
               />
-              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} queued={queuedTab} task={tabTask} onOpenContext={setContextOf} />
+              <TabHeader controller={controller} snapshot={seenAs} library={state.library} usages={sessionUsages} plan={usage.usage} git={git} shared={shared} stray={stray} ports={focusedPorts} memory={memory} onOpenMemory={setMemoryOf} queued={queuedTab} task={tabTask} onOpenContext={setContextOf} />
               <div className="stage">
                 <Terminal
                   controller={controller}
@@ -983,6 +967,17 @@ export default function App() {
             }
             onClose={() => {
               setDayOpen(false);
+              controller.focusTerminal();
+            }}
+          />
+        )}
+        {memoryOf && state.snapshot && (
+          <MemoryDialog
+            memory={memory}
+            snapshot={state.snapshot}
+            scope={memoryOf}
+            onClose={() => {
+              setMemoryOf(null);
               controller.focusTerminal();
             }}
           />

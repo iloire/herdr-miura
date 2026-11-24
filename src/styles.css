@@ -3446,6 +3446,115 @@ kbd {
   text-decoration: underline;
 }
 
+/* The memory a tab's or workspace's processes hold: a quiet figure, in the
+   tab header and on an expanded card's name line, that lists them. */
+.memory {
+  flex: none;
+  padding: 0;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.3 var(--mono);
+  white-space: nowrap;
+}
+
+.memory:hover,
+.memory:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* The Memory dialog: a row a process, largest first, with a bar against the
+   largest so the heavy ones read at a glance. */
+.memory-dialog {
+  --hue: var(--working);
+}
+
+.memory-dialog:focus {
+  outline: none;
+}
+
+.memory-empty,
+.memory-note {
+  margin: 0;
+  padding: 8px 28px 20px;
+  color: var(--muted);
+}
+
+.memory-note {
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-size: calc(11px * var(--ui-scale));
+}
+
+.memory-list {
+  margin: 0;
+  padding: 4px 20px 12px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.memory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 120px;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.memory-row:hover {
+  background: color-mix(in srgb, var(--rule) 60%, transparent);
+}
+
+.memory-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.memory-name strong {
+  overflow: hidden;
+  color: var(--bright);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-name small {
+  overflow: hidden;
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale))/1.4 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-tab {
+  margin-right: 8px;
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+.memory-pid {
+  color: var(--muted);
+  font: calc(11px * var(--ui-scale)) var(--mono);
+}
+
+.memory-bytes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  color: var(--text);
+  font: calc(12px * var(--ui-scale)) var(--mono);
+}
+
+.memory-bar {
+  align-self: stretch;
+  max-width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--working);
+}
+
 /* Files panel: the header and filter stay put while the tree scrolls. */
 
 .files {

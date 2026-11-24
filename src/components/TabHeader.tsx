@@ -6,6 +6,7 @@ import { type StatusSince, statusAge, trackStatus } from "../app/agentAge";
 import { agentTitle, loopTag, needsYouNote, shownStatus, verifiedDone } from "../app/attention";
 import type { ClaudeUsage } from "../app/claudeUsage";
 import type { TabGit } from "../app/gitLine";
+import type { MemoryScope, PaneMemory } from "../app/memory";
 import { type ListeningPort, tabPorts } from "../app/ports";
 import {
   burn,
@@ -37,6 +38,7 @@ import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { folderMenu } from "./folderMenu";
 import { GitAhead, GitBehind, GitChanged } from "./GitCounts";
 import { BranchIcon, FolderIcon, LibraryIcon, QueueIcon } from "./icons";
+import { MemoryButton } from "./Memory";
 import { Ports } from "./Ports";
 import { StatusMark } from "./StatusMark";
 
@@ -63,7 +65,7 @@ const AGE_TITLE = "Time in this status, counted from when the app first saw it, 
 /// the workspace's root, to catch an agent working in the wrong place. Then the
 /// Git state of its checkout, which the sidebar cannot give: tabs of a workspace
 /// can sit in different worktrees. Then the ports of the servers started in this
-/// tab, each opening its page. At the first line's right end the prompt library,
+/// tab, each opening its page, and the memory its processes hold, which lists them. At the first line's right end the prompt library,
 /// whose prompts go to this tab's agent. The second line holds what matters about
 /// each of its agents at all times: status, model, when its session started, colored
 /// once that is hours back, when it was last active unless it is working now, time in its status, how long it has been quiet when that
@@ -81,6 +83,8 @@ export function TabHeader({
   shared,
   stray,
   ports,
+  memory,
+  onOpenMemory,
   queued,
   task,
   library,
@@ -98,6 +102,10 @@ export function TabHeader({
   stray: StrayPath | null;
   /// The focused workspace's listening ports.
   ports: ListeningPort[];
+  /// Each pane's processes and the memory they hold.
+  memory: PaneMemory;
+  /// Lists a tab's or workspace's processes, largest first.
+  onOpenMemory: (scope: MemoryScope) => void;
   /// The queued prompt this tab holds, where it stands in its queue, and what follows it.
   queued: { item: Item; place: { position: number; total: number } | null; next: Item | null } | null;
   /// The Todoist task this tab's latest prompt came from.
@@ -154,6 +162,7 @@ export function TabHeader({
         {stray && <StrayFacts controller={controller} stray={stray} />}
         {git && <GitFacts git={git} />}
         <Ports ports={tabPorts(ports, snapshot.panes, snapshot.focused_tab_id)} />
+        <MemoryButton memory={memory} snapshot={snapshot} scope={{ kind: "tab", id: snapshot.focused_tab_id }} onOpen={onOpenMemory} />
         {queued?.next && <span className="tab-queue">next: {title(queued.next.prompt, 40)}</span>}
         <button
           className="panel-toggle library-toggle"

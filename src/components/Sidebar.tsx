@@ -16,6 +16,7 @@ import { groupWorktrees, type Row, workspaceOn } from "../app/worktreeGroups";
 import { groupNames, groupSections, loadCollapsed, renameGroup, saveCollapsed, workspaceGroups } from "../app/workspaceGroups";
 import { filterTerms, matchesTerms, workspaceText } from "../app/workspaceFilter";
 import { dropSlot, loadSort, moveIndex, saveSort, sortWorkspaces, type WorkspaceSort } from "../app/workspaceOrder";
+import type { MemoryScope, PaneMemory } from "../app/memory";
 import type { ListeningPort } from "../app/ports";
 import type { Worktree } from "../changes/worktrees";
 import type { Agent, AgentStatus, Snapshot, Tab, Workspace } from "../protocol";
@@ -39,6 +40,7 @@ import {
   SearchIcon,
   TeamIcon,
 } from "./icons";
+import { MemoryButton } from "./Memory";
 import { PortsMark } from "./Ports";
 import { QueueChip } from "./QueueChip";
 import { RenameField } from "./RenameField";
@@ -63,6 +65,8 @@ export function Sidebar({
   onOpenQueue,
   pins,
   ports,
+  memory,
+  onOpenMemory,
   rootOf,
   lands,
   onMarkSeen,
@@ -96,6 +100,10 @@ export function Sidebar({
   pins: Set<string>;
   /// Ports each workspace's servers listen on, by workspace id; absent when none.
   ports: Map<string, ListeningPort[]>;
+  /// Each pane's processes and the memory they hold.
+  memory: PaneMemory;
+  /// Lists a workspace's processes, largest first.
+  onOpenMemory: (scope: MemoryScope) => void;
   /// A workspace's fixed root; null when it has none yet or on a remote host.
   rootOf: (workspace: Workspace) => string | null;
   /// Landing worktrees; `null` on a remote host, whose worktrees are not on this Mac.
@@ -296,7 +304,12 @@ export function Sidebar({
       const headEnd = (
         <>
           {open ? (
-            <PortsMark ports={listening} />
+            <>
+              {snapshot && (
+                <MemoryButton memory={memory} snapshot={snapshot} scope={{ kind: "workspace", id: workspace.workspace_id }} onOpen={onOpenMemory} />
+              )}
+              <PortsMark ports={listening} />
+            </>
           ) : (
             <>
               {gitLine}

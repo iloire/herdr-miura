@@ -40,6 +40,8 @@ pub enum Error {
     Ledger(#[from] crate::ledger::Error),
     #[error(transparent)]
     ListeningPorts(#[from] crate::listening_ports::Error),
+    #[error(transparent)]
+    ProcessMemory(#[from] crate::process_memory::Error),
     #[error("event pump not started")]
     Pump(#[source] std::io::Error),
     #[error("not connected to a Herdr daemon")]

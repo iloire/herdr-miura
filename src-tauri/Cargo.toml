@@ -35,6 +35,10 @@ toml_edit = "0.25"
 ureq = "3"
 trash = "5.2.9"
 
+# The memory figure Activity Monitor shows, read with `proc_pid_rusage`.
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
 
 [lints.clippy]
 expect_used = "deny"
