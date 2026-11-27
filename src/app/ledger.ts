@@ -38,7 +38,9 @@ export interface Outcome extends LedgerEntry {
   /// `at` in ms.
   time: number;
   resolved: Resolution | null;
-  /// A later entry from the same session took its place.
+  /// A later entry from the same session took its place: any entry for an ask,
+  /// only a later `left` for a `left`, since a session that parked something
+  /// and then finished another task has not done the parked one.
   superseded: boolean;
   /// Open too long to still be listed: see `STALE_DAYS`.
   stale: boolean;
@@ -62,26 +64,30 @@ export function outcomes(ledger: Ledger, now: number): Outcome[] {
   const resolved = new Map<string, Resolution>();
   for (const resolution of ledger.resolutions) resolved.set(resolution.resolves, resolution);
   const latest = new Map<string, number>();
+  const latestLeft = new Map<string, number>();
   const list = ledger.entries.map((entry) => ({ ...entry, time: Date.parse(entry.at) || 0 }));
   for (const entry of list) {
-    if (entry.session) latest.set(entry.session, Math.max(latest.get(entry.session) ?? 0, entry.time));
+    if (!entry.session) continue;
+    latest.set(entry.session, Math.max(latest.get(entry.session) ?? 0, entry.time));
+    if (entry.kind === "left") latestLeft.set(entry.session, Math.max(latestLeft.get(entry.session) ?? 0, entry.time));
   }
   return list
     .map((entry) => ({
       ...entry,
       resolved: resolved.get(entry.id) ?? null,
-      superseded: !!entry.session && (latest.get(entry.session) ?? 0) > entry.time,
+      superseded: !!entry.session && ((entry.kind === "left" ? latestLeft : latest).get(entry.session) ?? 0) > entry.time,
       stale: entry.kind in STALE_DAYS && now - entry.time > STALE_DAYS[entry.kind] * DAY_MS,
     }))
     .sort((a, b) => b.time - a.time);
 }
 
-/// Something is still to be done about it: a `left` until it is queued or
-/// dismissed, a `you` until it is cleared or its session reports again.
+/// Something is still to be done about it: a `left` until it is queued,
+/// dismissed or restated by a later `left` of its session (agents reword what
+/// is left on every turn), a `you` until it is cleared or its session reports
+/// again.
 export function isOpen(outcome: Outcome): boolean {
-  if (outcome.resolved) return false;
-  if (outcome.kind === "left") return true;
-  return asksForYou(outcome.kind) && !outcome.superseded;
+  if (outcome.resolved || outcome.superseded) return false;
+  return outcome.kind === "left" || asksForYou(outcome.kind);
 }
 
 /// Open and recent enough to list.

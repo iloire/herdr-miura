@@ -167,7 +167,7 @@ function Row({
 }) {
   const { mark, words } = MARKS[outcome.kind] ?? { mark: "·", words: outcome.kind };
   const open = isOpen(outcome);
-  const later = outcome.resolved ? RESOLVED[outcome.resolved.how] ?? outcome.resolved.how : outcome.superseded && asksForYou(outcome.kind) ? "answered" : null;
+  const later = outcome.resolved ? RESOLVED[outcome.resolved.how] ?? outcome.resolved.how : outcome.superseded ? (asksForYou(outcome.kind) ? "answered" : "restated") : null;
   // A subtask also resolves its parked note as `todo`, which already says so.
   const written = [...(linked?.written ?? [])].filter((did) => !(did === "subtask" && outcome.resolved?.how === "todo")).map((did) => WRITTEN[did] ?? did);
   const facts = [words, outcome.branch, relativeTime(outcome.time / 1000), later ?? (open && outcome.stale ? "older" : null), ...written]

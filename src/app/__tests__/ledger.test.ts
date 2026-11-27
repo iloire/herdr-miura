@@ -47,6 +47,18 @@ describe("outcomes", () => {
     expect(allParked(list).map((o) => o.id)).toEqual(["l"]);
   });
 
+  it("a later left from the same session replaces the earlier one", () => {
+    const list = fold({
+      entries: [
+        entry("l1", "2026-11-12T09:00:00Z", "left", { session: "s1" }),
+        entry("l2", "2026-11-12T10:00:00Z", "left", { session: "s1" }),
+        entry("other", "2026-11-12T09:30:00Z", "left", { session: "s2" }),
+      ],
+      resolutions: [],
+    });
+    expect(allParked(list).map((o) => o.id)).toEqual(["l2", "other"]);
+  });
+
   it("not-started waits on you like you does", () => {
     const list = fold({ entries: [entry("n", "2026-11-12T09:00:00Z", "not-started", { session: "s2" })], resolutions: [] });
     expect(waitingOnYou(list).map((o) => o.id)).toEqual(["n"]);
