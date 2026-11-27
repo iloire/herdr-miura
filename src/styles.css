@@ -3965,7 +3965,7 @@ kbd {
   text-overflow: ellipsis;
 }
 
-/* The Todoist task this tab's prompt came from: a link back to it. */
+/* The Doable task this tab's prompt came from: a link back to it. */
 .tab-task {
   max-width: 28ch;
   color: var(--working);
@@ -4828,23 +4828,23 @@ button.agents-status-head {
   }
 }
 
-/* Todoist's refresh turns while a read is under way. */
-.todoist-refresh.reading:disabled {
+/* Doable's refresh turns while a read is under way. */
+.doable-refresh.reading:disabled {
   opacity: 1;
 }
 
-.todoist-refresh.reading svg {
-  animation: todoist-refresh 0.9s linear infinite;
+.doable-refresh.reading svg {
+  animation: doable-refresh 0.9s linear infinite;
 }
 
-@keyframes todoist-refresh {
+@keyframes doable-refresh {
   to {
     transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todoist-refresh.reading svg {
+  .doable-refresh.reading svg {
     animation: none;
   }
 }
@@ -5278,7 +5278,7 @@ button.agents-status-head {
   gap: 6px;
 }
 
-/* A waiting prompt's Remind in Todoist: the due date in Todoist's words. */
+/* A waiting prompt's Remind in Doable: the due date in Doable's words. */
 .queue-remind {
   display: flex;
   gap: 6px;
@@ -6759,22 +6759,22 @@ button.agents-status-head {
   }
 }
 
-/* The Todoist panel: the Sessions panel's rows for tasks, and a task opened as
+/* The Doable panel: the Sessions panel's rows for tasks, and a task opened as
    a prompt in the same drawer. Priority marks and the overdue date use the
-   status colors, as Todoist marks them. */
-.todoist-list {
+   status colors, as Doable marks them. */
+.doable-list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.todoist-row .session-title {
+.doable-row .session-title {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.todoist-priority {
+.doable-priority {
   flex: none;
   width: 8px;
   height: 8px;
@@ -6782,27 +6782,27 @@ button.agents-status-head {
   border-radius: 50%;
 }
 
-.todoist-priority.p1 {
+.doable-priority.p1 {
   color: var(--blocked);
 }
 
-.todoist-priority.p2 {
+.doable-priority.p2 {
   color: var(--lantern);
 }
 
-.todoist-priority.p3 {
+.doable-priority.p3 {
   color: var(--working);
 }
 
-.todoist-overdue {
+.doable-overdue {
   color: var(--blocked);
 }
 
-.todoist-label {
+.doable-label {
   color: var(--hue);
 }
 
-.todoist-task {
+.doable-task {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -6811,30 +6811,30 @@ button.agents-status-head {
   padding: 10px 16px 16px;
 }
 
-.todoist-task-head {
+.doable-task-head {
   display: flex;
   justify-content: space-between;
 }
 
-.todoist-back,
-.todoist-open {
+.doable-back,
+.doable-open {
   color: var(--muted);
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-back:hover,
-.todoist-open:hover {
+.doable-back:hover,
+.doable-open:hover {
   color: var(--text);
 }
 
-.todoist-task-title {
+.doable-task-title {
   margin: 0;
   color: var(--text);
   font: 600 calc(13px * var(--ui-scale)) var(--sans);
 }
 
 /* A task for another open workspace's repo: send it there instead. */
-.todoist-there {
+.doable-there {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -6843,7 +6843,7 @@ button.agents-status-head {
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-there span {
+.doable-there span {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -6851,43 +6851,43 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-there button {
+.doable-there button {
   white-space: nowrap;
 }
 
-.todoist-there b {
+.doable-there b {
   color: var(--text);
   font-weight: 600;
 }
 
-.todoist-there button {
+.doable-there button {
   padding: 3px 10px;
   border: 1px solid var(--rule);
   border-radius: 6px;
   color: var(--text);
 }
 
-.todoist-there button:hover:not(:disabled) {
+.doable-there button:hover:not(:disabled) {
   background: var(--rule);
 }
 
-.todoist-there button:disabled {
+.doable-there button:disabled {
   opacity: 0.45;
 }
 
 /* Ticking tasks: a box beside each row, and a bar to queue the ticked ones. */
-.todoist-item {
+.doable-item {
   display: flex;
   align-items: flex-start;
 }
 
-.todoist-item .todoist-row {
+.doable-item .doable-row {
   flex: 1;
   min-width: 0;
 }
 
-/* Complete: a round box at the row's end, as Todoist draws one; a ✓ on hover. */
-.todoist-complete {
+/* Complete: a round box at the row's end, as Doable draws one; a ✓ on hover. */
+.doable-complete {
   display: grid;
   flex: none;
   place-items: center;
@@ -6902,22 +6902,22 @@ button.agents-status-head {
   opacity: 0.55;
 }
 
-.todoist-complete::after {
+.doable-complete::after {
   content: "✓";
 }
 
-.todoist-item:hover .todoist-complete,
-.todoist-complete:focus-visible {
+.doable-item:hover .doable-complete,
+.doable-complete:focus-visible {
   opacity: 1;
 }
 
-.todoist-complete:hover {
+.doable-complete:hover {
   border-color: var(--working);
   background: color-mix(in srgb, var(--working) 18%, transparent);
   color: var(--working);
 }
 
-.todoist-done-bar {
+.doable-done-bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -6927,7 +6927,7 @@ button.agents-status-head {
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-done-bar span {
+.doable-done-bar span {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -6935,24 +6935,24 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-done-bar button {
+.doable-done-bar button {
   padding: 2px 9px;
   border: 1px solid var(--rule);
   border-radius: 6px;
   color: var(--text);
 }
 
-.todoist-done-bar button:hover {
+.doable-done-bar button:hover {
   background: var(--rule);
 }
 
-.todoist-task-links {
+.doable-task-links {
   display: flex;
   gap: 12px;
 }
 
-.todoist-triage-head,
-.todoist-proposal-row {
+.doable-triage-head,
+.doable-proposal-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -6960,7 +6960,7 @@ button.agents-status-head {
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-triage button {
+.doable-triage button {
   padding: 2px 9px;
   border: 1px solid var(--rule);
   border-radius: 6px;
@@ -6968,26 +6968,26 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-triage button:hover:not(:disabled) {
+.doable-triage button:hover:not(:disabled) {
   background: var(--rule);
 }
 
-.todoist-triage button:disabled {
+.doable-triage button:disabled {
   opacity: 0.45;
 }
 
-.todoist-triage .todoist-batch-clear {
+.doable-triage .doable-batch-clear {
   border-color: transparent;
   color: var(--muted);
 }
 
 /* Suggest: a cheap model's repo and template for each task, to accept or refuse. */
-.todoist-triage {
+.doable-triage {
   padding: 6px 10px;
   border-bottom: 1px solid var(--rule);
 }
 
-.todoist-triage ul {
+.doable-triage ul {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -6996,13 +6996,13 @@ button.agents-status-head {
   list-style: none;
 }
 
-.todoist-proposal {
+.doable-proposal {
   padding: 6px 8px;
   border: 1px dashed color-mix(in srgb, var(--hue) 40%, var(--rule));
   border-radius: 7px;
 }
 
-.todoist-proposal-title {
+.doable-proposal-title {
   margin: 0;
   overflow: hidden;
   color: var(--text);
@@ -7011,7 +7011,7 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-proposal-what {
+.doable-proposal-what {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 8px;
@@ -7020,13 +7020,13 @@ button.agents-status-head {
   font: calc(11px * var(--ui-scale)) var(--mono);
 }
 
-.todoist-proposal-what em {
+.doable-proposal-what em {
   color: var(--muted);
   font: italic calc(11px * var(--ui-scale)) var(--sans);
 }
 
 /* Quick add: below it, where the last task went, as a link. */
-.todoist-add .todoist-added {
+.doable-add .doable-added {
   display: block;
   margin-top: 4px;
   max-width: 100%;
@@ -7038,74 +7038,21 @@ button.agents-status-head {
   white-space: nowrap;
 }
 
-.todoist-add .todoist-added:hover {
+.doable-add .doable-added:hover {
   color: var(--text);
 }
-
-/* The opened task's comments, above its prompt; long ones scroll. */
-.todoist-comments {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 30%;
-  min-height: 0;
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale));
-}
-
-.todoist-comments header {
-  display: flex;
-  justify-content: space-between;
-}
-
-.todoist-comments header button {
-  color: var(--hue);
-}
-
-.todoist-comments header button:hover {
-  text-decoration: underline;
-}
-
-.todoist-comments ol {
-  overflow-y: auto;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.todoist-comments li {
-  padding: 6px 0;
-  border-top: 1px solid var(--rule);
-}
-
-.todoist-comments time {
-  font: calc(11px * var(--ui-scale)) var(--mono);
-}
-
-.todoist-comments p {
-  margin: 2px 0 0;
-  color: var(--text);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.todoist-comments-note {
-  margin: 0;
-  padding: 0;
-}
-
-.todoist-show-all {
+.doable-show-all {
   color: var(--hue);
   text-decoration: underline;
 }
 
-.todoist-tools {
+.doable-tools {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.todoist-tools-row {
+.doable-tools-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -7113,7 +7060,7 @@ button.agents-status-head {
 }
 
 /* Which tasks the panel lists: the setting's filter, a preset, or a project. */
-.todoist-view {
+.doable-view {
   flex: 1;
   min-width: 0;
   padding: 4px 6px;
@@ -7126,16 +7073,16 @@ button.agents-status-head {
   cursor: pointer;
 }
 
-.todoist-view option,
-.todoist-view optgroup {
+.doable-view option,
+.doable-view optgroup {
   color: var(--text);
 }
 
-.todoist-tools-row .queue-scope {
+.doable-tools-row .queue-scope {
   flex: none;
 }
 
-.todoist-template {
+.doable-template {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -7143,7 +7090,7 @@ button.agents-status-head {
   font-size: calc(12px * var(--ui-scale));
 }
 
-.todoist-template select {
+.doable-template select {
   flex: 1;
   min-width: 0;
   padding: 4px 6px;
@@ -7471,7 +7418,7 @@ button.agents-status-head {
   font-weight: 600;
 }
 
-.ledger-chip .todoist {
+.ledger-chip .doable {
   color: var(--working);
 }
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Prompt } from "../promptLibrary";
 import {
-  commentsBlock,
   dueBy,
+  dueLabel,
   expandFolder,
   fillTemplate,
   isMapped,
@@ -22,18 +22,18 @@ import {
   taskUrl,
   templateFor,
   loadView,
+  localDue,
   projectView,
   saveView,
   viewedProject,
-} from "../todoist";
+} from "../doable";
 
 describe("views", () => {
-  it("names a project and its sub-projects, escaping Todoist's operators", () => {
-    expect(projectView("Inbox")).toBe("##Inbox");
-    expect(projectView("Work & Home (old)")).toBe("##Work \\& Home \\(old\\)");
-    expect(viewedProject("##Work \\& Home (old)", ["Work & Home (old)"])).toBeNull();
+  it("names a project, and knows which project a view lists", () => {
+    expect(projectView("Work & Home")).toBe("project:Work & Home");
     expect(viewedProject(projectView("Work & Home"), ["Inbox", "Work & Home"])).toBe("Work & Home");
-    expect(viewedProject("today | overdue", ["Inbox"])).toBeNull();
+    expect(viewedProject("today", ["Inbox"])).toBeNull();
+    expect(viewedProject(null, ["Inbox"])).toBeNull();
   });
 
   it("keeps the picked view, and none when storage fails", () => {
@@ -43,8 +43,8 @@ describe("views", () => {
       setItem: (key: string, value: string) => void kept.set(key, value),
       removeItem: (key: string) => void kept.delete(key),
     };
-    saveView("##Inbox", storage);
-    expect(loadView(storage)).toBe("##Inbox");
+    saveView("project:Inbox", storage);
+    expect(loadView(storage)).toBe("project:Inbox");
     saveView(null, storage);
     expect(loadView(storage)).toBeNull();
     expect(loadView({ getItem: () => { throw new Error("blocked"); } })).toBeNull();
@@ -52,15 +52,16 @@ describe("views", () => {
 });
 
 const task = (patch: Partial<Task> = {}): Task => ({
-  id: "6gv",
+  id: "6F96-B42D",
   title: "Fix the filter",
   description: "It drops dots.",
   project: "Herdr",
   labels: ["bug"],
   priority: 1,
   due: "2026-11-13",
-  due_words: "13 Nov",
-  url: "https://app.todoist.com/app/task/6gv",
+  due_words: "friday",
+  repo: null,
+  url: "https://doable-chi.vercel.app/",
   ...patch,
 });
 
@@ -82,15 +83,15 @@ const prompt = (name: string, patch: Partial<Prompt> = {}): Prompt => ({
 });
 
 describe("taskBlock", () => {
-  it("holds the title, facts, description and link", () => {
-    expect(taskBlock(task())).toBe(
-      "Todoist task: Fix the filter\nProject: Herdr · Labels: @bug · Due: 13 Nov\n\nIt drops dots.\n\nhttps://app.todoist.com/app/task/6gv",
+  it("holds the title, facts, description and id", () => {
+    expect(taskBlock(task({ repo: "iloire/herdr-miura" }))).toBe(
+      "Doable task: Fix the filter\nProject: Herdr · Labels: @bug · Due: friday · Repo: iloire/herdr-miura\n\nIt drops dots.\n\nDoable id: 6F96-B42D",
     );
   });
 
   it("leaves out what the task does not have", () => {
-    expect(taskBlock(task({ project: null, labels: [], due_words: null, description: " " }))).toBe(
-      "Todoist task: Fix the filter\n\nhttps://app.todoist.com/app/task/6gv",
+    expect(taskBlock(task({ project: null, labels: [], due: null, due_words: null, description: " " }))).toBe(
+      "Doable task: Fix the filter\n\nDoable id: 6F96-B42D",
     );
   });
 });
@@ -116,10 +117,10 @@ describe("fillTemplate", () => {
 });
 
 describe("templateFor", () => {
-  it("prefers a prompt named as a label, then todoist", () => {
-    const prompts = [prompt("todoist"), prompt("Bug")];
+  it("prefers a prompt named as a label, then doable", () => {
+    const prompts = [prompt("doable"), prompt("Bug")];
     expect(templateFor(task(), prompts)?.name).toBe("Bug");
-    expect(templateFor(task({ labels: [] }), prompts)?.name).toBe("todoist");
+    expect(templateFor(task({ labels: [] }), prompts)?.name).toBe("doable");
     expect(templateFor(task({ labels: [] }), [prompt("plan")])).toBeNull();
   });
 
@@ -172,16 +173,16 @@ describe("repo routing", () => {
     expect(taskRepo(task({ project: null }), projects, home)).toBeNull();
   });
 
-  it("lets a @repo: label override the project", () => {
-    expect(taskRepo(task({ labels: ["repo:Life"] }), projects, home)).toBe("/Users/me/notes");
-    expect(taskRepo(task({ labels: ["bug", "Repo:notes"] }), projects, home)).toBe("/Users/me/notes");
-    expect(taskRepo(task({ project: null, labels: ["repo:wind-hunter"] }), projects, home, ["/Users/me/code/wind-hunter"])).toBe(
+  it("lets a repo link override the project", () => {
+    expect(taskRepo(task({ repo: "Life" }), projects, home)).toBe("/Users/me/notes");
+    expect(taskRepo(task({ repo: "iloire/notes" }), projects, home)).toBe("/Users/me/notes");
+    expect(taskRepo(task({ project: null, repo: "iloire/wind-hunter" }), projects, home, ["/Users/me/code/wind-hunter"])).toBe(
       "/Users/me/code/wind-hunter",
     );
   });
 
-  it("leaves a task unrouted when its label names nothing known", () => {
-    expect(taskRepo(task({ labels: ["repo:nope"] }), projects, home, ["/Users/me/code/app"])).toBeNull();
+  it("leaves a task unrouted when its repo link names nothing known", () => {
+    expect(taskRepo(task({ repo: "nope" }), projects, home, ["/Users/me/code/app"])).toBeNull();
   });
 
   it("knows a mapped folder, however it is written", () => {
@@ -192,7 +193,7 @@ describe("repo routing", () => {
   });
 
   it("keeps the tasks for one repo", () => {
-    const tasks = [task({ id: "a" }), task({ id: "b", project: "Life" }), task({ id: "c", labels: ["repo:herdr"] }), task({ id: "d", project: "Herdr", labels: ["repo:life"] })];
+    const tasks = [task({ id: "a" }), task({ id: "b", project: "Life" }), task({ id: "c", repo: "herdr" }), task({ id: "d", project: "Herdr", repo: "life" })];
     expect(tasksFor(tasks, "/Users/me/code/herdr-miura", projects, home).map((t) => t.id)).toEqual(["a", "c"]);
     expect(tasksFor(tasks, "/Users/me/notes", projects, home).map((t) => t.id)).toEqual(["b", "d"]);
   });
@@ -208,22 +209,23 @@ describe("repo routing", () => {
   });
 });
 
-describe("comments in a prompt", () => {
-  const comments = [
-    { content: "The spec is here.\n", posted_at: "2026-11-12T10:00:00.000000Z" },
-    { content: "And this.", posted_at: null },
-  ];
-
-  it("blocks them oldest first, each under its day", () => {
-    expect(commentsBlock(comments)).toBe("Comment, 2026-11-12:\nThe spec is here.\n\nComment:\nAnd this.");
-    expect(commentsBlock([])).toBe("");
+describe("due dates", () => {
+  it("reads Doable's instant in local time", () => {
+    const local = new Date(2026, 10, 13, 0, 0);
+    expect(localDue(local.toISOString(), false)).toBe("2026-11-13");
+    expect(localDue(new Date(2026, 10, 13, 9, 5).toISOString(), true)).toBe("2026-11-13T09:05");
+    expect(localDue(null, false)).toBeNull();
+    expect(localDue("nonsense", false)).toBeNull();
   });
 
-  it("fills {{task.comments}}, empty when there are none", () => {
-    expect(fillTemplate("Do {{task.title}}.\n{{task.comments}}", task(), comments)).toBe(`Do Fix the filter.\n${commentsBlock(comments)}`);
-    expect(fillTemplate("{{task.comments}}", task())).toBe("");
-    // The whole block leaves them out: they go in only when asked for.
-    expect(fillTemplate("{{task}}", task(), comments)).toBe(taskBlock(task()));
+  it("names the day from today, not from the words typed", () => {
+    const today = "2026-11-13";
+    expect(dueLabel(task({ due: "2026-11-13", due_words: "tomorrow" }), today)).toBe("Today");
+    expect(dueLabel(task({ due: "2026-11-14T09:30" }), today)).toBe("Tomorrow 09:30");
+    expect(dueLabel(task({ due: "2026-11-16" }), today)).toBe("Monday");
+    expect(dueLabel(task({ due: "2026-11-11" }), today)).toBe("11 Nov");
+    expect(dueLabel(task({ due: "2027-01-04", due_words: "every monday" }), today)).toBe("4 Jan 2027 · every monday");
+    expect(dueLabel(task({ due: null }), today)).toBe("");
   });
 });
 
@@ -235,8 +237,8 @@ describe("the status bar count and quick add", () => {
   });
 
   it("knows a missing token from a broken one", () => {
-    expect(noToken("no Todoist token: add it to the keychain")).toBe(true);
-    expect(noToken("Todoist refused the token (HTTP 401)")).toBe(false);
+    expect(noToken("no Doable token: add it to the keychain")).toBe(true);
+    expect(noToken("Doable refused the token (HTTP 401)")).toBe(false);
   });
 
   it("adds to the project mapped to the workspace's folder, else none", () => {
@@ -247,8 +249,8 @@ describe("the status bar count and quick add", () => {
     expect(projectFor(null, projects, "/Users/me")).toBeNull();
   });
 
-  it("links a task as todoist.rs does", () => {
-    expect(taskUrl("6gv")).toBe(task().url);
+  it("links a task as doable.rs does", () => {
+    expect(taskUrl("6F96-B42D")).toBe(task().url);
   });
 
   it("sends a parked note with its repo and branch", () => {

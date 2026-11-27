@@ -103,8 +103,8 @@ export interface State {
   queueAuto: boolean;
   /// The Sessions panel is open, the fourth in the drawer.
   sessions: boolean;
-  /// The Todoist panel is open, the fifth.
-  todoist: boolean;
+  /// The Doable panel is open, the fifth.
+  doable: boolean;
   /// Sessions a tab is on its way for, so no second one opens.
   resuming: ReadonlySet<string>;
   fontSize: number;
@@ -159,7 +159,7 @@ const ENTER: PaneInputEvent = {
 function drawerOf(state: State): Drawer | null {
   if (state.queue) return state.queueAuto ? null : "queue";
   if (state.sessions) return "sessions";
-  if (state.todoist) return "todoist";
+  if (state.doable) return "doable";
   return state.changes ? "changes" : state.files ? "files" : null;
 }
 
@@ -191,7 +191,7 @@ export class Controller {
     queue: layout.drawer === "queue",
     queueAuto: false,
     sessions: layout.drawer === "sessions",
-    todoist: layout.drawer === "todoist",
+    doable: layout.drawer === "doable",
     resuming: new Set(),
     fontSize: DEFAULT_FONT_SIZE,
     theme: HERDR_NIGHT,
@@ -628,8 +628,8 @@ export class Controller {
         return this.togglePanel("queue");
       case "recent_sessions":
         return this.togglePanel("sessions");
-      case "todoist_tasks":
-        return this.togglePanel("todoist");
+      case "doable_tasks":
+        return this.togglePanel("doable");
       case "reopen_closed_session":
         return this.reopenSession();
       case "review_changes":
@@ -706,7 +706,7 @@ export class Controller {
     this.act(
       findCommit(directory, name).then((found) => {
         if (!found) return this.set({ notice: `No commit ${name} in ${directory}` });
-        this.set({ changes: true, files: false, queue: false, queueAuto: false, sessions: false, todoist: false });
+        this.set({ changes: true, files: false, queue: false, queueAuto: false, sessions: false, doable: false });
         this.showCommit(found);
       }),
     );
@@ -726,7 +726,7 @@ export class Controller {
     this.act(
       findFile(directory, name).then(async (found) => {
         if (found) {
-          this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false, todoist: false });
+          this.set({ files: true, changes: false, queue: false, queueAuto: false, sessions: false, doable: false });
           return this.showFile(found, directory);
         }
         const located = await locateFile(directory, name);
@@ -777,25 +777,25 @@ export class Controller {
   private togglePanel(panel: Drawer): void {
     const open = !this.state[panel];
     this.composerAsked = panel === "queue" && open;
-    this.set({ changes: false, files: false, queue: false, queueAuto: false, sessions: false, todoist: false, [panel]: open });
+    this.set({ changes: false, files: false, queue: false, queueAuto: false, sessions: false, doable: false, [panel]: open });
     if (!open) this.focusTerminal();
   }
 
   openQueue(): void {
     if (!this.state.queue || this.state.queueAuto) this.composerAsked = true;
-    this.set({ queue: true, queueAuto: false, changes: false, files: false, sessions: false, todoist: false });
+    this.set({ queue: true, queueAuto: false, changes: false, files: false, sessions: false, doable: false });
   }
 
-  openTodoist(): void {
-    this.set({ todoist: true, queue: false, queueAuto: false, changes: false, files: false, sessions: false });
+  openDoable(): void {
+    this.set({ doable: true, queue: false, queueAuto: false, changes: false, files: false, sessions: false });
   }
 
   /// Follows the focused workspace: its queue holding prompts opens the panel
   /// when the drawer is free, and one opened that way closes again once the
   /// focused workspace has none. A panel opened or closed by hand is left be.
   followQueue(busy: boolean): void {
-    const { queue, queueAuto, changes, files, sessions, todoist } = this.state;
-    if (busy && !queue && !changes && !files && !sessions && !todoist) this.set({ queue: true, queueAuto: true });
+    const { queue, queueAuto, changes, files, sessions, doable } = this.state;
+    if (busy && !queue && !changes && !files && !sessions && !doable) this.set({ queue: true, queueAuto: true });
     else if (!busy && queue && queueAuto) this.set({ queue: false, queueAuto: false });
   }
 

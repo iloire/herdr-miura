@@ -110,12 +110,12 @@ export function SettingsDialog({
                 onCommit={(value) => save("new_tab.command", value || null)}
               />
               <TextField
-                label="Todoist filter"
-                placeholder={DEFAULT_SETTINGS.todoistFilter}
-                value={settings.todoistFilter}
-                fallback={DEFAULT_SETTINGS.todoistFilter}
-                hint="Which tasks the Todoist panel lists, in Todoist's filter syntax, e.g. today | overdue, or #Herdr & @agent."
-                onCommit={(value) => save("todoist.filter", value && value !== DEFAULT_SETTINGS.todoistFilter ? value : null)}
+                label="Doable view"
+                placeholder={DEFAULT_SETTINGS.doableView}
+                value={settings.doableView}
+                fallback={DEFAULT_SETTINGS.doableView}
+                hint="Which tasks the Doable panel lists: today, upcoming, inbox, or project:Herdr, label:agent, repo:herdr-miura."
+                onCommit={(value) => save("doable.view", value && value !== DEFAULT_SETTINGS.doableView ? value : null)}
               />
             </div>
           </section>

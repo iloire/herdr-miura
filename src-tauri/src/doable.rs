@@ -1,13 +1,15 @@
-//! Todoist tasks for the Todoist panel, read with the account's API token
-//! through Todoist's API v1. The token is the login keychain's generic
-//! password for the service `todoist` (read with `/usr/bin/security`, as
-//! `claude_usage` reads Claude Code's sign-in, so a rebuilt app is not asked
-//! for access again), else `TODOIST_TOKEN` in the app's environment. It is
-//! never written, and never leaves this side: the webview only gets tasks.
-//! See docs/plan-todoist.md.
+//! Doable tasks for the Doable panel, read with an API token through the
+//! Doable server's `/v1` API (`~/code/doable/server`). The token is the login
+//! keychain's generic password for the service `doable` (read with
+//! `/usr/bin/security`, as `claude_usage` reads Claude Code's sign-in, so a
+//! rebuilt app is not asked for access again), else `DOABLE_TOKEN` in the
+//! app's environment. It is never written, and never leaves this side: the
+//! webview only gets tasks. The server is `DOABLE_URL`, else the deployed one.
+//! See docs/plan-doable.md.
 
 use crate::{ledger::Entry, process};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     fs::OpenOptions,
@@ -17,102 +19,128 @@ use std::{
     time::{Duration, Instant},
 };
 
-const API: &str = "https://api.todoist.com/api/v1";
-/// The keychain item: `security add-generic-password -s todoist -a "$USER" -w`.
-pub const KEYCHAIN: &str = "todoist";
-const ENV: &str = "TODOIST_TOKEN";
+const SERVER: &str = "https://doable-chi.vercel.app";
+const SERVER_ENV: &str = "DOABLE_URL";
+/// The keychain item: `security add-generic-password -s doable -a "$USER" -w`.
+pub const KEYCHAIN: &str = "doable";
+const ENV: &str = "DOABLE_TOKEN";
 const TIMEOUT: Duration = Duration::from_secs(15);
 /// Project names change rarely; tasks are read on every refresh.
 const PROJECTS_FRESH: Duration = Duration::from_secs(10 * 60);
-/// Pages of 200; a filter matching more than this is cut, and says so.
-const MAX_PAGES: usize = 5;
+/// Who made a task, as Doable's `source` keeps it.
+const SOURCE: &str = "herdr";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("no Todoist token: add it to the keychain with `security add-generic-password -s todoist -a \"$USER\" -w`")]
+    #[error("no Doable token: add it to the keychain with `security add-generic-password -s doable -a \"$USER\" -w`")]
     NoToken,
-    #[error("Todoist refused the token (HTTP {0})")]
+    #[error("Doable refused the token (HTTP {0})")]
     Refused(u16),
-    #[error("Todoist does not accept the filter: {0}")]
-    Filter(String),
-    #[error("could not read Todoist: {0}")]
+    #[error("not a Doable view: {0}")]
+    View(String),
+    #[error("Doable does not read that date: {0}")]
+    Due(String),
+    #[error("could not reach Doable: {0}")]
     Request(String),
-    #[error("Todoist answered in an unknown shape: {0}")]
+    #[error("Doable answered in an unknown shape: {0}")]
     Shape(String),
-    #[error("the Todoist reader stopped")]
+    #[error("the Doable reader stopped")]
     Worker(#[source] tauri::Error),
-    #[error("not a Todoist link: {0}")]
+    #[error("not a Doable link: {0}")]
     BadLink(String),
-    #[error("Todoist has nothing to do for a `{0}` outcome")]
+    #[error("Doable has nothing to do for a `{0}` outcome")]
     Kind(String),
-    #[error("could not use the Todoist links file: {0}")]
+    #[error("could not use the Doable links file: {0}")]
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Ledger(#[from] crate::ledger::Error),
 }
 
+/// A task as the panel shows it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Task {
     pub id: String,
     pub title: String,
+    /// Doable's notes.
     pub description: String,
     pub project: Option<String>,
     pub labels: Vec<String>,
-    /// Todoist's 1 (normal) to 4 (urgent).
+    /// 1 (normal) to 4 (urgent): Doable's p4 to p1, turned round.
     pub priority: u8,
-    /// `YYYY-MM-DD` or a full date-time, as Todoist wrote it.
+    /// The instant Doable keeps (UTC); the webview reads it in local time.
     pub due: Option<String>,
-    /// How Todoist says it: `24 Sep`, `every day`.
+    /// Whether `due` has a time of day, or is a whole day.
+    pub due_time: bool,
+    /// How it was typed: `tomorrow`, `every monday`.
     pub due_words: Option<String>,
+    /// The repo a repo link names, `owner/name` or `name`.
+    pub repo: Option<String>,
     pub url: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Tasks {
     pub tasks: Vec<Task>,
-    /// More matched than were read.
-    pub truncated: bool,
 }
 
-#[derive(Deserialize)]
-struct Page<T> {
-    results: Vec<T>,
-    next_cursor: Option<String>,
-}
-
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RawTask {
     id: String,
-    content: String,
+    title: String,
     #[serde(default)]
-    description: String,
+    notes: String,
+    #[serde(rename = "projectID")]
     project_id: Option<String>,
+    #[serde(default = "lowest")]
+    priority: u8,
     #[serde(default)]
     labels: Vec<String>,
-    #[serde(default = "normal")]
-    priority: u8,
     due: Option<RawDue>,
+    #[serde(default)]
+    links: Vec<Value>,
 }
 
-fn normal() -> u8 {
-    1
+fn lowest() -> u8 {
+    4
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RawDue {
     date: String,
-    string: Option<String>,
+    #[serde(default)]
+    has_time: bool,
+    #[serde(default)]
+    text: String,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RawProject {
     id: String,
     name: String,
+    #[serde(default)]
+    is_inbox: bool,
+    deleted_at: Option<String>,
+}
+
+#[derive(Clone, Default)]
+struct Projects {
+    names: HashMap<String, String>,
+    inbox: Option<String>,
+}
+
+impl Projects {
+    fn id_of(&self, want: &str) -> Option<&str> {
+        let want = want.trim();
+        self.names.iter().find(|(_, name)| name.eq_ignore_ascii_case(want)).map(|(id, _)| id.as_str())
+    }
 }
 
 /// Project names by id, kept a while: the panel rereads tasks often.
 #[derive(Default)]
-pub struct Cache(Mutex<Option<(Instant, HashMap<String, String>)>>);
+pub struct Cache(Mutex<Option<(Instant, Projects)>>);
 
 fn token() -> Result<String, Error> {
     keychain()
@@ -137,6 +165,24 @@ fn keychain() -> Option<String> {
     })
 }
 
+fn server() -> String {
+    std::env::var(SERVER_ENV)
+        .ok()
+        .map(|url| url.trim().trim_end_matches('/').to_owned())
+        .filter(|url| !url.is_empty())
+        .unwrap_or_else(|| SERVER.to_owned())
+}
+
+/// This machine's time zone (`Europe/Madrid`), from where `/etc/localtime`
+/// points, for the views that count "today". None leaves it to the server's.
+fn zone() -> Option<String> {
+    let target = std::fs::read_link("/etc/localtime").ok()?;
+    let target = target.to_string_lossy();
+    let (_, zone) = target.split_once("zoneinfo/")?;
+    let fine = !zone.is_empty() && zone.bytes().all(|b| b.is_ascii_alphanumeric() || b"/_-+".contains(&b));
+    fine.then(|| zone.to_owned())
+}
+
 fn agent() -> ureq::Agent {
     ureq::Agent::config_builder()
         .timeout_global(Some(TIMEOUT))
@@ -145,169 +191,235 @@ fn agent() -> ureq::Agent {
         .new_agent()
 }
 
-/// The status and body of an answer, read whole.
-fn answer(response: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Result<(u16, String), Error> {
-    let mut response = response.map_err(|error| Error::Request(error.to_string()))?;
-    let status = response.status().as_u16();
-    let body = response
-        .body_mut()
-        .read_to_string()
-        .map_err(|error| Error::Request(error.to_string()))?;
-    Ok((status, body))
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Method {
+    Get,
+    Post,
+    Patch,
+    Delete,
 }
 
-fn get<T: for<'de> Deserialize<'de>>(token: &str, path: &str, query: &[(&str, &str)]) -> Result<T, Error> {
-    let mut request = agent().get(format!("{API}{path}")).header("Authorization", &format!("Bearer {token}"));
-    for (key, value) in query {
-        request = request.query(*key, *value);
-    }
-    match answer(request.call())? {
-        (200, body) => serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string())),
-        (400, body) => Err(Error::Filter(error_words(&body))),
-        (status, body) => Err(refused(status, &body)),
-    }
+/// One call to the API: a method, a path under `/v1` with its query, and a JSON body.
+#[derive(Debug, PartialEq)]
+struct Request {
+    method: Method,
+    path: String,
+    query: Vec<(String, String)>,
+    body: Option<Value>,
 }
 
-fn refused(status: u16, body: &str) -> Error {
-    match status {
-        401 | 403 => Error::Refused(status),
-        _ => Error::Request(format!("HTTP {status}: {}", error_words(body))),
+impl Request {
+    fn new(method: Method, path: impl Into<String>, body: Option<Value>) -> Self {
+        Self { method, path: path.into(), query: Vec::new(), body }
     }
 }
 
-/// Sends one write: a POST with its JSON body, if any. Gives back Todoist's answer.
-fn post(token: &str, request: &Write) -> Result<String, Error> {
-    let call = agent()
-        .post(format!("{API}{}", request.path))
-        .header("Authorization", &format!("Bearer {token}"));
-    let sent = match &request.body {
-        Some(body) => call.header("Content-Type", "application/json").send(body.to_string()),
-        None => call.send_empty(),
+/// Sends `request`, giving back the answer's body.
+fn send(token: &str, request: &Request) -> Result<String, Error> {
+    let mut url = format!("{}/v1{}", server(), request.path);
+    if !request.query.is_empty() {
+        let pairs: Vec<String> = request.query.iter().map(|(k, v)| format!("{k}={}", encode(v))).collect();
+        url = format!("{url}?{}", pairs.join("&"));
+    }
+    let auth = format!("Bearer {token}");
+    let client = agent();
+    let sent = match (request.method, &request.body) {
+        (Method::Get, _) => client.get(&url).header("Authorization", &auth).call(),
+        (Method::Delete, _) => client.delete(&url).header("Authorization", &auth).call(),
+        (Method::Post, None) => client.post(&url).header("Authorization", &auth).send_empty(),
+        (Method::Post, Some(body)) => {
+            client.post(&url).header("Authorization", &auth).header("Content-Type", "application/json").send(body.to_string())
+        }
+        (Method::Patch, body) => client
+            .patch(&url)
+            .header("Authorization", &auth)
+            .header("Content-Type", "application/json")
+            .send(body.clone().unwrap_or_else(|| json!({})).to_string()),
     };
-    match answer(sent)? {
-        (200..=299, body) => Ok(body),
-        (status, body) => Err(refused(status, &body)),
+    let mut response = sent.map_err(|error| Error::Request(error.to_string()))?;
+    let status = response.status().as_u16();
+    let body = response.body_mut().read_to_string().map_err(|error| Error::Request(error.to_string()))?;
+    match status {
+        200..=299 => Ok(body),
+        401 | 403 => Err(Error::Refused(status)),
+        _ => Err(Error::Request(format!("HTTP {status}: {}", error_words(&body)))),
     }
 }
 
-/// Todoist's own words for a failure: `{"error": "…"}`, else the body cut short.
+fn read<T: for<'de> Deserialize<'de>>(body: &str) -> Result<T, Error> {
+    serde_json::from_str(body).map_err(|error| Error::Shape(error.to_string()))
+}
+
+/// Percent-encodes a query value.
+fn encode(value: &str) -> String {
+    value
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
+/// Doable's own words for a failure: `{"error": "…"}`, else the body cut short.
 fn error_words(body: &str) -> String {
-    serde_json::from_str::<serde_json::Value>(body)
+    serde_json::from_str::<Value>(body)
         .ok()
         .and_then(|value| value["error"].as_str().map(str::to_owned))
         .unwrap_or_else(|| body.chars().take(200).collect())
 }
 
-fn pages<T: for<'de> Deserialize<'de>>(token: &str, path: &str, query: &[(&str, &str)]) -> Result<(Vec<T>, bool), Error> {
-    let mut all = Vec::new();
-    let mut cursor: Option<String> = None;
-    for _ in 0..MAX_PAGES {
-        let mut asked: Vec<(&str, &str)> = query.to_vec();
-        asked.push(("limit", "200"));
-        if let Some(cursor) = cursor.as_deref() {
-            asked.push(("cursor", cursor));
-        }
-        let page: Page<T> = get(token, path, &asked)?;
-        all.extend(page.results);
-        match page.next_cursor {
-            Some(next) if !next.is_empty() => cursor = Some(next),
-            _ => return Ok((all, false)),
-        }
+/// The query that lists `view`: `today`, `upcoming`, `inbox`,
+/// `project:<name>`, `label:<name>` or `repo:<name>`.
+fn view_query(view: &str, projects: &Projects) -> Result<Vec<(String, String)>, Error> {
+    let view = view.trim();
+    let pair = |key: &str, value: &str| vec![(key.to_owned(), value.to_owned())];
+    if ["today", "upcoming", "inbox"].contains(&view) {
+        return Ok(pair("view", view));
     }
-    Ok((all, true))
+    let (kind, name) = view.split_once(':').map(|(kind, name)| (kind, name.trim())).ok_or_else(|| Error::View(view.to_owned()))?;
+    if name.is_empty() || name.chars().any(char::is_control) {
+        return Err(Error::View(view.to_owned()));
+    }
+    match kind {
+        "project" => projects.id_of(name).map(|id| pair("project", id)).ok_or_else(|| Error::View(format!("no project named {name}"))),
+        "label" => Ok(pair("label", name)),
+        "repo" => Ok(pair("repo", name)),
+        _ => Err(Error::View(view.to_owned())),
+    }
 }
 
 impl Cache {
-    fn projects(&self, token: &str) -> Result<HashMap<String, String>, Error> {
+    fn projects(&self, token: &str) -> Result<Projects, Error> {
         let mut kept = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some((_, names)) = kept.as_ref().filter(|(read, _)| read.elapsed() < PROJECTS_FRESH) {
-            return Ok(names.clone());
+        if let Some((_, projects)) = kept.as_ref().filter(|(read, _)| read.elapsed() < PROJECTS_FRESH) {
+            return Ok(projects.clone());
         }
-        let (projects, _) = pages::<RawProject>(token, "/projects", &[])?;
-        let names: HashMap<String, String> = projects.into_iter().map(|project| (project.id, project.name)).collect();
-        *kept = Some((Instant::now(), names.clone()));
-        Ok(names)
+        #[derive(Deserialize)]
+        struct Answer {
+            projects: Vec<RawProject>,
+        }
+        let answer: Answer = read(&send(token, &Request::new(Method::Get, "/projects", None))?)?;
+        let projects = shape_projects(answer.projects);
+        *kept = Some((Instant::now(), projects.clone()));
+        Ok(projects)
     }
 
     /// Every project's name, the Inbox first and then by name, for the panel's view picker.
     pub fn project_names(&self) -> Result<Vec<String>, Error> {
         let token = token()?;
-        Ok(sorted_names(self.projects(&token)?.into_values()))
+        Ok(sorted_names(self.projects(&token)?.names.into_values()))
     }
 
-    /// The tasks `filter` matches, in Todoist's filter syntax.
-    pub fn tasks(&self, filter: &str) -> Result<Tasks, Error> {
+    /// The tasks in `view` (see `view_query`).
+    pub fn tasks(&self, view: &str) -> Result<Tasks, Error> {
         let token = token()?;
-        let (raw, truncated) = pages::<RawTask>(&token, "/tasks/filter", &[("query", filter)])?;
-        // A task without its project's name is still worth listing.
-        let projects = self.projects(&token).unwrap_or_default();
-        let tasks = raw.into_iter().map(|task| shape(task, &projects)).collect();
-        Ok(Tasks { tasks, truncated })
+        let projects = self.projects(&token)?;
+        let mut request = Request::new(Method::Get, "/tasks", None);
+        request.query = view_query(view, &projects)?;
+        request.query.extend(zone().map(|zone| ("tz".to_owned(), zone)));
+        #[derive(Deserialize)]
+        struct Answer {
+            tasks: Vec<RawTask>,
+        }
+        let answer: Answer = read(&send(&token, &request)?)?;
+        Ok(Tasks { tasks: answer.tasks.into_iter().map(|task| shape(task, &projects)).collect() })
     }
 
     /// Adds `new` to the project named `project` (any case), or the Inbox
-    /// when that is none or no project has that name.
+    /// when that is none or no project has that name. A due date in words is
+    /// read by Doable's quick add, so it is added that way and then given its
+    /// title, notes and project.
     pub fn add(&self, new: &NewTask, project: Option<&str>) -> Result<Task, Error> {
-        // A task Todoist would refuse goes no further than here.
-        new_task(new, None)?;
+        let (title, notes, due) = new_task(new)?;
         let token = token()?;
         let projects = self.projects(&token)?;
-        let id = project.and_then(|want| {
-            projects.iter().find(|(_, name)| name.eq_ignore_ascii_case(want.trim())).map(|(id, _)| id.as_str())
-        });
-        let body = post(&token, &new_task(new, id)?)?;
-        let raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
+        let mut fields = json!({ "title": title, "notes": notes });
+        if let Some(id) = project.and_then(|want| projects.id_of(want)) {
+            fields["projectID"] = id.into();
+        }
+        let raw: RawTask = match due {
+            None => {
+                fields["source"] = SOURCE.into();
+                read(&send(&token, &Request::new(Method::Post, "/tasks", Some(fields)))?)?
+            }
+            Some(due) => {
+                let dated: RawTask = read(&send(&token, &quick(&format!("Remind {due}"))?)?)?;
+                if dated.due.is_none() {
+                    // A task with no date would not come back when it should: none at all.
+                    send(&token, &Request::new(Method::Delete, format!("/tasks/{}", dated.id), None))?;
+                    return Err(Error::Due(due));
+                }
+                read(&send(&token, &Request::new(Method::Patch, format!("/tasks/{}", dated.id), Some(fields)))?)?
+            }
+        };
         Ok(shape(raw, &projects))
     }
 
-    /// Adds a task typed as in Todoist's own quick add, which reads the date,
+    /// Adds a task typed as in Doable's quick add, which reads the date,
     /// `p1`–`p4`, `#project` and `@label` out of `text`. One with no date is
-    /// due today, so a today view shows it; one left in the Inbox moves to the
-    /// project named `project`, the workspace's repo, when there is one.
-    pub fn quick_add(&self, text: &str, project: Option<&str>) -> Result<Task, Error> {
-        let request = quick_write(text)?;
+    /// due `today` (the local day's start, as UTC), so a today view shows it;
+    /// one left in the Inbox moves to the project named `project`, the
+    /// workspace's repo, when there is one.
+    pub fn quick_add(&self, text: &str, project: Option<&str>, today: &str) -> Result<Task, Error> {
+        let request = quick(text)?;
+        if !instant(today) {
+            return Err(Error::Shape(format!("not an instant: {today:?}")));
+        }
         let token = token()?;
-        let projects = self.projects(&token)?;
-        let body = post(&token, &request)?;
-        let mut raw: RawTask = serde_json::from_str(&body).map_err(|error| Error::Shape(error.to_string()))?;
-        let mapped = project.and_then(|want| projects.iter().find(|(_, name)| name.eq_ignore_ascii_case(want.trim())));
-        // The task is in Todoist now: a follow-up that fails leaves it as typed, not lost.
-        for request in follow_ups(&raw, &projects, mapped.map(|(id, _)| id.as_str())) {
-            post(&token, &request)?;
+        let mut projects = self.projects(&token)?;
+        let raw: RawTask = read(&send(&token, &request)?)?;
+        // A `#project` it made, or an Inbox made on first need, is not in the kept names yet.
+        if raw.project_id.as_ref().is_some_and(|id| !projects.names.contains_key(id)) {
+            *self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+            projects = self.projects(&token)?;
         }
-        // The panel rereads its tasks after an add, so only the project, for the "Added to" line.
-        if let Some((id, _)) = mapped.filter(|_| in_inbox(&raw, &projects)) {
-            raw.project_id = Some(id.clone());
-        }
+        let mapped = project.and_then(|want| projects.id_of(want));
+        // The task is in Doable now: a follow-up that fails leaves it as typed, not lost.
+        let raw = match follow_up(&raw, &projects, mapped, today) {
+            Some(patch) => read(&send(&token, &patch)?)?,
+            None => raw,
+        };
         Ok(shape(raw, &projects))
     }
 }
 
-/// The request that quick-adds `text`, read by Todoist as its quick add box reads it.
-fn quick_write(text: &str) -> Result<Write, Error> {
+fn shape_projects(raw: Vec<RawProject>) -> Projects {
+    let live: Vec<RawProject> = raw.into_iter().filter(|project| project.deleted_at.is_none()).collect();
+    Projects {
+        inbox: live.iter().find(|project| project.is_inbox).map(|project| project.id.clone()),
+        names: live.into_iter().map(|project| (project.id, project.name)).collect(),
+    }
+}
+
+/// An ISO-8601 instant as the webview gives one: `2026-11-27T23:00:00Z`.
+fn instant(time: &str) -> bool {
+    (10..=40).contains(&time.len()) && time.bytes().all(|b| b.is_ascii_alphanumeric() || b":.-+".contains(&b))
+}
+
+/// The request that quick-adds `text`, read as Doable's quick add box reads it.
+fn quick(text: &str) -> Result<Request, Error> {
     let text: String = text.trim().chars().filter(|c| !c.is_control()).take(MAX_TITLE).collect();
     if text.is_empty() {
         return Err(Error::Shape("a task needs a title".into()));
     }
-    Ok(Write { path: "/tasks/quick".into(), body: Some(serde_json::json!({ "text": text })) })
+    let mut request = Request::new(Method::Post, "/quick-add", Some(json!({ "text": text, "source": SOURCE })));
+    request.query.extend(zone().map(|zone| ("tz".to_owned(), zone)));
+    Ok(request)
 }
 
-fn in_inbox(task: &RawTask, projects: &HashMap<String, String>) -> bool {
-    task.project_id.as_ref().and_then(|id| projects.get(id)).is_some_and(|name| name.eq_ignore_ascii_case("inbox"))
-}
-
-/// What a quick-added `task` still needs: today as its date when it has none,
-/// and a move to `project` (an id) when the text left it in the Inbox.
-fn follow_ups(task: &RawTask, projects: &HashMap<String, String>, project: Option<&str>) -> Vec<Write> {
-    let id = &task.id;
-    let mut writes = Vec::new();
+/// What a quick-added `task` still needs, as one change: `today` as its date
+/// when it has none, and a move to `project` (an id) when it is in the Inbox.
+fn follow_up(task: &RawTask, projects: &Projects, project: Option<&str>, today: &str) -> Option<Request> {
+    let mut patch = serde_json::Map::new();
     if task.due.is_none() {
-        writes.push(Write { path: format!("/tasks/{id}"), body: Some(serde_json::json!({ "due_string": "today", "due_lang": "en" })) });
+        patch.insert("due".into(), json!({ "date": today, "hasTime": false, "text": "today" }));
     }
-    if let Some(project) = project.filter(|_| in_inbox(task, projects)) {
-        writes.push(Write { path: format!("/tasks/{id}/move"), body: Some(serde_json::json!({ "project_id": project })) });
+    let in_inbox = task.project_id.is_some() && task.project_id == projects.inbox;
+    if let Some(project) = project.filter(|_| in_inbox) {
+        patch.insert("projectID".into(), project.into());
     }
-    writes
+    (!patch.is_empty()).then(|| Request::new(Method::Patch, format!("/tasks/{}", task.id), Some(Value::Object(patch))))
 }
 
 /// Project names, the Inbox first and then by name, any case.
@@ -318,8 +430,8 @@ fn sorted_names(names: impl Iterator<Item = String>) -> Vec<String> {
     names
 }
 
-/// A task to add: its title, and optionally a description and a due date in
-/// Todoist's own words (`tomorrow 9am`, `next monday`), which Todoist reads.
+/// A task to add: its title, and optionally a description (its notes) and a
+/// due date in words (`tomorrow 9am`, `next monday`), which Doable reads.
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
 pub struct NewTask {
     pub title: String,
@@ -329,123 +441,104 @@ pub struct NewTask {
     pub due: Option<String>,
 }
 
-/// Todoist's limits: 500 characters for a title, 16383 for a description.
 const MAX_TITLE: usize = 500;
-const MAX_DESCRIPTION: usize = 16_000;
+const MAX_NOTES: usize = 16_000;
 const MAX_DUE: usize = 100;
 
-/// The request that adds `new`, to `project` (an id) or the Inbox.
-fn new_task(new: &NewTask, project: Option<&str>) -> Result<Write, Error> {
+/// `new`'s title, notes and due words, trimmed and checked.
+fn new_task(new: &NewTask) -> Result<(String, String, Option<String>), Error> {
     let title: String = new.title.trim().chars().filter(|c| !c.is_control()).take(MAX_TITLE).collect();
     if title.is_empty() {
         return Err(Error::Shape("a task needs a title".into()));
     }
-    let mut body = serde_json::json!({ "content": title });
-    if let Some(project) = project {
-        body["project_id"] = project.into();
-    }
-    let description = new.description.as_deref().map(str::trim).filter(|text| !text.is_empty());
-    if let Some(description) = description {
-        body["description"] = description.chars().take(MAX_DESCRIPTION).collect::<String>().into();
-    }
-    if let Some(due) = new.due.as_deref().map(str::trim).filter(|due| !due.is_empty()) {
-        if due.len() > MAX_DUE || due.chars().any(char::is_control) {
-            return Err(Error::Shape(format!("not a due date Todoist reads: {due:?}")));
+    let notes: String = new.description.as_deref().unwrap_or_default().trim().chars().take(MAX_NOTES).collect();
+    let due = new.due.as_deref().map(str::trim).filter(|due| !due.is_empty());
+    if let Some(due) = due {
+        // Read as quick add text, so a `#` or `@` would pick a project or a label.
+        if due.len() > MAX_DUE || due.chars().any(|c| c.is_control() || c == '#' || c == '@') {
+            return Err(Error::Due(due.to_owned()));
         }
-        body["due_string"] = due.into();
-        body["due_lang"] = "en".into();
     }
-    Ok(Write { path: "/tasks".into(), body: Some(body) })
+    Ok((title, notes, due.map(str::to_owned)))
 }
 
-/// One comment on a task, oldest first as Todoist lists them.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Comment {
-    pub content: String,
-    #[serde(default)]
-    pub posted_at: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct RawComment {
-    #[serde(flatten)]
-    comment: Comment,
-    #[serde(default)]
-    is_deleted: bool,
-}
-
-/// The query that lists `task`'s comments.
-fn comments_query(task: &str) -> Result<[(&'static str, &str); 1], Error> {
-    if !plain_id(task) {
-        return Err(Error::BadLink(task.to_owned()));
-    }
-    Ok([("task_id", task)])
-}
-
-/// `task`'s comments, oldest first, without deleted ones or empty ones (a file alone).
-pub fn comments(task: &str) -> Result<Vec<Comment>, Error> {
-    let query = comments_query(task)?;
-    let token = token()?;
-    let (raw, _) = pages::<RawComment>(&token, "/comments", &query)?;
-    Ok(raw
-        .into_iter()
-        .filter(|raw| !raw.is_deleted && !raw.comment.content.trim().is_empty())
-        .map(|raw| raw.comment)
-        .collect())
-}
-
-/// The request that sets `task`'s labels to `labels`, all of them: Todoist
-/// replaces the list. A label is a short name without control characters, as
-/// a triage suggestion accepted in the panel gives (`repo:herdr-miura`, `plan`).
-fn labels_write(task: &str, labels: &[String]) -> Result<Write, Error> {
-    let fine = |label: &String| !label.trim().is_empty() && label.chars().count() <= 60 && !label.chars().any(char::is_control);
-    if !plain_id(task) || labels.len() > 50 || !labels.iter().all(fine) {
-        return Err(Error::BadLink(format!("{task}: {labels:?}")));
+/// The request that sets `task`'s labels to `labels`, all of them, and, when
+/// `repo` is given, its repo link to that repo in place of any other. A
+/// label is a short name without control characters, as a triage suggestion
+/// accepted in the panel gives. `links` are the task's links now.
+fn labels_write(task: &str, labels: &[String], repo: Option<&str>, links: &[Value]) -> Result<Request, Error> {
+    let fine = |label: &str| !label.trim().is_empty() && label.chars().count() <= 60 && !label.chars().any(char::is_control);
+    if !plain_id(task) || labels.len() > 50 || !labels.iter().all(|label| fine(label)) || !repo.is_none_or(fine) {
+        return Err(Error::BadLink(format!("{task}: {labels:?} {repo:?}")));
     }
     let labels: Vec<&str> = labels.iter().map(|label| label.trim()).collect();
-    Ok(Write { path: format!("/tasks/{task}"), body: Some(serde_json::json!({ "labels": labels })) })
+    let mut body = json!({ "labels": labels });
+    if let Some(repo) = repo {
+        let mut kept: Vec<Value> = links.iter().filter(|link| link["type"] != "repo").cloned().collect();
+        kept.push(json!({ "type": "repo", "ref": repo.trim() }));
+        body["links"] = kept.into();
+    }
+    Ok(Request::new(Method::Patch, format!("/tasks/{task}"), Some(body)))
 }
 
-/// Sets `task`'s labels to `labels`.
-pub fn set_labels(task: &str, labels: &[String]) -> Result<(), Error> {
-    let request = labels_write(task, labels)?;
-    post(&token()?, &request).map(drop)
+/// Sets `task`'s labels to `labels`, and its repo link to `repo` when given.
+pub fn set_labels(task: &str, labels: &[String], repo: Option<&str>) -> Result<(), Error> {
+    labels_write(task, labels, repo, &[])?;
+    let token = token()?;
+    let links = match repo {
+        Some(_) => read::<RawTask>(&send(&token, &Request::new(Method::Get, format!("/tasks/{task}"), None))?)?.links,
+        None => Vec::new(),
+    };
+    send(&token, &labels_write(task, labels, repo, &links)?).map(drop)
 }
 
 /// The request that completes `task`, or reopens it when `done` is false
 /// (the panel's undo). Completing also completes its open subtasks; a
 /// recurring task moves to its next date instead.
-fn done_write(task: &str, done: bool) -> Result<Write, Error> {
+fn done_write(task: &str, done: bool) -> Result<Request, Error> {
     if !plain_id(task) {
         return Err(Error::BadLink(task.to_owned()));
     }
-    Ok(Write { path: format!("/tasks/{task}/{}", if done { "close" } else { "reopen" }), body: None })
+    Ok(if done {
+        let mut request = Request::new(Method::Post, format!("/tasks/{task}/complete"), None);
+        request.query.extend(zone().map(|zone| ("tz".to_owned(), zone)));
+        request
+    } else {
+        Request::new(Method::Patch, format!("/tasks/{task}"), Some(json!({ "completedAt": null })))
+    })
 }
 
-/// Completes `task` in Todoist, or reopens it.
+/// Completes `task` in Doable, or reopens it.
 pub fn set_done(task: &str, done: bool) -> Result<(), Error> {
     let request = done_write(task, done)?;
-    post(&token()?, &request).map(drop)
+    send(&token()?, &request).map(drop)
 }
 
-fn shape(task: RawTask, projects: &HashMap<String, String>) -> Task {
+/// The repo a task's first repo link names.
+fn repo_of(links: &[Value]) -> Option<String> {
+    links.iter().find(|link| link["type"] == "repo").and_then(|link| link["ref"].as_str()).map(str::to_owned)
+}
+
+fn shape(task: RawTask, projects: &Projects) -> Task {
     Task {
-        url: format!("https://app.todoist.com/app/task/{}", task.id),
-        project: task.project_id.and_then(|id| projects.get(&id).cloned()),
+        url: format!("{}/", server()),
+        project: task.project_id.and_then(|id| projects.names.get(&id).cloned()),
+        repo: repo_of(&task.links),
         id: task.id,
-        title: task.content,
-        description: task.description,
+        title: task.title,
+        description: task.notes,
         labels: task.labels,
-        priority: task.priority.clamp(1, 4),
+        priority: 5 - task.priority.clamp(1, 4),
+        due_time: task.due.as_ref().is_some_and(|due| due.has_time),
         due: task.due.as_ref().map(|due| due.date.clone()),
-        due_words: task.due.and_then(|due| due.string),
+        due_words: task.due.map(|due| due.text).filter(|text| !text.trim().is_empty()),
     }
 }
 
-// Closing the loop (docs/plan-todoist.md, idea 3): which task a prompt came
-// from, and what was written back to it when its agent reported. Kept in
-// `todoist.jsonl` beside the outcome ledger, append-only as the ledger is, so
-// Stable, Edge and a dev build share it.
+// Closing the loop (docs/plan-doable.md): which task a prompt came from, and
+// what was written back to it when its agent reported. Kept in `doable.jsonl`
+// beside the outcome ledger, append-only as the ledger is, so Stable, Edge
+// and a dev build share it.
 
 /// A prompt sent from `task` to the agent in `pane`, at `at`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -464,7 +557,7 @@ pub struct Link {
 pub struct Written {
     pub entry: String,
     pub task: String,
-    /// `closed`, `subtask` or `commented`.
+    /// `closed` or `subtask`.
     pub did: String,
     pub at: String,
 }
@@ -476,7 +569,7 @@ pub struct Links {
 }
 
 pub fn links_path() -> Result<PathBuf, Error> {
-    Ok(crate::ledger::path()?.with_file_name("todoist.jsonl"))
+    Ok(crate::ledger::path()?.with_file_name("doable.jsonl"))
 }
 
 /// The links file, empty when there is none; a line that does not parse is passed over.
@@ -497,7 +590,7 @@ pub fn read_links(path: &Path) -> Result<Links, Error> {
     Ok(links)
 }
 
-fn append(path: &Path, line: &serde_json::Value) -> Result<(), Error> {
+fn append(path: &Path, line: &Value) -> Result<(), Error> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -507,7 +600,7 @@ fn append(path: &Path, line: &serde_json::Value) -> Result<(), Error> {
     Ok(())
 }
 
-/// A Todoist or ledger id: it goes into a URL path.
+/// A Doable or ledger id: it goes into a URL path.
 fn plain_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
@@ -521,33 +614,23 @@ pub fn link(path: &Path, task: &str, title: &str, pane: &str, directory: Option<
     }
     let title: String = title.chars().filter(|c| !c.is_control()).take(300).collect();
     let head = directory.and_then(crate::queue::head);
-    let line = serde_json::json!({ "v": 1, "task": task, "title": title, "pane": pane, "head": head, "at": crate::ledger::now_utc() });
+    let line = json!({ "v": 1, "task": task, "title": title, "pane": pane, "head": head, "at": crate::ledger::now_utc() });
     append(path, &line)
-}
-
-/// One write to Todoist: a POST to `path`, with `body` as JSON.
-#[derive(Debug, PartialEq)]
-struct Write {
-    path: String,
-    body: Option<serde_json::Value>,
-}
-
-fn comment(task: &str, content: String) -> Write {
-    Write { path: "/comments".into(), body: Some(serde_json::json!({ "task_id": task, "content": content })) }
 }
 
 fn on_branch(entry: &Entry) -> String {
     if entry.branch.is_empty() { String::new() } else { format!(" on `{}`", entry.branch) }
 }
 
-/// What an outcome becomes in Todoist, by its kind, and the name the links
-/// file keeps it under: a verified `done` closes the task with a comment
-/// naming its commits; a `left` becomes a subtask; a `you` a comment.
-fn writes(task: &str, entry: &Entry, commits: &[String]) -> Result<(&'static str, Vec<Write>), Error> {
+/// What an outcome becomes in Doable, by its kind, and the name the links
+/// file keeps it under: a verified `done` adds a note naming its commits to
+/// the task's `notes` and completes it; a `left` becomes a subtask in the
+/// task's `project`. A `you` writes nothing.
+fn writes(task: &str, entry: &Entry, commits: &[String], notes: &str, project: Option<&str>) -> Result<(&'static str, Vec<Request>), Error> {
     let note = entry.note.trim();
     match entry.kind.as_str() {
         "verified" => {
-            let mut lines = vec![format!("Done by an agent in Herdr Miura{}, verified against Git.", on_branch(entry))];
+            let mut lines = vec![format!("{}: done by an agent in Herdr Miura{}, verified against Git.", entry.at, on_branch(entry))];
             if !note.is_empty() {
                 lines.extend([String::new(), note.to_owned()]);
             }
@@ -557,18 +640,18 @@ fn writes(task: &str, entry: &Entry, commits: &[String]) -> Result<(&'static str
             } else if crate::queue::commit_id(&entry.head) {
                 lines.extend([String::new(), format!("At commit {}.", &entry.head[..12])]);
             }
-            let close = Write { path: format!("/tasks/{task}/close"), body: None };
-            Ok(("closed", vec![comment(task, lines.join("\n")), close]))
+            let notes = [notes.trim(), &lines.join("\n")].into_iter().filter(|part| !part.is_empty()).collect::<Vec<_>>().join("\n\n");
+            let patch = Request::new(Method::Patch, format!("/tasks/{task}"), Some(json!({ "notes": notes })));
+            Ok(("closed", vec![patch, done_write(task, true)?]))
         }
         "left" => {
-            let content = if note.is_empty() { "Left for later by an agent" } else { note };
-            let description = format!("Left for later by an agent in Herdr Miura{}, {}.", on_branch(entry), entry.at);
-            let body = serde_json::json!({ "content": content, "description": description, "parent_id": task });
-            Ok(("subtask", vec![Write { path: "/tasks".into(), body: Some(body) }]))
-        }
-        "you" => {
-            let what = if note.is_empty() { "an agent needs you" } else { note };
-            Ok(("commented", vec![comment(task, format!("Waiting on you in Herdr Miura{}: {what}", on_branch(entry)))]))
+            let title = if note.is_empty() { "Left for later by an agent" } else { note };
+            let notes = format!("Left for later by an agent in Herdr Miura{}, {}.", on_branch(entry), entry.at);
+            let mut body = json!({ "title": title, "notes": notes, "parentID": task, "source": SOURCE });
+            if let Some(project) = project {
+                body["projectID"] = project.into();
+            }
+            Ok(("subtask", vec![Request::new(Method::Post, "/tasks", Some(body))]))
         }
         other => Err(Error::Kind(other.to_owned())),
     }
@@ -596,119 +679,132 @@ pub fn write_back(path: &Path, task: &str, entry: &Entry, from: Option<&str>) ->
     if !plain_id(task) || !plain_id(&entry.id) {
         return Err(Error::BadLink(format!("{task} ← {}", entry.id)));
     }
-    let (did, requests) = writes(task, entry, &commits(entry, from))?;
+    // Refuses an outcome with nothing to write before any request.
+    let (did, _) = writes(task, entry, &[], "", None)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let lock = OpenOptions::new().create(true).truncate(false).write(true).open(path.with_file_name("todoist.lock"))?;
+    let lock = OpenOptions::new().create(true).truncate(false).write(true).open(path.with_file_name("doable.lock"))?;
     lock.lock()?;
     if read_links(path)?.written.iter().any(|w| w.entry == entry.id && w.did == did) {
         return Ok(false);
     }
     let token = token()?;
+    let current: RawTask = read(&send(&token, &Request::new(Method::Get, format!("/tasks/{task}"), None))?)?;
+    let (_, requests) = writes(task, entry, &commits(entry, from), &current.notes, current.project_id.as_deref())?;
     for request in &requests {
-        post(&token, request)?;
+        send(&token, request)?;
     }
-    let line = serde_json::json!({ "v": 1, "entry": entry.id, "task": task, "did": did, "at": crate::ledger::now_utc() });
+    let line = json!({ "v": 1, "entry": entry.id, "task": task, "did": did, "at": crate::ledger::now_utc() });
     append(path, &line)?;
     Ok(true)
 }
 
-#[derive(Deserialize)]
-struct Completed {
-    items: Vec<serde::de::IgnoredAny>,
-    next_cursor: Option<String>,
+/// How many of `tasks` (Doable's completed view) were completed between `since` and `until`.
+fn completed_between(tasks: &[Value], since: &str, until: &str) -> usize {
+    tasks
+        .iter()
+        .filter_map(|task| task["completedAt"].as_str())
+        .filter(|at| (since..=until).contains(at))
+        .count()
 }
 
 /// How many tasks were completed between `since` and `until` (UTC, `2026-11-13T00:00:00Z`).
 pub fn completed(since: &str, until: &str) -> Result<usize, Error> {
-    let fine = |time: &str| time.len() <= 40 && time.bytes().all(|b| b.is_ascii_alphanumeric() || b":.-+".contains(&b));
-    if !fine(since) || !fine(until) {
+    if !instant(since) || !instant(until) {
         return Err(Error::BadLink(format!("{since}..{until}")));
     }
-    let token = token()?;
-    let mut count = 0;
-    let mut cursor: Option<String> = None;
-    for _ in 0..MAX_PAGES {
-        let mut query = vec![("since", since), ("until", until), ("limit", "200")];
-        if let Some(cursor) = cursor.as_deref() {
-            query.push(("cursor", cursor));
-        }
-        let page: Completed = get(&token, "/tasks/completed/by_completion_date", &query)?;
-        count += page.items.len();
-        match page.next_cursor {
-            Some(next) if !next.is_empty() => cursor = Some(next),
-            _ => break,
-        }
+    let mut request = Request::new(Method::Get, "/tasks", None);
+    request.query.push(("view".into(), "completed".into()));
+    #[derive(Deserialize)]
+    struct Answer {
+        tasks: Vec<Value>,
     }
-    Ok(count)
+    let answer: Answer = read(&send(&token()?, &request)?)?;
+    Ok(completed_between(&answer.tasks, since, until))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const ID: &str = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
+
     fn entry(kind: &str, note: &str) -> Entry {
-        serde_json::from_value(serde_json::json!({
+        serde_json::from_value(json!({
             "id": "1762941600000-42", "at": "2026-11-12T10:00:00Z", "kind": kind, "note": note,
             "branch": "fix-x", "head": "0123456789abcdef0123456789abcdef01234567",
         }))
         .unwrap_or_else(|error| panic!("{error}"))
     }
 
+    fn projects() -> Projects {
+        Projects {
+            names: HashMap::from([("IN".to_owned(), "Inbox".to_owned()), ("P1".to_owned(), "Herdr".to_owned())]),
+            inbox: Some("IN".to_owned()),
+        }
+    }
+
+    fn raw(json: &str) -> RawTask {
+        serde_json::from_str(json).unwrap_or_else(|error| panic!("{error}"))
+    }
+
     #[test]
-    fn a_verified_done_comments_with_its_commits_then_closes() -> Result<(), Error> {
+    fn a_verified_done_notes_its_commits_then_completes() -> Result<(), Error> {
         let commits = ["abc1234 feat: one".to_owned(), "def5678 fix: two".to_owned()];
-        let (did, requests) = writes("6gv", &entry("verified", "shipped it"), &commits)?;
+        let (did, requests) = writes(ID, &entry("verified", "shipped it"), &commits, "The spec", None)?;
         assert_eq!(did, "closed");
         assert_eq!(requests.len(), 2);
-        assert_eq!(requests[0].path, "/comments");
-        let body = requests[0].body.clone().unwrap_or_default();
-        assert_eq!(body["task_id"], "6gv");
+        assert_eq!((requests[0].method, requests[0].path.as_str()), (Method::Patch, format!("/tasks/{ID}").as_str()));
         assert_eq!(
-            body["content"],
-            "Done by an agent in Herdr Miura on `fix-x`, verified against Git.\n\nshipped it\n\nCommits:\n- abc1234 feat: one\n- def5678 fix: two"
+            requests[0].body.clone().unwrap_or_default()["notes"],
+            "The spec\n\n2026-11-12T10:00:00Z: done by an agent in Herdr Miura on `fix-x`, verified against Git.\n\nshipped it\n\nCommits:\n- abc1234 feat: one\n- def5678 fix: two"
         );
-        assert_eq!(requests[1], Write { path: "/tasks/6gv/close".into(), body: None });
-        let (_, bare) = writes("6gv", &entry("verified", ""), &[])?;
-        assert_eq!(bare[0].body.clone().unwrap_or_default()["content"], "Done by an agent in Herdr Miura on `fix-x`, verified against Git.\n\nAt commit 0123456789ab.");
+        assert_eq!((requests[1].method, requests[1].path.clone()), (Method::Post, format!("/tasks/{ID}/complete")));
+        let (_, bare) = writes(ID, &entry("verified", ""), &[], "", None)?;
+        assert_eq!(
+            bare[0].body.clone().unwrap_or_default()["notes"],
+            "2026-11-12T10:00:00Z: done by an agent in Herdr Miura on `fix-x`, verified against Git.\n\nAt commit 0123456789ab."
+        );
         Ok(())
     }
 
     #[test]
-    fn completing_closes_and_undo_reopens() -> Result<(), Error> {
-        assert_eq!(done_write("6gv", true)?, Write { path: "/tasks/6gv/close".into(), body: None });
-        assert_eq!(done_write("6gv", false)?, Write { path: "/tasks/6gv/reopen".into(), body: None });
+    fn completing_completes_and_undo_reopens() -> Result<(), Error> {
+        let done = done_write(ID, true)?;
+        assert_eq!((done.method, done.path), (Method::Post, format!("/tasks/{ID}/complete")));
+        assert_eq!(
+            done_write(ID, false)?,
+            Request::new(Method::Patch, format!("/tasks/{ID}"), Some(json!({ "completedAt": null })))
+        );
         assert!(done_write("../projects", true).is_err());
         Ok(())
     }
 
     #[test]
-    fn a_left_becomes_a_subtask_and_a_you_a_comment() -> Result<(), Error> {
-        let (did, requests) = writes("6gv", &entry("left", "test it on GTK"), &[])?;
+    fn a_left_becomes_a_subtask_in_its_project_and_a_you_writes_nothing() -> Result<(), Error> {
+        let (did, requests) = writes(ID, &entry("left", "test it on GTK"), &[], "", Some("P1"))?;
         assert_eq!((did, requests[0].path.as_str()), ("subtask", "/tasks"));
         let body = requests[0].body.clone().unwrap_or_default();
-        assert_eq!((body["content"].as_str(), body["parent_id"].as_str()), (Some("test it on GTK"), Some("6gv")));
-        let (did, requests) = writes("6gv", &entry("you", "pick a name"), &[])?;
-        assert_eq!((did, requests[0].path.as_str()), ("commented", "/comments"));
-        assert_eq!(requests[0].body.clone().unwrap_or_default()["content"], "Waiting on you in Herdr Miura on `fix-x`: pick a name");
-        assert!(matches!(writes("6gv", &entry("unverified", ""), &[]), Err(Error::Kind(_))));
+        assert_eq!((body["title"].as_str(), body["parentID"].as_str(), body["projectID"].as_str()), (Some("test it on GTK"), Some(ID), Some("P1")));
+        assert!(matches!(writes(ID, &entry("you", "pick a name"), &[], "", None), Err(Error::Kind(_))));
+        assert!(matches!(writes(ID, &entry("unverified", ""), &[], "", None), Err(Error::Kind(_))));
         Ok(())
     }
 
     #[test]
     fn links_round_trip_and_odd_ids_are_refused() -> Result<(), Error> {
         let dir = tempfile::tempdir()?;
-        let path = dir.path().join("state/todoist.jsonl");
-        link(&path, "6gv", "Fix\u{7} it", "w3A:p1", None)?;
-        append(&path, &serde_json::json!({ "v": 1, "entry": "1-2", "task": "6gv", "did": "closed", "at": "2026-11-13T10:00:00Z" }))?;
+        let path = dir.path().join("state/doable.jsonl");
+        link(&path, ID, "Fix\u{7} it", "w3A:p1", None)?;
+        append(&path, &json!({ "v": 1, "entry": "1-2", "task": ID, "did": "closed", "at": "2026-11-13T10:00:00Z" }))?;
         std::fs::OpenOptions::new().append(true).open(&path)?.write_all(b"{\"half\":\n")?;
         let links = read_links(&path)?;
         assert_eq!(links.links.len(), 1);
         assert_eq!((links.links[0].title.as_str(), links.links[0].pane.as_str(), links.links[0].head.as_ref()), ("Fix it", "w3A:p1", None));
         assert_eq!(links.written[0].did, "closed");
         assert!(matches!(link(&path, "../x", "t", "w1:p1", None), Err(Error::BadLink(_))));
-        assert!(matches!(link(&path, "6gv", "t", "--all", None), Err(Error::BadLink(_))));
+        assert!(matches!(link(&path, ID, "t", "--all", None), Err(Error::BadLink(_))));
         assert_eq!(read_links(&dir.path().join("none.jsonl"))?, Links::default());
         Ok(())
     }
@@ -716,12 +812,13 @@ mod tests {
     #[test]
     fn a_write_already_recorded_is_not_sent_again() -> Result<(), Error> {
         let dir = tempfile::tempdir()?;
-        let path = dir.path().join("todoist.jsonl");
-        let done = entry("you", "x");
-        append(&path, &serde_json::json!({ "v": 1, "entry": done.id, "task": "6gv", "did": "commented", "at": "2026-11-13T10:00:00Z" }))?;
+        let path = dir.path().join("doable.jsonl");
+        let done = entry("verified", "x");
+        append(&path, &json!({ "v": 1, "entry": done.id, "task": ID, "did": "closed", "at": "2026-11-13T10:00:00Z" }))?;
         // No token is read, so no request could have gone.
-        assert!(!write_back(&path, "6gv", &done, None)?);
+        assert!(!write_back(&path, ID, &done, None)?);
         assert!(matches!(write_back(&path, "6/gv", &done, None), Err(Error::BadLink(_))));
+        assert!(matches!(write_back(&path, ID, &entry("you", "x"), None), Err(Error::Kind(_))));
         Ok(())
     }
 
@@ -732,116 +829,124 @@ mod tests {
     }
 
     #[test]
-    fn shapes_a_task_with_its_project_name() {
-        let raw: RawTask = serde_json::from_str(
-            r#"{"id":"6gv","content":"Fix it","description":"why","project_id":"p1","labels":["agent"],
-                "priority":4,"due":{"date":"2026-09-24","string":"24 Sep","is_recurring":false}}"#,
-        )
+    fn projects_keep_the_inbox_and_drop_deleted_ones() {
+        let raw: Vec<RawProject> = serde_json::from_value(json!([
+            { "id": "IN", "name": "Inbox", "isInbox": true, "deletedAt": null },
+            { "id": "P1", "name": "Herdr" },
+            { "id": "P2", "name": "Gone", "deletedAt": "2026-11-01T00:00:00Z" },
+        ]))
         .unwrap_or_else(|error| panic!("{error}"));
-        let projects = HashMap::from([("p1".to_owned(), "Herdr".to_owned())]);
-        let task = shape(raw, &projects);
+        let projects = shape_projects(raw);
+        assert_eq!(projects.inbox.as_deref(), Some("IN"));
+        assert_eq!(projects.id_of(" herdr "), Some("P1"));
+        assert_eq!(projects.id_of("Gone"), None);
+    }
+
+    #[test]
+    fn shapes_a_task_with_its_project_repo_and_turned_priority() {
+        let task = shape(
+            raw(r#"{"id":"A1","title":"Fix it","notes":"why","projectID":"P1","labels":["agent"],"priority":1,
+                "due":{"date":"2026-09-23T22:00:00Z","hasTime":false,"text":"tomorrow"},
+                "links":[{"type":"url","ref":"https://x"},{"type":"repo","ref":"iloire/herdr-miura","path":"a.rs:3"}],
+                "createdAt":"2026-09-01T00:00:00Z","updatedAt":"2026-09-01T00:00:00Z"}"#),
+            &projects(),
+        );
         assert_eq!(task.project.as_deref(), Some("Herdr"));
-        assert_eq!(task.due.as_deref(), Some("2026-09-24"));
-        assert_eq!(task.due_words.as_deref(), Some("24 Sep"));
-        assert_eq!(task.url, "https://app.todoist.com/app/task/6gv");
-        assert_eq!(task.priority, 4);
+        assert_eq!((task.due.as_deref(), task.due_time), (Some("2026-09-23T22:00:00Z"), false));
+        assert_eq!(task.due_words.as_deref(), Some("tomorrow"));
+        assert_eq!(task.repo.as_deref(), Some("iloire/herdr-miura"));
+        assert_eq!((task.description.as_str(), task.priority), ("why", 4));
     }
 
     #[test]
     fn a_task_with_little_set_still_reads() {
-        let raw: RawTask = serde_json::from_str(r#"{"id":"1","content":"x","project_id":null}"#)
-            .unwrap_or_else(|error| panic!("{error}"));
-        let task = shape(raw, &HashMap::new());
-        assert_eq!((task.project, task.due, task.priority), (None, None, 1));
+        let task = shape(raw(r#"{"id":"1","title":"x","projectID":null}"#), &Projects::default());
+        assert_eq!((task.project, task.due, task.due_words, task.repo, task.priority), (None, None, None, None, 1));
     }
 
     #[test]
-    fn a_new_task_names_its_project_or_goes_to_the_inbox() -> Result<(), Error> {
-        let fix = NewTask { title: " Fix it ".into(), ..NewTask::default() };
-        assert_eq!(
-            new_task(&fix, Some("p1"))?,
-            Write { path: "/tasks".into(), body: Some(serde_json::json!({ "content": "Fix it", "project_id": "p1" })) }
-        );
-        assert_eq!(new_task(&fix, None)?.body, Some(serde_json::json!({ "content": "Fix it" })));
-        assert!(matches!(new_task(&NewTask { title: " \n".into(), ..NewTask::default() }, None), Err(Error::Shape(_))));
+    fn views_become_queries() -> Result<(), Error> {
+        let pairs = |view: &str| view_query(view, &projects());
+        let one = |k: &str, v: &str| vec![(k.to_owned(), v.to_owned())];
+        assert_eq!(pairs("today")?, one("view", "today"));
+        assert_eq!(pairs(" upcoming ")?, one("view", "upcoming"));
+        assert_eq!(pairs("project:herdr")?, one("project", "P1"));
+        assert_eq!(pairs("label:agent")?, one("label", "agent"));
+        assert_eq!(pairs("repo:herdr-miura")?, one("repo", "herdr-miura"));
+        assert!(matches!(pairs("project:nowhere"), Err(Error::View(_))));
+        assert!(matches!(pairs("today | overdue"), Err(Error::View(_))));
+        assert!(matches!(pairs("label:"), Err(Error::View(_))));
+        assert_eq!(encode("a b&c/é"), "a%20b%26c%2F%C3%A9");
         Ok(())
     }
 
     #[test]
-    fn a_new_task_carries_its_description_and_due_words() -> Result<(), Error> {
-        let dated = NewTask { title: "Run the prompt".into(), description: Some("The prompt\n\nwhole".into()), due: Some(" tomorrow 9am ".into()) };
-        assert_eq!(
-            new_task(&dated, None)?.body,
-            Some(serde_json::json!({ "content": "Run the prompt", "description": "The prompt\n\nwhole", "due_string": "tomorrow 9am", "due_lang": "en" }))
-        );
-        let blank = NewTask { description: Some("  ".into()), due: Some("".into()), ..dated.clone() };
-        assert_eq!(new_task(&blank, None)?.body, Some(serde_json::json!({ "content": "Run the prompt" })));
-        let odd = NewTask { due: Some("today\nevery day".into()), ..dated };
-        assert!(matches!(new_task(&odd, None), Err(Error::Shape(_))));
-        let long = NewTask { title: "x".repeat(600), ..NewTask::default() };
-        assert_eq!(new_task(&long, None)?.body.unwrap_or_default()["content"].as_str().map(str::len), Some(500));
+    fn a_new_task_is_trimmed_and_its_due_words_checked() -> Result<(), Error> {
+        let dated = NewTask { title: " Run the prompt ".into(), description: Some(" The prompt\n\nwhole ".into()), due: Some(" tomorrow 9am ".into()) };
+        assert_eq!(new_task(&dated)?, ("Run the prompt".into(), "The prompt\n\nwhole".into(), Some("tomorrow 9am".into())));
+        let blank = NewTask { description: None, due: Some("".into()), ..dated.clone() };
+        assert_eq!(new_task(&blank)?, ("Run the prompt".into(), String::new(), None));
+        assert!(matches!(new_task(&NewTask { due: Some("today\nevery day".into()), ..dated.clone() }), Err(Error::Due(_))));
+        assert!(matches!(new_task(&NewTask { due: Some("monday #work".into()), ..dated }), Err(Error::Due(_))));
+        assert!(matches!(new_task(&NewTask { title: " \n".into(), ..NewTask::default() }), Err(Error::Shape(_))));
+        assert_eq!(new_task(&NewTask { title: "x".repeat(600), ..NewTask::default() })?.0.len(), 500);
         Ok(())
     }
 
     #[test]
     fn a_quick_add_sends_the_text_whole() -> Result<(), Error> {
-        assert_eq!(
-            quick_write(" dentista tomorrow 10am p1 #Personal @agent ")?,
-            Write { path: "/tasks/quick".into(), body: Some(serde_json::json!({ "text": "dentista tomorrow 10am p1 #Personal @agent" })) }
-        );
-        assert!(matches!(quick_write(" \n"), Err(Error::Shape(_))));
+        let request = quick(" dentista tomorrow 10am p1 #Personal @agent ")?;
+        assert_eq!((request.method, request.path.as_str()), (Method::Post, "/quick-add"));
+        assert_eq!(request.body, Some(json!({ "text": "dentista tomorrow 10am p1 #Personal @agent", "source": "herdr" })));
+        assert!(matches!(quick(" \n"), Err(Error::Shape(_))));
         Ok(())
     }
 
     #[test]
     fn a_quick_added_task_gets_today_and_leaves_the_inbox() {
-        let projects = HashMap::from([("in".to_owned(), "Inbox".to_owned()), ("p1".to_owned(), "Herdr".to_owned())]);
-        let read = |json: &str| serde_json::from_str::<RawTask>(json).unwrap_or_else(|error| panic!("{error}"));
-        let bare = read(r#"{"id":"6gv","content":"x","project_id":"in"}"#);
+        let today = "2026-11-26T23:00:00Z";
+        let bare = raw(r#"{"id":"A1","title":"x","projectID":"IN"}"#);
         assert_eq!(
-            follow_ups(&bare, &projects, Some("p1")),
-            vec![
-                Write { path: "/tasks/6gv".into(), body: Some(serde_json::json!({ "due_string": "today", "due_lang": "en" })) },
-                Write { path: "/tasks/6gv/move".into(), body: Some(serde_json::json!({ "project_id": "p1" })) },
-            ]
+            follow_up(&bare, &projects(), Some("P1"), today),
+            Some(Request::new(
+                Method::Patch,
+                "/tasks/A1",
+                Some(json!({ "due": { "date": today, "hasTime": false, "text": "today" }, "projectID": "P1" }))
+            ))
         );
-        assert_eq!(follow_ups(&bare, &projects, None).len(), 1);
-        // Typed with a date and a #project: Todoist read both, nothing to add.
-        let typed = read(r#"{"id":"6gv","content":"x","project_id":"p1","due":{"date":"2026-11-15","string":"tomorrow"}}"#);
-        assert_eq!(follow_ups(&typed, &projects, Some("in")), vec![]);
+        // Typed with a date and a #project: Doable read both, nothing to add.
+        let typed = raw(r#"{"id":"A1","title":"x","projectID":"P1","due":{"date":"2026-11-27T23:00:00Z","hasTime":false}}"#);
+        assert_eq!(follow_up(&typed, &projects(), Some("IN"), today), None);
     }
 
     #[test]
-    fn comments_are_asked_by_task_and_read_without_the_rest() -> Result<(), Error> {
-        assert_eq!(comments_query("6gv")?, [("task_id", "6gv")]);
-        assert!(matches!(comments_query("6gv&project_id=1"), Err(Error::BadLink(_))));
-        let page: Page<RawComment> = serde_json::from_str(
-            r#"{"results":[{"id":"c1","item_id":"6gv","content":"The spec","posted_at":"2026-11-12T10:00:00Z","is_deleted":false,
-                "file_attachment":null},{"id":"c2","content":"gone","is_deleted":true}],"next_cursor":null}"#,
-        )
-        .map_err(|error| Error::Shape(error.to_string()))?;
-        assert_eq!(page.results[0].comment, Comment { content: "The spec".into(), posted_at: Some("2026-11-12T10:00:00Z".into()) });
-        assert!(page.results[1].is_deleted);
+    fn labels_are_set_whole_with_the_repo_link_replaced() -> Result<(), Error> {
+        let labels = vec!["agent".to_owned(), " plan ".to_owned()];
+        assert_eq!(labels_write(ID, &labels, None, &[])?.body, Some(json!({ "labels": ["agent", "plan"] })));
+        let links = vec![json!({ "type": "repo", "ref": "old" }), json!({ "type": "url", "ref": "https://x" })];
+        assert_eq!(
+            labels_write(ID, &labels, Some("herdr-miura"), &links)?.body,
+            Some(json!({ "labels": ["agent", "plan"], "links": [{ "type": "url", "ref": "https://x" }, { "type": "repo", "ref": "herdr-miura" }] }))
+        );
+        assert!(labels_write("6gv/close", &labels, None, &[]).is_err());
+        assert!(labels_write(ID, &["".to_owned()], None, &[]).is_err());
+        assert!(labels_write(ID, &["a\nb".to_owned()], None, &[]).is_err());
         Ok(())
     }
 
     #[test]
-    fn labels_are_set_whole_and_odd_ones_refused() -> Result<(), Error> {
-        let labels = vec!["agent".to_owned(), " repo:herdr-miura ".to_owned()];
-        assert_eq!(
-            labels_write("6gv", &labels)?,
-            Write { path: "/tasks/6gv".into(), body: Some(serde_json::json!({ "labels": ["agent", "repo:herdr-miura"] })) }
-        );
-        assert_eq!(labels_write("6gv", &[])?.body, Some(serde_json::json!({ "labels": [] })));
-        assert!(labels_write("6gv/close", &labels).is_err());
-        assert!(labels_write("6gv", &["".to_owned()]).is_err());
-        assert!(labels_write("6gv", &["a\nb".to_owned()]).is_err());
-        Ok(())
+    fn completed_counts_only_the_span() {
+        let tasks = vec![
+            json!({ "completedAt": "2026-11-13T09:00:00Z" }),
+            json!({ "completedAt": "2026-11-12T22:59:59Z" }),
+            json!({ "completedAt": null }),
+        ];
+        assert_eq!(completed_between(&tasks, "2026-11-12T23:00:00Z", "2026-11-13T10:00:00Z"), 1);
     }
 
     #[test]
-    fn error_words_prefers_todoists_message() {
-        assert_eq!(error_words(r#"{"error":"Invalid filter"}"#), "Invalid filter");
+    fn error_words_prefers_doables_message() {
+        assert_eq!(error_words(r#"{"error":"no project X"}"#), "no project X");
         assert_eq!(error_words("plain"), "plain");
     }
 }

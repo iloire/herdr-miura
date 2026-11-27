@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type LedgerEntry, outcomes } from "../ledger";
-import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, taskOfPanes, toComment } from "../todoistLinks";
+import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, taskOfPanes } from "../doableLinks";
 
 const NOW = Date.parse("2026-11-13T18:00:00Z");
 
@@ -97,14 +97,6 @@ describe("offers", () => {
     expect(offers(list, map, NOW)).toEqual([]);
   });
 
-  it("comments on a recent open ask once", () => {
-    const entries = [entry("ask", "2026-11-13T10:00:00Z", "you"), entry("stale", "2026-11-10T10:00:00Z", "you", { pane: "w1:p2", session: "s2" })];
-    const links = [link("t1", "2026-11-13T09:00:00Z"), link("t2", "2026-11-10T09:00:00Z", "w1:p2")];
-    const first = linked(entries, { links, written: [] });
-    expect(toComment(first.list, first.map).map((o) => o.id)).toEqual(["ask"]);
-    const again = linked(entries, { links, written: [{ entry: "ask", task: "t1", did: "commented", at: "2026-11-13T10:01:00Z" }] });
-    expect(toComment(again.list, again.map)).toEqual([]);
-  });
 });
 
 describe("sinceMidnight", () => {

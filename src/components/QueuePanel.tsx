@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { addTask, fillTemplate, parkedTask, projectFor, queuedTask, readComments, type Task, taskUrl, templateFor } from "../app/todoist";
-import { agentSuggestions, queuedTaskIds, taskRef } from "../app/todoistTriage";
+import { addTask, dueLabel, fillTemplate, localDay, parkedTask, projectFor, queuedTask, type Task, taskUrl, templateFor } from "../app/doable";
+import { agentSuggestions, queuedTaskIds, taskRef } from "../app/doableTriage";
 import { readLibrary } from "../app/promptLibrary";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
@@ -36,9 +36,9 @@ export function QueuePanel({
   actions,
   parked,
   onParked,
-  todoist,
+  doable,
   agentTasks,
-  todoistFolders,
+  doableFolders,
   all,
   ownerOf,
 }: {
@@ -54,14 +54,14 @@ export function QueuePanel({
   actions: QueueActions | null;
   /// What sessions in this checkout left for later (`herdr-outcome left`).
   parked: Outcome[];
-  /// Queues a parked note as a prompt, dismisses it, or marks it sent to Todoist.
+  /// Queues a parked note as a prompt, dismisses it, or marks it sent to Doable.
   onParked: (outcome: Outcome, how: ParkedHow) => void;
-  /// `todoist.projects`, project names to folders; null when Todoist has no token.
-  todoist: Record<string, string> | null;
-  /// Todoist's `@agent` tasks, suggested as prompts; null when not read.
+  /// `doable.projects`, project names to folders; null when Doable has no token.
+  doable: Record<string, string> | null;
+  /// Doable's `@agent` tasks, suggested as prompts; null when not read.
   agentTasks: Task[] | null;
-  /// The open workspaces' repo folders, which `@repo:` labels can name.
-  todoistFolders: string[];
+  /// The open workspaces' repo folders, which repo links can name.
+  doableFolders: string[];
   /// Every queue with something in it, for the All view.
   all: Queue[];
   ownerOf: (folder: string) => QueueOwner | null;
@@ -155,9 +155,9 @@ export function QueuePanel({
       composer={composer}
       parked={parked}
       onParked={onParked}
-      todoist={todoist}
+      doable={doable}
       agentTasks={agentTasks}
-      todoistFolders={todoistFolders}
+      doableFolders={doableFolders}
       all={all}
       scope={scope}
     />
@@ -176,9 +176,9 @@ function QueueBody({
   composer,
   parked,
   onParked,
-  todoist,
+  doable,
   agentTasks,
-  todoistFolders,
+  doableFolders,
   all,
   scope,
 }: {
@@ -194,9 +194,9 @@ function QueueBody({
   composer: RefObject<HTMLTextAreaElement | null>;
   parked: Outcome[];
   onParked: (outcome: Outcome, how: ParkedHow) => void;
-  todoist: Record<string, string> | null;
+  doable: Record<string, string> | null;
   agentTasks: Task[] | null;
-  todoistFolders: string[];
+  doableFolders: string[];
   all: Queue[];
   /// The This workspace / All switch.
   scope: ReactNode;
@@ -236,27 +236,24 @@ function QueueBody({
   // By id, so it follows the file: gone with another workspace or an old item.
   const opened = queue.history.find((item) => item.id === openId);
   // Where a task from here goes: the project mapped to this folder, else the Inbox.
-  const project = todoist && projectFor(directory, todoist, home);
-  const toTodoist = (outcome: Outcome) =>
+  const project = doable && projectFor(directory, doable, home);
+  const toDoable = (outcome: Outcome) =>
     addTask(parkedTask(outcome, home), project ?? null).then((task) => {
       onParked(outcome, "todo");
       setNotice(sentNotice(task));
     });
   // `@agent` tasks for this repo not queued anywhere yet: offered, never added by themselves.
   const suggested =
-    todoist && agentTasks
-      ? agentSuggestions(agentTasks, queuedTaskIds([queue, ...all]), directory, todoist, home, todoistFolders)
+    doable && agentTasks
+      ? agentSuggestions(agentTasks, queuedTaskIds([queue, ...all]), directory, doable, home, doableFolders)
       : [];
-  // One click adds one: the template the Todoist panel would pick, filled with the task and its comments.
+  // One click adds one: the template the Doable panel would pick, filled with the task.
   const queueTask = async (task: Task) => {
-    const [library, comments] = await Promise.all([
-      readLibrary(directory).catch(() => null),
-      readComments(task.id).catch(() => []),
-    ]);
+    const library = await readLibrary(directory).catch(() => null);
     const template = library ? templateFor(task, library.prompts) : null;
-    actions.add(folder, fillTemplate(template?.body ?? null, task, comments), false, taskRef(task));
+    actions.add(folder, fillTemplate(template?.body ?? null, task), false, taskRef(task));
   };
-  // The task first: the prompt leaves the queue only once Todoist holds it.
+  // The task first: the prompt leaves the queue only once Doable holds it.
   const remind = (item: Item, due: string) =>
     addTask(queuedTask(item.prompt, directory, due, home), project ?? null).then((task) => {
       actions.remove(folder, item.id);
@@ -306,7 +303,7 @@ function QueueBody({
       )}
 
       {parked.length > 0 && (
-        <Parked controller={controller} parked={parked} onParked={onParked} onTodoist={todoist ? toTodoist : null} />
+        <Parked controller={controller} parked={parked} onParked={onParked} onDoable={doable ? toDoable : null} />
       )}
 
       {suggested.length > 0 && <Suggested controller={controller} tasks={suggested} onQueue={queueTask} />}
@@ -344,7 +341,7 @@ function QueueBody({
               setNotice({ text: `Removed “${title(item.prompt, 40)}”`, button: "Undo", onClick: undo });
             }}
             onRemind={
-              todoist
+              doable
                 ? (due) => {
                     const sent = remind(item, due);
                     controller.act(sent);
@@ -469,25 +466,25 @@ interface Notice {
 }
 
 const sentNotice = (task: Task): Notice => ({
-  text: `Sent “${title(task.title, 40)}” to ${task.project ?? "Todoist"}${task.due_words ? `, due ${task.due_words}` : ""}`,
+  text: `Sent “${title(task.title, 40)}” to ${task.project ?? "Doable"}${task.due_words ? `, due ${task.due_words}` : ""}`,
   button: "Open ↗",
   onClick: () => void openUrl(task.url),
 });
 
 /// Notes sessions here left for later, not yet prompts: Queue it writes one
-/// that stands on its own and puts it at the end of the line; To Todoist makes
+/// that stands on its own and puts it at the end of the line; To Doable makes
 /// it a task there instead.
 function Parked({
   controller,
   parked,
   onParked,
-  onTodoist,
+  onDoable,
 }: {
   controller: Controller;
   parked: Outcome[];
   onParked: (outcome: Outcome, how: ParkedHow) => void;
-  /// Null without a Todoist token.
-  onTodoist: ((outcome: Outcome) => Promise<void>) | null;
+  /// Null without a Doable token.
+  onDoable: ((outcome: Outcome) => Promise<void>) | null;
 }) {
   const [open, setOpen] = useState(true);
   // The note on its way, so a second click sends no second task.
@@ -517,16 +514,16 @@ function Parked({
                 <button title="Add it to the end of this queue as a prompt" onClick={() => onParked(outcome, "queued")}>
                   Queue it
                 </button>
-                {onTodoist && (
+                {onDoable && (
                   <button
-                    title="Make it a Todoist task, with its repo and branch, and take it off this list"
+                    title="Make it a Doable task, with its repo and branch, and take it off this list"
                     disabled={sending !== null}
                     onClick={() => {
                       setSending(outcome.id);
-                      controller.act(onTodoist(outcome).finally(() => setSending(null)));
+                      controller.act(onDoable(outcome).finally(() => setSending(null)));
                     }}
                   >
-                    {sending === outcome.id ? "Sending…" : "To Todoist"}
+                    {sending === outcome.id ? "Sending…" : "To Doable"}
                   </button>
                 )}
                 <button className="queue-parked-dismiss" title="Nothing to do about it" onClick={() => onParked(outcome, "dismissed")}>
@@ -541,7 +538,7 @@ function Parked({
   );
 }
 
-/// Todoist tasks labelled `@agent`, offered as prompts: one click adds one to
+/// Doable tasks labelled `@agent`, offered as prompts: one click adds one to
 /// the end of the queue, filled with its template. Nothing else adds them.
 function Suggested({ controller, tasks, onQueue }: { controller: Controller; tasks: Task[]; onQueue: (task: Task) => Promise<void> }) {
   const [open, setOpen] = useState(true);
@@ -552,11 +549,11 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
       <button
         className="queue-done-toggle queue-parked-toggle"
         aria-expanded={open}
-        title="Todoist tasks labelled @agent, for this repo or for none, not queued yet"
+        title="Doable tasks labelled @agent, for this repo or for none, not queued yet"
         onClick={() => setOpen(!open)}
       >
         <span className="chevron">›</span>
-        {tasks.length} from Todoist @agent
+        {tasks.length} from Doable @agent
       </button>
       {open && (
         <ul>
@@ -566,7 +563,7 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
                 ☐ {task.title}
               </p>
               <div className="queue-parked-row">
-                <span className="queue-parked-meta">{[task.project, task.due_words].filter(Boolean).join(" · ")}</span>
+                <span className="queue-parked-meta">{[task.project, dueLabel(task, localDay())].filter(Boolean).join(" · ")}</span>
                 <button
                   title="Add it to the end of this queue, filled with its template. It waits its turn."
                   disabled={adding !== null}
@@ -577,7 +574,7 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
                 >
                   {adding === task.id ? "Adding…" : "Queue it"}
                 </button>
-                <button className="queue-parked-dismiss" title={`Open in Todoist: ${task.url}`} onClick={() => controller.act(openUrl(task.url))}>
+                <button className="queue-parked-dismiss" title={`Open in Doable: ${task.url}`} onClick={() => controller.act(openUrl(task.url))}>
                   ↗
                 </button>
               </div>
@@ -691,7 +688,7 @@ function Waiting({
   onWorktree: () => void;
   onEdit: (prompt: string) => void;
   onRemove: () => void;
-  /// Makes it a Todoist task due `due` and takes it off the queue; null without a token.
+  /// Makes it a Doable task due `due` and takes it off the queue; null without a token.
   onRemind: ((due: string) => Promise<void>) | null;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -764,19 +761,19 @@ function Waiting({
             {open && lines.length > 1 && <span className="queue-row-rest">{lines.slice(1).join("\n")}</span>}
           </button>
           <span className="queue-tools">
-            {item.todoist && (
+            {item.doable && (
               <button
-                title={`Open the Todoist task: ${taskUrl(item.todoist.id)}`}
-                aria-label={`Open the Todoist task of #${item.n}`}
-                onClick={() => item.todoist && void openUrl(taskUrl(item.todoist.id))}
+                title={`Open the Doable task: ${taskUrl(item.doable.id)}`}
+                aria-label={`Open the Doable task of #${item.n}`}
+                onClick={() => item.doable && void openUrl(taskUrl(item.doable.id))}
               >
                 ↗
               </button>
             )}
             {onRemind && (
               <button
-                title="Remind in Todoist: a dated task holding this prompt, taken off the queue"
-                aria-label={`Remind #${item.n} in Todoist`}
+                title="Remind in Doable: a dated task holding this prompt, taken off the queue"
+                aria-label={`Remind #${item.n} in Doable`}
                 aria-expanded={reminding !== null}
                 onClick={() => setReminding(reminding === null ? "tomorrow" : null)}
               >
@@ -812,7 +809,7 @@ function Waiting({
   );
 }
 
-/// The due date for a reminder, in Todoist's own words, and the button that sends it.
+/// The due date for a reminder, in words Doable's quick add reads, and the button that sends it.
 function Remind({
   n,
   due,
@@ -843,8 +840,8 @@ function Remind({
         spellCheck={false}
         disabled={busy}
         placeholder="tomorrow 9am"
-        aria-label={`When Todoist should remind you of #${n}`}
-        title="Todoist reads it: tomorrow 9am, next monday, in 3 days, Dec 1"
+        aria-label={`When Doable should remind you of #${n}`}
+        title="Doable reads it: tomorrow 9am, next monday, in 3 days, Dec 1"
         onChange={(event) => onDue(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") send();
@@ -874,12 +871,12 @@ function FromAgent({ item }: { item: Item }) {
   );
 }
 
-/// Names the Todoist task a prompt was sent from; its link is among the row's tools.
+/// Names the Doable task a prompt was sent from; its link is among the row's tools.
 function FromTask({ item }: { item: Item }) {
-  if (!item.todoist) return null;
+  if (!item.doable) return null;
   return (
-    <span className="queue-from queue-task" title={taskUrl(item.todoist.id)}>
-      ☐ {item.todoist.title}
+    <span className="queue-from queue-task" title={taskUrl(item.doable.id)}>
+      ☐ {item.doable.title}
     </span>
   );
 }

@@ -1,9 +1,8 @@
-// Reads which Todoist tasks prompts came from (`todoistLinks.ts`) as often as
-// the ledger is read, and comments on a task by itself when its agent waits on
-// you. Completing a task or adding a subtask waits for a click (`write`).
+// Reads which Doable tasks prompts came from (`doableLinks.ts`) as often as
+// the ledger is read. Completing a task or adding a subtask waits for a click
+// (`write`).
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Controller } from "./controller";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Outcome } from "./ledger";
 import {
   EMPTY_LINKS,
@@ -12,13 +11,12 @@ import {
   linkedOutcomes,
   readLinks,
   type TaskLink,
-  toComment,
   writeBack,
-} from "./todoistLinks";
+} from "./doableLinks";
 
 const POLL_MS = 10_000;
 
-export interface TodoistLinks {
+export interface DoableLinks {
   /// Every prompt sent from a task, by the pane it went to.
   links: readonly TaskLink[];
   /// Ledger entries by id, with the task they came from.
@@ -27,7 +25,7 @@ export interface TodoistLinks {
   write: (outcome: Outcome) => Promise<void>;
 }
 
-export function useTodoistLinks(controller: Controller, list: Outcome[], local: boolean): TodoistLinks {
+export function useDoableLinks(list: Outcome[]): DoableLinks {
   const [file, setFile] = useState<LinksFile>(EMPTY_LINKS);
   const refresh = useCallback(() => {
     readLinks()
@@ -57,18 +55,6 @@ export function useTodoistLinks(controller: Controller, list: Outcome[], local: 
     },
     [linked, refresh],
   );
-
-  // Each ask is tried once a launch: a failure is shown, not retried every poll.
-  // `todoist.rs` writes it once however many windows try.
-  const tried = useRef(new Set<string>());
-  useEffect(() => {
-    if (!local) return;
-    for (const outcome of toComment(list, linked)) {
-      if (tried.current.has(outcome.id)) continue;
-      tried.current.add(outcome.id);
-      controller.act(write(outcome));
-    }
-  }, [controller, local, list, linked, write]);
 
   return useMemo(() => ({ links: file.links, linked, write }), [file.links, linked, write]);
 }

@@ -53,7 +53,7 @@ describe("parseSettings", () => {
       ui: { font_size: 14, sidebar_agents: false },
       confirm_close_tab: false,
       new_tab: { command: " claude " },
-      todoist: { filter: " #Herdr & @agent " },
+      doable: { view: " label:agent " },
       tabs: { wrap: false },
       workspace_colors: { "/code/notes": "cyan" },
       workspace_cards: { git_status: false, agent_status: false, details: "never", compact: true },
@@ -66,8 +66,8 @@ describe("parseSettings", () => {
       confirmCloseTab: false,
       tabsWrap: false,
       newTabCommand: "claude",
-      todoistFilter: "#Herdr & @agent",
-      todoistProjects: {},
+      doableView: "label:agent",
+      doableProjects: {},
       workspaceColors: { "/code/notes": "cyan" },
       workspaceGroups: {},
       workspaceCards: { gitStatus: false, agentStatus: false, details: "never", compact: true },
@@ -156,21 +156,21 @@ describe("fontStack", () => {
   });
 });
 
-describe("todoist.projects", () => {
+describe("doable.projects", () => {
   it("reads project folders and warns about a bad one", () => {
     const { settings, warnings } = parseSettings({
-      todoist: { filter: "today", projects: { Herdr: " ~/code/herdr-miura ", Notes: "/Users/me/notes", Bad: "code/x", Num: 3 } },
+      doable: { view: "today", projects: { Herdr: " ~/code/herdr-miura ", Notes: "/Users/me/notes", Bad: "code/x", Num: 3 } },
     });
-    expect(settings.todoistProjects).toEqual({ Herdr: "~/code/herdr-miura", Notes: "/Users/me/notes" });
+    expect(settings.doableProjects).toEqual({ Herdr: "~/code/herdr-miura", Notes: "/Users/me/notes" });
     expect(warnings).toEqual([
-      '`todoist.projects` for Bad should be a folder such as "~/code/app"; its tasks go to no repo.',
-      '`todoist.projects` for Num should be a folder such as "~/code/app"; its tasks go to no repo.',
+      '`doable.projects` for Bad should be a folder such as "~/code/app"; its tasks go to no repo.',
+      '`doable.projects` for Num should be a folder such as "~/code/app"; its tasks go to no repo.',
     ]);
   });
 
   it("warns when it is not a table", () => {
-    const { settings, warnings } = parseSettings({ todoist: { projects: "Herdr" } });
-    expect(settings.todoistProjects).toEqual({});
-    expect(warnings).toEqual(["`todoist.projects` should be a [todoist.projects] table of projects; no task goes to a repo."]);
+    const { settings, warnings } = parseSettings({ doable: { projects: "Herdr" } });
+    expect(settings.doableProjects).toEqual({});
+    expect(warnings).toEqual(["`doable.projects` should be a [doable.projects] table of projects; no task goes to a repo."]);
   });
 });

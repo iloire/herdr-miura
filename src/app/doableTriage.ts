@@ -1,21 +1,20 @@
-// Todoist automation, with care (docs/plan-todoist.md, idea 5). Nothing here
+// Doable automation, with care (docs/plan-doable.md, idea 5). Nothing here
 // starts an agent or writes anything by itself: `@agent` tasks are suggested
-// in the queue's panel and added on a click, several tasks are queued as one
-// prompt or one each when asked, and a cheap Claude's suggestions of a repo
-// and a template change a task's labels only once accepted. Pure, apart from
+// in the queue's panel and added on a click, and a cheap Claude's suggestions
+// of a repo and a template change a task only once accepted. Pure, apart from
 // the two commands at the end.
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Queue, TaskRef } from "./queue";
-import { expandFolder, sortTasks, type Task, taskRepo } from "./todoist";
+import { expandFolder, sortTasks, type Task, taskRepo } from "./doable";
 
-/// The label that offers a task to the queue: `@agent` in Todoist.
+/// The label that offers a task to the queue: `@agent` in Doable.
 export const AGENT_LABEL = "agent";
 
 export const isAgentTask = (task: Task) => task.labels.some((label) => label.toLowerCase() === AGENT_LABEL);
 
-/// The Todoist filter that reads them, whatever `todoist.filter` lists.
-export const AGENT_FILTER = `@${AGENT_LABEL}`;
+/// The Doable view that reads them, whatever `doable.view` lists.
+export const AGENT_VIEW = `label:${AGENT_LABEL}`;
 
 /// A task as a queue item keeps it.
 export const taskRef = (task: Task): TaskRef => ({ id: task.id, title: task.title });
@@ -26,8 +25,8 @@ export function queuedTaskIds(queues: readonly Queue[]): Set<string> {
   const ids = new Set<string>();
   for (const queue of queues) {
     for (const item of [...queue.items, ...queue.history]) {
-      if (item.todoist) ids.add(item.todoist.id);
-      for (const task of item.todoistBatch ?? []) ids.add(task.id);
+      if (item.doable) ids.add(item.doable.id);
+      for (const task of item.doableBatch ?? []) ids.add(task.id);
     }
   }
   return ids;
@@ -53,13 +52,13 @@ export function agentSuggestions(
 }
 
 // Triage: a repo and a template for each listed task, suggested by a cheap
-// Claude and shown to accept or refuse. Accepting sets labels the panel
-// already reads: `@repo:<name>` routes the task, and a label named as a
+// Claude and shown to accept or refuse. Accepting sets what the panel
+// already reads: a repo link routes the task, and a label named as a
 // library prompt picks its template.
 
 export interface Suggestion {
   task: string;
-  /// A repo's name, as `@repo:` takes it; null to leave it.
+  /// A repo's name, as a repo link takes it; null to leave it.
   repo: string | null;
   /// A library prompt's name; null to leave it.
   template: string | null;
@@ -70,14 +69,14 @@ export interface Suggestion {
 export const TRIAGE_MAX = 40;
 const DESCRIPTION_MAX = 300;
 
-/// The repos the triage run may choose from, by the name `@repo:` takes: the
-/// folders `todoist.projects` maps and the open workspaces', once each.
+/// The repos the triage run may choose from, by the name a repo link takes: the
+/// folders `doable.projects` maps and the open workspaces', once each.
 export function triageRepos(projects: Record<string, string>, home: string | null, folders: readonly string[]): string[] {
   const all = [...Object.values(projects), ...folders].map((folder) => repoName(expandFolder(folder, home)));
   return [...new Set(all.filter(Boolean))].sort();
 }
 
-/// A repo folder's name, as `@repo:` takes it.
+/// A repo folder's name, as a repo link takes it.
 export const repoName = (folder: string) => folder.split("/").pop() ?? folder;
 
 /// The question for the triage run: the tasks, the repos and the templates
@@ -91,7 +90,7 @@ export function triagePrompt(tasks: readonly Task[], repos: readonly string[], t
     ...(task.labels.length > 0 && { labels: task.labels }),
   }));
   return [
-    "You triage Todoist tasks for a developer who hands them to coding agents. For each task, pick the code repo it",
+    "You triage to-do tasks for a developer who hands them to coding agents. For each task, pick the code repo it",
     "is most likely about and the prompt template that fits it best, from the lists below only. Use null when none",
     "fits or you are unsure; a wrong guess is worse than null.",
     "",
@@ -153,31 +152,34 @@ export function parseSuggestions(
   return suggestions;
 }
 
-const REPO_LABEL = /^repo:/i;
-
-/// The labels `task` takes when `suggestion` is accepted, or null when it
-/// would change nothing. The repo goes in as `repo:<name>`, replacing any
-/// such label, unless `routed` (the repo it goes to now, by name) is it
-/// already. The template goes in as its name, replacing a label that names
-/// another of `templates`, as the panel picks a template by label.
-export function acceptedLabels(task: Task, suggestion: Suggestion, templates: readonly string[], routed: string | null): string[] | null {
+/// What `task` takes when `suggestion` is accepted: all its labels, and the
+/// repo for its repo link (null to leave that). Null when it would change
+/// nothing. The repo is set unless `routed` (the repo it goes to now, by
+/// name) is it already. The template goes in as a label of its name,
+/// replacing a label that names another of `templates`, as the panel picks a
+/// template by label.
+export function accepted(
+  task: Task,
+  suggestion: Suggestion,
+  templates: readonly string[],
+  routed: string | null,
+): { labels: string[]; repo: string | null } | null {
   let labels = [...task.labels];
   const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-  const { repo, template } = suggestion;
-  if (repo && !(routed && same(routed, repo))) {
-    labels = [...labels.filter((label) => !REPO_LABEL.test(label)), `repo:${repo}`];
-  }
+  const { template } = suggestion;
+  const repo = suggestion.repo && !(routed && same(routed, suggestion.repo)) ? suggestion.repo : null;
   if (template && !labels.some((label) => same(label, template))) {
     // `@agent` stays: it offers the task to the queue, whatever else it means.
     const other = (label: string) => !same(label, AGENT_LABEL) && templates.some((name) => same(name, label));
     labels = [...labels.filter((label) => !other(label)), template];
   }
   const changed = labels.length !== task.labels.length || labels.some((label, index) => label !== task.labels[index]);
-  return changed ? labels : null;
+  return changed || repo ? { labels, repo } : null;
 }
 
 /// Asks the cheap Claude (`triage.rs`): Haiku, no tools, nothing it can change.
-export const askTriage = (prompt: string) => invoke<string>("todoist_triage", { prompt });
+export const askTriage = (prompt: string) => invoke<string>("doable_triage", { prompt });
 
-/// Sets a task's labels, all of them, as an accepted suggestion.
-export const setLabels = (task: string, labels: readonly string[]) => invoke<void>("todoist_set_labels", { task, labels });
+/// Sets a task's labels, all of them, and its repo link when `repo` is given, as an accepted suggestion.
+export const setLabels = (task: string, labels: readonly string[], repo: string | null = null) =>
+  invoke<void>("doable_set_labels", { task, labels, repo });

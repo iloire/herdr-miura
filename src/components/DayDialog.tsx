@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { tildePath } from "../app/folder";
 import { allParked, asksForYou, dayView, doneToday, isOpen, olderOpen, type Outcome, repoName, STALE_DAYS, waitingOnYou } from "../app/ledger";
 import { relativeTime } from "../app/time";
-import { completedToday, type Linked, offer } from "../app/todoistLinks";
+import { completedToday, type Linked, offer } from "../app/doableLinks";
 import { useHome } from "../app/useHome";
 
 const MARKS: Record<string, { mark: string; words: string }> = {
@@ -14,15 +14,15 @@ const MARKS: Record<string, { mark: string; words: string }> = {
   "not-started": { mark: "?", words: "Not started" },
 };
 
-const RESOLVED: Record<string, string> = { queued: "queued", dismissed: "dismissed", cleared: "cleared", todo: "sent to Todoist" };
+const RESOLVED: Record<string, string> = { queued: "queued", dismissed: "dismissed", cleared: "cleared", todo: "sent to Doable" };
 
 /// What was written back to a task, in the row's facts.
-const WRITTEN: Record<string, string> = { closed: "completed in Todoist", subtask: "subtask in Todoist", commented: "noted in Todoist" };
+const WRITTEN: Record<string, string> = { closed: "completed in Doable", subtask: "subtask in Doable" };
 
 /// What each agent reported today, across every repo, from the outcome ledger,
 /// and whatever is still open from before: the end-of-day view of what landed,
 /// what was left and what waits on you. Rows that are still open act there.
-/// An outcome whose prompt came from a Todoist task names it, and offers to
+/// An outcome whose prompt came from a Doable task names it, and offers to
 /// complete it (a verified done) or add a subtask (a parked note).
 export function DayDialog({
   list,
@@ -33,7 +33,7 @@ export function DayDialog({
   onQueue,
   onResolve,
   linked,
-  onTodoist,
+  onDoable,
   onClose,
 }: {
   list: Outcome[];
@@ -46,10 +46,10 @@ export function DayDialog({
   /// Puts a parked note in its repo's queue; null without a queue here.
   onQueue: ((outcome: Outcome) => void) | null;
   onResolve: (outcome: Outcome, how: "dismissed" | "cleared") => void;
-  /// Ledger entries by id, with the Todoist task their prompt came from.
+  /// Ledger entries by id, with the Doable task their prompt came from.
   linked: ReadonlyMap<string, Linked>;
   /// Writes an outcome back to its task, when asked.
-  onTodoist: (outcome: Outcome) => void;
+  onDoable: (outcome: Outcome) => void;
   onClose: () => void;
 }) {
   const home = useHome();
@@ -75,7 +75,7 @@ export function DayDialog({
     `${done} done today`,
     `${parked} parked`,
     waiting > 0 && `${waiting} waiting on you`,
-    completed !== null && `${completed} completed in Todoist`,
+    completed !== null && `${completed} completed in Doable`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -123,7 +123,7 @@ export function DayDialog({
                       onQueue={onQueue}
                       onResolve={onResolve}
                       linked={linked.get(outcome.id)}
-                      onTodoist={onTodoist}
+                      onDoable={onDoable}
                     />
                   ))}
                 </ul>
@@ -154,7 +154,7 @@ function Row({
   onQueue,
   onResolve,
   linked,
-  onTodoist,
+  onDoable,
 }: {
   outcome: Outcome;
   tab: string | null;
@@ -163,7 +163,7 @@ function Row({
   onQueue: ((outcome: Outcome) => void) | null;
   onResolve: (outcome: Outcome, how: "dismissed" | "cleared") => void;
   linked: Linked | undefined;
-  onTodoist: (outcome: Outcome) => void;
+  onDoable: (outcome: Outcome) => void;
 }) {
   const { mark, words } = MARKS[outcome.kind] ?? { mark: "·", words: outcome.kind };
   const open = isOpen(outcome);
@@ -173,7 +173,7 @@ function Row({
   const facts = [words, outcome.branch, relativeTime(outcome.time / 1000), later ?? (open && outcome.stale ? "older" : null), ...written]
     .filter(Boolean)
     .join(" · ");
-  const todoist = offer(outcome, linked);
+  const doable = offer(outcome, linked);
   return (
     <li className={`day-row kind-${outcome.kind} ${open ? "open" : ""}`}>
       <span className="day-mark" aria-hidden>
@@ -183,7 +183,7 @@ function Row({
         {outcome.note && <p title={outcome.note}>{outcome.note}</p>}
         <span className="day-facts">{facts}</span>
         {linked && (
-          <span className="day-task" title={`Sent from the Todoist task ${linked.link.title}`}>
+          <span className="day-task" title={`Sent from the Doable task ${linked.link.title}`}>
             ☐ {linked.link.title}
           </span>
         )}
@@ -199,16 +199,16 @@ function Row({
             Resume
           </button>
         )}
-        {todoist && linked && (
+        {doable && linked && (
           <button
             title={
-              todoist === "close"
-                ? `Complete “${linked.link.title}” in Todoist, with a comment naming the commits`
-                : `Add this as a subtask of “${linked.link.title}” in Todoist`
+              doable === "close"
+                ? `Complete “${linked.link.title}” in Doable, with a note naming the commits`
+                : `Add this as a subtask of “${linked.link.title}” in Doable`
             }
-            onClick={() => onTodoist(outcome)}
+            onClick={() => onDoable(outcome)}
           >
-            {todoist === "close" ? "Complete in Todoist" : "Add to Todoist"}
+            {doable === "close" ? "Complete in Doable" : "Add to Doable"}
           </button>
         )}
         {open && outcome.kind === "left" && onQueue && (

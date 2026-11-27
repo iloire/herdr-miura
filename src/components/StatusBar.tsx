@@ -7,7 +7,7 @@ import { LedgerChip } from "./LedgerChip";
 import { GearIcon } from "./icons";
 import { Ports } from "./Ports";
 import { QueueChip } from "./QueueChip";
-import { TodoistChip } from "./TodoistChip";
+import { DoableChip } from "./DoableChip";
 import type { Queue } from "../app/queue";
 import { Worktrees } from "./Worktrees";
 import type { Worktree } from "../changes/worktrees";
@@ -27,7 +27,7 @@ export function StatusBar({
   onOpenUsage,
   ledger,
   onOpenDay,
-  todoist,
+  doable,
 }: {
   controller: Controller;
   state: State;
@@ -47,10 +47,10 @@ export function StatusBar({
   now: number;
   onOpenUsage: () => void;
   /// The outcome ledger's counts, this computer's like the usage.
-  ledger: { done: number; parked: number; waiting: number; todoist: number };
+  ledger: { done: number; parked: number; waiting: number; doable: number };
   onOpenDay: () => void;
-  /// Todoist tasks due today or before, null to hide the chip.
-  todoist: { due: number | null; filter: string; onOpen: () => void };
+  /// Doable tasks due today or before, null to hide the chip.
+  doable: { due: number | null; filter: string; onOpen: () => void };
 }) {
   const { status, notice } = state;
   return (
@@ -69,7 +69,7 @@ export function StatusBar({
       )}
       <ClaudeUsage usage={usage} now={now} onOpen={onOpenUsage} />
       <LedgerChip {...ledger} onOpen={onOpenDay} />
-      <TodoistChip {...todoist} />
+      <DoableChip {...doable} />
       {notice &&
         status.phase === "connected" &&
         (state.noticeTarget ? (

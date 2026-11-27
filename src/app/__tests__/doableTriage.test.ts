@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { addItem, EMPTY_FILE, emptyQueue, type Queue, queueKey } from "../queue";
-import type { Task } from "../todoist";
+import type { Task } from "../doable";
 import {
-  acceptedLabels,
+  accepted,
   agentSuggestions,
   isAgentTask,
   parseSuggestions,
@@ -10,7 +10,7 @@ import {
   type Suggestion,
   triagePrompt,
   triageRepos,
-} from "../todoistTriage";
+} from "../doableTriage";
 
 const task = (patch: Partial<Task> = {}): Task => ({
   id: "6gv",
@@ -21,7 +21,8 @@ const task = (patch: Partial<Task> = {}): Task => ({
   priority: 1,
   due: null,
   due_words: null,
-  url: "https://app.todoist.com/app/task/6gv",
+  repo: null,
+  url: "https://doable-chi.vercel.app/",
   ...patch,
 });
 
@@ -40,7 +41,7 @@ describe("@agent tasks", () => {
     const tasks = [
       task({ id: "a" }),
       task({ id: "b", project: "Elsewhere" }),
-      task({ id: "c", project: "Herdr", labels: ["agent", "repo:other"] }),
+      task({ id: "c", project: "Herdr", repo: "iloire/other" }),
       task({ id: "d", labels: ["plan"] }),
       task({ id: "e" }),
     ];
@@ -57,11 +58,11 @@ describe("queuedTaskIds", () => {
       { id: "c", title: "C" },
     ]);
     const queue = file.queues[queueKey(REPO)];
-    const done: Queue = { ...emptyQueue("/x"), history: [{ ...queue.items[0], id: "q9", todoist: { id: "d", title: "D" } }] };
+    const done: Queue = { ...emptyQueue("/x"), history: [{ ...queue.items[0], id: "q9", doable: { id: "d", title: "D" } }] };
     expect([...queuedTaskIds([queue, done])].sort()).toEqual(["a", "b", "c", "d"]);
     // A batch keeps its first task where outcomes are written back from.
-    expect(queue.items[1].todoist).toEqual({ id: "b", title: "B" });
-    expect(queue.items[0].todoistBatch).toBeUndefined();
+    expect(queue.items[1].doable).toEqual({ id: "b", title: "B" });
+    expect(queue.items[0].doableBatch).toBeUndefined();
   });
 });
 
@@ -100,24 +101,20 @@ describe("triage", () => {
   });
 });
 
-describe("acceptedLabels", () => {
+describe("accepted", () => {
   const s = (patch: Partial<Suggestion>): Suggestion => ({ task: "6gv", repo: null, template: null, why: "", ...patch });
   const templates = ["plan", "fix", "agent"];
 
-  it("adds a repo label, replacing another, unless the task goes there already", () => {
-    expect(acceptedLabels(task({ labels: ["agent", "repo:old"] }), s({ repo: "dotfiles" }), templates, "old")).toEqual([
-      "agent",
-      "repo:dotfiles",
-    ]);
-    expect(acceptedLabels(task(), s({ repo: "herdr-miura" }), templates, "herdr-miura")).toBeNull();
+  it("sets the repo link unless the task goes there already", () => {
+    expect(accepted(task(), s({ repo: "dotfiles" }), templates, "old")).toEqual({ labels: ["agent"], repo: "dotfiles" });
+    expect(accepted(task(), s({ repo: "herdr-miura" }), templates, "herdr-miura")).toBeNull();
   });
 
   it("adds the template as a label, replacing another template's but never @agent", () => {
-    expect(acceptedLabels(task({ labels: ["agent", "fix", "home"] }), s({ template: "plan" }), templates, null)).toEqual([
-      "agent",
-      "home",
-      "plan",
-    ]);
-    expect(acceptedLabels(task({ labels: ["agent", "plan"] }), s({ template: "Plan" }), templates, null)).toBeNull();
+    expect(accepted(task({ labels: ["agent", "fix", "home"] }), s({ template: "plan" }), templates, null)).toEqual({
+      labels: ["agent", "home", "plan"],
+      repo: null,
+    });
+    expect(accepted(task({ labels: ["agent", "plan"] }), s({ template: "Plan" }), templates, null)).toBeNull();
   });
 });

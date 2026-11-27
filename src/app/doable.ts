@@ -1,6 +1,6 @@
-// The Todoist panel: tasks read by `todoist_tasks` (src-tauri's todoist.rs,
+// The Doable panel: tasks read by `doable_tasks` (src-tauri's doable.rs,
 // which holds the token), and a task turned into a prompt through a template
-// from the prompt library. See docs/plan-todoist.md.
+// from the prompt library. See docs/plan-doable.md.
 
 import { invoke } from "@tauri-apps/api/core";
 import { tildePath } from "./folder";
@@ -14,44 +14,65 @@ export interface Task {
   description: string;
   project: string | null;
   labels: string[];
-  /// Todoist's 1 (normal) to 4 (urgent).
+  /// 1 (normal) to 4 (urgent): Doable's p4 to p1, turned round by `doable.rs`.
   priority: number;
-  /// `YYYY-MM-DD`, or a date and time.
+  /// `YYYY-MM-DD`, or a date and time (`YYYY-MM-DDTHH:MM`), in local time.
   due: string | null;
-  /// How Todoist says it: `24 Sep`, `every day`.
+  /// How it was typed: `tomorrow`, `every monday`.
   due_words: string | null;
+  /// The repo a repo link on the task names, `owner/name` or `name`.
+  repo: string | null;
+  /// The Doable web app.
   url: string;
 }
 
 export interface Tasks {
   tasks: Task[];
-  truncated: boolean;
 }
 
-export const readTasks = (filter: string) => invoke<Tasks>("todoist_tasks", { filter });
+/// A task as `doable.rs` sends it: `due` the instant Doable keeps, in UTC.
+type RawTask = Omit<Task, "due"> & { due: string | null; due_time: boolean };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/// Doable's due instant in local time: the day alone for a whole-day date
+/// (kept as the local day's start, in UTC), else the day and the time.
+export function localDue(due: string | null, hasTime: boolean): string | null {
+  if (due === null) return null;
+  const at = new Date(due);
+  if (Number.isNaN(at.getTime())) return null;
+  const day = localDay(at);
+  return hasTime ? `${day}T${pad(at.getHours())}:${pad(at.getMinutes())}` : day;
+}
+
+export const readTasks = (view: string) =>
+  invoke<{ tasks: RawTask[] }>("doable_tasks", { view }).then(({ tasks }) => ({
+    tasks: tasks.map(({ due, due_time, ...task }) => ({ ...task, due: localDue(due, due_time) })),
+  }));
 
 /// Every project's name, the Inbox first, for the panel's view picker.
-export const readProjects = () => invoke<string[]>("todoist_projects");
+export const readProjects = () => invoke<string[]>("doable_projects");
 
-// The panel's view: which tasks it lists. Null is the `todoist.filter` setting,
-// which the status bar counts too; the others are Todoist filters of their own.
+// The panel's view: which tasks it lists. Null is the `doable.view` setting,
+// which the status bar counts too. A view is one of Doable's own (`today`,
+// `upcoming`, `inbox`) or `project:<name>`, `label:<name>`, `repo:<name>`.
 
-/// Views beside the setting's filter and the projects, as filter and label.
+/// Views beside the setting's and the projects, as view and label.
 export const VIEWS: readonly (readonly [string, string])[] = [
-  ["today | overdue", "Today"],
-  ["7 days", "Next 7 days"],
-  ["all", "All tasks"],
+  ["today", "Today"],
+  ["upcoming", "Upcoming"],
+  ["inbox", "Inbox"],
 ];
 
-/// The filter for a project and its sub-projects, its name escaped where Todoist's syntax needs it.
-export const projectView = (name: string) => `##${name.replace(/[\\&|!(),]/g, "\\$&")}`;
+/// The view of a project's tasks.
+export const projectView = (name: string) => `project:${name}`;
 
 /// The project a view lists, null for any other view.
 export function viewedProject(view: string | null, projects: readonly string[]): string | null {
   return projects.find((name) => projectView(name) === view) ?? null;
 }
 
-const VIEW_KEY = "todoist-view";
+const VIEW_KEY = "doable-view";
 
 export function loadView(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): string | null {
   try {
@@ -70,18 +91,10 @@ export function saveView(view: string | null, storage: Pick<Storage, "setItem" |
   }
 }
 
-/// A comment on a task.
-export interface Comment {
-  content: string;
-  posted_at: string | null;
-}
+/// Completes a task in Doable, or reopens it when `done` is false (undo).
+export const setDone = (task: string, done: boolean) => invoke<void>("doable_set_done", { task, done });
 
-export const readComments = (task: string) => invoke<Comment[]>("todoist_comments", { task });
-
-/// Completes a task in Todoist, or reopens it when `done` is false (undo).
-export const setDone = (task: string, done: boolean) => invoke<void>("todoist_set_done", { task, done });
-
-/// A task to add: `due` in Todoist's own words (`tomorrow 9am`), which it reads.
+/// A task to add: `due` in words (`tomorrow 9am`), which Doable's quick add reads.
 export interface NewTask {
   title: string;
   description?: string;
@@ -89,14 +102,17 @@ export interface NewTask {
 }
 
 /// Adds a task to the project named `project`, or the Inbox when null or unknown.
-export const addTask = (task: NewTask, project: string | null) => invoke<Task>("todoist_add", { task, project });
+export const addTask = (task: NewTask, project: string | null) => invoke<Task>("doable_add", { task, project });
 
-/// Adds a task typed as in Todoist's quick add (`dentista tomorrow 10am p1 #Personal @agent`).
+/// Adds a task typed as in Doable's quick add (`dentista tomorrow 10am p1 #Personal @agent`).
 /// Without a date it is due today; left in the Inbox, it goes to `project` when that is set.
-export const quickAdd = (text: string, project: string | null) => invoke<Task>("todoist_quick_add", { text, project });
+export function quickAdd(text: string, project: string | null, now = new Date()): Promise<Task> {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().replace(/\.\d{3}Z$/, "Z");
+  return invoke<Task>("doable_quick_add", { text, project, today });
+}
 
 /// A parked ledger entry as a task: the note, and the repo and branch it was
-/// left in, so it can be picked up from Todoist alone.
+/// left in, so it can be picked up from Doable alone.
 export function parkedTask(outcome: Outcome, home: string | null): NewTask {
   const [first = "", ...rest] = outcome.note.trim().split("\n");
   const facts = [
@@ -114,70 +130,62 @@ export function queuedTask(prompt: string, folder: string, due: string, home: st
   return { title: title(prompt, 200) || "A queued prompt", description: `${where}\n\n${prompt.trim()}`, due: due.trim() };
 }
 
-/// Whether a failed read means no token is set (`todoist.rs`'s `NoToken`), not a broken one.
-export const noToken = (error: unknown) => String(error).startsWith("no Todoist token");
+/// Whether a failed read means no token is set (`doable.rs`'s `NoToken`), not a broken one.
+export const noToken = (error: unknown) => String(error).startsWith("no Doable token");
 
-/// A task's page in Todoist, as `todoist.rs` shapes it.
-export const taskUrl = (id: string) => `https://app.todoist.com/app/task/${id}`;
+/// The Doable web app, as `doable.rs` gives it for every task: Doable has no page per task.
+export const taskUrl = (_id: string) => "https://doable-chi.vercel.app/";
 
 /// How many of `tasks` are due today or before, for the status bar.
 export const dueBy = (tasks: readonly Task[], today: string) =>
   tasks.filter((task) => task.due !== null && task.due.slice(0, 10) <= today).length;
 
-/// The comments as a block for a prompt, oldest first, each under its day.
-export function commentsBlock(comments: readonly Comment[]): string {
-  return comments
-    .map((comment) => {
-      const day = comment.posted_at?.slice(0, 10);
-      return `${day ? `Comment, ${day}:` : "Comment:"}\n${comment.content.trim()}`;
-    })
-    .join("\n\n");
-}
-
 /// The prompt a task takes when none is named for it: a library prompt called this.
-export const DEFAULT_TEMPLATE = "todoist";
+export const DEFAULT_TEMPLATE = "doable";
 
 /// The task as a block a fresh agent can act on knowing nothing else.
 export function taskBlock(task: Task): string {
   const facts = [
     task.project && `Project: ${task.project}`,
     task.labels.length > 0 && `Labels: ${task.labels.map((label) => `@${label}`).join(" ")}`,
-    task.due_words && `Due: ${task.due_words}`,
+    (task.due_words || task.due) && `Due: ${task.due_words || task.due}`,
+    task.repo && `Repo: ${task.repo}`,
   ].filter(Boolean);
   return [
-    `Todoist task: ${task.title}`,
+    `Doable task: ${task.title}`,
     ...(facts.length > 0 ? [facts.join(" · ")] : []),
     ...(task.description.trim() ? ["", task.description.trim()] : []),
     "",
-    task.url,
+    `Doable id: ${task.id}`,
   ].join("\n");
 }
 
-const FIELDS: Record<string, (task: Task, comments: readonly Comment[]) => string> = {
+const FIELDS: Record<string, (task: Task) => string> = {
   title: (task) => task.title,
   description: (task) => task.description.trim(),
+  id: (task) => task.id,
   url: (task) => task.url,
   project: (task) => task.project ?? "",
   labels: (task) => task.labels.join(", "),
-  due: (task) => task.due_words ?? "",
-  comments: (_, comments) => commentsBlock(comments),
+  due: (task) => task.due_words || task.due || "",
+  repo: (task) => task.repo ?? "",
 };
 
 const PLACEHOLDER = /\{\{\s*task(?:\.(\w+))?\s*\}\}/g;
 
 /// `body` with the task in it: `{{task.title}}` and the other fields, or
-/// `{{task}}` for the whole block; `{{task.comments}}` takes `comments`. A body
+/// `{{task}}` for the whole block. A body
 /// with none of those takes the block for `$ARGUMENTS`, as Claude would, or
 /// else below its text. An unknown field is left as written, so a typo shows
 /// rather than vanishing.
-export function fillTemplate(body: string | null, task: Task, comments: readonly Comment[] = []): string {
+export function fillTemplate(body: string | null, task: Task): string {
   const block = taskBlock(task);
   if (body === null || !body.trim()) return block;
   if (body.match(PLACEHOLDER)) {
     return body.replace(PLACEHOLDER, (whole, field?: string) => {
       if (field === undefined) return block;
       const value = FIELDS[field];
-      return value ? value(task, comments) : whole;
+      return value ? value(task) : whole;
     });
   }
   if (body.includes("$ARGUMENTS")) return body.split("$ARGUMENTS").join(block);
@@ -185,7 +193,7 @@ export function fillTemplate(body: string | null, task: Task, comments: readonly
 }
 
 /// The template a task opens with: a working prompt named as one of its
-/// labels, else the one named `todoist`, else none (the task alone).
+/// labels, else the one named `doable`, else none (the task alone).
 export function templateFor(task: Task, prompts: readonly Prompt[]): Prompt | null {
   const usable = prompts.filter((prompt) => !prompt.broken);
   const labels = task.labels.map((label) => label.toLowerCase());
@@ -208,12 +216,32 @@ export function sortTasks(tasks: readonly Task[]): Task[] {
   });
 }
 
+/// How a task's date reads in the list, counted from `today` (`YYYY-MM-DD`):
+/// Today, Tomorrow, a weekday within the week, else the day and month, with
+/// its time if it has one, and how it repeats (`every monday`) when it does.
+/// Not the words it was typed with alone: `tomorrow` stops holding a day later.
+export function dueLabel(task: Task, today: string): string {
+  if (task.due === null) return "";
+  const [day, time] = task.due.split("T");
+  const at = new Date(`${day}T00:00`);
+  const days = Math.round((at.getTime() - new Date(`${today}T00:00`).getTime()) / 86_400_000);
+  const name =
+    days === 0
+      ? "Today"
+      : days === 1
+        ? "Tomorrow"
+        : days > 1 && days < 7
+          ? at.toLocaleDateString("en-GB", { weekday: "long" })
+          : at.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(String(at.getFullYear()) !== today.slice(0, 4) && { year: "numeric" }) });
+  const repeats = task.due_words?.trim().toLowerCase().startsWith("every") ? task.due_words.trim() : null;
+  return [name, time, repeats && `· ${repeats}`].filter(Boolean).join(" ");
+}
+
 /// Whether a task's day is before `today` (`YYYY-MM-DD`).
 export const overdue = (task: Task, today: string) => task.due !== null && task.due.slice(0, 10) < today;
 
-/// Today in local time as `YYYY-MM-DD`, which is how Todoist dates read.
+/// Today in local time as `YYYY-MM-DD`, which is how `readTasks` gives due days.
 export function localDay(now = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
@@ -227,13 +255,9 @@ export function matchingTasks(tasks: readonly Task[], query: string): Task[] {
   });
 }
 
-// Repo routing: which repo a task is for. `todoist.projects` maps Todoist
-// project names to folders, and a `@repo:<name>` label overrides that for one
-// task. The panel shows the focused workspace's tasks when its folder is
+// Repo routing: which repo a task is for. `doable.projects` maps Doable
+// project names to folders, and a repo link on the task overrides that. The panel shows the focused workspace's tasks when its folder is
 // mapped, and offers to send a task to its own repo's workspace.
-
-/// The label that names a task's repo: `repo:herdr-miura`.
-const REPO_LABEL = /^repo:(.+)$/i;
 
 /// A folder as the settings write it, `~` for home, with no trailing slash.
 export function expandFolder(folder: string, home: string | null): string {
@@ -255,28 +279,25 @@ function folderNamed(name: string, projects: Record<string, string>, folders: re
   return known.find((folder) => base(folder).toLowerCase() === want) ?? null;
 }
 
-/// The repo folder a task is for, or null when nothing routes it. A
-/// `@repo:<name>` label wins over the project, naming a mapped project or a
-/// folder by its last part (`folders` are the open workspaces'); one that names
-/// nothing known leaves the task unrouted rather than falling back.
+/// The repo folder a task is for, or null when nothing routes it. A repo
+/// link (`owner/name`, or `name`) wins over the project, naming a mapped
+/// project or a folder by its last part (`folders` are the open workspaces');
+/// one that names nothing known leaves the task unrouted rather than falling back.
 export function taskRepo(task: Task, projects: Record<string, string>, home: string | null, folders: readonly string[] = []): string | null {
-  for (const label of task.labels) {
-    const named = label.match(REPO_LABEL);
-    if (named) return folderNamed(named[1], projects, folders, home);
-  }
+  if (task.repo) return folderNamed(base(task.repo), projects, folders, home);
   if (task.project === null) return null;
   const folder = projects[task.project] ?? Object.entries(projects).find(([project]) => project.toLowerCase() === task.project?.toLowerCase())?.[1];
   return folder === undefined ? null : expandFolder(folder, home);
 }
 
-/// The Todoist project `todoist.projects` maps to `folder`, null for none.
+/// The Doable project `doable.projects` maps to `folder`, null for none.
 export function projectFor(folder: string | null, projects: Record<string, string>, home: string | null): string | null {
   if (folder === null) return null;
   const want = expandFolder(folder, home);
   return Object.entries(projects).find(([, mapped]) => expandFolder(mapped, home) === want)?.[0] ?? null;
 }
 
-/// Whether `folder` is one `todoist.projects` maps a project to.
+/// Whether `folder` is one `doable.projects` maps a project to.
 export const isMapped = (folder: string | null, projects: Record<string, string>, home: string | null) =>
   projectFor(folder, projects, home) !== null;
 

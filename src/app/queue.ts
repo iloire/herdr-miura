@@ -65,14 +65,14 @@ export interface Item {
   /// The item stays in this queue, which is on the main checkout, since the
   /// worktree can be removed at any moment.
   worktree?: string;
-  /// The Todoist task it was sent from, linked to its pane once it starts.
-  todoist?: TaskRef;
-  /// Every task of a prompt made from several at once; `todoist` is the
+  /// The Doable task it was sent from, linked to its pane once it starts.
+  doable?: TaskRef;
+  /// Every task of a prompt made from several at once; `doable` is the
   /// first, the one its outcomes are written back to.
-  todoistBatch?: TaskRef[];
+  doableBatch?: TaskRef[];
 }
 
-/// A Todoist task as a queue item keeps it.
+/// A Doable task as a queue item keeps it.
 export interface TaskRef {
   id: string;
   title: string;
@@ -411,16 +411,16 @@ export function addItem(
   front: boolean,
   now: number,
   source?: string,
-  todoist?: TaskRef | readonly TaskRef[],
+  doable?: TaskRef | readonly TaskRef[],
 ): QueueFile {
   const key = queueKey(folder);
   const queue = file.queues[key] ?? emptyQueue(folder);
   const seq = file.seq + 1;
   const item: Item = { id: `q${seq}`, n: queue.nextN, prompt: prompt.trim(), state: "queued", added: now };
   if (source !== undefined) item.source = source;
-  const tasks = todoist === undefined ? [] : "id" in todoist ? [todoist] : [...todoist];
-  if (tasks[0]) item.todoist = tasks[0];
-  if (tasks.length > 1) item.todoistBatch = tasks;
+  const tasks = doable === undefined ? [] : "id" in doable ? [doable] : [...doable];
+  if (tasks[0]) item.doable = tasks[0];
+  if (tasks.length > 1) item.doableBatch = tasks;
   const at = front ? queue.items.filter(isActive).length : queue.items.length;
   const items = [...queue.items.slice(0, at), item, ...queue.items.slice(at)];
   return { ...file, seq, queues: { ...file.queues, [key]: { ...queue, nextN: queue.nextN + 1, items } } };

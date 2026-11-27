@@ -1,4 +1,4 @@
-//! Todoist triage (docs/plan-todoist.md, idea 5): one cheap Claude run that
+//! Doable triage (docs/plan-doable.md, idea 5): one cheap Claude run that
 //! reads the listed tasks and suggests a repo and a template for each. The
 //! webview writes the question and reads the answer; this side only runs
 //! `claude -p` on Haiku with no tools, no MCP servers and no settings (so no

@@ -19,11 +19,11 @@ import { DRAWER, SIDEBAR, clampDrawer, clampSidebar, loadWidth, saveWidth } from
 import { busyQueues, isActive, itemOfTab, type Queue, queueDirectory, queueKey, workspaceFolder } from "./app/queue";
 import { useQueue } from "./app/useQueue";
 import { useLedger } from "./app/useLedger";
-import { useTodoistLinks } from "./app/useTodoistLinks";
-import { offers, taskOfPanes } from "./app/todoistLinks";
-import { useTodoistTasks } from "./app/useTodoistTasks";
-import { dueBy, loadView, localDay, saveView } from "./app/todoist";
-import { AGENT_FILTER } from "./app/todoistTriage";
+import { useDoableLinks } from "./app/useDoableLinks";
+import { offers, taskOfPanes } from "./app/doableLinks";
+import { useDoableTasks } from "./app/useDoableTasks";
+import { dueBy, loadView, localDay, saveView } from "./app/doable";
+import { AGENT_VIEW } from "./app/doableTriage";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
 import { useHome } from "./app/useHome";
@@ -56,7 +56,7 @@ import { PromptPalette } from "./components/PromptPalette";
 import type { QueueOwner } from "./components/AllQueues";
 import { QueuePanel } from "./components/QueuePanel";
 import { SessionsPanel } from "./components/SessionsPanel";
-import { TodoistPanel } from "./components/TodoistPanel";
+import { DoablePanel } from "./components/DoablePanel";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SettingsWarnings } from "./components/SettingsWarnings";
 import { Sidebar } from "./components/Sidebar";
@@ -303,23 +303,23 @@ export default function App() {
 
   // Every outcome agents reported, kept past their panes (docs/plan-inbox.md).
   const ledger = useLedger(controller);
-  // Which Todoist task each outcome's prompt came from (docs/plan-todoist.md).
-  const todoist = useTodoistLinks(controller, ledger.list, local);
-  // The tasks the Todoist panel lists and the status bar counts.
-  const [todoistView, setTodoistView] = useState(loadView);
-  const pickTodoistView = (view: string | null) => {
-    setTodoistView(view);
+  // Which Doable task each outcome's prompt came from (docs/plan-doable.md).
+  const doable = useDoableLinks(ledger.list);
+  // The tasks the Doable panel lists and the status bar counts.
+  const [doableView, setDoableView] = useState(loadView);
+  const pickDoableView = (view: string | null) => {
+    setDoableView(view);
     saveView(view);
   };
-  const todoistTasks = useTodoistTasks(state.settings.todoistFilter, state.todoist && todoistView === null);
+  const doableTasks = useDoableTasks(state.settings.doableView, state.doable && doableView === null);
   // The panel's own view when one is picked: Inbox, a project, all tasks.
-  const viewTasks = useTodoistTasks(todoistView ?? "", state.todoist, todoistView !== null && !todoistTasks.off);
-  // Tasks labelled `@agent`, offered in the queue's panel (docs/plan-todoist.md, idea 5).
-  const agentTasks = useTodoistTasks(AGENT_FILTER, state.queue, !todoistTasks.off);
-  const todoistChip = {
-    due: todoistTasks.off || !todoistTasks.read ? null : dueBy(todoistTasks.read.tasks, localDay()),
-    filter: state.settings.todoistFilter,
-    onOpen: () => controller.openTodoist(),
+  const viewTasks = useDoableTasks(doableView ?? "", state.doable, doableView !== null && !doableTasks.off);
+  // Tasks labelled `@agent`, offered in the queue's panel (docs/plan-doable.md, idea 5).
+  const agentTasks = useDoableTasks(AGENT_VIEW, state.queue, !doableTasks.off);
+  const doableChip = {
+    due: doableTasks.off || !doableTasks.read ? null : dueBy(doableTasks.read.tasks, localDay()),
+    filter: state.settings.doableView,
+    onOpen: () => controller.openDoable(),
   };
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
   const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
@@ -334,8 +334,8 @@ export default function App() {
     }
     return byWorkspace;
   }, [state.snapshot, local, queueFile, queueFolderOf]);
-  // The open workspaces a Todoist task can go to, by the repo folder on disk.
-  const todoistTargets = useMemo(() => {
+  // The open workspaces a Doable task can go to, by the repo folder on disk.
+  const doableTargets = useMemo(() => {
     const snapshot = state.snapshot;
     if (!snapshot || !local) return [];
     return snapshot.workspaces.flatMap((workspace) => {
@@ -345,7 +345,7 @@ export default function App() {
         : [];
     });
   }, [state.snapshot, local, queueFolderOf]);
-  const todoistFolders = useMemo(() => todoistTargets.map((target) => target.folder), [todoistTargets]);
+  const doableFolders = useMemo(() => doableTargets.map((target) => target.folder), [doableTargets]);
   // Every workspace's listening ports, scanned on this Mac only: a remote
   // host's servers are not reachable at its localhost from here.
   const ports = useLocalScan(local, PORTS_POLL_MS, readPorts, samePorts);
@@ -663,7 +663,7 @@ export default function App() {
     done: doneToday(ledger.list, usage.now).length,
     parked: allParked(ledger.list).length,
     waiting: closedOutcomes.length,
-    todoist: offers(ledger.list, todoist.linked, usage.now).length,
+    doable: offers(ledger.list, doable.linked, usage.now).length,
   };
   const closedAsks = {
     outcomes: closedOutcomes,
@@ -684,13 +684,13 @@ export default function App() {
     controller.request("workspace.focus", { workspace_id: workspaceId });
     controller.openQueue();
   };
-  // The Todoist task the focused tab's latest prompt came from.
+  // The Doable task the focused tab's latest prompt came from.
   const tabTask = useMemo(() => {
     const snapshot = state.snapshot;
     if (!local || !snapshot?.focused_tab_id) return null;
     const panes = snapshot.panes.filter((pane) => pane.tab_id === snapshot.focused_tab_id).map((pane) => pane.pane_id);
-    return taskOfPanes(todoist.links, panes);
-  }, [local, state.snapshot, todoist.links]);
+    return taskOfPanes(doable.links, panes);
+  }, [local, state.snapshot, doable.links]);
   const queuedTab = local && state.snapshot?.focused_tab_id ? itemOfTab(queueFile, state.snapshot.focused_tab_id) : null;
 
   // The folders whose Claude sessions are this workspace's: on this Mac only.
@@ -715,7 +715,7 @@ export default function App() {
     controller.reopenSession = () => controller.reopenClosed(focusedWorkspaceId, recentFolders);
   }, [controller, focusedWorkspaceId, recentFolders]);
 
-  const drawerOpen = readChanges || state.queue || state.sessions || state.todoist;
+  const drawerOpen = readChanges || state.queue || state.sessions || state.doable;
 
   return (
     <>
@@ -739,7 +739,7 @@ export default function App() {
               running: Boolean(focusedQueue?.items.some(isActive)),
             }}
             sessions={state.sessions}
-            todoist={state.todoist}
+            doable={state.doable}
             showSessions={local}
           />
           {/* The focused workspace's hue marks the selected tab and the status
@@ -804,7 +804,7 @@ export default function App() {
               )}
               {shownTreeFile && <FileView root={listingRoot} path={filePick} readOnly={!local} onOpen={setFilePick} onClose={closeFile} onSaved={checkoutWritten} />}
             </div>
-            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} ledger={ledgerCounts} onOpenDay={() => setDayOpen(true)} todoist={todoistChip} />
+            <StatusBar controller={controller} state={state} workspace={focusedWorkspace?.label} worktrees={worktrees.get(focusedWorkspace?.workspace_id ?? "") ?? []} onOpenWorktrees={() => setWorktreesOf(focusedWorkspace?.workspace_id ?? null)} queue={focusedQueue} onOpenQueue={() => controller.openQueue()} ports={focusedPorts} usage={usage.usage} now={usage.now} onOpenUsage={() => setUsageOpen(true)} ledger={ledgerCounts} onOpenDay={() => setDayOpen(true)} doable={doableChip} />
           </main>
           {drawerOpen && (
             <PaneResizer pane={DRAWER} width={drawerWidth} clamp={fitDrawer} onChange={setWantedDrawer} onCommit={commitDrawerWidth} />
@@ -826,9 +826,9 @@ export default function App() {
                 actions={local ? queueActions : null}
                 parked={focusedParked}
                 onParked={onParked}
-                todoist={todoistTasks.off ? null : state.settings.todoistProjects}
-                agentTasks={todoistTasks.off ? null : (agentTasks.read?.tasks ?? null)}
-                todoistFolders={todoistFolders}
+                doable={doableTasks.off ? null : state.settings.doableProjects}
+                agentTasks={doableTasks.off ? null : (agentTasks.read?.tasks ?? null)}
+                doableFolders={doableFolders}
                 all={allQueues}
                 ownerOf={queueOwner}
               />
@@ -843,19 +843,19 @@ export default function App() {
                 outcomes={ledger.list}
                 resuming={state.resuming}
               />
-            ) : state.todoist && state.snapshot ? (
-              <TodoistPanel
+            ) : state.doable && state.snapshot ? (
+              <DoablePanel
                 controller={controller}
                 snapshot={state.snapshot}
                 workspace={focusedWorkspace ?? null}
                 hue={focusedWorkspace ? workspaceHue(focusedWorkspace, slots) : ""}
-                filter={state.settings.todoistFilter}
-                view={todoistView}
-                onView={pickTodoistView}
-                tasks={todoistView === null ? todoistTasks : viewTasks}
-                projects={state.settings.todoistProjects}
+                filter={state.settings.doableView}
+                view={doableView}
+                onView={pickDoableView}
+                tasks={doableView === null ? doableTasks : viewTasks}
+                projects={state.settings.doableProjects}
                 home={home}
-                targets={todoistTargets}
+                targets={doableTargets}
                 folder={local && queueFolder ? queueDirectory(queueFolder) : null}
                 queueFolder={local ? queueFolder : null}
                 queue={local && queueAccess.kind === "ready" ? queueActions : null}
@@ -961,9 +961,9 @@ export default function App() {
                 : null
             }
             onResolve={(outcome, how) => ledger.resolve(outcome.id, how)}
-            linked={todoist.linked}
-            onTodoist={(outcome) =>
-              controller.act(todoist.write(outcome).then(() => outcome.kind === "left" && ledger.resolve(outcome.id, "todo")))
+            linked={doable.linked}
+            onDoable={(outcome) =>
+              controller.act(doable.write(outcome).then(() => outcome.kind === "left" && ledger.resolve(outcome.id, "todo")))
             }
             onClose={() => {
               setDayOpen(false);

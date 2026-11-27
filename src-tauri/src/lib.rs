@@ -38,7 +38,7 @@ mod ssh_hosts;
 mod sync;
 mod tab_move;
 mod team;
-mod todoist;
+mod doable;
 mod triage;
 mod worktree_ops;
 mod worktrees;
@@ -57,7 +57,7 @@ pub fn run() {
         .manage(recent_sessions::Cache::default())
         .manage(ssh_hosts::PendingKeys::default())
         .manage(sync::Running::default())
-        .manage(todoist::Cache::default());
+        .manage(doable::Cache::default());
     #[cfg(target_os = "macos")]
     let builder = builder.menu(menu::build).on_menu_event(menu::on_event);
     let result = builder
@@ -145,18 +145,17 @@ pub fn run() {
             commands::start_team,
             commands::theme_list,
             commands::theme_read,
-            commands::todoist_add,
-            commands::todoist_comments,
-            commands::todoist_completed,
-            commands::todoist_link,
-            commands::todoist_links,
-            commands::todoist_projects,
-            commands::todoist_quick_add,
-            commands::todoist_set_done,
-            commands::todoist_set_labels,
-            commands::todoist_tasks,
-            commands::todoist_triage,
-            commands::todoist_write_back,
+            commands::doable_add,
+            commands::doable_completed,
+            commands::doable_link,
+            commands::doable_links,
+            commands::doable_projects,
+            commands::doable_quick_add,
+            commands::doable_set_done,
+            commands::doable_set_labels,
+            commands::doable_tasks,
+            commands::doable_triage,
+            commands::doable_write_back,
             commands::trust_host_key,
             commands::worktrees,
             // keep-sorted end

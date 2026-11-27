@@ -2,7 +2,7 @@
 // which panel the right-hand drawer held, and the file picked in it. Kept in
 // this window's storage, so a relaunch opens where you left off.
 
-export const DRAWERS = ["changes", "files", "queue", "sessions", "todoist"] as const;
+export const DRAWERS = ["changes", "files", "queue", "sessions", "doable"] as const;
 export type Drawer = (typeof DRAWERS)[number];
 
 /// A file picked in a panel, with the checkout it belongs to: in another

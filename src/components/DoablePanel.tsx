@@ -3,15 +3,13 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import type { Controller } from "../app/controller";
 import { type Action, ACTIONS, type Prompt, readLibrary, sendPrompt, startInNewTab } from "../app/promptLibrary";
 import {
-  type Comment,
-  commentsBlock,
+  dueLabel,
   fillTemplate,
   isMapped,
   localDay,
   matchingTasks,
   overdue,
   projectFor,
-  readComments,
   readProjects,
   projectView,
   quickAdd,
@@ -25,10 +23,10 @@ import {
   templateFor,
   VIEWS,
   viewedProject,
-} from "../app/todoist";
-import { linkTask } from "../app/todoistLinks";
+} from "../app/doable";
+import { linkTask } from "../app/doableLinks";
 import {
-  acceptedLabels,
+  accepted,
   askTriage,
   parseSuggestions,
   repoName,
@@ -37,23 +35,23 @@ import {
   TRIAGE_MAX,
   triagePrompt,
   triageRepos,
-} from "../app/todoistTriage";
+} from "../app/doableTriage";
 import type { QueueActions } from "../app/useQueue";
-import type { TodoistTasks } from "../app/useTodoistTasks";
+import type { DoableTasks } from "../app/useDoableTasks";
 import type { Snapshot, Workspace } from "../protocol";
 import { RefreshIcon } from "./icons";
 
 const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New tab", queue: "Queue" };
 
-/// Todoist's priority colors, urgent first; normal has no mark.
+/// Doable's priority colors, urgent first; normal has no mark.
 const PRIORITY: Record<number, string> = { 4: "p1", 3: "p2", 2: "p3" };
 
-/// The tasks the `todoist.filter` setting matches, in the right-hand drawer:
-/// only the focused workspace's when `todoist.projects` maps its folder, with a
+/// The tasks in the `doable.view` setting's view, in the right-hand drawer:
+/// only the focused workspace's when `doable.projects` maps its folder, with a
 /// switch to all of them. Clicking one opens it as a prompt: a library template filled with the task,
 /// editable, then sent to the focused agent, a fresh Claude in a new tab, or
 /// the workspace's queue, as the prompt library sends.
-export function TodoistPanel({
+export function DoablePanel({
   controller,
   snapshot,
   workspace,
@@ -73,14 +71,14 @@ export function TodoistPanel({
   snapshot: Snapshot;
   workspace: Workspace | null;
   hue: string;
-  /// `todoist.filter`, the panel's view unless another is picked.
+  /// `doable.view`, the panel's view unless another is picked.
   filter: string;
-  /// The view picked in the panel, a Todoist filter; null for `filter`.
+  /// The view picked in the panel; null for `filter`, the setting's.
   view: string | null;
   onView: (view: string | null) => void;
   /// The view's tasks, read by `App`: `filter`'s count on the status bar too.
-  tasks: TodoistTasks;
-  /// `todoist.projects`: project names to repo folders.
+  tasks: DoableTasks;
+  /// `doable.projects`: project names to repo folders.
   projects: Record<string, string>;
   home: string | null;
   /// The open workspaces a task can be sent to, by repo.
@@ -96,7 +94,7 @@ export function TodoistPanel({
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
   const [showAll, setShowAll] = useState(false);
-  // Tasks completed here, hidden at once: `closing` while Todoist is asked,
+  // Tasks completed here, hidden at once: `closing` while Doable is asked,
   // `closed` until the next read (a recurring one comes back on its next date).
   const [completed, setCompleted] = useState<ReadonlyMap<string, "closing" | "closed">>(new Map());
   // The last one completed, for Undo.
@@ -145,7 +143,7 @@ export function TodoistPanel({
     };
   }, [folder]);
 
-  // Todoist's projects, for the view picker.
+  // Doable's projects, for the view picker.
   const [names, setNames] = useState<string[]>([]);
   useEffect(() => {
     if (tasks.off) return;
@@ -161,7 +159,7 @@ export function TodoistPanel({
   const shownFilter = view ?? filter;
 
   const today = localDay();
-  // Only the setting's filter is narrowed to this repo; a picked view lists what it names.
+  // Only the setting's view is narrowed to this repo; a picked view lists what it names.
   const mapped = view === null && isMapped(folder, projects, home);
   const folders = useMemo(() => targets.map((target) => target.folder), [targets]);
   const scoped = useMemo(() => {
@@ -171,15 +169,15 @@ export function TodoistPanel({
   const shown = useMemo(() => sortTasks(matchingTasks(scoped, query)), [scoped, query]);
   const head = (
     <>
-      <span className="queue-head-title" title={`Todoist filter: ${shownFilter}`}>
-        Todoist
+      <span className="queue-head-title" title={`Doable view: ${shownFilter}`}>
+        Doable
       </span>
       {!tasks.off && (
         <button
           type="button"
-          className={`icon-button todoist-refresh ${tasks.reading ? "reading" : ""}`}
+          className={`icon-button doable-refresh ${tasks.reading ? "reading" : ""}`}
           aria-label="Refresh tasks"
-          title="Read the tasks from Todoist again (it does every minute while this panel is open)"
+          title="Read the tasks from Doable again (it does every minute while this panel is open)"
           disabled={tasks.reading}
           onClick={refresh}
         >
@@ -190,13 +188,13 @@ export function TodoistPanel({
   );
   const picker = (
     <select
-      className="todoist-view"
-      aria-label="Todoist view"
-      title={`Todoist filter: ${shownFilter}`}
+      className="doable-view"
+      aria-label="Doable view"
+      title={`Doable view: ${shownFilter}`}
       value={view ?? ""}
       onChange={(event) => onView(event.target.value || null)}
     >
-      <option value="">{filter}</option>
+      <option value="">{VIEWS.find(([query]) => query === filter)?.[1] ?? filter}</option>
       {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
         <option key={query} value={query}>
           {label}
@@ -216,10 +214,10 @@ export function TodoistPanel({
   );
   const scope = mapped && (
     <span className="queue-scope" role="group" aria-label="Which tasks">
-      <button aria-pressed={!showAll} onClick={() => setShowAll(false)} title="The tasks todoist.projects or a @repo: label sends to this workspace's repo">
+      <button aria-pressed={!showAll} onClick={() => setShowAll(false)} title="The tasks doable.projects or a repo link sends to this workspace's repo">
         This repo
       </button>
-      <button aria-pressed={showAll} onClick={() => setShowAll(true)} title="Every task the filter matches">
+      <button aria-pressed={showAll} onClick={() => setShowAll(true)} title="Every task in the view">
         All
       </button>
     </span>
@@ -227,7 +225,7 @@ export function TodoistPanel({
 
   if (open) {
     return (
-      <aside className="changes sessions-panel todoist-panel" aria-label="Todoist" style={{ "--hue": hue } as CSSProperties}>
+      <aside className="changes sessions-panel doable-panel" aria-label="Doable" style={{ "--hue": hue } as CSSProperties}>
         <header className="changes-head queue-head">{head}</header>
         <TaskPrompt
           key={open.id}
@@ -251,14 +249,14 @@ export function TodoistPanel({
   }
 
   return (
-    <aside className="changes sessions-panel todoist-panel" aria-label="Todoist" style={{ "--hue": hue } as CSSProperties}>
+    <aside className="changes sessions-panel doable-panel" aria-label="Doable" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">{head}</header>
       {failed && <div className="queue-banner" role="status">{failed}</div>}
       {tasks.off ? (
         scope && <div className="queue-scope-row">{scope}</div>
       ) : (
-        <div className="files-filter todoist-tools">
-          <div className="todoist-tools-row">
+        <div className="files-filter doable-tools">
+          <div className="doable-tools-row">
             {picker}
             {scope}
           </div>
@@ -283,25 +281,25 @@ export function TodoistPanel({
           )}
         </div>
       )}
-      {!read && !failed && <p className="empty">Reading Todoist…</p>}
+      {!read && !failed && <p className="empty">Reading Doable…</p>}
       {read?.tasks.length === 0 && (
         <div className="queue-off">
           <p>
-            No tasks match <b>{shownFilter}</b>.{view === null && " The filter is in Settings."}
+            No tasks match <b>{shownFilter}</b>.{view === null && " The view is in Settings."}
           </p>
         </div>
       )}
       {read && read.tasks.length > 0 && scoped.length === 0 && (
         <div className="queue-off">
           <p>
-            None of the {read.tasks.length} tasks is for this repo. <button className="todoist-show-all" onClick={() => setShowAll(true)}>Show all</button>
+            None of the {read.tasks.length} tasks is for this repo. <button className="doable-show-all" onClick={() => setShowAll(true)}>Show all</button>
           </p>
         </div>
       )}
       {undoable && (
-        <div className="todoist-done-bar" role="status">
+        <div className="doable-done-bar" role="status">
           <span title={undoable.title}>Completed “{undoable.title}”</span>
-          <button type="button" title="Reopen it in Todoist" onClick={() => undo(undoable)}>
+          <button type="button" title="Reopen it in Doable" onClick={() => undo(undoable)}>
             Undo
           </button>
         </div>
@@ -321,20 +319,20 @@ export function TodoistPanel({
         />
       )}
       <div className="sessions-list">
-        <ul className="todoist-list">
+        <ul className="doable-list">
           {shown.map((task) => (
-            <li key={task.id} className="todoist-item">
-              <button className="session-row todoist-row" title={task.description || task.title} onClick={() => setOpen(task)}>
+            <li key={task.id} className="doable-item">
+              <button className="session-row doable-row" title={task.description || task.title} onClick={() => setOpen(task)}>
                 <span className="session-title">
-                  {PRIORITY[task.priority] && <span className={`todoist-priority ${PRIORITY[task.priority]}`} aria-label={`priority ${5 - task.priority}`} />}
+                  {PRIORITY[task.priority] && <span className={`doable-priority ${PRIORITY[task.priority]}`} aria-label={`priority ${5 - task.priority}`} />}
                   {task.title}
                 </span>
                 {task.description.trim() && <span className="session-prompt">{task.description.trim()}</span>}
                 <span className="session-meta">
-                  {task.due_words && <span className={overdue(task, today) ? "todoist-overdue" : undefined}>{task.due_words}</span>}
+                  {task.due && <span className={overdue(task, today) ? "doable-overdue" : undefined}>{dueLabel(task, today)}</span>}
                   {task.project && <span>{task.project}</span>}
                   {task.labels.map((label) => (
-                    <span key={label} className="todoist-label">
+                    <span key={label} className="doable-label">
                       @{label}
                     </span>
                   ))}
@@ -342,15 +340,14 @@ export function TodoistPanel({
               </button>
               <button
                 type="button"
-                className="todoist-complete"
+                className="doable-complete"
                 aria-label={`Complete “${task.title}”`}
-                title="Complete in Todoist"
+                title="Complete in Doable"
                 onClick={() => complete(task)}
               />
             </li>
           ))}
         </ul>
-        {read?.truncated && <p className="empty">Only the first {read.tasks.length} tasks are listed.</p>}
       </div>
     </aside>
   );
@@ -359,14 +356,15 @@ export function TodoistPanel({
 interface Proposal {
   task: Task;
   suggestion: Suggestion;
-  /// The task's labels once accepted.
+  /// The task's labels once accepted, and its repo link when that changes.
   labels: string[];
+  repo: string | null;
 }
 
 /// Suggest: a cheap Claude (Haiku, no tools) reads the listed tasks and
-/// proposes a repo and a template for each. Each proposal is accepted (its
-/// labels are set in Todoist: `@repo:<name>` and the template's name) or
-/// refused; nothing changes until accepted.
+/// proposes a repo and a template for each. Each proposal is accepted (a
+/// repo link to the repo, and a label named as the template, are set in
+/// Doable) or refused; nothing changes until accepted.
 function Triage({
   controller,
   tasks,
@@ -399,8 +397,8 @@ function Triage({
       .then((answer) => {
         const found = parseSuggestions(answer, asked, repos, names).flatMap((suggestion) => {
           const task = asked.find((entry) => entry.id === suggestion.task);
-          const labels = task && acceptedLabels(task, suggestion, names, routed(task));
-          return task && labels ? [{ task, suggestion, labels }] : [];
+          const change = task && accepted(task, suggestion, names, routed(task));
+          return task && change ? [{ task, suggestion, ...change }] : [];
         });
         setProposals(found);
       })
@@ -411,7 +409,7 @@ function Triage({
   const accept = (proposal: Proposal) => {
     setWriting(proposal.task.id);
     controller.act(
-      setLabels(proposal.task.id, proposal.labels)
+      setLabels(proposal.task.id, proposal.labels, proposal.repo)
         .then(() => {
           drop(proposal.task.id);
           onChanged();
@@ -421,8 +419,8 @@ function Triage({
   };
 
   return (
-    <section className="todoist-triage" aria-label="Suggestions">
-      <div className="todoist-triage-head">
+    <section className="doable-triage" aria-label="Suggestions">
+      <div className="doable-triage-head">
         <button
           type="button"
           disabled={asking}
@@ -432,7 +430,7 @@ function Triage({
           {asking ? "Suggesting…" : "Suggest repo and template"}
         </button>
         {proposals !== null && (
-          <button type="button" className="todoist-batch-clear" onClick={() => setProposals(null)}>
+          <button type="button" className="doable-batch-clear" onClick={() => setProposals(null)}>
             Close
           </button>
         )}
@@ -442,25 +440,25 @@ function Triage({
       {proposals && proposals.length > 0 && (
         <ul>
           {proposals.map((proposal) => (
-            <li key={proposal.task.id} className="todoist-proposal">
-              <p className="todoist-proposal-title" title={proposal.task.title}>
+            <li key={proposal.task.id} className="doable-proposal">
+              <p className="doable-proposal-title" title={proposal.task.title}>
                 {proposal.task.title}
               </p>
-              <p className="todoist-proposal-what">
-                {proposal.suggestion.repo && <span>@repo:{proposal.suggestion.repo}</span>}
+              <p className="doable-proposal-what">
+                {proposal.suggestion.repo && <span>repo {proposal.suggestion.repo}</span>}
                 {proposal.suggestion.template && <span>/{proposal.suggestion.template}</span>}
                 {proposal.suggestion.why && <em>{proposal.suggestion.why}</em>}
               </p>
-              <div className="todoist-proposal-row">
+              <div className="doable-proposal-row">
                 <button
                   type="button"
                   disabled={writing !== null}
-                  title={`Set the task's labels in Todoist to ${proposal.labels.map((label) => `@${label}`).join(" ")}`}
+                  title={`Set the task's labels in Doable to ${proposal.labels.map((label) => `@${label}`).join(" ")}${proposal.repo ? `, and its repo link to ${proposal.repo}` : ""}`}
                   onClick={() => accept(proposal)}
                 >
                   {writing === proposal.task.id ? "Accepting…" : "Accept"}
                 </button>
-                <button type="button" className="todoist-batch-clear" onClick={() => drop(proposal.task.id)}>
+                <button type="button" className="doable-batch-clear" onClick={() => drop(proposal.task.id)}>
                   Refuse
                 </button>
               </div>
@@ -472,7 +470,7 @@ function Triage({
   );
 }
 
-/// A box that adds a task to Todoist, read as Todoist's quick add reads it
+/// A box that adds a task to Doable, read as Doable's quick add reads it
 /// (`tomorrow 10am p1 #Project @label`). No date means today; no `#project`
 /// means the project mapped to this workspace's repo, else the Inbox. Says
 /// where it went, with a link.
@@ -495,12 +493,12 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
       .finally(() => setBusy(false));
   };
   return (
-    <div className="todoist-add">
+    <div className="doable-add">
       <input
         type="text"
         placeholder={`Add a task to ${where}`}
-        aria-label={`Add a Todoist task to ${where}`}
-        title="Typed as in Todoist: tomorrow 10am, p1, #Project, @label. No date means today."
+        aria-label={`Add a Doable task to ${where}`}
+        title="Typed as in Doable: tomorrow 10am, p1, #Project, @label. No date means today."
         spellCheck={false}
         disabled={busy}
         value={title}
@@ -513,7 +511,7 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
         }}
       />
       {added && (
-        <button type="button" className="todoist-added" title={added.url} onClick={() => controller.act(openUrl(added.url))}>
+        <button type="button" className="doable-added" title={added.url} onClick={() => controller.act(openUrl(added.url))}>
           Added “{added.title}” to {added.project ?? where} ↗
         </button>
       )}
@@ -552,25 +550,6 @@ function TaskPrompt({
   const [template, setTemplate] = useState<string>(() => templateFor(task, usable)?.key ?? "");
   const chosen = usable.find((prompt) => prompt.key === template) ?? null;
   const [text, setText] = useState(() => fillTemplate(chosen?.body ?? null, task));
-  // The comments, often where the real spec is: read when the task opens.
-  const [comments, setComments] = useState<Comment[] | null>(null);
-  const [commentsFailed, setCommentsFailed] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    readComments(task.id)
-      .then((read) => live && setComments(read))
-      .catch((error) => live && setCommentsFailed(String(error)));
-    return () => {
-      live = false;
-    };
-  }, [task.id]);
-  // A template asking for `{{task.comments}}` is filled again once they come,
-  // unless the text was edited meanwhile.
-  useEffect(() => {
-    if (comments === null || comments.length === 0) return;
-    const body = usable.find((prompt) => prompt.key === template)?.body ?? null;
-    setText((current) => (current === fillTemplate(body, task) ? fillTemplate(body, task, comments) : current));
-  }, [comments]); // Only when the comments arrive: the template and task are the ones they were read for.
 
   const pane = snapshot.focused_pane_id;
   const agent = snapshot.agents.find((entry) => entry.pane_id === pane && entry.agent) ?? null;
@@ -584,7 +563,7 @@ function TaskPrompt({
 
   const pick = (key: string) => {
     setTemplate(key);
-    setText(fillTemplate(usable.find((prompt) => prompt.key === key)?.body ?? null, task, comments ?? []));
+    setText(fillTemplate(usable.find((prompt) => prompt.key === key)?.body ?? null, task));
   };
 
   const tabLabel = task.title.length > 24 ? `${task.title.slice(0, 23)}…` : task.title;
@@ -619,7 +598,7 @@ function TaskPrompt({
 
   return (
     <div
-      className="todoist-task"
+      className="doable-task"
       onKeyDown={(event) => {
         const command = event.metaKey || event.ctrlKey;
         const index = command ? ["1", "2", "3"].indexOf(event.key) : -1;
@@ -631,21 +610,21 @@ function TaskPrompt({
         event.stopPropagation();
       }}
     >
-      <div className="todoist-task-head">
-        <button type="button" className="todoist-back" onClick={onBack} title="Back to the tasks (Esc)">
+      <div className="doable-task-head">
+        <button type="button" className="doable-back" onClick={onBack} title="Back to the tasks (Esc)">
           ‹ Tasks
         </button>
-        <span className="todoist-task-links">
-          <button type="button" className="todoist-open" onClick={onComplete} title="Complete the task in Todoist, with Undo in the list">
+        <span className="doable-task-links">
+          <button type="button" className="doable-open" onClick={onComplete} title="Complete the task in Doable, with Undo in the list">
             ✓ Complete
           </button>
-          <button type="button" className="todoist-open" onClick={() => controller.act(openUrl(task.url))} title="Open in Todoist">
-            Open in Todoist ↗
+          <button type="button" className="doable-open" onClick={() => controller.act(openUrl(task.url))} title="Open in Doable">
+            Open in Doable ↗
           </button>
         </span>
       </div>
-      <h3 className="todoist-task-title">{task.title}</h3>
-      <label className="todoist-template">
+      <h3 className="doable-task-title">{task.title}</h3>
+      <label className="doable-template">
         <span>Template</span>
         <select value={template} onChange={(event) => pick(event.target.value)}>
           <option value="">The task alone</option>
@@ -658,7 +637,7 @@ function TaskPrompt({
         </select>
       </label>
       {target && (
-        <div className="todoist-there" role="group" aria-label={`Send to ${target.label}`}>
+        <div className="doable-there" role="group" aria-label={`Send to ${target.label}`}>
           <span title={target.folder}>
             For <b>{target.label}</b>
           </span>
@@ -675,7 +654,6 @@ function TaskPrompt({
           </button>
         </div>
       )}
-      <TaskComments comments={comments} failed={commentsFailed} onAdd={() => comments && setText((current) => `${current.trimEnd()}\n\n${commentsBlock(comments)}`)} />
       <textarea className="prompt-text" value={text} spellCheck={false} autoFocus onChange={(event) => setText(event.target.value)} />
       <div className="prompt-actions">
         {ACTIONS.map((action, index) => (
@@ -692,32 +670,5 @@ function TaskPrompt({
         ))}
       </div>
     </div>
-  );
-}
-
-/// The task's comments above its prompt, with a button that adds them to it.
-function TaskComments({ comments, failed, onAdd }: { comments: Comment[] | null; failed: string | null; onAdd: () => void }) {
-  if (failed) return <p className="empty todoist-comments-note">Comments not read: {failed}</p>;
-  if (comments === null) return <p className="empty todoist-comments-note">Reading comments…</p>;
-  if (comments.length === 0) return null;
-  return (
-    <section className="todoist-comments" aria-label="Comments">
-      <header>
-        <span>
-          {comments.length} {comments.length === 1 ? "comment" : "comments"}
-        </span>
-        <button type="button" onClick={onAdd} title="Add the comments to the prompt below ({{task.comments}} in a template does this)">
-          Add to prompt
-        </button>
-      </header>
-      <ol>
-        {comments.map((comment, index) => (
-          <li key={index}>
-            {comment.posted_at && <time dateTime={comment.posted_at}>{comment.posted_at.slice(0, 10)}</time>}
-            <p>{comment.content.trim()}</p>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }

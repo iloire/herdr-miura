@@ -1,18 +1,18 @@
-// The Todoist tasks the `todoist.filter` setting matches, read for the whole
-// window: the Todoist panel lists them and the status bar counts those due.
+// The Doable tasks in the `doable.view` setting's view, read for the whole
+// window: the Doable panel lists them and the status bar counts those due.
 // Read often while the panel is open, seldom otherwise, and on focus.
 
 import { useCallback, useEffect, useState } from "react";
-import { noToken, readTasks, type Tasks } from "./todoist";
+import { noToken, readTasks, type Tasks } from "./doable";
 
 const OPEN_MS = 60_000;
 const CLOSED_MS = 5 * 60_000;
 
-export interface TodoistTasks {
+export interface DoableTasks {
   read: Tasks | null;
   /// Why the last read failed; null after one that worked.
   failed: string | null;
-  /// No token is set, so nothing Todoist should show.
+  /// No token is set, so nothing Doable should show.
   off: boolean;
   /// A read is under way, so a refresh button can show it.
   reading: boolean;
@@ -20,26 +20,26 @@ export interface TodoistTasks {
 }
 
 /// `enabled` false reads nothing, as for the `@agent` tasks without a token.
-export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = true): TodoistTasks {
+export function useDoableTasks(view: string, panelOpen: boolean, enabled = true): DoableTasks {
   const [read, setRead] = useState<Tasks | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [off, setOff] = useState(false);
   const [reading, setReading] = useState(false);
-  // A filter's answer must not land after the next filter's.
+  // A view's answer must not land after the next view's.
   const [asked, setAsked] = useState(0);
   const refresh = useCallback(() => setAsked((n) => n + 1), []);
 
-  // Another filter's tasks are not this one's, even for the moment its read takes.
+  // Another view's tasks are not this one's, even for the moment its read takes.
   useEffect(() => {
     setRead(null);
     setFailed(null);
-  }, [filter]);
+  }, [view]);
 
   useEffect(() => {
     if (!enabled) return;
     let live = true;
     setReading(true);
-    readTasks(filter)
+    readTasks(view)
       .then((next) => {
         if (!live) return;
         setRead(next);
@@ -55,7 +55,7 @@ export function useTodoistTasks(filter: string, panelOpen: boolean, enabled = tr
     return () => {
       live = false;
     };
-  }, [filter, asked, enabled]);
+  }, [view, asked, enabled]);
 
   useEffect(() => {
     if (!enabled) return;

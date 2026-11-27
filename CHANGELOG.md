@@ -2,6 +2,16 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-27 09:39 — Tasks come from Doable, not Todoist
+
+The task panel, the status bar's `☐ n today`, quick add, To Doable and Remind in Doable on the Queue panel, `@agent`
+suggestions, triage and the Day dialog's write-back now talk to the Doable server instead of Todoist. The token is
+the keychain item `doable` (or `DOABLE_TOKEN`); the server is `DOABLE_URL`, else https://doable-chi.vercel.app.
+The `todoist.filter` setting is now `doable.view` (`today`, `upcoming`, `inbox`, `project:`, `label:` or `repo:` a
+name), `todoist.projects` is `doable.projects`, and a task's repo comes from its repo link rather than an `@repo:`
+label. Doable has no comments, so the opened task shows none and `{{task.comments}}` is gone, and an agent waiting
+on you no longer writes to the task. A verified done appends its commits to the task's notes before completing it.
+
 ## 2026-11-24 18:01 — Tabs and workspaces show the memory their processes hold
 
 The tab header shows how much memory the focused tab's processes hold, and an expanded workspace card shows its total.

@@ -21,7 +21,7 @@ use crate::{
     settings,
     ssh_hosts,
     sync,
-    todoist,
+    doable,
     triage,
     tab_move::Destination,
     worktree_ops,
@@ -478,93 +478,89 @@ pub async fn claude_usage(app: AppHandle) -> Result<Option<claude_usage::Usage>>
     Ok(read.await.map_err(claude_usage::Error::Worker)?)
 }
 
-/// The Todoist tasks `filter` matches, for the Todoist panel.
+/// The Doable tasks in `view` (`today`, `project:<name>`, `label:<name>`…), for the Doable panel.
 #[tauri::command]
-pub async fn todoist_tasks(app: AppHandle, filter: String) -> Result<todoist::Tasks> {
-    let read = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().tasks(&filter));
-    Ok(read.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_tasks(app: AppHandle, view: String) -> Result<doable::Tasks> {
+    let read = tauri::async_runtime::spawn_blocking(move || app.state::<doable::Cache>().tasks(&view));
+    Ok(read.await.map_err(doable::Error::Worker)??)
 }
 
-/// Adds a task typed in Todoist's quick add syntax (`tomorrow p1 #Project @label`).
+/// Adds a task typed in Doable's quick add syntax (`tomorrow p1 #Project @label`);
+/// one with no date is due `today`, the local day's start as UTC.
 #[tauri::command]
-pub async fn todoist_quick_add(app: AppHandle, text: String, project: Option<String>) -> Result<todoist::Task> {
-    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().quick_add(&text, project.as_deref()));
-    Ok(run.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_quick_add(app: AppHandle, text: String, project: Option<String>, today: String) -> Result<doable::Task> {
+    let run =
+        tauri::async_runtime::spawn_blocking(move || app.state::<doable::Cache>().quick_add(&text, project.as_deref(), &today));
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
-/// Every Todoist project's name, the Inbox first, for the panel's view picker.
+/// Every Doable project's name, the Inbox first, for the panel's view picker.
 #[tauri::command]
-pub async fn todoist_projects(app: AppHandle) -> Result<Vec<String>> {
-    let read = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().project_names());
-    Ok(read.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_projects(app: AppHandle) -> Result<Vec<String>> {
+    let read = tauri::async_runtime::spawn_blocking(move || app.state::<doable::Cache>().project_names());
+    Ok(read.await.map_err(doable::Error::Worker)??)
 }
 
-/// Adds `task` to the Todoist project named `project`, else the Inbox.
+/// Adds `task` to the Doable project named `project`, else the Inbox.
 #[tauri::command]
-pub async fn todoist_add(app: AppHandle, task: todoist::NewTask, project: Option<String>) -> Result<todoist::Task> {
-    let run = tauri::async_runtime::spawn_blocking(move || app.state::<todoist::Cache>().add(&task, project.as_deref()));
-    Ok(run.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_add(app: AppHandle, task: doable::NewTask, project: Option<String>) -> Result<doable::Task> {
+    let run = tauri::async_runtime::spawn_blocking(move || app.state::<doable::Cache>().add(&task, project.as_deref()));
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
-/// The comments on the Todoist task `task`, oldest first.
+/// Sets the Doable task `task`'s labels to `labels`, and its repo link to
+/// `repo` when given, as a triage suggestion accepted.
 #[tauri::command]
-pub async fn todoist_comments(task: String) -> Result<Vec<todoist::Comment>> {
-    let read = tauri::async_runtime::spawn_blocking(move || todoist::comments(&task));
-    Ok(read.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_set_labels(task: String, labels: Vec<String>, repo: Option<String>) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || doable::set_labels(&task, &labels, repo.as_deref()));
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
-/// Sets the Todoist task `task`'s labels to `labels`, as a triage suggestion accepted.
+/// Completes the Doable task `task` from the panel, or reopens it (`done` false) to undo that.
 #[tauri::command]
-pub async fn todoist_set_labels(task: String, labels: Vec<String>) -> Result<()> {
-    let run = tauri::async_runtime::spawn_blocking(move || todoist::set_labels(&task, &labels));
-    Ok(run.await.map_err(todoist::Error::Worker)??)
-}
-
-/// Completes the Todoist task `task` from the panel, or reopens it (`done` false) to undo that.
-#[tauri::command]
-pub async fn todoist_set_done(task: String, done: bool) -> Result<()> {
-    let run = tauri::async_runtime::spawn_blocking(move || todoist::set_done(&task, done));
-    Ok(run.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_set_done(task: String, done: bool) -> Result<()> {
+    let run = tauri::async_runtime::spawn_blocking(move || doable::set_done(&task, done));
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
 /// What a cheap Claude (Haiku, no tools) answers to the triage question `prompt`.
 #[tauri::command]
-pub async fn todoist_triage(prompt: String) -> Result<String> {
+pub async fn doable_triage(prompt: String) -> Result<String> {
     let run = tauri::async_runtime::spawn_blocking(move || triage::ask(&prompt));
     Ok(run.await.map_err(triage::Error::Worker)??)
 }
 
 /// Which tasks prompts came from, and what was written back to them.
 #[tauri::command]
-pub async fn todoist_links() -> Result<todoist::Links> {
-    let read = tauri::async_runtime::spawn_blocking(|| todoist::read_links(&todoist::links_path()?));
-    Ok(read.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_links() -> Result<doable::Links> {
+    let read = tauri::async_runtime::spawn_blocking(|| doable::read_links(&doable::links_path()?));
+    Ok(read.await.map_err(doable::Error::Worker)??)
 }
 
-/// Records that a prompt from the Todoist task `task` went to the agent in `pane`.
+/// Records that a prompt from the Doable task `task` went to the agent in `pane`.
 #[tauri::command]
-pub async fn todoist_link(task: String, title: String, pane: String, directory: Option<String>) -> Result<()> {
+pub async fn doable_link(task: String, title: String, pane: String, directory: Option<String>) -> Result<()> {
     let run = tauri::async_runtime::spawn_blocking(move || {
-        todoist::link(&todoist::links_path()?, &task, &title, &pane, directory.as_deref())
+        doable::link(&doable::links_path()?, &task, &title, &pane, directory.as_deref())
     });
-    Ok(run.await.map_err(todoist::Error::Worker)??)
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
 /// Writes the ledger entry `entry` back to the task `task` its prompt came
 /// from; false when that was done already.
 #[tauri::command]
-pub async fn todoist_write_back(task: String, entry: ledger::Entry, from: Option<String>) -> Result<bool> {
+pub async fn doable_write_back(task: String, entry: ledger::Entry, from: Option<String>) -> Result<bool> {
     let run = tauri::async_runtime::spawn_blocking(move || {
-        todoist::write_back(&todoist::links_path()?, &task, &entry, from.as_deref())
+        doable::write_back(&doable::links_path()?, &task, &entry, from.as_deref())
     });
-    Ok(run.await.map_err(todoist::Error::Worker)??)
+    Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
-/// How many Todoist tasks were completed between `since` and `until`.
+/// How many Doable tasks were completed between `since` and `until`.
 #[tauri::command]
-pub async fn todoist_completed(since: String, until: String) -> Result<usize> {
-    let read = tauri::async_runtime::spawn_blocking(move || todoist::completed(&since, &until));
-    Ok(read.await.map_err(todoist::Error::Worker)??)
+pub async fn doable_completed(since: String, until: String) -> Result<usize> {
+    let read = tauri::async_runtime::spawn_blocking(move || doable::completed(&since, &until));
+    Ok(read.await.map_err(doable::Error::Worker)??)
 }
 
 /// The TCP ports each workspace's processes listen on, by workspace id.

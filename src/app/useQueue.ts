@@ -48,7 +48,7 @@ import {
   viewOf,
   worktreePath,
 } from "./queue";
-import { linkTask } from "./todoistLinks";
+import { linkTask } from "./doableLinks";
 
 const TICK_MS = 1000;
 const LOAD_RETRY_MS = 5000;
@@ -69,9 +69,9 @@ export type QueueAccess =
   | { kind: "ready"; separate: boolean };
 
 export interface QueueActions {
-  /// `todoist`: the task it came from, to write its outcome back to, or the
+  /// `doable`: the task it came from, to write its outcome back to, or the
   /// tasks of a prompt made from several (the first is written back to).
-  add(folder: string, prompt: string, front: boolean, todoist?: TaskRef | readonly TaskRef[]): void;
+  add(folder: string, prompt: string, front: boolean, doable?: TaskRef | readonly TaskRef[]): void;
   edit(folder: string, id: string, prompt: string): void;
   /// Removes a waiting item and returns a function that puts it back.
   remove(folder: string, id: string): () => void;
@@ -207,8 +207,8 @@ export function useQueue(
         }),
       );
       // Before its prompt, so no outcome of its agent comes before the link.
-      if (item.todoist) {
-        await linkTask(item.todoist, opened.pane_id, item.worktree ?? queueDirectory(folder)).catch((error) => controller.act(Promise.reject(error)));
+      if (item.doable) {
+        await linkTask(item.doable, opened.pane_id, item.worktree ?? queueDirectory(folder)).catch((error) => controller.act(Promise.reject(error)));
       }
       if (opened.ready) await prompt(folder, { ...item, ...ready });
     },
@@ -313,9 +313,9 @@ export function useQueue(
 
   const actions = useMemo<QueueActions>(
     () => ({
-      add(folder, prompt, front, todoist) {
+      add(folder, prompt, front, doable) {
         if (!current.current || !prompt.trim()) return;
-        const next = addItem(current.current, folder, prompt, front, Date.now(), undefined, todoist);
+        const next = addItem(current.current, folder, prompt, front, Date.now(), undefined, doable);
         commit(separate.current ? holdNewQueues(current.current, next, TEST_HOLD) : next);
         tick();
       },

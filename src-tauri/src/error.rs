@@ -27,7 +27,7 @@ pub enum Error {
     #[error(transparent)]
     Settings(#[from] crate::settings::Error),
     #[error(transparent)]
-    Todoist(#[from] crate::todoist::Error),
+    Doable(#[from] crate::doable::Error),
     #[error(transparent)]
     Triage(#[from] crate::triage::Error),
     #[error(transparent)]
