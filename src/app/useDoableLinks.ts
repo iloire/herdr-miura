@@ -1,8 +1,8 @@
 // Reads which Doable tasks prompts came from (`doableLinks.ts`) as often as
 // the ledger is read. Completing a task or adding a subtask waits for a click
-// (`write`).
+// (`write`); where the task stands (its agent state) is written by itself.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Outcome } from "./ledger";
 import {
   EMPTY_LINKS,
@@ -10,6 +10,8 @@ import {
   type LinksFile,
   linkedOutcomes,
   readLinks,
+  report,
+  toReport,
   type TaskLink,
   writeBack,
 } from "./doableLinks";
@@ -42,6 +44,17 @@ export function useDoableLinks(list: Outcome[]): DoableLinks {
     };
   }, [refresh]);
   const linked = useMemo(() => linkedOutcomes(list, file), [list, file]);
+
+  // One at a time, each once: the links file records it, and `reporting` covers the wait.
+  const reporting = useRef(new Set<string>());
+  useEffect(() => {
+    const due = toReport(list, linked).filter((o) => !reporting.current.has(o.id));
+    if (due.length === 0) return;
+    for (const o of due) reporting.current.add(o.id);
+    due
+      .reduce((done, o) => done.then(() => report(linked.get(o.id)!, o).then(() => {}, () => {})), Promise.resolve())
+      .finally(refresh);
+  }, [list, linked, refresh]);
 
   const write = useCallback(
     async (outcome: Outcome) => {

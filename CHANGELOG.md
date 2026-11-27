@@ -2,6 +2,15 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-27 22:14 — Doable tasks say how their agent is doing
+
+A task handed to Claude in Doable's Mac app (state `queued`) joins its repo's queue by itself, with the template its
+labels pick, as long as that repo's workspace is open; one that routes nowhere waits as a suggestion, as an `@agent`
+task from anywhere else still does. Sending a prompt from a task marks it `running` in Doable, and each outcome its
+agent reports sets where it stands: a verified done is `done`, a `left` is `left`, and a `you`, a `not-started` or an
+unverified done is `you`, with the note, so Doable puts it in Today. Completing the task and adding a subtask still wait
+for a click in the Day dialog.
+
 ## 2026-11-27 12:41 — Select and copy terminal text
 
 Dragging in a terminal pane selects its text, and a double-click selects a word, path or URL. ⌘C (Ctrl+Shift+C

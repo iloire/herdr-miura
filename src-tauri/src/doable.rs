@@ -76,6 +76,9 @@ pub struct Task {
     /// The repo a repo link names, `owner/name` or `name`.
     pub repo: Option<String>,
     pub url: String,
+    /// Where it stands with Claude (`queued`, `running`, `left`, `you`, `done`), as Doable keeps it.
+    /// `queued` means the Mac handed it over: the queue starts it without asking.
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -99,6 +102,14 @@ struct RawTask {
     due: Option<RawDue>,
     #[serde(default)]
     links: Vec<Value>,
+    agent: Option<RawAgent>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct RawAgent {
+    state: String,
+    #[serde(default)]
+    at: String,
 }
 
 fn lowest() -> u8 {
@@ -532,7 +543,78 @@ fn shape(task: RawTask, projects: &Projects) -> Task {
         due_time: task.due.as_ref().is_some_and(|due| due.has_time),
         due: task.due.as_ref().map(|due| due.date.clone()),
         due_words: task.due.map(|due| due.text).filter(|text| !text.trim().is_empty()),
+        agent: task.agent.map(|agent| agent.state),
     }
+}
+
+// Where a task stands with Claude: Doable's `agent` field, which its Mac app
+// and iPhone show on the task. Written when a prompt from the task goes to an
+// agent (`running`), and when that agent reports (`report`).
+
+/// The request that sets `task`'s agent state, with what the agent said and its workspace.
+fn agent_write(task: &str, state: &str, note: &str, workspace: &str) -> Result<Request, Error> {
+    if !plain_id(task) {
+        return Err(Error::BadLink(task.to_owned()));
+    }
+    let mut agent = json!({ "state": state, "at": crate::ledger::now_utc() });
+    let note: String = note.trim().chars().filter(|c| !c.is_control()).take(300).collect();
+    if !note.is_empty() {
+        agent["note"] = note.into();
+    }
+    if !workspace.is_empty() {
+        agent["workspace"] = workspace.into();
+    }
+    Ok(Request::new(Method::Patch, format!("/tasks/{task}"), Some(json!({ "agent": agent }))))
+}
+
+/// Marks `task` as being worked on by the agent in `pane` (`w1:p4`, of workspace `w1`).
+pub fn mark_running(task: &str, pane: &str) -> Result<(), Error> {
+    let workspace = pane.split(':').next().unwrap_or_default();
+    send(&token()?, &agent_write(task, "running", "", workspace)?).map(drop)
+}
+
+/// The agent state an outcome puts its task in, with the note to show: an
+/// unverified `done` and a `not-started` wait on you as a `you` does.
+fn reported(entry: &Entry) -> Option<(&'static str, String)> {
+    let note = entry.note.trim();
+    Some(match entry.kind.as_str() {
+        "verified" => ("done", note.to_owned()),
+        "left" => ("left", note.to_owned()),
+        "you" => ("you", note.to_owned()),
+        "unverified" => ("you", if note.is_empty() { "Check it: Git doesn't agree it's done".to_owned() } else { format!("Check it: {note}") }),
+        "not-started" => ("you", if note.is_empty() { "It didn't start".to_owned() } else { note.to_owned() }),
+        _ => return None,
+    })
+}
+
+/// Writes where `task` stands after the outcome `entry`, once per entry (the
+/// links file keeps it as `status`, under the lock `write_back` takes). Only
+/// for a task Doable already has a state for, so a task taken back from
+/// Claude, or linked before states existed, is left alone, and never over a
+/// state set after the outcome (handed back to Claude since). False when
+/// nothing was written.
+pub fn report(path: &Path, task: &str, entry: &Entry) -> Result<bool, Error> {
+    if !plain_id(task) || !plain_id(&entry.id) {
+        return Err(Error::BadLink(format!("{task} ← {}", entry.id)));
+    }
+    let Some((state, note)) = reported(entry) else { return Ok(false) };
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let lock = OpenOptions::new().create(true).truncate(false).write(true).open(path.with_file_name("doable.lock"))?;
+    lock.lock()?;
+    if read_links(path)?.written.iter().any(|w| w.entry == entry.id && w.did == "status") {
+        return Ok(false);
+    }
+    let token = token()?;
+    let current: RawTask = read(&send(&token, &Request::new(Method::Get, format!("/tasks/{task}"), None))?)?;
+    let wanted = current.agent.as_ref().is_some_and(|agent| agent.at.as_str() <= entry.at.as_str());
+    if wanted {
+        send(&token, &agent_write(task, state, &note, &entry.workspace)?)?;
+    }
+    let line = json!({ "v": 1, "entry": entry.id, "task": task, "did": "status", "at": crate::ledger::now_utc() });
+    append(path, &line)?;
+    Ok(wanted)
 }
 
 // Closing the loop (docs/plan-doable.md): which task a prompt came from, and
@@ -557,7 +639,7 @@ pub struct Link {
 pub struct Written {
     pub entry: String,
     pub task: String,
-    /// `closed` or `subtask`.
+    /// `closed`, `subtask`, or `status` (the agent state, written by itself).
     pub did: String,
     pub at: String,
 }
@@ -948,5 +1030,36 @@ mod tests {
     fn error_words_prefers_doables_message() {
         assert_eq!(error_words(r#"{"error":"no project X"}"#), "no project X");
         assert_eq!(error_words("plain"), "plain");
+    }
+
+    #[test]
+    fn an_outcome_sets_the_agent_state_a_question_and_an_unchecked_done_waiting_on_you() {
+        let state = |kind: &str, note: &str| reported(&entry(kind, note));
+        assert_eq!(state("verified", "shipped"), Some(("done", "shipped".to_owned())));
+        assert_eq!(state("left", "test on GTK"), Some(("left", "test on GTK".to_owned())));
+        assert_eq!(state("you", "run the migration"), Some(("you", "run the migration".to_owned())));
+        assert_eq!(state("unverified", "3 uncommitted files"), Some(("you", "Check it: 3 uncommitted files".to_owned())));
+        assert_eq!(state("not-started", ""), Some(("you", "It didn't start".to_owned())));
+        assert_eq!(state("cleared", ""), None);
+    }
+
+    #[test]
+    fn the_agent_state_goes_in_one_patch_with_its_note_and_workspace() -> Result<(), Error> {
+        let request = agent_write(ID, "you", " run it\u{7}\n", "w1")?;
+        assert_eq!((request.method, request.path.as_str()), (Method::Patch, format!("/tasks/{ID}").as_str()));
+        let agent = request.body.unwrap_or_default()["agent"].clone();
+        assert_eq!((agent["state"].as_str(), agent["note"].as_str(), agent["workspace"].as_str()), (Some("you"), Some("run it"), Some("w1")));
+        assert!(agent["at"].as_str().is_some_and(instant));
+        let bare = agent_write(ID, "running", "", "")?.body.unwrap_or_default();
+        assert!(bare["agent"].get("note").is_none() && bare["agent"].get("workspace").is_none());
+        assert!(agent_write("../x", "done", "", "").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn a_task_says_where_it_stands_with_claude() {
+        let task = raw(r#"{"id":"A1","title":"Fix it","agent":{"state":"queued","at":"2026-11-12T10:00:00Z"}}"#);
+        assert_eq!(shape(task, &projects()).agent.as_deref(), Some("queued"));
+        assert_eq!(shape(raw(r#"{"id":"A1","title":"Fix it","agent":null}"#), &projects()).agent, None);
     }
 }

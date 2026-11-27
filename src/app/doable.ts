@@ -24,6 +24,9 @@ export interface Task {
   repo: string | null;
   /// The Doable web app.
   url: string;
+  /// Where it stands with Claude: `queued` (handed over on the Mac, so the
+  /// queue starts it without asking), `running`, `left`, `you` or `done`.
+  agent?: string | null;
 }
 
 export interface Tasks {

@@ -2,9 +2,10 @@
 // from a task leaves a link (task → the pane its agent runs in) in
 // `doable.jsonl` beside the outcome ledger, and that agent's outcomes are
 // written back to the task when asked: a verified `done` completes it, with a
-// note naming its commits, and a `left` adds a subtask. A `you` writes
-// nothing. Pure, apart from the commands at the end, which `doable.rs`
-// carries out.
+// note naming its commits, and a `left` adds a subtask. Where the task stands
+// (Doable's agent state: done, left, or waiting on you) is written by itself,
+// once per outcome (`toReport`). Pure, apart from the commands at the end,
+// which `doable.rs` carries out.
 
 import { invoke } from "@tauri-apps/api/core";
 import { isListed, isOpen, type Outcome } from "./ledger";
@@ -81,6 +82,16 @@ export function offer(outcome: Outcome, linked: Linked | undefined): "close" | "
   return null;
 }
 
+/// The outcomes that set an agent state on their task (`doable.rs`'s `reported`).
+const REPORTED = new Set(["verified", "unverified", "left", "you", "not-started"]);
+
+/// The linked outcomes whose agent state is not written yet, oldest first, so
+/// the newest is the state the task is left in.
+export const toReport = (list: readonly Outcome[], linked: ReadonlyMap<string, Linked>) =>
+  [...list]
+    .filter((o) => REPORTED.has(o.kind) && linked.has(o.id) && !linked.get(o.id)?.written.has("status"))
+    .sort((a, b) => a.time - b.time);
+
 const midnight = (now: number) => new Date(now).setHours(0, 0, 0, 0);
 
 /// The offers the Day dialog shows, for the status bar to count: today's
@@ -114,5 +125,9 @@ export const linkTask = (task: { id: string; title: string }, pane: string, dire
 /// Writes `outcome` back to its task; false when it was already.
 export const writeBack = (linked: Linked, outcome: Outcome) =>
   invoke<boolean>("doable_write_back", { task: linked.link.task, entry: outcome, from: linked.link.head });
+
+/// Writes where `outcome`'s task stands now; false when nothing was written.
+export const report = (linked: Linked, outcome: Outcome) =>
+  invoke<boolean>("doable_report", { task: linked.link.task, entry: outcome });
 
 export const completedToday = (now: number) => invoke<number>("doable_completed", sinceMidnight(now));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type LedgerEntry, outcomes } from "../ledger";
-import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, taskOfPanes } from "../doableLinks";
+import { type LinksFile, linkedOutcomes, offer, offers, sinceMidnight, type TaskLink, taskOfPanes, toReport } from "../doableLinks";
 
 const NOW = Date.parse("2026-11-13T18:00:00Z");
 
@@ -115,5 +115,27 @@ describe("taskOfPanes", () => {
     expect(taskOfPanes(links, ["w1:p1"])?.task).toBe("a");
     expect(taskOfPanes(links, ["w3:p1"])).toBeNull();
     expect(taskOfPanes([], ["w1:p1"])).toBeNull();
+  });
+});
+
+describe("toReport", () => {
+  it("lists the linked outcomes whose agent state is not written yet, oldest first", () => {
+    const { list, map } = linked(
+      [
+        entry("done", "2026-11-13T11:00:00Z", "verified"),
+        entry("ask", "2026-11-13T10:00:00Z", "you"),
+        entry("unlinked", "2026-11-13T10:00:00Z", "you", { pane: "w9:p9" }),
+      ],
+      {
+        links: [link("t1", "2026-11-13T09:00:00Z")],
+        written: [{ entry: "done", task: "t1", did: "closed", at: "2026-11-13T12:00:00Z" }],
+      },
+    );
+    expect(toReport(list, map).map((o) => o.id)).toEqual(["ask", "done"]);
+    const written = linkedOutcomes(list, {
+      links: [link("t1", "2026-11-13T09:00:00Z")],
+      written: [{ entry: "ask", task: "t1", did: "status", at: "2026-11-13T12:00:00Z" }],
+    });
+    expect(toReport(list, written).map((o) => o.id)).toEqual(["done"]);
   });
 });

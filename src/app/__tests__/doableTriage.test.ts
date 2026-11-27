@@ -4,6 +4,7 @@ import type { Task } from "../doable";
 import {
   accepted,
   agentSuggestions,
+  handedOver,
   isAgentTask,
   parseSuggestions,
   queuedTaskIds,
@@ -116,5 +117,22 @@ describe("accepted", () => {
       repo: null,
     });
     expect(accepted(task({ labels: ["agent", "plan"] }), s({ template: "Plan" }), templates, null)).toBeNull();
+  });
+});
+
+describe("tasks handed to Claude on the Mac", () => {
+  const targets = [{ folder: REPO, queueFolder: REPO }];
+
+  it("join their repo's queue by themselves, once, and only when queued on the Mac", () => {
+    const tasks = [
+      task({ id: "mac", agent: "queued" }),
+      task({ id: "phone" }),
+      task({ id: "running", agent: "running" }),
+      task({ id: "in-queue", agent: "queued" }),
+      task({ id: "added-before", agent: "queued" }),
+      task({ id: "nowhere", agent: "queued", project: "Elsewhere" }),
+    ];
+    const picked = handedOver(tasks, new Set(["in-queue"]), new Set(["added-before"]), targets, projects, HOME);
+    expect(picked.map(({ task: t, target }) => [t.id, target.queueFolder])).toEqual([["mac", REPO]]);
   });
 });

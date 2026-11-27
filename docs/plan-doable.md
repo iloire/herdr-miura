@@ -34,8 +34,15 @@ Doable, a to-do app of my own with a sync server on Vercel and Turso. Herdr talk
   `doable`, else the task alone.
 - **Priorities are turned round** in `doable.rs`: Doable's p1 is the most urgent (1), the panel's 4.
 - **Writing back asks first**: a button on the Day dialog's row completes the task for a verified done, with a dated
-  note naming the commits appended to its notes, or adds a parked note as a subtask. A `you` writes nothing (Todoist
-  got a comment; Doable has no comments, and it was decided not to touch the notes for it).
+  note naming the commits appended to its notes, or adds a parked note as a subtask. The notes are never touched for
+  a `you`.
+- **Where a task stands is written by itself** (2026-11-27), in Doable's `agent` field, which its apps show: `running`
+  when a prompt from it goes to an agent, then `done`, `left` or `you` (a `you`, a `not-started` or an unverified done)
+  with the agent's note, once per outcome (`status` in `doable.jsonl`). Only for a task that already has a state, and
+  never over a newer one, so a task taken back in Doable stays taken back.
+- **A task handed to Claude on the Mac starts by itself** (state `queued`): that was the click. It joins the queue of
+  the open workspace its repo routes to; with none, it waits as a suggestion. Tasks only labelled `@agent` (the phone,
+  quick add) are still suggested, never added.
 - **A task is linked to the pane its agent runs in**, in `doable.jsonl` beside the outcome ledger, since a ledger
   entry names its pane and the session is not known yet when the prompt goes. The link covers that pane's outcomes
   until the first that ends the work, and only from the session that reported first.
@@ -66,6 +73,8 @@ All of these were built for Todoist and carried over, bar what Doable can't hold
 5. ~~Automation, with care: `@agent` tasks suggested above the queue, triage by Haiku setting a template label and a
    repo link once accepted.~~ ✅
 6. ~~Small things: the status bar chip, quick add, the tab header's link back.~~ ✅ (comments dropped)
+7. ~~Hand to Claude from Doable: a `queued` task starts by itself, and the task shows its agent's state.~~ ✅
+   (2026-11-27)
 
 ## Steps
 

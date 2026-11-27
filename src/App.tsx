@@ -22,10 +22,11 @@ import { useLedger } from "./app/useLedger";
 import { useDoableLinks } from "./app/useDoableLinks";
 import { offers, taskOfPanes } from "./app/doableLinks";
 import { useDoableTasks } from "./app/useDoableTasks";
-import { dueBy, loadView, localDay, saveView } from "./app/doable";
-import { AGENT_VIEW } from "./app/doableTriage";
+import { dueBy, fillTemplate, loadView, localDay, saveView, templateFor } from "./app/doable";
+import { AGENT_VIEW, handedOver, queuedTaskIds, taskRef } from "./app/doableTriage";
 import { allParked, asksForYou, doneToday, isOpen, type Outcome, parkedFor, parkedPrompt, waitingClosed } from "./app/ledger";
 import { fontStack, saveWorkspaceColor, saveWorkspaceGroup } from "./app/settings";
+import { readLibrary } from "./app/promptLibrary";
 import { useHome } from "./app/useHome";
 import { useSettings } from "./app/useSettings";
 import { useRestoreSessions } from "./app/useRestoreSessions";
@@ -315,7 +316,8 @@ export default function App() {
   // The panel's own view when one is picked: Inbox, a project, all tasks.
   const viewTasks = useDoableTasks(doableView ?? "", state.doable, doableView !== null && !doableTasks.off);
   // Tasks labelled `@agent`, offered in the queue's panel (docs/plan-doable.md, idea 5).
-  const agentTasks = useDoableTasks(AGENT_VIEW, state.queue, !doableTasks.off);
+  // Read every minute, as one handed over on the Mac starts by itself.
+  const agentTasks = useDoableTasks(AGENT_VIEW, true, !doableTasks.off);
   const doableChip = {
     due: doableTasks.off || !doableTasks.read ? null : dueBy(doableTasks.read.tasks, localDay()),
     filter: state.settings.doableView,
@@ -447,6 +449,23 @@ export default function App() {
     return sharedCheckout(located, changes, directory, linkedWorktrees);
   }, [local, located, changes, directory, linkedWorktrees]);
   const home = useHome();
+
+  // A task handed to Claude on the Mac joins its repo's queue by itself (docs/plan-doable.md, idea 7).
+  const started = useRef(new Set<string>());
+  useEffect(() => {
+    const tasks = agentTasks.read?.tasks;
+    if (!tasks || !queueFile || !queueActions || queueAccess.kind !== "ready" || doableTasks.off) return;
+    const queued = queuedTaskIds(Object.values(queueFile.queues));
+    for (const { task, target } of handedOver(tasks, queued, started.current, doableTargets, state.settings.doableProjects, home)) {
+      started.current.add(task.id);
+      readLibrary(target.folder)
+        .catch(() => null)
+        .then((library) => {
+          const template = library ? templateFor(task, library.prompts) : null;
+          queueActions.add(target.queueFolder, fillTemplate(template?.body ?? null, task), false, taskRef(task));
+        });
+    }
+  }, [agentTasks.read, queueFile, queueActions, queueAccess.kind, doableTasks.off, doableTargets, state.settings.doableProjects, home]);
   const stray = local ? strayPath(changes, directory, roots.folders[focusedWorkspace?.workspace_id ?? ""] ?? null, home) : null;
 
   // The panels go by the read they last saw. The tab header's reads with both

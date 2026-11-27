@@ -1,8 +1,9 @@
-// Doable automation, with care (docs/plan-doable.md, idea 5). Nothing here
-// starts an agent or writes anything by itself: `@agent` tasks are suggested
-// in the queue's panel and added on a click, and a cheap Claude's suggestions
-// of a repo and a template change a task only once accepted. Pure, apart from
-// the two commands at the end.
+// Doable automation, with care (docs/plan-doable.md, idea 5). `@agent` tasks
+// are suggested in the queue's panel and added on a click, and a cheap
+// Claude's suggestions of a repo and a template change a task only once
+// accepted. The one exception is a task handed to Claude on the Mac (agent
+// state `queued`): that was the click, so it joins its repo's queue by
+// itself (`handedOver`). Pure, apart from the two commands at the end.
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Queue, TaskRef } from "./queue";
@@ -49,6 +50,32 @@ export function agentSuggestions(
       return repo === null || repo === folder;
     }),
   );
+}
+
+/// Where a queue takes a task: the folder tasks are routed by, and the queue's own key.
+export interface QueueTarget {
+  folder: string;
+  queueFolder: string;
+}
+
+/// The tasks handed to Claude on the Mac that no queue holds yet, each with the
+/// queue its repo's workspace keeps. One that routes to no open workspace waits
+/// as a suggestion. `started` holds the tasks already added in this window, so
+/// one dropped from the queue is not added again.
+export function handedOver(
+  tasks: readonly Task[],
+  queued: ReadonlySet<string>,
+  started: ReadonlySet<string>,
+  targets: readonly QueueTarget[],
+  projects: Record<string, string>,
+  home: string | null,
+): { task: Task; target: QueueTarget }[] {
+  const folders = targets.map((target) => target.folder);
+  return sortTasks(tasks.filter((task) => task.agent === "queued" && !queued.has(task.id) && !started.has(task.id))).flatMap((task) => {
+    const repo = taskRepo(task, projects, home, folders);
+    const target = targets.find((t) => t.folder === repo);
+    return target ? [{ task, target }] : [];
+  });
 }
 
 // Triage: a repo and a template for each listed task, suggested by a cheap

@@ -151,6 +151,7 @@ pub fn run() {
             commands::doable_links,
             commands::doable_projects,
             commands::doable_quick_add,
+            commands::doable_report,
             commands::doable_set_done,
             commands::doable_set_labels,
             commands::doable_tasks,

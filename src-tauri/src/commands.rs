@@ -540,9 +540,25 @@ pub async fn doable_links() -> Result<doable::Links> {
 /// Records that a prompt from the Doable task `task` went to the agent in `pane`.
 #[tauri::command]
 pub async fn doable_link(task: String, title: String, pane: String, directory: Option<String>) -> Result<()> {
+    let (marked, on) = (task.clone(), pane.clone());
     let run = tauri::async_runtime::spawn_blocking(move || {
         doable::link(&doable::links_path()?, &task, &title, &pane, directory.as_deref())
     });
+    run.await.map_err(doable::Error::Worker)??;
+    // The task shows its agent at work. Not awaited: the prompt goes without waiting on Doable.
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = doable::mark_running(&marked, &on) {
+            eprintln!("herdr-miura: marking Doable task {marked} running: {error}");
+        }
+    });
+    Ok(())
+}
+
+/// Writes where the task `task` stands after the ledger entry `entry`, once;
+/// false when nothing was written.
+#[tauri::command]
+pub async fn doable_report(task: String, entry: ledger::Entry) -> Result<bool> {
+    let run = tauri::async_runtime::spawn_blocking(move || doable::report(&doable::links_path()?, &task, &entry));
     Ok(run.await.map_err(doable::Error::Worker)??)
 }
 
