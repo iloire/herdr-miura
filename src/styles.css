@@ -5442,6 +5442,13 @@ button.agents-status-head {
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  cursor: pointer;
+}
+
+.queue-parked-note.expanded {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .queue-parked-row {

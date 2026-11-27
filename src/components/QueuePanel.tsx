@@ -471,6 +471,29 @@ const sentNotice = (task: Task): Notice => ({
   onClick: () => void openUrl(task.url),
 });
 
+/// A note cut to three lines; clicking it shows the whole text, and again cuts it.
+function ClampedNote({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <p
+      className={`queue-parked-note${expanded ? " expanded" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      title={expanded ? "Click to shorten" : "Click to read it all"}
+      onClick={() => setExpanded(!expanded)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setExpanded(!expanded);
+        }
+      }}
+    >
+      {text}
+    </p>
+  );
+}
+
 /// Notes sessions here left for later, not yet prompts: Queue it writes one
 /// that stands on its own and puts it at the end of the line; To Doable makes
 /// it a task there instead.
@@ -504,9 +527,7 @@ function Parked({
         <ul>
           {parked.map((outcome) => (
             <li key={outcome.id} className="queue-parked-item">
-              <p className="queue-parked-note" title={outcome.note}>
-                {outcome.note}
-              </p>
+              <ClampedNote text={outcome.note} />
               <div className="queue-parked-row">
                 <span className="queue-parked-meta" title={outcome.cwd}>
                   {[outcome.branch, relativeTime(outcome.time / 1000)].filter(Boolean).join(" · ")}
@@ -559,9 +580,7 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
         <ul>
           {tasks.map((task) => (
             <li key={task.id} className="queue-parked-item">
-              <p className="queue-parked-note" title={task.description || task.title}>
-                ☐ {task.title}
-              </p>
+              <ClampedNote text={`☐ ${task.title}${task.description ? `\n\n${task.description}` : ""}`} />
               <div className="queue-parked-row">
                 <span
                   className="queue-parked-meta"

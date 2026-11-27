@@ -2,6 +2,11 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-27 22:50 — Click a parked note to read it all
+
+Parked notes and Doable suggestions in the queue panel are cut to three lines. Clicking one, or pressing Enter on it,
+shows the whole text, and a suggestion's description with it; clicking again cuts it back.
+
 ## 2026-11-27 22:14 — Doable tasks say how their agent is doing
 
 A task handed to Claude in Doable's Mac app (state `queued`) joins its repo's queue by itself, with the template its
