@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { IS_MAC } from "../app/catalog";
 import type { Controller } from "../app/controller";
 import type { MouseButton, MouseKind, PaneInputEvent, SurfacePane } from "../protocol";
-import { isPasteChord, keyInput } from "../terminal/keys";
+import { isCopyChord, isPasteChord, keyInput } from "../terminal/keys";
 import { Painter, measure, popupOrigin } from "../terminal/painter";
 import type { Theme } from "../terminal/theme";
 import { pasteEvents, wheelEvents } from "../terminal/mouse";
 import { linkAt, type Link } from "../terminal/links";
+import { clampTo, isEmpty, rowSpan, selectionText, wordAt, type Selection } from "../terminal/selection";
 import { ContextMenu, type MenuAt } from "./ContextMenu";
 import { CopyIcon } from "./icons";
 import { linkMenu, sendCommandToPrompt } from "./linkMenu";
@@ -92,6 +93,26 @@ export function Terminal({
       else if (canvas.style.cursor === "pointer") canvas.style.cursor = "text";
     };
 
+    // A drag selects text in the pane it starts in; ⌘C or the right-click menu
+    // copies it. Where the program takes the mouse, Shift-drag still selects.
+    let selecting = false;
+    const selectionRows = (selection: Selection | null) =>
+      Array.from({ length: grid.height }, (_, y) => y).filter((y) => selection && rowSpan(selection, y));
+    const select = (next: Selection | null) => {
+      const rows = new Set([...selectionRows(painter.selection), ...selectionRows(next)]);
+      painter.selection = next;
+      if (rows.size) painter.paint(grid, rows, focused);
+    };
+    const selectedText = () =>
+      painter.selection && !isEmpty(painter.selection) ? selectionText(grid, painter.selection) : "";
+    // A selection goes with its pane: when the pane closes, moves or resizes.
+    const selectionGone = () => {
+      const selection = painter.selection;
+      if (!selection) return false;
+      const rect = grid.panes.find((pane) => pane.pane_id === selection.paneId)?.inner_rect;
+      return !rect || rect.x !== selection.rect.x || rect.y !== selection.rect.y || rect.width !== selection.rect.width || rect.height !== selection.rect.height;
+    };
+
     // Frames arrive faster than the display refreshes; paint once per frame.
     let pending = new Set<number>();
     let scheduled = 0;
@@ -104,6 +125,11 @@ export function Terminal({
         pending = new Set();
         // The text under the pointer may have changed under a held ⌘.
         for (const y of updateLink()) rows.add(y);
+        if (selectionGone()) {
+          for (const y of selectionRows(painter.selection)) rows.add(y);
+          painter.selection = null;
+          selecting = false;
+        }
         painter.paint(grid, rows, focused);
       });
     });
@@ -164,7 +190,9 @@ export function Terminal({
           readText()
             .then((text) => text && controller.sendInput(pasteEvents(text), pane.pane_id))
             .catch(() => {}); // an empty or non-text clipboard has nothing to paste
-        setMenu({ ...at, items: [{ label: "Paste", icon: <CopyIcon />, onSelect: () => void paste() }] });
+        const text = selectedText();
+        const copy = text ? [{ label: "Copy", icon: <CopyIcon />, onSelect: () => void writeText(text) }] : [];
+        setMenu({ ...at, items: [...copy, { label: "Paste", icon: <CopyIcon />, onSelect: () => void paste() }] });
         return;
       }
       const located = link.file ? controller.locateLinkFile(link.file, pane.pane_id) : Promise.resolve(null);
@@ -179,7 +207,7 @@ export function Terminal({
       if (event.button === 2 && !grid.popup) {
         const pane = grid.paneAt(at.column, at.row);
         const link = linkAt(grid, at.column, at.row);
-        if (pane && (link || !pane.mouse_reporting)) {
+        if (pane && (link || !pane.mouse_reporting || selectedText())) {
           showMenu(event, pane, link);
           return;
         }
@@ -235,6 +263,14 @@ export function Terminal({
       const pane = grid.paneAt(at.column, at.row);
       if (!pane) return;
       if (!pane.focused) controller.request("pane.focus", { pane_id: pane.pane_id });
+      if (event.button === 0 && (!pane.mouse_reporting || event.shiftKey)) {
+        const point = clampTo(pane.inner_rect, { x: at.column, y: at.row });
+        const word = event.detail === 2 ? wordAt(grid, pane.inner_rect, point) : null;
+        select({ paneId: pane.pane_id, rect: pane.inner_rect, anchor: word?.[0] ?? point, head: word?.[1] ?? point });
+        selecting = !word;
+        return;
+      }
+      select(null);
       if (pane.mouse_reporting) {
         const button = BUTTONS[event.button] ?? "Left";
         pressed = { pane, button };
@@ -247,6 +283,10 @@ export function Terminal({
         const along = splitDrag.horizontal ? at.x : at.y;
         const ratio = Math.min(0.95, Math.max(0.05, (along - splitDrag.start) / splitDrag.size));
         controller.request("layout.set_split_ratio", { tab_id: splitDrag.tabId, path: splitDrag.path, ratio });
+        return;
+      }
+      if (selecting && painter.selection) {
+        select({ ...painter.selection, head: clampTo(painter.selection.rect, { x: at.column, y: at.row }) });
         return;
       }
       const split = grid.splitAt(at.column, at.row);
@@ -263,6 +303,10 @@ export function Terminal({
     };
     const onMouseUp = (event: MouseEvent) => {
       splitDrag = null;
+      if (selecting) {
+        selecting = false;
+        if (painter.selection && isEmpty(painter.selection)) select(null);
+      }
       if (!pressed) return;
       const at = cellAt(event);
       controller.sendInput([mouse({ Up: pressed.button }, pressed.pane, at.column, at.row, modifiers(event))], pressed.pane.pane_id);
@@ -273,6 +317,7 @@ export function Terminal({
     let wheelRemainder = 0;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      if (painter.selection) select(null); // the text scrolls out from under it
       const at = cellAt(event);
       const pane = grid.popup ? undefined : grid.paneAt(at.column, at.row);
       if (!pane && !grid.popup) return;
@@ -289,6 +334,12 @@ export function Terminal({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (composing || event.isComposing) return;
+      const text = isCopyChord(event, IS_MAC) ? selectedText() : "";
+      if (text) {
+        event.preventDefault();
+        void writeText(text);
+        return;
+      }
       if (controller.shortcut(event)) {
         event.preventDefault();
         return;
@@ -304,13 +355,16 @@ export function Terminal({
       const key = keyInput(event);
       if (!key) return;
       event.preventDefault();
+      select(null);
       controller.sendInput([key]);
     };
     const onInput = () => {
       if (composing) return;
       const text = input.value;
       input.value = "";
-      if (text) controller.sendInput([{ TextCommit: text }]);
+      if (!text) return;
+      select(null);
+      controller.sendInput([{ TextCommit: text }]);
     };
     const onCompositionStart = () => {
       composing = true;

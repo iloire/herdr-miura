@@ -2,6 +2,7 @@ import type { Cell, Cursor, Popup } from "../protocol";
 import { boxBars } from "./boxdraw";
 import type { Grid } from "./grid";
 import type { Link } from "./links";
+import { rowSpan, type Selection } from "./selection";
 import { BOLD, ITALIC, STRIKETHROUGH, UNDERLINE, cellColors, css, type Theme } from "./theme";
 
 export interface Metrics {
@@ -33,6 +34,8 @@ export class Painter {
   private dpr = 1;
   /// The link under the pointer while ⌘ is held, drawn underlined.
   link: Link | null = null;
+  /// The text selection, drawn as a wash of the foreground color.
+  selection: Selection | null = null;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -66,7 +69,10 @@ export class Painter {
     const targets = all || grid.popup ? Array.from({ length: grid.height }, (_, y) => y) : rows;
     for (const y of targets) {
       this.paintRow(ctx, y, 0, 0, grid.width, (x) => grid.cell(x, y));
-      if (!grid.popup) this.paintLink(ctx, grid, y);
+      if (!grid.popup) {
+        this.paintSelection(ctx, y);
+        this.paintLink(ctx, grid, y);
+      }
     }
     if (grid.cursor && !grid.popup) this.paintCursor(ctx, grid.cursor, 0, 0, grid.cell(grid.cursor.x, grid.cursor.y), focused);
     if (grid.popup) this.paintPopup(ctx, grid, grid.popup, focused);
@@ -110,6 +116,17 @@ export class Painter {
         if (modifier & STRIKETHROUGH) ctx.fillRect(left, top + ch / 2, cw + 0.5, 1);
       }
     }
+  }
+
+  private paintSelection(ctx: CanvasRenderingContext2D, y: number): void {
+    const span = this.selection && rowSpan(this.selection, y);
+    if (!span) return;
+    const { cellWidth: cw, cellHeight: ch } = this.metrics;
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = css(this.theme.foreground);
+    ctx.fillRect(span[0] * cw, y * ch, (span[1] - span[0] + 1) * cw, ch);
+    ctx.restore();
   }
 
   private paintLink(ctx: CanvasRenderingContext2D, grid: Grid, y: number): void {

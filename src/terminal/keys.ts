@@ -78,6 +78,13 @@ export function isPasteChord(event: KeyLike, mac: boolean): boolean {
   return (event.ctrlKey && event.code === "KeyV") || (!event.ctrlKey && event.key === "Insert");
 }
 
+/// Copy: ⌘C on macOS, Ctrl+Shift+C elsewhere.
+export function isCopyChord(event: KeyLike, mac: boolean): boolean {
+  if (event.altKey) return false;
+  if (mac) return event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === "KeyC";
+  return !event.metaKey && event.ctrlKey && event.shiftKey && event.code === "KeyC";
+}
+
 export interface Shortcut {
   cmd: boolean;
   ctrl: boolean;

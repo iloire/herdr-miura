@@ -2,6 +2,14 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-27 12:41 — Select and copy terminal text
+
+Dragging in a terminal pane selects its text, and a double-click selects a word, path or URL. ⌘C (Ctrl+Shift+C
+off macOS) or Copy on the right-click menu copies it. Before this the window had no selection of its own: text
+could only be copied where the program in the pane drew one itself, such as Claude Code's fullscreen mode, and a plain
+shell gave nothing. Where the program takes the mouse, Shift-drag still selects. A selection stays inside its pane and
+clears on a click, a key, the wheel, or when its pane moves or closes.
+
 ## 2026-11-27 09:39 — Tasks come from Doable, not Todoist
 
 The task panel, the status bar's `☐ n today`, quick add, To Doable and Remind in Doable on the Queue panel, `@agent`
