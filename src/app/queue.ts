@@ -65,6 +65,9 @@ export interface Item {
   /// The item stays in this queue, which is on the main checkout, since the
   /// worktree can be removed at any moment.
   worktree?: string;
+  /// Started at once beside the queue, in the main checkout, without waiting
+  /// its turn: a task handed to Claude in Doable, where that was the click.
+  now?: boolean;
   /// The Doable task it was sent from, linked to its pane once it starts.
   doable?: TaskRef;
   /// Every task of a prompt made from several at once; `doable` is the
@@ -103,7 +106,7 @@ const ACTIVE: ReadonlySet<ItemState> = new Set(["starting", "waiting", "promptin
 export const isActive = (item: Item) => ACTIVE.has(item.state);
 
 /// Taken out of line: it runs beside the queue, not as its turn in it.
-export const isAway = (item: Item) => item.worktree !== undefined;
+export const isAway = (item: Item) => item.worktree !== undefined || item.now === true;
 
 /// The one item the queue itself is running, of which there is at most one.
 export const isInLine = (item: Item) => isActive(item) && !isAway(item);
@@ -175,7 +178,7 @@ export const tabLabel = (item: Item) => title(item.prompt, 200);
 
 /// What the agent is sent: the prompt, then the commit request when asked for.
 export function promptText(item: Item, queue: Queue): string {
-  const parts = [item.prompt.trim(), isAway(item) && WORKTREE_NOTE, queue.commitSuffix && COMMIT_SUFFIX];
+  const parts = [item.prompt.trim(), item.worktree !== undefined && WORKTREE_NOTE, queue.commitSuffix && COMMIT_SUFFIX];
   return parts.filter(Boolean).join("\n\n");
 }
 
@@ -226,18 +229,24 @@ export const busy = (agent: Agent) =>
 /// What one queue does next. Returns the same queue object when nothing
 /// changes, and at most one effect: never two items in line at once.
 export function step(queue: Queue, view: View): { queue: Queue; effect: Effect | null } {
-  for (const item of queue.items.filter(isAway)) {
+  for (const item of queue.items.filter((i) => isAway(i) && i.state !== "queued")) {
     const moved = advance(queue, item, view);
     if (moved.queue !== queue) return moved;
+  }
+  const workspace = view.workspaces[0];
+  // One to run now starts whatever the queue is doing, paused or not.
+  const now = queue.items.find((item) => item.now && item.state === "queued");
+  if (now && workspace) {
+    const item = { ...now, state: "starting" as const, started: view.now };
+    return { queue: replace(queue, item), effect: { kind: "open", item, workspaceId: workspace.workspace_id } };
   }
   const active = queue.items.find(isInLine);
   if (active) return advance(queue, active, view);
   if (queue.paused) return { queue, effect: null };
-  const next = queue.items.find((item) => item.state === "queued");
-  const workspace = view.workspaces[0];
-  // An agent taken out of line is meant to run beside the queue, though a
-  // worktree's workspace counts as the queue's.
-  const away = new Set(queue.items.filter(isAway).map((item) => item.paneId));
+  const next = queue.items.find((item) => item.state === "queued" && !item.now);
+  // An agent in a worktree runs beside the queue, though its workspace counts
+  // as the queue's. One run now is in the main checkout, so the queue waits for it.
+  const away = new Set(queue.items.filter((item) => item.worktree !== undefined).map((item) => item.paneId));
   const held = view.agents.some((agent) => busy(agent) && !away.has(agent.pane_id));
   if (!next || !workspace || held) return { queue, effect: null };
   const item = { ...next, state: "starting" as const, started: view.now };
@@ -412,12 +421,14 @@ export function addItem(
   now: number,
   source?: string,
   doable?: TaskRef | readonly TaskRef[],
+  runNow = false,
 ): QueueFile {
   const key = queueKey(folder);
   const queue = file.queues[key] ?? emptyQueue(folder);
   const seq = file.seq + 1;
   const item: Item = { id: `q${seq}`, n: queue.nextN, prompt: prompt.trim(), state: "queued", added: now };
   if (source !== undefined) item.source = source;
+  if (runNow) item.now = true;
   const tasks = doable === undefined ? [] : "id" in doable ? [doable] : [...doable];
   if (tasks[0]) item.doable = tasks[0];
   if (tasks.length > 1) item.doableBatch = tasks;
@@ -519,7 +530,7 @@ export function itemOfTab(
 /// neither once its agent has stopped.
 export function runningState(item: Item, status: AgentStatus | undefined): { words: string; mark: "working" | "blocked" | null } {
   // A worktree is checked out first, which can take minutes.
-  if (item.state === "starting") return { words: isAway(item) ? "Creating the worktree…" : "Starting Claude…", mark: "working" };
+  if (item.state === "starting") return { words: item.worktree !== undefined ? "Creating the worktree…" : "Starting Claude…", mark: "working" };
   if (item.state === "waiting") return { words: "Waiting for Claude to be ready", mark: "blocked" };
   if (item.state === "prompting") return { words: "Sending the prompt…", mark: "working" };
   if (status === "blocked") return { words: "Waiting on you", mark: "blocked" };
@@ -534,10 +545,12 @@ export const inItsTab = (item: Item, focusedTab: string | null) => !!item.tabId 
 export function summary(queue: Queue): string {
   const waiting = queue.items.filter((i) => i.state === "queued").length;
   const active = queue.items.find(isInLine);
-  const away = queue.items.filter(isAway).length;
+  const worktrees = queue.items.filter((i) => i.worktree !== undefined).length;
+  const now = queue.items.filter((i) => i.now && isActive(i)).length;
   const parts = [
     active && `#${active.n} ${active.state === "waiting" ? "waiting for its agent" : "running"}`,
-    away > 0 && `${away} in a worktree`,
+    worktrees > 0 && `${worktrees} in a worktree`,
+    now > 0 && `${now} from Doable running beside it`,
     `${waiting} waiting`,
     queue.paused && `paused: ${queue.paused.reason}`,
   ];

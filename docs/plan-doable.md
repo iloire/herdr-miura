@@ -74,7 +74,8 @@ All of these were built for Todoist and carried over, bar what Doable can't hold
    repo link once accepted.~~ ✅
 6. ~~Small things: the status bar chip, quick add, the tab header's link back.~~ ✅ (comments dropped)
 7. ~~Hand to Claude from Doable: a `queued` task starts by itself, and the task shows its agent's state.~~ ✅
-   (2026-11-27)
+   (2026-11-27) It runs at once beside its queue, not in line, in its repo's workspace or else one labelled
+   "Doable tasks", since a Doable task names a repo only through a repo link.
 
 ## Steps
 

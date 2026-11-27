@@ -121,9 +121,9 @@ describe("accepted", () => {
 });
 
 describe("tasks handed to Claude on the Mac", () => {
-  const targets = [{ folder: REPO, queueFolder: REPO }];
+  const targets = [{ folder: REPO, queueFolder: REPO, label: "herdr-miura" }];
 
-  it("join their repo's queue by themselves, once, and only when queued on the Mac", () => {
+  it("start in their repo's workspace by themselves, once, and only when queued on the Mac", () => {
     const tasks = [
       task({ id: "mac", agent: "queued" }),
       task({ id: "phone" }),
@@ -134,5 +134,15 @@ describe("tasks handed to Claude on the Mac", () => {
     ];
     const picked = handedOver(tasks, new Set(["in-queue"]), new Set(["added-before"]), targets, projects, HOME);
     expect(picked.map(({ task: t, target }) => [t.id, target.queueFolder])).toEqual([["mac", REPO]]);
+  });
+
+  it("go to the Doable tasks workspace when no repo claims them", () => {
+    const notes = { folder: "/Users/me/notes", queueFolder: "/Users/me/notes#split-w9", label: "doable tasks " };
+    const tasks = [task({ id: "mac", agent: "queued" }), task({ id: "errand", agent: "queued", project: "Home" })];
+    const picked = handedOver(tasks, new Set(), new Set(), [...targets, notes], projects, HOME);
+    expect(picked.map(({ task: t, target }) => [t.id, target.label])).toEqual([
+      ["mac", "herdr-miura"],
+      ["errand", "doable tasks "],
+    ]);
   });
 });

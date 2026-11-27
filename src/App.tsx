@@ -450,7 +450,8 @@ export default function App() {
   }, [local, located, changes, directory, linkedWorktrees]);
   const home = useHome();
 
-  // A task handed to Claude on the Mac joins its repo's queue by itself (docs/plan-doable.md, idea 7).
+  // A task handed to Claude on the Mac starts at once, in its repo's workspace
+  // or else the "Doable tasks" one (docs/plan-doable.md, idea 7).
   const started = useRef(new Set<string>());
   useEffect(() => {
     const tasks = agentTasks.read?.tasks;
@@ -462,7 +463,7 @@ export default function App() {
         .catch(() => null)
         .then((library) => {
           const template = library ? templateFor(task, library.prompts) : null;
-          queueActions.add(target.queueFolder, fillTemplate(template?.body ?? null, task), false, taskRef(task));
+          queueActions.runNow(target.queueFolder, fillTemplate(template?.body ?? null, task), taskRef(task));
         });
     }
   }, [agentTasks.read, queueFile, queueActions, queueAccess.kind, doableTasks.off, doableTargets, state.settings.doableProjects, home]);

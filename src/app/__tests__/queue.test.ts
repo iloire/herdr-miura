@@ -17,6 +17,7 @@ import {
   inItsTab,
   itemOfTab,
   moveItem,
+  isInLine,
   promptText,
   type Queue,
   queueDirectory,
@@ -85,6 +86,26 @@ function running(queue: Queue): Queue {
 }
 
 describe("step", () => {
+  it("starts an item to run now at once, even with the queue busy or paused", () => {
+    const line = { ...running(queued("in line")), paused: { reason: "Paused by you." } };
+    const file = addItem({ ...EMPTY_FILE, seq: 1, queues: { [queueKey(FOLDER)]: line } }, FOLDER, "from Doable", true, 0, undefined, { id: "6gv", title: "From Doable" }, true);
+    const busy = file.queues[queueKey(FOLDER)];
+    const { queue, effect } = step(busy, view([agent("p1", "working")], 2000));
+    expect(effect).toMatchObject({ kind: "open", item: { prompt: "from Doable", state: "starting", now: true } });
+    // It runs beside the queue: not its turn, not the worktree note.
+    const started = queue.items.find((i) => i.now)!;
+    expect(isInLine(started)).toBe(false);
+    expect(promptText(started, queue)).not.toContain(WORKTREE_NOTE);
+  });
+
+  it("holds the line while one run now works in the main checkout", () => {
+    let file = addItem(EMPTY_FILE, FOLDER, "from Doable", false, 0, undefined, undefined, true);
+    file = addItem(file, FOLDER, "in line", false, 0);
+    let queue = step(file.queues[queueKey(FOLDER)], view([], 1000)).queue;
+    queue = { ...queue, items: queue.items.map((i) => (i.now ? { ...i, state: "running" as const, paneId: "p9", opened: 1000 } : i)) };
+    expect(step(queue, view([agent("p9", "working")], 2000)).effect).toBeNull();
+  });
+
   it("starts the first waiting item when no agent is at work", () => {
     const { queue, effect } = step(queued("one", "two"), view([agent("x", "idle")], 1000));
     expect(effect).toMatchObject({ kind: "open", workspaceId: "w1", item: { n: 1, state: "starting" } });

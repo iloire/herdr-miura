@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-27 23:05 — Doable tasks handed to Claude run at once
+
+A task handed to Claude in Doable no longer waits its turn: it starts right away beside its queue, even a busy or
+paused one, without the clean-checkout check. One with no repo link goes to a workspace labelled "Doable tasks", so
+most tasks no longer sit as a suggestion. Open a workspace with that label once, in the folder its agents should work
+in. The queue still waits for such an agent before starting its next prompt.
+
 ## 2026-11-27 22:50 — Click a parked note to read it all
 
 Parked notes and Doable suggestions in the queue panel are cut to three lines. Clicking one, or pressing Enter on it,

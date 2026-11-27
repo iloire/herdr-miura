@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { addTask, dueLabel, fillTemplate, localDay, parkedTask, projectFor, queuedTask, type Task, taskUrl, templateFor } from "../app/doable";
-import { agentSuggestions, queuedTaskIds, taskRef } from "../app/doableTriage";
+import { agentSuggestions, DOABLE_WORKSPACE, queuedTaskIds, taskRef } from "../app/doableTriage";
 import { readLibrary } from "../app/promptLibrary";
 import { type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import type { Controller } from "../app/controller";
@@ -214,7 +214,7 @@ function QueueBody({
   }, [notice]);
 
   const active = queue.items.find(isInLine);
-  const away = queue.items.filter(isAway);
+  const away = queue.items.filter((item) => isAway(item) && item.state !== "queued");
   const waiting = queue.items.filter((item) => item.state === "queued");
   const add = (front: boolean) => {
     if (!draft.trim()) return;
@@ -586,11 +586,11 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
                   className="queue-parked-meta"
                   title={
                     task.agent === "queued"
-                      ? "Handed to Claude in Doable, so it would have started by itself, but its project and repo link lead to no open workspace. Queue it here, or open its repo's workspace."
+                      ? `Handed to Claude in Doable, so it would have started by itself, but no workspace is open for it: its repo's, or one named "${DOABLE_WORKSPACE}". Queue it here, or open one.`
                       : undefined
                   }
                 >
-                  {[task.agent === "queued" && "Handed over, no workspace for its repo", task.project, dueLabel(task, localDay())].filter(Boolean).join(" · ")}
+                  {[task.agent === "queued" && `Handed over, no "${DOABLE_WORKSPACE}" workspace open`, task.project, dueLabel(task, localDay())].filter(Boolean).join(" · ")}
                 </span>
                 <button
                   title="Add it to the end of this queue, filled with its template. It waits its turn."

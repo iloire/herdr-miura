@@ -72,6 +72,8 @@ export interface QueueActions {
   /// `doable`: the task it came from, to write its outcome back to, or the
   /// tasks of a prompt made from several (the first is written back to).
   add(folder: string, prompt: string, front: boolean, doable?: TaskRef | readonly TaskRef[]): void;
+  /// Starts a prompt at once beside the queue, in the main checkout, paused or not.
+  runNow(folder: string, prompt: string, doable?: TaskRef): void;
   edit(folder: string, id: string, prompt: string): void;
   /// Removes a waiting item and returns a function that puts it back.
   remove(folder: string, id: string): () => void;
@@ -174,7 +176,8 @@ export function useQueue(
   /// A run out of line pauses nothing and leaves only a line in the history,
   /// so its failure has to be said out loud.
   const alertAway = useCallback(
-    (item: Item, message: string) => controller.alert(`Prompt #${item.n} failed in its worktree`, message),
+    (item: Item, message: string) =>
+      controller.alert(`Prompt #${item.n} failed ${item.worktree !== undefined ? "in its worktree" : "beside the queue"}`, message),
     [controller],
   );
 
@@ -222,7 +225,8 @@ export function useQueue(
       const directory = queueDirectory(folder);
       switch (effect.kind) {
         case "open": {
-          if (queue().requireClean) {
+          // One run now goes beside other agents' work, as a person's would.
+          if (queue().requireClean && !item.now) {
             const changed = (await readCounts([directory]).catch(() => null))?.get(directory) ?? 0;
             if (changed > 0) {
               const files = changed === 1 ? "file" : "files";
@@ -316,6 +320,13 @@ export function useQueue(
       add(folder, prompt, front, doable) {
         if (!current.current || !prompt.trim()) return;
         const next = addItem(current.current, folder, prompt, front, Date.now(), undefined, doable);
+        commit(separate.current ? holdNewQueues(current.current, next, TEST_HOLD) : next);
+        tick();
+      },
+      runNow(folder, prompt, doable) {
+        // A dev build's own queue starts nothing by itself, so there it only waits in line.
+        if (!current.current || !prompt.trim()) return;
+        const next = addItem(current.current, folder, prompt, true, Date.now(), undefined, doable, !separate.current);
         commit(separate.current ? holdNewQueues(current.current, next, TEST_HOLD) : next);
         tick();
       },

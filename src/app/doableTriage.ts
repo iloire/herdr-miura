@@ -52,16 +52,22 @@ export function agentSuggestions(
   );
 }
 
-/// Where a queue takes a task: the folder tasks are routed by, and the queue's own key.
+/// Where a queue takes a task: the folder tasks are routed by, the queue's
+/// own key, and the workspace's name.
 export interface QueueTarget {
   folder: string;
   queueFolder: string;
+  label: string;
 }
 
-/// The tasks handed to Claude on the Mac that no queue holds yet, each with the
-/// queue its repo's workspace keeps. One that routes to no open workspace waits
-/// as a suggestion. `started` holds the tasks already added in this window, so
-/// one dropped from the queue is not added again.
+/// The workspace a handed-over task runs in when no repo claims it: most
+/// tasks, as a Doable task names a repo only through a repo link.
+export const DOABLE_WORKSPACE = "Doable tasks";
+
+/// The tasks handed to Claude on the Mac that no queue holds yet, each with
+/// where it runs: its repo's workspace, else the "Doable tasks" one. With
+/// neither open it waits as a suggestion. `started` holds the tasks already
+/// started in this window, so one dropped from the queue is not run again.
 export function handedOver(
   tasks: readonly Task[],
   queued: ReadonlySet<string>,
@@ -73,7 +79,8 @@ export function handedOver(
   const folders = targets.map((target) => target.folder);
   return sortTasks(tasks.filter((task) => task.agent === "queued" && !queued.has(task.id) && !started.has(task.id))).flatMap((task) => {
     const repo = taskRepo(task, projects, home, folders);
-    const target = targets.find((t) => t.folder === repo);
+    const target =
+      targets.find((t) => t.folder === repo) ?? targets.find((t) => t.label.trim().toLowerCase() === DOABLE_WORKSPACE.toLowerCase());
     return target ? [{ task, target }] : [];
   });
 }
