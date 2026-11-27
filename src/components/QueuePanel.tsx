@@ -549,7 +549,7 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
       <button
         className="queue-done-toggle queue-parked-toggle"
         aria-expanded={open}
-        title="Doable tasks labelled @agent, for this repo or for none, not queued yet"
+        title="Doable tasks labelled @agent, for this repo or for none, not queued yet. A task handed to Claude on the Mac skips this and joins its repo's queue by itself."
         onClick={() => setOpen(!open)}
       >
         <span className="chevron">›</span>
@@ -563,7 +563,16 @@ function Suggested({ controller, tasks, onQueue }: { controller: Controller; tas
                 ☐ {task.title}
               </p>
               <div className="queue-parked-row">
-                <span className="queue-parked-meta">{[task.project, dueLabel(task, localDay())].filter(Boolean).join(" · ")}</span>
+                <span
+                  className="queue-parked-meta"
+                  title={
+                    task.agent === "queued"
+                      ? "Handed to Claude in Doable, so it would have started by itself, but its project and repo link lead to no open workspace. Queue it here, or open its repo's workspace."
+                      : undefined
+                  }
+                >
+                  {[task.agent === "queued" && "Handed over, no workspace for its repo", task.project, dueLabel(task, localDay())].filter(Boolean).join(" · ")}
+                </span>
                 <button
                   title="Add it to the end of this queue, filled with its template. It waits its turn."
                   disabled={adding !== null}
