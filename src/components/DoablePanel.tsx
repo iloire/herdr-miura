@@ -39,7 +39,7 @@ import {
 import type { QueueActions } from "../app/useQueue";
 import type { DoableTasks } from "../app/useDoableTasks";
 import type { Snapshot, Workspace } from "../protocol";
-import { RefreshIcon } from "./icons";
+import { FolderIcon, PlusIcon, RefreshIcon, SearchIcon } from "./icons";
 
 const LABELS: Record<Action, string> = { here: "Send to agent", "new-tab": "New tab", queue: "Queue" };
 
@@ -94,6 +94,8 @@ export function DoablePanel({
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [open, setOpen] = useState<Task | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // The quick add box shows only once "+ Task" is clicked.
+  const [adding, setAdding] = useState(false);
   // Tasks completed here, hidden at once: `closing` while Doable is asked,
   // `closed` until the next read (a recurring one comes back on its next date).
   const [completed, setCompleted] = useState<ReadonlyMap<string, "closing" | "closed">>(new Map());
@@ -187,31 +189,29 @@ export function DoablePanel({
     </>
   );
   const picker = (
-    <select
-      className="doable-view"
-      aria-label="Doable view"
-      title={`Doable view: ${shownFilter}`}
-      value={view ?? ""}
-      onChange={(event) => onView(event.target.value || null)}
-    >
-      <option value="">{VIEWS.find(([query]) => query === filter)?.[1] ?? filter}</option>
-      {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
-        <option key={query} value={query}>
-          {label}
-        </option>
-      ))}
-      {view !== null && !viewed && !VIEWS.some(([query]) => query === view) && <option value={view}>{view}</option>}
-      {names.length > 0 && (
-        <optgroup label="Projects">
-          {names.map((name) => (
-            <option key={name} value={projectView(name)}>
-              {name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-    </select>
+    <label className="doable-view" title={`Doable view: ${shownFilter}`}>
+      <FolderIcon />
+      <select aria-label="Doable view" value={view ?? ""} onChange={(event) => onView(event.target.value || null)}>
+        <option value="">{VIEWS.find(([query]) => query === filter)?.[1] ?? filter}</option>
+        {VIEWS.filter(([query]) => query !== filter).map(([query, label]) => (
+          <option key={query} value={query}>
+            {label}
+          </option>
+        ))}
+        {view !== null && !viewed && !VIEWS.some(([query]) => query === view) && <option value={view}>{view}</option>}
+        {names.length > 0 && (
+          <optgroup label="Projects">
+            {names.map((name) => (
+              <option key={name} value={projectView(name)}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+    </label>
   );
+  const addProject = viewed ?? projectFor(folder, projects, home);
   const scope = mapped && (
     <span className="queue-scope" role="group" aria-label="Which tasks">
       <button aria-pressed={!showAll} onClick={() => setShowAll(false)} title="The tasks doable.projects or a repo link sends to this workspace's repo">
@@ -268,25 +268,38 @@ export function DoablePanel({
           <div className="doable-tools-row">
             {picker}
             {scope}
+            <button
+              type="button"
+              className="doable-add-open"
+              aria-expanded={adding}
+              title={`Add a task to ${addProject ?? "Inbox"}`}
+              onClick={() => setAdding((now) => !now)}
+            >
+              <PlusIcon />
+              Task
+            </button>
           </div>
-          <QuickAdd controller={controller} project={viewed ?? projectFor(folder, projects, home)} onAdded={refresh} />
+          {adding && <QuickAdd controller={controller} project={addProject} onAdded={refresh} onClose={() => setAdding(false)} />}
           {read && read.tasks.length > 0 && (
-            <input
-              type="search"
-              placeholder="Filter tasks"
-              aria-label="Filter tasks"
-              spellCheck={false}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && shown[0]) setOpen(shown[0]);
-                else if (event.key === "Escape") {
-                  if (query) setQuery("");
-                  else controller.focusTerminal();
-                } else return;
-                event.preventDefault();
-              }}
-            />
+            <label className="doable-filter">
+              <SearchIcon />
+              <input
+                type="search"
+                placeholder="Filter tasks"
+                aria-label="Filter tasks"
+                spellCheck={false}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && shown[0]) setOpen(shown[0]);
+                  else if (event.key === "Escape") {
+                    if (query) setQuery("");
+                    else controller.focusTerminal();
+                  } else return;
+                  event.preventDefault();
+                }}
+              />
+            </label>
           )}
         </div>
       )}
@@ -479,11 +492,21 @@ function Triage({
   );
 }
 
-/// A box that adds a task to Doable, read as Doable's quick add reads it
+/// A box, opened by "+ Task", that adds a task to Doable, read as Doable's quick add reads it
 /// (`tomorrow 10am p1 #Project @label`). No date means today; no `#project`
 /// means the project mapped to this workspace's repo, else the Inbox. Says
-/// where it went, with a link.
-function QuickAdd({ controller, project, onAdded }: { controller: Controller; project: string | null; onAdded: () => void }) {
+/// where it went, with a link, and stays open for the next one until Esc.
+function QuickAdd({
+  controller,
+  project,
+  onAdded,
+  onClose,
+}: {
+  controller: Controller;
+  project: string | null;
+  onAdded: () => void;
+  onClose: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<Task | null>(null);
@@ -503,22 +526,33 @@ function QuickAdd({ controller, project, onAdded }: { controller: Controller; pr
   };
   return (
     <div className="doable-add">
-      <input
-        type="text"
-        placeholder={`Add a task to ${where}`}
-        aria-label={`Add a Doable task to ${where}`}
-        title="Typed as in Doable: tomorrow 10am, p1, #Project, @label. No date means today."
-        spellCheck={false}
-        disabled={busy}
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") add();
-          else if (event.key === "Escape" && title) setTitle("");
-          else return;
-          event.preventDefault();
-        }}
-      />
+      <div className="doable-add-row">
+        <input
+          type="text"
+          placeholder={`New task in ${where}`}
+          aria-label={`Add a Doable task to ${where}`}
+          title="Typed as in Doable: tomorrow 10am, p1, #Project, @label. No date means today. Esc closes."
+          spellCheck={false}
+          autoFocus
+          disabled={busy}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") add();
+            else if (event.key === "Escape") {
+              if (title) setTitle("");
+              else onClose();
+            } else return;
+            event.preventDefault();
+          }}
+        />
+        <button type="button" className="doable-add-submit" disabled={busy || !title.trim()} onClick={add}>
+          {busy ? "Adding…" : "Add"}
+        </button>
+        <button type="button" className="doable-add-cancel" aria-label="Close" title="Close (Esc)" onClick={onClose}>
+          ×
+        </button>
+      </div>
       {added && (
         <button type="button" className="doable-added" title={added.url} onClick={() => controller.act(openUrl(added.url))}>
           Added “{added.title}” to {added.project ?? where} ↗
@@ -643,7 +677,7 @@ function TaskPrompt({
               {prompt.scope === "project" ? " · project" : ""}
             </option>
           ))}
-        </select>
+      </select>
       </label>
       {target && (
         <div className="doable-there" role="group" aria-label={`Send to ${target.label}`}>

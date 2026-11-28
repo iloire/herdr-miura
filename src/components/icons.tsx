@@ -255,3 +255,10 @@ export const RevertIcon = () => (
     <path d="M5.5 3 2.75 5.75 5.5 8.5M2.75 5.75h6.5a3.75 3.75 0 0 1 0 7.5H6" {...LINE} />
   </Icon>
 );
+
+/// Adds something: a Doable task.
+export const PlusIcon = () => (
+  <Icon>
+    <path d="M8 3.25v9.5M3.25 8h9.5" {...LINE} />
+  </Icon>
+);
