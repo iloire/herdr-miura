@@ -6809,10 +6809,6 @@ button.agents-status-head {
   color: var(--blocked);
 }
 
-.doable-label {
-  color: var(--hue);
-}
-
 .doable-task {
   display: flex;
   flex: 1;

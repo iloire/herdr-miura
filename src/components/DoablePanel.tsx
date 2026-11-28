@@ -353,11 +353,6 @@ export function DoablePanel({
                 <span className="session-meta">
                   {task.due && <span className={overdue(task, today) ? "doable-overdue" : undefined}>{dueLabel(task, today)}</span>}
                   {task.project && <span>{task.project}</span>}
-                  {task.labels.map((label) => (
-                    <span key={label} className="doable-label">
-                      @{label}
-                    </span>
-                  ))}
                 </span>
               </button>
               <button
