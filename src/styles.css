@@ -5094,6 +5094,10 @@ button.agents-status-head {
   line-height: 1.45;
 }
 
+.queue-row-text .queue-note {
+  margin-top: 2px;
+}
+
 /* A narrow panel wraps the row, never a label. */
 .queue-card-actions {
   display: flex;

@@ -8,11 +8,11 @@ import { tildePath } from "../app/folder";
 import type { Outcome } from "../app/ledger";
 import { formatSpan, relativeTime } from "../app/time";
 import { useHome } from "../app/useHome";
-import { emptyQueue, inItsTab, isAway, isInLine, type Item, type Queue, queueDirectory, runningState, title, worktreeBranch } from "../app/queue";
+import { emptyQueue, heldBy, inItsTab, isAway, isInLine, type Item, type Queue, queueDirectory, runningState, title, worktreeBranch } from "../app/queue";
 import type { QueueAccess, QueueActions } from "../app/useQueue";
-import type { Snapshot, Workspace } from "../protocol";
-import { AllQueues, type QueueOwner } from "./AllQueues";
-import { ContextMenu, type MenuAt } from "./ContextMenu";
+import type { Agent, Snapshot, Workspace } from "../protocol";
+import { AllQueues, type QueueOwner, waitingMenu } from "./AllQueues";
+import { ContextMenu, type MenuAt, type MenuItem } from "./ContextMenu";
 import { PauseIcon, PlayIcon, TerminalIcon } from "./icons";
 import { QueueItemDialog } from "./QueueItemDialog";
 import { StatusMark } from "./StatusMark";
@@ -41,6 +41,7 @@ export function QueuePanel({
   doableFolders,
   all,
   ownerOf,
+  holders,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -65,6 +66,8 @@ export function QueuePanel({
   /// Every queue with something in it, for the All view.
   all: Queue[];
   ownerOf: (folder: string) => QueueOwner | null;
+  /// What each queue's next prompt waits for, by folder.
+  holders: ReadonlyMap<string, Agent>;
 }) {
   const composer = useRef<HTMLTextAreaElement>(null);
   const [showAll, setShowAll] = useState(false);
@@ -122,6 +125,8 @@ export function QueuePanel({
         <AllQueues
           queues={all}
           ownerOf={ownerOf}
+          holders={holders}
+          snapshot={snapshot}
           actions={actions}
           onOpen={(workspaceId) => {
             setShowAll(false);
@@ -160,6 +165,7 @@ export function QueuePanel({
       doableFolders={doableFolders}
       all={all}
       scope={scope}
+      holder={holders.get(folder) ?? null}
     />
   );
 }
@@ -181,6 +187,7 @@ function QueueBody({
   doableFolders,
   all,
   scope,
+  holder,
 }: {
   controller: Controller;
   snapshot: Snapshot;
@@ -200,6 +207,8 @@ function QueueBody({
   all: Queue[];
   /// The This workspace / All switch.
   scope: ReactNode;
+  /// The agent the next prompt waits for, if one holds it.
+  holder: Agent | null;
 }) {
   const home = useHome();
   const directory = queueDirectory(folder);
@@ -331,10 +340,11 @@ function QueueBody({
             key={item.id}
             item={item}
             next={index === 0 && !active}
+            held={index === 0 && !active && !queue.paused && holder ? heldBy(holder, snapshot) : null}
+            menu={() => waitingMenu(actions, folder, item.id)}
             first={index === 0}
             last={index === waiting.length - 1}
             onMove={(delta) => actions.move(folder, item.id, delta)}
-            onWorktree={() => actions.runInWorktree(folder, item.id)}
             onEdit={(prompt) => actions.edit(folder, item.id, prompt)}
             onRemove={() => {
               const undo = actions.remove(folder, item.id);
@@ -699,10 +709,11 @@ function Running({
 function Waiting({
   item,
   next,
+  held,
   first,
   last,
+  menu: menuItems,
   onMove,
-  onWorktree,
   onEdit,
   onRemove,
   onRemind,
@@ -710,10 +721,13 @@ function Waiting({
   item: Item;
   /// The one that starts as soon as the queue may start something.
   next: boolean;
+  /// Why the next one has not started: what it waits for.
+  held: string | null;
   first: boolean;
   last: boolean;
+  /// Its right-click menu.
+  menu: () => MenuItem[];
   onMove: (delta: number) => void;
-  onWorktree: () => void;
   onEdit: (prompt: string) => void;
   onRemove: () => void;
   /// Makes it a Doable task due `due` and takes it off the queue; null without a token.
@@ -768,8 +782,7 @@ function Waiting({
           className="queue-row"
           onContextMenu={(event) => {
             event.preventDefault();
-            const items = [{ label: "Run in a Worktree Now", icon: "⑂", onSelect: onWorktree }];
-            setMenu({ x: event.clientX, y: event.clientY, items });
+            setMenu({ x: event.clientX, y: event.clientY, items: menuItems() });
           }}
         >
           <button
@@ -786,6 +799,7 @@ function Waiting({
             <span className="queue-row-title">{title(item.prompt, 120)}</span>
             <FromAgent item={item} />
             <FromTask item={item} />
+            {held && <span className="queue-note">{held} Right-click to run it now.</span>}
             {open && lines.length > 1 && <span className="queue-row-rest">{lines.slice(1).join("\n")}</span>}
           </button>
           <span className="queue-tools">

@@ -324,7 +324,7 @@ export default function App() {
     onOpen: () => controller.openDoable(),
   };
   // Each main checkout's prompt queue, run one prompt at a time on this Mac.
-  const { file: queueFile, access: queueAccess, actions: queueActions } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
+  const { file: queueFile, access: queueAccess, actions: queueActions, holders: queueHolders } = useQueue(controller, state.snapshot, local, queueFolderOf, rootOf, isOpenSplitOf, moves);
   const queues = useMemo(() => {
     const byWorkspace = new Map<string, Queue>();
     const snapshot = state.snapshot;
@@ -851,6 +851,7 @@ export default function App() {
                 doableFolders={doableFolders}
                 all={allQueues}
                 ownerOf={queueOwner}
+                holders={queueHolders}
               />
             ) : state.sessions && state.snapshot ? (
               <SessionsPanel

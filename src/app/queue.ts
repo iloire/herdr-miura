@@ -226,6 +226,28 @@ export type Effect =
 export const busy = (agent: Agent) =>
   agent.agent_status === "working" || agent.agent_status === "blocked" || loopTag(agent) !== null;
 
+/// The agent the next waiting item waits for, or null when nothing holds it.
+/// A looping session in the queue's own workspace holds it even at rest, as
+/// /loop will prompt it again; one in another workspace on the same folder,
+/// such as a workspace kept for loops, only while it works. An agent in a
+/// worktree runs beside the queue, though its workspace counts as the
+/// queue's; one run now is in the main checkout, so the queue waits for it.
+export function holder(queue: Queue, view: View): Agent | null {
+  const home = view.workspaces[0]?.workspace_id;
+  const away = new Set(queue.items.filter((item) => item.worktree !== undefined).map((item) => item.paneId));
+  const holds = (agent: Agent) =>
+    agent.workspace_id === home ? busy(agent) : agent.agent_status === "working" || agent.agent_status === "blocked";
+  return view.agents.find((agent) => holds(agent) && !away.has(agent.pane_id)) ?? null;
+}
+
+/// What a queue's next item waits for, in words: the agent and its workspace.
+export function heldBy(agent: Agent, snapshot: Snapshot): string {
+  const name = agent.name || agent.terminal_title_stripped || agent.agent || "an agent";
+  const workspace = snapshot.workspaces.find((w) => w.workspace_id === agent.workspace_id)?.label;
+  const doing = agent.agent_status === "blocked" ? "asking you something" : agent.agent_status === "working" ? "working" : "looping";
+  return `Waits for “${name}”${workspace ? ` in ${workspace}` : ""}, ${doing}.`;
+}
+
 /// What one queue does next. Returns the same queue object when nothing
 /// changes, and at most one effect: never two items in line at once.
 export function step(queue: Queue, view: View): { queue: Queue; effect: Effect | null } {
@@ -244,11 +266,7 @@ export function step(queue: Queue, view: View): { queue: Queue; effect: Effect |
   if (active) return advance(queue, active, view);
   if (queue.paused) return { queue, effect: null };
   const next = queue.items.find((item) => item.state === "queued" && !item.now);
-  // An agent in a worktree runs beside the queue, though its workspace counts
-  // as the queue's. One run now is in the main checkout, so the queue waits for it.
-  const away = new Set(queue.items.filter((item) => item.worktree !== undefined).map((item) => item.paneId));
-  const held = view.agents.some((agent) => busy(agent) && !away.has(agent.pane_id));
-  if (!next || !workspace || held) return { queue, effect: null };
+  if (!next || !workspace || holder(queue, view)) return { queue, effect: null };
   const item = { ...next, state: "starting" as const, started: view.now };
   return { queue: replace(queue, item), effect: { kind: "open", item, workspaceId: workspace.workspace_id } };
 }

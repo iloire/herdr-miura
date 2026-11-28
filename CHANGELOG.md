@@ -2,6 +2,13 @@
 
 Newest first. Times are UTC.
 
+## 2026-11-28 07:17 — A queue says what it waits for, and a prompt can run now
+
+A loop in another workspace on the same folder, such as a workspace kept for loops, no longer holds that folder's
+queue forever: it holds it only while it is working. The next prompt says what it waits for ("Waits for
+“loop-trading” in loops, working."), in its queue and in the All view. A waiting prompt's right-click, now also in the
+All view, has **Run Now**, which starts it at once in the checkout without waiting its turn.
+
 ## 2026-11-27 23:05 — Doable tasks handed to Claude run at once
 
 A task handed to Claude in Doable no longer waits its turn: it starts right away beside its queue, even a busy or

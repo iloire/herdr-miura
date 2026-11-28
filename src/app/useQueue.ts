@@ -7,7 +7,7 @@ import { getIdentifier } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readCounts } from "../changes/counts";
 import { DEV_BRANCH } from "../components/DevBar";
-import type { Snapshot } from "../protocol";
+import type { Agent, Snapshot } from "../protocol";
 import type { Controller } from "./controller";
 import {
   addItem,
@@ -30,6 +30,7 @@ import {
   type Opened,
   openItem,
   openWorktree,
+  holder,
   patchItem,
   promptItem,
   type Queue,
@@ -79,6 +80,8 @@ export interface QueueActions {
   remove(folder: string, id: string): () => void;
   /// Runs a waiting item now in a worktree of its own, beside the queue.
   runInWorktree(folder: string, id: string): void;
+  /// Starts a waiting item at once in the main checkout, without waiting its turn.
+  startNow(folder: string, id: string): void;
   /// Takes the item in progress off the queue without pausing it; its tab and
   /// agent are left alone.
   drop(folder: string, id: string): void;
@@ -98,7 +101,7 @@ export function useQueue(
   rootOf: FolderOf,
   isOpenSplit: (workspaceId: string) => boolean,
   moves: [string, string][],
-): { file: QueueFile | null; access: QueueAccess; actions: QueueActions } {
+): { file: QueueFile | null; access: QueueAccess; actions: QueueActions; holders: ReadonlyMap<string, Agent> } {
   const [file, setFile] = useState<QueueFile | null>(null);
   const [access, setAccess] = useState<QueueAccess>({ kind: "loading" });
   const current = useRef<QueueFile | null>(null);
@@ -357,6 +360,10 @@ export function useQueue(
             controller.alert(`Could not run prompt #${item.n} in a worktree`, `${error}\n\nThe prompt is back in the queue.`);
           });
       },
+      startNow(folder, id) {
+        update(folder, (q) => (q.items.some((i) => i.id === id && i.state === "queued") ? patchItem(q, id, { now: true }) : q));
+        tick();
+      },
       drop(folder, id) {
         update(folder, (q) => dropItem(q, id, Date.now()));
         tick();
@@ -375,5 +382,16 @@ export function useQueue(
     [commit, controller, started, tick, update],
   );
 
-  return { file, access, actions };
+  // What each queue's next item waits for, by folder, for the panel to say.
+  const holders = useMemo(() => {
+    const map = new Map<string, Agent>();
+    if (!file || !snapshot || !local) return map;
+    for (const queue of Object.values(file.queues)) {
+      const agent = holder(queue, viewOf(queue, snapshot, 0, folderOf, rootOf));
+      if (agent) map.set(queue.folder, agent);
+    }
+    return map;
+  }, [file, snapshot, local, folderOf, rootOf]);
+
+  return { file, access, actions, holders };
 }

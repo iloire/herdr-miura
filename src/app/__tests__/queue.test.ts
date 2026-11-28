@@ -8,6 +8,8 @@ import {
   EMPTY_FILE,
   emptyQueue,
   FINISH_DEBOUNCE_MS,
+  holder,
+  patchItem,
   moveQueue,
   foldSplitQueues,
   holdNewQueues,
@@ -121,6 +123,20 @@ describe("step", () => {
       const queue = queued("one");
       expect(step(queue, view([other], 1000))).toEqual({ queue, effect: null });
     }
+  });
+
+  it("waits for a loop in another workspace on the folder only while it works", () => {
+    const resting = agent("y", "done", { workspace_id: "w2", tokens: [["attn_loop", "↻ loop"]] });
+    expect(step(queued("one"), view([resting], 1000)).effect).toMatchObject({ kind: "open" });
+    const ticking = { ...resting, agent_status: "working" as const };
+    const queue = queued("one");
+    expect(step(queue, view([ticking], 1000))).toEqual({ queue, effect: null });
+    expect(holder(queue, view([ticking], 1000))).toBe(ticking);
+  });
+
+  it("starts an item marked to run now while another agent works", () => {
+    const queue = patchItem(queued("one"), "q1", { now: true });
+    expect(step(queue, view([agent("x", "working")], 1000)).effect).toMatchObject({ kind: "open", item: { n: 1 } });
   });
 
   it("never starts two items at once, even when asked twice in one tick", () => {
