@@ -136,6 +136,10 @@ export function queuedTask(prompt: string, folder: string, due: string, home: st
 /// Whether a failed read means no token is set (`doable.rs`'s `NoToken`), not a broken one.
 export const noToken = (error: unknown) => String(error).startsWith("no Doable token");
 
+/// Whether a failed read never reached Doable (`doable.rs`'s `Request`): often a passing
+/// network drop, as on waking from sleep, so worth trying again soon.
+export const unreachable = (error: unknown) => String(error).startsWith("could not reach Doable");
+
 /// The Doable web app, as `doable.rs` gives it for every task: Doable has no page per task.
 export const taskUrl = (_id: string) => "https://doable-chi.vercel.app/";
 

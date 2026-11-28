@@ -251,7 +251,16 @@ export function DoablePanel({
   return (
     <aside className="changes sessions-panel doable-panel" aria-label="Doable" style={{ "--hue": hue } as CSSProperties}>
       <header className="changes-head queue-head">{head}</header>
-      {failed && <div className="queue-banner" role="status">{failed}</div>}
+      {failed && (
+        <div className="queue-banner" role="status">
+          <p>{failed}</p>
+          {!tasks.off && (
+            <button type="button" disabled={tasks.reading} onClick={refresh}>
+              {tasks.reading ? "Reconnecting…" : "Reconnect"}
+            </button>
+          )}
+        </div>
+      )}
       {tasks.off ? (
         scope && <div className="queue-scope-row">{scope}</div>
       ) : (

@@ -1,12 +1,16 @@
 // The Doable tasks in the `doable.view` setting's view, read for the whole
 // window: the Doable panel lists them and the status bar counts those due.
-// Read often while the panel is open, seldom otherwise, and on focus.
+// Read often while the panel is open, seldom otherwise, and on focus. A read that
+// could not reach Doable tries again soon, waiting longer each time, and at once
+// when the network comes back.
 
 import { useCallback, useEffect, useState } from "react";
-import { noToken, readTasks, type Tasks } from "./doable";
+import { noToken, readTasks, unreachable, type Tasks } from "./doable";
 
 const OPEN_MS = 60_000;
 const CLOSED_MS = 5 * 60_000;
+/// The first retry after Doable could not be reached; each next one waits twice as long, up to OPEN_MS.
+const RETRY_MS = 5_000;
 
 export interface DoableTasks {
   read: Tasks | null;
@@ -25,6 +29,8 @@ export function useDoableTasks(view: string, panelOpen: boolean, enabled = true)
   const [failed, setFailed] = useState<string | null>(null);
   const [off, setOff] = useState(false);
   const [reading, setReading] = useState(false);
+  // Reads in a row that could not reach Doable, for the retry's backoff.
+  const [misses, setMisses] = useState(0);
   // A view's answer must not land after the next view's.
   const [asked, setAsked] = useState(0);
   const refresh = useCallback(() => setAsked((n) => n + 1), []);
@@ -45,11 +51,13 @@ export function useDoableTasks(view: string, panelOpen: boolean, enabled = true)
         setRead(next);
         setFailed(null);
         setOff(false);
+        setMisses(0);
       })
       .catch((error) => {
         if (!live) return;
         setFailed(String(error));
         setOff(noToken(error));
+        setMisses((n) => (unreachable(error) ? n + 1 : 0));
       })
       .finally(() => live && setReading(false));
     return () => {
@@ -66,6 +74,16 @@ export function useDoableTasks(view: string, panelOpen: boolean, enabled = true)
       window.removeEventListener("focus", refresh);
     };
   }, [refresh, panelOpen, enabled]);
+  useEffect(() => {
+    if (!enabled || misses === 0) return;
+    const timer = window.setTimeout(refresh, Math.min(RETRY_MS * 2 ** (misses - 1), OPEN_MS));
+    return () => clearTimeout(timer);
+  }, [misses, enabled, refresh]);
+  useEffect(() => {
+    if (!enabled) return;
+    window.addEventListener("online", refresh);
+    return () => window.removeEventListener("online", refresh);
+  }, [refresh, enabled]);
   // Opening the panel reads at once rather than showing a list up to five minutes old.
   useEffect(() => {
     if (panelOpen) refresh();
